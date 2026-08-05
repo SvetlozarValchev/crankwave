@@ -504,13 +504,6 @@ struct ExhaustRouteSource {
                            const ExhaustRouteSource &) = default;
 };
 
-struct IntakeRouteSource {
-    IntakeRef intake;
-
-    friend bool operator==(const IntakeRouteSource &,
-                           const IntakeRouteSource &) = default;
-};
-
 struct MechanicalRouteSource {
     std::string component;
 
@@ -518,8 +511,7 @@ struct MechanicalRouteSource {
                            const MechanicalRouteSource &) = default;
 };
 
-using SourceRouteBinding =
-    std::variant<ExhaustRouteSource, IntakeRouteSource, MechanicalRouteSource>;
+using SourceRouteBinding = std::variant<ExhaustRouteSource, MechanicalRouteSource>;
 
 struct SourceRouteDefinition {
     SourceRouteId id;
@@ -587,7 +579,7 @@ struct AudioBusDefinition {
 
 struct AuditionMixDefinition {
     std::vector<AudioBusRef> buses;
-    double monitoring_gain_linear = 1.0;
+    double volume_linear = 1.0;
     Quantity fade_in;
     Quantity fade_out;
 

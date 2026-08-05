@@ -145,9 +145,6 @@ ordered_routes(const ModelContext &context) {
         if (const auto *source =
                 std::get_if<authoring::ExhaustRouteSource>(&route.source)) {
             resolved.exhaust = context.exhausts.at(source->exhaust.value);
-        } else if (const auto *source =
-                       std::get_if<authoring::IntakeRouteSource>(&route.source)) {
-            resolved.intake = context.intakes.at(source->intake.value);
         }
         result.push_back(resolved);
     }

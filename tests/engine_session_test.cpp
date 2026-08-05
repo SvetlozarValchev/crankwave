@@ -116,12 +116,12 @@ require_session(const compile::CompiledScenario &scenario,
 }
 
 [[nodiscard]] const EngineAudioBusBlockView &
-audition_bus(const EngineSessionBlockView &block) {
+raw_master_bus(const EngineSessionBlockView &block) {
     const auto found = std::ranges::find(
-        block.audio_buses(), EngineAudioBusKind::engine_audition_master,
+        block.audio_buses(), EngineAudioBusKind::engine_raw_master,
         [](const auto &bus) { return bus.descriptor.kind; });
     if (found == block.audio_buses().end()) {
-        throw std::runtime_error{"session block has no audition master"};
+        throw std::runtime_error{"session block has no raw master"};
     }
     return *found;
 }
@@ -130,9 +130,9 @@ void require_pcm_block(const EngineSessionBlockView &block,
                        std::span<const std::byte> oracle_pcm,
                        std::uint64_t audible_first_frame,
                        const presentation::MasteringSettings &mastering) {
-    const auto samples = audition_bus(block).samples;
+    const auto samples = raw_master_bus(block).samples;
     gate::expect(samples.size() == kEngineSessionDeliveryFramesPerBlock,
-                 "session audition bus has the wrong quantum");
+                 "session raw-master bus has the wrong quantum");
     const auto byte_offset = static_cast<std::size_t>(audible_first_frame) * 3U;
     gate::expect(byte_offset <= oracle_pcm.size() &&
                      samples.size() * 3U <= oracle_pcm.size() - byte_offset,
@@ -141,14 +141,18 @@ void require_pcm_block(const EngineSessionBlockView &block,
     for (std::size_t frame = 0; frame < samples.size(); ++frame) {
         const auto absolute = audible_first_frame + frame;
         const auto fade = presentation::audition_fade_gain(absolute, mastering);
-        const float faded =
-            static_cast<float>(static_cast<double>(samples[frame]) * fade);
+        // This historical oracle predates the stateful audition master. Rebuild
+        // its exact fixed-gain signal from the still-public raw master so the gate
+        // continues to freeze the upstream source/conditioning/IR result without
+        // falsely constraining the independently versioned listening dynamics.
+        const float monitored = samples[frame] * 128.0F;
+        const float faded = static_cast<float>(static_cast<double>(monitored) * fade);
         const auto quantized = presentation::quantize_pcm24(faded);
         const auto encoded = presentation::serialize_pcm24le(quantized.pcm24);
         const auto expected = oracle_pcm.subspan(byte_offset + frame * 3U, 3U);
         if (!std::equal(encoded.begin(), encoded.end(), expected.begin())) {
-            throw std::runtime_error{"session PCM differs from the canonical 20 kHz "
-                                     "oracle at audible frame " +
+            throw std::runtime_error{"session raw master differs from the historical "
+                                     "canonical 20 kHz oracle at audible frame " +
                                      std::to_string(absolute)};
         }
     }
@@ -633,7 +637,7 @@ void run(const std::filesystem::path &repository_root) {
         kAudibleFrames,
         kEngineSessionDeliveryFramesPerBlock,
         kEngineSessionDeliveryFramesPerBlock,
-        128.0F,
+        1.0F,
     };
 
     std::uint64_t preparation_blocks = 0;

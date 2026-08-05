@@ -1,6 +1,7 @@
 #include "presentation/presentation_audio_session.hpp"
 
 #include "dsp/source_conditioning_primitives.hpp"
+#include "presentation/master_dynamics.hpp"
 #include "presentation/overlap_save_convolver.hpp"
 
 #include <algorithm>
@@ -97,7 +98,7 @@ constexpr std::array<contract::RouteId, 3> kAuditionOrder{
     kRouteIds[0],
     kRouteIds[1],
 };
-constexpr float kMonitoringGain = 128.0F;
+constexpr float kAuditionVolume = 1.0F;
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -142,7 +143,6 @@ void expect_throw(Function &&function, const char *message) {
             kReferenceMassFlowKgS[route],
             kernel,
             kWetMixes[route],
-            std::nullopt,
         });
     }
     return {
@@ -150,7 +150,7 @@ void expect_throw(Function &&function, const char *message) {
         std::move(routes),
         dsp::kSourcePublicationCalibration,
         {kAuditionOrder.begin(), kAuditionOrder.end()},
-        kMonitoringGain,
+        kAuditionVolume,
     };
 }
 
@@ -193,28 +193,10 @@ void fill_excitation(Excitation &excitation, std::uint64_t block_ordinal) {
         excitation.absolute_exhaust_valve_mass_flow_kg_s);
 }
 
-struct IntakePressure {
-    std::vector<contract::RouteId> route_ids;
-    contract::RationalRateHz rate = kIntakePressureInputRateHz;
-    std::size_t frame_count = kExcitationFramesPerMethodBlock;
-    std::vector<double> values;
-};
-
-[[nodiscard]] IntakePressureInputBlockView
-make_intake_view(IntakePressure &intake, std::uint64_t first_frame_index) {
-    return IntakePressureInputBlockView::borrow_for_callback(
-        first_frame_index, intake.rate, intake.route_ids, intake.frame_count,
-        intake.values);
-}
-
 [[nodiscard]] PresentationAudioBlockView
 process_exhaust_only(PresentationAudioSession &session, Excitation &excitation,
                      std::uint64_t first_frame_index) {
-    IntakePressure intake;
-    intake.rate = excitation.rate;
-    intake.frame_count = excitation.frame_count;
-    return session.process(make_view(excitation, first_frame_index),
-                           make_intake_view(intake, first_frame_index));
+    return session.process(make_view(excitation, first_frame_index));
 }
 
 void expect_exact_float(float actual, float expected, const char *message) {
@@ -299,6 +281,7 @@ void test_exact_dynamic_route_pipeline() {
 
     const auto raw = actual.raw_master();
     const auto audition = actual.audition_master();
+    MasterDynamics expected_master{plan.audition_volume_linear};
     for (std::size_t frame = 0; frame < kSourceFramesPerMethodBlock; ++frame) {
         float expected_raw =
             actual.route_stem(2, PresentationAudioStemRole::selected)[frame];
@@ -308,8 +291,14 @@ void test_exact_dynamic_route_pipeline() {
                        actual.route_stem(1, PresentationAudioStemRole::selected)[frame];
         expect_exact_float(raw[frame], expected_raw,
                            "presentation audio raw reduction order changed");
-        expect_exact_float(audition[frame], expected_raw * kMonitoringGain,
-                           "presentation audio monitor arithmetic changed");
+        float expected_leveler_mix = static_cast<float>(selected[2][frame]);
+        expected_leveler_mix =
+            expected_leveler_mix + static_cast<float>(selected[0][frame]);
+        expected_leveler_mix =
+            expected_leveler_mix + static_cast<float>(selected[1][frame]);
+        expect_exact_float(audition[frame],
+                           expected_master.process(expected_leveler_mix),
+                           "presentation audio master dynamics changed");
     }
 }
 
@@ -370,93 +359,6 @@ void test_process_is_allocation_free() {
            "allocation-free presentation process did not complete");
 }
 
-void test_active_intake_preserves_exhaust_and_enters_master_once() {
-    auto baseline_plan = make_plan();
-    auto mixed_plan = make_plan();
-    const contract::RouteId intake_id{99U};
-    mixed_plan.routes.insert(mixed_plan.routes.begin() + 1,
-                             PresentationAudioRoutePlan{
-                                 intake_id,
-                                 contract::SourceRouteKind::intake_inlet,
-                                 std::nullopt,
-                                 std::nullopt,
-                                 nullptr,
-                                 +0.0,
-                                 IntakePressureSourceRouteConfiguration{
-                                     intake_id,
-                                     101325.0,
-                                     1.5,
-                                 },
-                             });
-    mixed_plan.audition_route_ids.push_back(intake_id);
-    PresentationAudioSession baseline{std::move(baseline_plan)};
-    PresentationAudioSession mixed{std::move(mixed_plan)};
-    const std::array<std::size_t, 3> mixed_exhaust_indices{0U, 2U, 3U};
-    constexpr std::array roles{
-        PresentationAudioStemRole::dry,
-        PresentationAudioStemRole::configured_transfer,
-        PresentationAudioStemRole::selected,
-    };
-
-    Excitation excitation;
-    IntakePressure empty_intake;
-    IntakePressure active_intake;
-    active_intake.route_ids = {intake_id};
-    active_intake.values.resize(active_intake.frame_count, 101325.0);
-    for (std::uint64_t block_ordinal = 0; block_ordinal < 2U; ++block_ordinal) {
-        fill_excitation(excitation, block_ordinal);
-        for (std::size_t frame = 0; frame < active_intake.frame_count; ++frame) {
-            const auto global = block_ordinal * active_intake.frame_count + frame;
-            const auto code = static_cast<std::int64_t>((global * 13U) % 101U) - 50;
-            active_intake.values[frame] = 101325.0 + static_cast<double>(code) * 4.0;
-        }
-        const auto first =
-            block_ordinal * static_cast<std::uint64_t>(excitation.frame_count);
-        const auto baseline_block = baseline.process(
-            make_view(excitation, first), make_intake_view(empty_intake, first));
-        const auto mixed_block = mixed.process(make_view(excitation, first),
-                                               make_intake_view(active_intake, first));
-
-        expect(mixed_block.route_count() == 4U &&
-                   mixed_block.route_ids()[1] == intake_id &&
-                   mixed_block.audition_route_ids().back() == intake_id,
-               "mixed presentation lost the interleaved intake route");
-        for (std::size_t route = 0; route < kRouteIds.size(); ++route) {
-            for (const auto role : roles) {
-                const auto baseline_stem = baseline_block.route_stem(route, role);
-                const auto mixed_stem =
-                    mixed_block.route_stem(mixed_exhaust_indices[route], role);
-                for (std::size_t frame = 0; frame < baseline_stem.size(); ++frame) {
-                    expect(bits(mixed_stem[frame]) == bits(baseline_stem[frame]),
-                           "silent intake changed an exhaust stem bit pattern");
-                }
-            }
-        }
-        const auto intake_dry =
-            mixed_block.route_stem(1U, PresentationAudioStemRole::dry);
-        const auto intake_transfer =
-            mixed_block.route_stem(1U, PresentationAudioStemRole::configured_transfer);
-        const auto intake_selected =
-            mixed_block.route_stem(1U, PresentationAudioStemRole::selected);
-        bool nonzero_intake = false;
-        for (std::size_t frame = 0; frame < baseline_block.frame_count(); ++frame) {
-            expect(bits(intake_transfer[frame]) == bits(intake_dry[frame]) &&
-                       bits(intake_selected[frame]) == bits(intake_dry[frame]),
-                   "intake identity transfer changed its dry sample");
-            nonzero_intake = nonzero_intake || bits(intake_selected[frame]) != 0U;
-            const float expected_raw =
-                baseline_block.raw_master()[frame] + intake_selected[frame];
-            expect_exact_float(mixed_block.raw_master()[frame], expected_raw,
-                               "intake was not included exactly once in the raw "
-                               "master");
-            expect_exact_float(
-                mixed_block.audition_master()[frame], expected_raw * kMonitoringGain,
-                "intake was not included exactly once in the audition master");
-        }
-        expect(nonzero_intake, "active intake source produced only zero samples");
-    }
-}
-
 void test_validation_and_structural_rejection() {
     auto empty = make_plan();
     empty.routes.clear();
@@ -471,19 +373,18 @@ void test_validation_and_structural_rejection() {
         [&] { PresentationAudioSession rejected{std::move(duplicate_audition)}; },
         "presentation audio accepted duplicate audition routes");
 
-    auto incomplete_intake = make_plan();
-    incomplete_intake.routes.push_back({
+    auto non_exhaust = make_plan();
+    non_exhaust.routes.push_back({
         contract::RouteId{99U},
         contract::SourceRouteKind::intake_inlet,
         std::nullopt,
         std::nullopt,
         nullptr,
         +0.0,
-        std::nullopt,
     });
     expect_throw<std::invalid_argument>(
-        [&] { PresentationAudioSession rejected{std::move(incomplete_intake)}; },
-        "presentation audio admitted an intake without an active source");
+        [&] { PresentationAudioSession rejected{std::move(non_exhaust)}; },
+        "presentation audio admitted a non-exhaust route");
 
     auto wrong_canonical_extent = make_plan();
     wrong_canonical_extent.excitation_frames_per_block =
@@ -540,7 +441,6 @@ int main() {
         test_exact_dynamic_route_pipeline();
         test_preview_clock_dynamic_route_pipeline();
         test_process_is_allocation_free();
-        test_active_intake_preserves_exhaust_and_enters_master_once();
         test_validation_and_structural_rejection();
     } catch (const std::exception &error) {
         std::cerr << "presentation audio session test failed: " << error.what() << '\n';

@@ -232,8 +232,7 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
         };
         const bool gas_route =
             requirement != plan.output_contract.required_source_routes.end() &&
-            (requirement->kind == contract::SourceRouteKind::exhaust_outlet ||
-             requirement->kind == contract::SourceRouteKind::intake_inlet);
+            requirement->kind == contract::SourceRouteKind::exhaust_outlet;
         const bool expected_disposition =
             requirement != plan.output_contract.required_source_routes.end() &&
             requirement->disposition == contract::RouteDisposition::rendered;
@@ -250,7 +249,7 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
 
     if (plan.audition.selected_route_ids.size() != active_route_count) {
         throw std::invalid_argument{
-            "native presentation audition must select every active gas-source "
+            "native presentation audition must select every active exhaust-source "
             "route"};
     }
     std::unordered_set<std::uint32_t> selected_route_ids;
@@ -269,11 +268,10 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
                                     &contract::SourceRouteRequirement::semantic_id);
         if (route == plan.routes.end() ||
             requirement == plan.output_contract.required_source_routes.end() ||
-            (requirement->kind != contract::SourceRouteKind::exhaust_outlet &&
-             requirement->kind != contract::SourceRouteKind::intake_inlet)) {
+            requirement->kind != contract::SourceRouteKind::exhaust_outlet) {
             throw std::invalid_argument{
                 "native presentation audition route is absent from the active "
-                "gas-source plan"};
+                "exhaust-source plan"};
         }
     }
 
@@ -282,7 +280,7 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
         plan.output_contract.required_artifacts.size() !=
             native_presentation_artifact_count(plan.routes.size())) {
         throw std::invalid_argument{
-            "native presentation requires three artifacts per published gas-source "
+            "native presentation requires three artifacts per published exhaust-source "
             "route and exactly two master buses and artifacts"};
     }
 

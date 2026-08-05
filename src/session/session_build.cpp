@@ -170,10 +170,6 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
     for (std::size_t route_index = 0; route_index < calibration.route_count();
          ++route_index) {
         const auto &route = calibration.routes()[route_index];
-        if (route.source_route_kind() == contract::SourceRouteKind::intake_inlet) {
-            route_kernels[route_index] = nullptr;
-            continue;
-        }
         if (!route.impulse_response_asset_id().has_value()) {
             return build_error(
                 EngineSessionErrorCode::invalid_compiled_scenario,
@@ -244,8 +240,7 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
         static_cast<std::size_t>(calibration.capture_frames_per_block());
     audio_plan.publication_calibration_gain_linear =
         calibration.publication_calibration_gain_linear().value;
-    audio_plan.audition_monitoring_gain_linear =
-        calibration.mastering().monitoring_gain_linear();
+    audio_plan.audition_volume_linear = calibration.mastering().volume_linear();
     audio_plan.audition_route_ids.reserve(calibration.audition_route_ids().size());
     for (const auto selected_id : calibration.audition_route_ids()) {
         audio_plan.audition_route_ids.push_back(selected_id);
@@ -255,11 +250,7 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
          ++route_index) {
         const auto &route = calibration.routes()[route_index];
         const auto seeds = route_seeds(random_plan, route.route_id());
-        const bool exhaust =
-            route.source_route_kind() == contract::SourceRouteKind::exhaust_outlet;
-        const bool intake =
-            route.source_route_kind() == contract::SourceRouteKind::intake_inlet;
-        if (exhaust && !seeds.has_value()) {
+        if (!seeds.has_value()) {
             return build_error(
                 EngineSessionErrorCode::invalid_compiled_scenario,
                 "session-presentation-random-plan-incomplete",
@@ -268,19 +259,10 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
         audio_plan.routes.push_back({
             route.route_id(),
             route.source_route_kind(),
-            exhaust ? seeds : std::nullopt,
+            seeds,
             std::nullopt,
             route_kernels[route_index],
             route.wet_mix_01(),
-            intake
-                ? std::optional<presentation::IntakePressureSourceRouteConfiguration>{
-                      {
-                          route.route_id(),
-                          scenario.ambient.pressure_pa_abs.value,
-                          route.source_gain_linear().value,
-                      },
-                  }
-                : std::nullopt,
         });
     }
 

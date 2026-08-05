@@ -11,10 +11,10 @@
 namespace engine_sim_offline::test::bmw_m52b28_render_gate {
 namespace {
 
-constexpr std::string_view kCanonicalFlowCoupled20KhzWaveSha256 =
-    "220cd6760b4eb991cdac147a99dfcc0f345ddf9fdd86b7c1924e062d87cc2c5b";
-constexpr std::string_view kAcceptedFlowCoupledPcm24Sha256 =
-    "c9276854e52c17178a293881bf61735d219a2f2f4467bdaf225398bea617d700";
+constexpr std::string_view kCanonicalExhaustOnlyMasterV4WaveSha256 =
+    "58ec677b0565fad0e9a3b9eedba9590d5af9891c647185ebdb9c98f7e469cde7";
+constexpr std::string_view kAcceptedExhaustOnlyMasterV4Pcm24Sha256 =
+    "52fef731caf12b9a6353e0ed3a928039db74277193d99847b244f852edebf01f";
 constexpr std::uint64_t kAcceptedPcm24ByteCount = UINT64_C(8640000);
 constexpr std::uint64_t kAudibleFrameCount = UINT64_C(2880000);
 
@@ -267,23 +267,23 @@ verify_render_success(const contract::RenderSuccess &success,
            "generic inertial render did not complete the authored dyno pull");
     expect_exact_manifest(success, sink);
 
-    expect(canonical_oracle_wave.size() == UINT64_C(8640586) &&
+    expect(canonical_oracle_wave.size() == UINT64_C(8640598) &&
                contract::sha256(canonical_oracle_wave) ==
-                   digest_from_hex(kCanonicalFlowCoupled20KhzWaveSha256),
-           "render gate did not receive the canonical flow-coupled 20 kHz WAV");
+                   digest_from_hex(kCanonicalExhaustOnlyMasterV4WaveSha256),
+           "render gate did not receive the canonical exhaust-only v4 WAV");
     const auto oracle = parse_wave(canonical_oracle_wave);
     expect(oracle.data.size() == kAcceptedPcm24ByteCount &&
                contract::sha256(oracle.data) ==
-                   digest_from_hex(kAcceptedFlowCoupledPcm24Sha256),
-           "canonical flow-coupled 20 kHz PCM24 span changed");
+                   digest_from_hex(kAcceptedExhaustOnlyMasterV4Pcm24Sha256),
+           "canonical exhaust-only v4 PCM24 span changed");
 
     const auto &audition_artifact = sink.at("master.engine.audition");
     const auto audition = parse_wave(audition_artifact.bytes);
     expect(audition.data.size() == kAcceptedPcm24ByteCount &&
                contract::sha256(audition.data) ==
-                   digest_from_hex(kAcceptedFlowCoupledPcm24Sha256) &&
+                   digest_from_hex(kAcceptedExhaustOnlyMasterV4Pcm24Sha256) &&
                std::ranges::equal(audition.data, oracle.data),
-           "generic PCM24 data span differs from the canonical flow-coupled 20 kHz "
+           "generic PCM24 data span differs from the canonical exhaust-only v4 "
            "bytes");
     expect_exact_info(success.manifest.content, audition);
 

@@ -160,7 +160,7 @@ make_calibration(ResolutionBuilder &builder, const contract::EngineSpec &engine)
         builder.resolved(
             std::vector<contract::RouteId>{contract::RouteId{2}, contract::RouteId{1}},
             "presentation.audition.selected_routes"),
-        builder.resolved(0.75, "presentation.audition.monitoring_gain_linear"),
+        builder.resolved(0.75, "presentation.audition.volume_linear"),
         builder.resolved(0.02, "presentation.audition.fade_in_duration_s"),
         builder.resolved(0.02, "presentation.audition.fade_out_duration_s"),
     };
@@ -331,7 +331,7 @@ void test_valid_projection_and_engine_route_order() {
                admitted.mastering().audible_frame_count() == 2880000 &&
                admitted.mastering().fade_in_frame_count() == 3840 &&
                admitted.mastering().fade_out_frame_count() == 3840 &&
-               admitted.mastering().monitoring_gain_linear() == 0.75F,
+               admitted.mastering().volume_linear() == 0.75F,
            "admitted publication or mastering projection changed");
 }
 
@@ -371,24 +371,12 @@ void test_dynamic_route_projection() {
            "three-route calibration was not admitted in engine and audition order");
 }
 
-void test_declared_silent_intake_requires_no_transfer_asset() {
+void test_intake_route_is_not_presentable() {
     Inputs inputs;
     inputs.engine.routes[1].kind.value = contract::SourceRouteKind::intake_inlet;
-    inputs.calibration.routes[0].impulse_response_asset_id.reset();
-    inputs.calibration.routes[0].impulse_response_gain_linear.value = +0.0;
-    inputs.calibration.routes[0].wet_mix_01.value = +0.0;
-    inputs.calibration.assets.erase(inputs.calibration.assets.begin() + 1);
-
     const auto result = presentation::compile_presentation_calibration(
         inputs.calibration, inputs.engine, inputs.scenario, inputs.builder.provenance);
-    const auto &admitted = expect_admitted(result);
-    expect(admitted.routes()[1].route_id() == contract::RouteId{2} &&
-               admitted.routes()[1].source_route_kind() ==
-                   contract::SourceRouteKind::intake_inlet &&
-               !admitted.routes()[1].impulse_response_asset_id().has_value() &&
-               admitted.routes()[1].impulse_response_gain_linear().value == +0.0 &&
-               admitted.routes()[1].wet_mix_01() == +0.0,
-           "declared-silent intake retained a fake transfer asset or gain");
+    static_cast<void>(expect_rejected(result, "engine.routes[1].kind.value"));
 }
 
 void test_every_method_is_exact() {
@@ -452,16 +440,16 @@ void test_calibration_leaf_boundaries() {
         "presentation.publication.calibration_gain_linear.value");
     expect_mutation_rejected(
         [](Inputs &inputs) {
-            inputs.calibration.audition.monitoring_gain_linear.value =
+            inputs.calibration.audition.volume_linear.value =
                 std::numeric_limits<double>::denorm_min();
         },
-        "presentation.audition.monitoring_gain_linear.value");
+        "presentation.audition.volume_linear.value");
     expect_mutation_rejected(
         [](Inputs &inputs) {
-            inputs.calibration.audition.monitoring_gain_linear.value =
+            inputs.calibration.audition.volume_linear.value =
                 std::numeric_limits<double>::max();
         },
-        "presentation.audition.monitoring_gain_linear.value");
+        "presentation.audition.volume_linear.value");
     expect_mutation_rejected(
         [](Inputs &inputs) {
             inputs.calibration.audition.fade_in_duration_s.value = -0.0;
@@ -600,7 +588,7 @@ void run_tests() {
     test_valid_projection_and_engine_route_order();
     test_preview_clock_projection();
     test_dynamic_route_projection();
-    test_declared_silent_intake_requires_no_transfer_asset();
+    test_intake_route_is_not_presentable();
     test_every_method_is_exact();
     test_calibration_leaf_boundaries();
     test_clock_and_topology_boundaries();

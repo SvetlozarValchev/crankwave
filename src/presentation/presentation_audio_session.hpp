@@ -4,7 +4,6 @@
 #include "engine_sim_offline/contract/engine.hpp"
 #include "presentation/exhaust_excitation_block.hpp"
 #include "presentation/exhaust_source_stage.hpp"
-#include "presentation/intake_pressure_source_stage.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -37,18 +36,17 @@ struct PresentationAudioRoutePlan {
     std::optional<double> exhaust_valve_reference_mass_flow_kg_s;
     std::shared_ptr<const dsp::FixedConvolutionKernel> configured_ir;
     double wet_mix_01 = 0.0;
-    std::optional<IntakePressureSourceRouteConfiguration> intake_pressure_source;
 };
 
 // Processing-only presentation contract. `routes` owns source/stem order while
 // `audition_route_ids` owns the exact serial Float32 reduction order. The latter
-// must be a permutation of every active gas-source route.
+// must be a permutation of every active exhaust source route.
 struct PresentationAudioPlan {
     RouteConditioningCalibration conditioning;
     std::vector<PresentationAudioRoutePlan> routes;
     double publication_calibration_gain_linear = 0.0;
     std::vector<contract::RouteId> audition_route_ids;
-    float audition_monitoring_gain_linear = 0.0F;
+    float audition_volume_linear = 0.0F;
     contract::RationalRateHz excitation_rate = kExcitationRateHz;
     std::size_t excitation_frames_per_block = kExcitationFramesPerMethodBlock;
 };
@@ -59,8 +57,8 @@ struct PresentationAudioPlan {
 // destroyed.
 //
 // Route stems are route-major, then role-major. Both masters are Float32:
-// raw_master() is the ordered selected-route sum and audition_master() is that
-// raw sum multiplied by the configured monitoring gain. Clip fades, integer
+// raw_master() is the ordered selected-route sum and audition_master() is the
+// stateful leveled and soft-clipped listening signal. Clip fades, integer
 // quantization, WAVE encoding, and publication are deliberately downstream.
 class PresentationAudioBlockView final {
   public:
@@ -120,8 +118,7 @@ class PresentationAudioSession final {
     PresentationAudioSession &operator=(PresentationAudioSession &&) = delete;
 
     [[nodiscard]] PresentationAudioBlockView
-    process(ExhaustExcitationBlockView exhaust,
-            IntakePressureInputBlockView intake_pressure);
+    process(ExhaustExcitationBlockView exhaust);
 
     [[nodiscard]] std::span<const contract::RouteId> route_ids() const noexcept;
     [[nodiscard]] std::span<const contract::RouteId>

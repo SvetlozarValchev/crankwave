@@ -1,6 +1,7 @@
 # Web operating bench — slice 14
 
-Status: implemented on 2026-07-31; amended for explicit session lifetime
+Status: implemented on 2026-07-31; amended for explicit session lifetime and the
+2026-08-05 active-intake transient rejection
 
 Scope: turn the slice-13 native/C ABI/WASM/Worker operating surface into a usable
 browser bench. Session lifetime is an explicit authoring choice independent of motion
@@ -116,17 +117,17 @@ this correction. Worker v3 adds the required execution-kind field with no old-la
 decoder. The renderer source closure remains identical to the slice-13 production
 proof, which reproduced all six accepted HeldDyno/FreeVehicle WAV hashes byte-for-byte.
 
-## 7. Post-parity active-intake performance closure
+## 7. Historical active-intake performance closure and supersession
 
 The Slice 14 hash above remains historical exhaust-only evidence. After the separately
-accepted active-intake route entered the same master, the current browser export stayed
-exactly 3,840,056 bytes and intentionally changed to SHA-256
+accepted active-intake route entered the same master on 2026-08-04, that gate's browser
+export stayed exactly 3,840,056 bytes and intentionally changed to SHA-256
 `f1c057e2eef807f0d68711dc1e196e04093faab3c306d37f7523c8a8d2ce6130`.
 Commit `e43282139ac1c91d1804f46a75931e5fb4594654` updates only that executable
-expectation.
+expectation. This paragraph records historical evidence, not the current export.
 
 The additional route also exposed insufficient scheduling margin in the realtime
-adapter. This was not an audio-model failure. Commits
+adapter. That scheduling problem was not an audio-model failure. Commits
 `2dfee5696c762e7e78ce4caec5d24e505972ccb3` and
 `b2a62030e8922fc594a8e6db2142eb8fc412fbeb` remove redundant canonical
 reconstruction work while retaining exact samples. Commit
@@ -134,9 +135,16 @@ reconstruction work while retaining exact samples. Commit
 continuations with `MessageChannel` tasks and permits a bounded four core blocks per
 running turn.
 
-The clean full `scripts/verify-browser-workbench.sh` gate now passes, reports zero
-startup underruns for both BMW and the 6.2 L V8, and verifies all 22 repository
-packages. A fresh native M52TU held-dyno bake took `35.00 s`; each of its 11 WAVs is
-byte-identical to the accepted active-intake `9530402` set. The observed failure is
+The clean full `scripts/verify-browser-workbench.sh` gate passed at that checkpoint,
+reported zero startup underruns for both BMW and the 6.2 L V8, and verified all 22
+repository packages. A fresh native M52TU held-dyno bake took `35.00 s`; each of its
+11 WAVs is byte-identical to the accepted active-intake `9530402` set. The observed failure is
 therefore closed as browser scheduling margin plus an exhaust-only smoke expectation,
 not an active-intake PCM regression.
+
+That performance result did not validate hard throttle reopening. Direct live
+free-rev listening on 2026-08-05 later exposed a clop/pop where exhaust bark was
+expected. Exhaust-only 192 kHz and exact 44.1 kHz engine-sim-order comparisons both
+restored the bark, so the audible intake route and its historical browser hash are
+withdrawn from the current workbench contract. Intake physics and diagnostic capture
+remain; the workbench exposes no intake audio bus or master contribution.

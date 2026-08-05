@@ -25,11 +25,11 @@ using namespace engine_sim_offline::contract::test;
 using namespace engine_sim_offline::identity;
 
 constexpr std::string_view kExpectedCanonicalManifestSha256 =
-    "d2552d85cd3b6ac7f32c14e110bece327e87c6bb2d34997bc7be7b83b394fea2";
+    "b062cd133d767034df3f1018b4cc538876e77ed3c3e0389db1a39172119d0d0e";
 constexpr std::string_view kExpectedCanonicalRequestIdentitySha256 =
     "23ab2a54df036f837289a8893ab2343a77b7eecfa7443f63b1c5395485c391c8";
 constexpr std::string_view kExpectedCustomizedManifestSha256 =
-    "8ede36d9aefe8d14004f7591e808b7e351796efc7ba3189ae127e4ad82e05db8";
+    "8dfaae758a12f2144ee34a5465d09e75d9ddb54a6fcf6f31597aba0d80cf9143";
 constexpr std::string_view kExpectedCustomizedRequestIdentitySha256 =
     "96ce077744030ed8e6034473e8fcfc51c894891d165f9ac79c9b37275dd3ea7d";
 

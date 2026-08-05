@@ -670,19 +670,10 @@ class EngineSession::Implementation final {
                         capture,
                         [&](const presentation::ExhaustExcitationBlockView
                                 &excitation_block,
-                            const excitation::IntakePressureBlockView &intake_pressure,
+                            const excitation::IntakePressureBlockView &,
                             const excitation::ExhaustExcitationDiagnosticBlockView &,
                             const auto & /*pressure_force*/) -> bool {
-                            const auto intake_route_ids = intake_pressure.route_ids();
-                            const auto intake_values =
-                                intake_pressure.pressure_pa_abs();
-                            const auto presentation_intake = presentation::
-                                IntakePressureInputBlockView::borrow_for_callback(
-                                    intake_pressure.first_frame_index(),
-                                    intake_pressure.sample_rate(), intake_route_ids,
-                                    intake_pressure.frame_count(), intake_values);
-                            audio.emplace(presentation_->process(excitation_block,
-                                                                 presentation_intake));
+                            audio.emplace(presentation_->process(excitation_block));
                             return true;
                         });
                     if (auto *failure =

@@ -108,7 +108,7 @@ struct ResolutionBuilder {
         engine.routes.push_back({
             contract::RouteId{3},
             {std::string{"route.three"}, {}},
-            {contract::SourceRouteKind::intake_inlet, {}},
+            {contract::SourceRouteKind::exhaust_outlet, {}},
             std::nullopt,
             std::nullopt,
             std::nullopt,
@@ -183,11 +183,11 @@ make_presentation(ResolutionBuilder &builder, const contract::EngineSpec &engine
     if (engine.routes.size() == 3) {
         presentation.routes.push_back({
             contract::RouteId{3},
-            builder.resolved(+0.0,
+            builder.resolved(1.0,
                              "presentation.routes.route.three.source_gain_linear"),
-            std::nullopt,
+            contract::AudioAssetId{1},
             builder.resolved(
-                +0.0, "presentation.routes.route.three.impulse_response_gain_linear"),
+                0.001, "presentation.routes.route.three.impulse_response_gain_linear"),
             builder.resolved(+0.0, "presentation.routes.route.three.wet_mix_01"),
         });
     }
@@ -202,7 +202,7 @@ make_presentation(ResolutionBuilder &builder, const contract::EngineSpec &engine
     presentation.audition = {
         builder.resolved(std::move(audition_routes),
                          "presentation.audition.selected_routes"),
-        builder.resolved(0.75, "presentation.audition.monitoring_gain_linear"),
+        builder.resolved(0.75, "presentation.audition.volume_linear"),
         builder.resolved(0.02, "presentation.audition.fade_in_duration_s"),
         builder.resolved(0.02, "presentation.audition.fade_out_duration_s"),
     };
@@ -275,7 +275,7 @@ make_source_matrix(std::size_t route_count = 2) {
             matrix.required_source_routes.begin() + 1,
             {
                 "route.three",
-                contract::SourceRouteKind::intake_inlet,
+                contract::SourceRouteKind::exhaust_outlet,
                 contract::RouteDisposition::rendered,
                 "",
                 {
@@ -520,7 +520,7 @@ void test_dynamic_route_projection() {
                projection->routes[2].route_id == contract::RouteId{3} &&
                projection->routes[2].semantic_id == "route.three" &&
                projection->output_contract.required_source_routes[1].kind ==
-                   contract::SourceRouteKind::intake_inlet &&
+                   contract::SourceRouteKind::exhaust_outlet &&
                projection->route_artifacts[2].dry.role == "stem/route.three.dry" &&
                projection->route_artifacts[2].configured_transfer.role ==
                    "stem/route.three.configured_transfer" &&

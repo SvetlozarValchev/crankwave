@@ -1,5 +1,4 @@
 #include "artifacts/audition_wav_encoder.hpp"
-#include "engine_sim_offline/artifacts/wav_encoder.hpp"
 #include "engine_sim_offline/contract/common.hpp"
 #include "presentation/mastering.hpp"
 
@@ -9,7 +8,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <fstream>
 #include <iostream>
 #include <limits>
 #include <span>
@@ -28,8 +26,6 @@ using namespace engine_sim_offline::presentation;
 
 constexpr std::uint64_t kCanonicalAudibleFrameCount = 2'880'000;
 constexpr std::uint64_t kCanonicalFadeFrameCount = 3'840;
-constexpr std::uint64_t kCanonicalAuditionDataByteCount =
-    kCanonicalAudibleFrameCount * 3;
 constexpr std::uint64_t kCanonicalAuditionWaveByteCount = 8'640'302;
 
 const MasteringSettings &canonical_mastering_settings() {
@@ -105,12 +101,6 @@ void expect_sha256(std::span<const std::byte> bytes, std::string_view expected,
     expect(contract::sha256(bytes).bytes == digest_bytes(expected), message);
 }
 
-void append_u32le(std::vector<std::byte> &bytes, std::uint32_t value) {
-    for (unsigned shift = 0; shift < 32U; shift += 8U) {
-        bytes.push_back(static_cast<std::byte>((value >> shift) & UINT32_C(0xff)));
-    }
-}
-
 void append_u64le(std::vector<std::byte> &bytes, std::uint64_t value) {
     for (unsigned shift = 0; shift < 64U; shift += 8U) {
         bytes.push_back(static_cast<std::byte>((value >> shift) & UINT64_C(0xff)));
@@ -177,7 +167,7 @@ void test_variable_mastering_settings() {
     const MasteringSettings shorter{8, 2, 2, 4.0F};
     expect(shorter.audible_frame_count() == 8 && shorter.fade_in_frame_count() == 2 &&
                shorter.fade_out_frame_count() == 2 &&
-               shorter.monitoring_gain_linear() == 4.0F,
+               shorter.volume_linear() == 4.0F,
            "short mastering settings changed after validation");
     expect(audition_fade_gain(0, shorter) == 0.0 &&
                audition_fade_gain(1, shorter) == quarter_sine_gain(1, 2) &&
@@ -185,25 +175,12 @@ void test_variable_mastering_settings() {
                audition_fade_gain(6, shorter) == 1.0 &&
                audition_fade_gain(7, shorter) == quarter_sine_gain(1, 2),
            "short mastering fade geometry is wrong");
-    const std::array short_routes{0.125F, 0.125F};
-    const auto short_frame = master_frame(short_routes, 2, shorter);
-    expect(short_frame.raw == 0.25F && short_frame.monitor == 1.0F &&
-               short_frame.fade_gain == 1.0 && short_frame.faded == 1.0F &&
-               short_frame.saturated,
-           "short mastering settings did not control monitor gain");
 
     const MasteringSettings longer{5'760'000, 7'680, 1'920, 0.5F};
     expect(audition_fade_gain(7'680, longer) == 1.0 &&
                audition_fade_gain(5'758'080, longer) == 1.0 &&
                audition_fade_gain(5'759'999, longer) == quarter_sine_gain(1, 1'920),
            "long mastering fade geometry is wrong");
-    const std::array<float, 1> route{0.5F};
-    std::array<MasteredFrame, 1> mastered{};
-    const std::array<std::span<const float>, 2> route_inputs{route, route};
-    master_block(route_inputs, 7'680, longer, mastered);
-    expect(mastered[0].raw == 1.0F && mastered[0].monitor == 0.5F &&
-               mastered[0].faded == 0.5F,
-           "long mastering settings did not control monitor gain");
 
     expect_throw<std::invalid_argument>(
         [] { static_cast<void>(MasteringSettings{0, 0, 0, 1.0F}); },
@@ -216,17 +193,16 @@ void test_variable_mastering_settings() {
             static_cast<void>(
                 MasteringSettings{8, 1, 1, std::numeric_limits<float>::quiet_NaN()});
         },
-        "mastering accepted a non-finite monitor gain");
+        "mastering accepted a non-finite listening volume");
     expect_throw<std::invalid_argument>(
         [] { static_cast<void>(MasteringSettings{8, 1, 1, -1.0F}); },
-        "mastering accepted a negative monitor gain");
+        "mastering accepted a negative listening volume");
     expect_throw<std::invalid_argument>(
         [] { static_cast<void>(MasteringSettings{8, 1, 1, 0.0F}); },
-        "mastering accepted a zero monitor gain");
+        "mastering accepted a zero listening volume");
 }
 
 void test_quantizer_vectors_and_sentinels() {
-    const auto &settings = canonical_mastering_settings();
     struct QuantizerVector {
         std::uint32_t input_bits;
         std::int32_t s32;
@@ -298,13 +274,13 @@ void test_quantizer_vectors_and_sentinels() {
         Sentinel{426, 0x3ccf2426U, 0x3b8fa800U, 36'776},
         Sentinel{1583, 0x3d45b3efU, 0x3cee853fU, 244'244},
     };
+    const auto &settings = canonical_mastering_settings();
     for (const auto &sentinel : sentinels) {
         const float monitor = std::bit_cast<float>(sentinel.monitor_bits);
-        const float raw = monitor * 0x1p-7F;
-        const std::array routes{raw, 0.0F};
-        const auto result = master_frame(routes, sentinel.frame, settings);
-        expect(std::bit_cast<std::uint32_t>(result.monitor) == sentinel.monitor_bits &&
-                   std::bit_cast<std::uint32_t>(result.faded) == sentinel.faded_bits &&
+        const float faded = static_cast<float>(
+            static_cast<double>(monitor) * audition_fade_gain(sentinel.frame, settings));
+        const auto result = quantize_pcm24(faded);
+        expect(std::bit_cast<std::uint32_t>(faded) == sentinel.faded_bits &&
                    result.pcm24 == sentinel.pcm24 && !result.saturated,
                "binary64-fade sentinel changed or rounded gain prematurely");
     }
@@ -325,91 +301,6 @@ void test_quantizer_vectors_and_sentinels() {
     expect_throw<std::out_of_range>(
         [] { static_cast<void>(serialize_pcm24le(-8'388'609)); },
         "PCM24 serializer accepted a negative out-of-range code");
-}
-
-void test_mastering_block_partitioning_and_transactionality() {
-    const auto &settings = canonical_mastering_settings();
-    const std::array route_0{0.25F, -0.25F, 0x1p-20F, -0x1p-20F, 0.0F};
-    const std::array route_1{-0.125F, 0.125F, 0x1p-21F, -0x1p-21F, -0.0F};
-    std::array<MasteredFrame, route_0.size()> contiguous{};
-    const std::array<std::span<const float>, 2> contiguous_inputs{route_0, route_1};
-    master_block(contiguous_inputs, 3838, settings, contiguous);
-
-    std::array<MasteredFrame, route_0.size()> split{};
-    const std::array<std::span<const float>, 2> first_inputs{
-        std::span{route_0}.first(2), std::span{route_1}.first(2)};
-    master_block(first_inputs, 3838, settings, std::span{split}.first(2));
-    const std::array<std::span<const float>, 2> second_inputs{
-        std::span{route_0}.subspan(2), std::span{route_1}.subspan(2)};
-    master_block(second_inputs, 3840, settings, std::span{split}.subspan(2));
-    expect(split == contiguous,
-           "mastering result depends on caller block partitioning");
-    for (std::size_t index = 0; index < route_0.size(); ++index) {
-        const std::array routes{route_0[index], route_1[index]};
-        expect(contiguous[index] == master_frame(routes, 3838 + index, settings),
-               "block result differs from its exposed per-frame result");
-    }
-
-    std::array<MasteredFrame, 2> sentinel{
-        MasteredFrame{17.0F, 17.0F, 17.0, 17.0F, 17, 17, true},
-        MasteredFrame{19.0F, 19.0F, 19.0, 19.0F, 19, 19, true},
-    };
-    const auto unchanged = sentinel;
-    const std::array valid{0.0F, 0.0F};
-    const std::array late_nan{0.0F, std::numeric_limits<float>::quiet_NaN()};
-    const std::array<std::span<const float>, 2> invalid_inputs{valid, late_nan};
-    expect_throw<std::domain_error>(
-        [&] { master_block(invalid_inputs, 0, settings, sentinel); },
-        "mastering block accepted late non-finite input");
-    expect(sentinel == unchanged, "failed mastering block changed caller output");
-
-    const std::array<float, 1> maximum{std::numeric_limits<float>::max()};
-    std::array<MasteredFrame, 1> one_output{};
-    const std::array<std::span<const float>, 2> overflowing_inputs{maximum, maximum};
-    expect_throw<std::domain_error>(
-        [&] { master_block(overflowing_inputs, 0, settings, one_output); },
-        "mastering accepted an overflowing Float32 route sum");
-    const std::array<std::span<const float>, 2> mismatched_inputs{
-        route_0, std::span{route_1}.first(4)};
-    expect_throw<std::invalid_argument>(
-        [&] { master_block(mismatched_inputs, 0, settings, contiguous); },
-        "mastering accepted mismatched block lengths");
-    const std::array<std::span<const float>, 2> overrun_inputs{
-        std::span{route_0}.first(2), std::span{route_1}.first(2)};
-    expect_throw<std::out_of_range>(
-        [&] {
-            master_block(overrun_inputs, 2'879'999, settings,
-                         std::span{contiguous}.first(2));
-        },
-        "mastering accepted a block beyond the audible interval");
-
-    std::span<const float> empty_input;
-    std::span<MasteredFrame> empty_output;
-    const std::array<std::span<const float>, 2> empty_inputs{empty_input, empty_input};
-    master_block(empty_inputs, kCanonicalAudibleFrameCount, settings, empty_output);
-}
-
-void test_ordered_dynamic_route_reduction() {
-    const MasteringSettings settings{4, 0, 0, 1.0F};
-    const std::array three_routes{0x1p100F, -0x1p100F, 1.0F};
-    const auto serial = master_frame(three_routes, 0, settings);
-    expect(serial.raw == 1.0F,
-           "three-route mastering did not reduce serially from the first route");
-
-    const std::array reordered{1.0F, 0x1p100F, -0x1p100F};
-    const auto reordered_result = master_frame(reordered, 0, settings);
-    expect(reordered_result.raw == 0.0F,
-           "mastering route order no longer controls Float32 reduction order");
-
-    const std::array negative_zero{-0.0F};
-    const auto one_route = master_frame(negative_zero, 0, settings);
-    expect(std::bit_cast<std::uint32_t>(one_route.raw) == UINT32_C(0x80000000),
-           "single-route mastering added a leading positive zero");
-
-    const std::array<float, 0> no_routes{};
-    expect_throw<std::invalid_argument>(
-        [&] { static_cast<void>(master_frame(no_routes, 0, settings)); },
-        "mastering accepted an empty selected-route set");
 }
 
 struct ByteCollector {
@@ -439,14 +330,6 @@ AuditionWaveEncoder require_audition_encoder(AuditionWaveEncoderResult result) {
                                  ": " + failure->message};
     }
     return std::get<AuditionWaveEncoder>(std::move(result));
-}
-
-WavEncoder require_wav_encoder(WavEncoderResult result) {
-    if (const auto *failure = std::get_if<WavEncodingError>(&result)) {
-        throw std::runtime_error{"valid WAVE encoder rejected: " + failure->path +
-                                 ": " + failure->message};
-    }
-    return std::get<WavEncoder>(std::move(result));
 }
 
 std::vector<std::byte> encode_zero_audition(const contract::AudioContract &audio,
@@ -689,169 +572,19 @@ void test_variable_duration_audition_waves() {
            "audition encoder metadata allocation bound changed");
 }
 
-std::vector<std::byte> read_exact_file(const std::string &path,
-                                       std::size_t expected_size) {
-    std::ifstream stream(path, std::ios::binary | std::ios::ate);
-    if (!stream) {
-        throw std::runtime_error{"cannot open frozen selected stem: " + path};
-    }
-    const auto size = stream.tellg();
-    if (size < 0 || static_cast<std::uint64_t>(size) != expected_size) {
-        throw std::runtime_error{"frozen selected stem has the wrong byte count: " +
-                                 path};
-    }
-    std::vector<std::byte> bytes(expected_size);
-    stream.seekg(0);
-    stream.read(reinterpret_cast<char *>(bytes.data()),
-                static_cast<std::streamsize>(bytes.size()));
-    if (!stream) {
-        throw std::runtime_error{"failed to read frozen selected stem: " + path};
-    }
-    return bytes;
-}
-
-std::vector<float> decode_selected_stem(const std::vector<std::byte> &wave) {
-    const auto expected_header = bytes_from_hex(
-        "5249464632c8af0057415645666d7420120000000300010000ee020000b80b00040020"
-        "000000666163740400000000f22b006461746100c8af00");
-    expect(wave.size() == 11'520'058 && expected_header.size() == 58 &&
-               std::equal(expected_header.begin(), expected_header.end(), wave.begin()),
-           "frozen selected stem has the wrong Float32 WAVE representation");
-    std::vector<float> samples(kCanonicalAudibleFrameCount);
-    for (std::size_t index = 0; index < samples.size(); ++index) {
-        samples[index] =
-            std::bit_cast<float>(read_u32le(wave, 58 + index * sizeof(float)));
-        expect(std::isfinite(samples[index]),
-               "frozen selected stem contains non-finite Float32 input");
-    }
-    return samples;
-}
-
-void test_frozen_master_identities(const std::string &route_0_path,
-                                   const std::string &route_1_path) {
-    const auto &settings = canonical_mastering_settings();
-    const auto route_0_wave = read_exact_file(route_0_path, 11'520'058);
-    const auto route_1_wave = read_exact_file(route_1_path, 11'520'058);
-    expect_sha256(route_0_wave,
-                  "a637639a4ec85d1c6a1432a0b0df2395e3669648f5708f846ce65e83b70e6f32",
-                  "frozen route-0 selected stem identity changed");
-    expect_sha256(route_1_wave,
-                  "f47b94024648f6763804fa36bd11bf230d3b5741f2289bb062a6afe7c4a8ba3d",
-                  "frozen route-1 selected stem identity changed");
-    const auto route_0 = decode_selected_stem(route_0_wave);
-    const auto route_1 = decode_selected_stem(route_1_wave);
-
-    std::vector<float> raw;
-    std::vector<std::int32_t> pcm24;
-    std::vector<std::byte> raw_bytes;
-    std::vector<std::byte> monitor_bytes;
-    std::vector<std::byte> faded_bytes;
-    std::vector<std::byte> s32_bytes;
-    std::vector<std::byte> pcm24_bytes;
-    raw.reserve(kCanonicalAudibleFrameCount);
-    pcm24.reserve(kCanonicalAudibleFrameCount);
-    raw_bytes.reserve(kCanonicalAuditionDataByteCount / 3 * 4);
-    monitor_bytes.reserve(kCanonicalAuditionDataByteCount / 3 * 4);
-    faded_bytes.reserve(kCanonicalAuditionDataByteCount / 3 * 4);
-    s32_bytes.reserve(kCanonicalAuditionDataByteCount / 3 * 4);
-    pcm24_bytes.reserve(kCanonicalAuditionDataByteCount);
-
-    constexpr std::size_t block_size = 9'600;
-    std::vector<MasteredFrame> block(block_size);
-    std::uint64_t saturation_count = 0;
-    float peak = 0.0F;
-    for (std::size_t offset = 0; offset < route_0.size(); offset += block_size) {
-        const auto count = std::min(block_size, route_0.size() - offset);
-        const std::array<std::span<const float>, 2> selected_routes{
-            std::span{route_0}.subspan(offset, count),
-            std::span{route_1}.subspan(offset, count)};
-        master_block(selected_routes, offset, settings, std::span{block}.first(count));
-        for (const auto &frame : std::span{block}.first(count)) {
-            raw.push_back(frame.raw);
-            pcm24.push_back(frame.pcm24);
-            append_u32le(raw_bytes, std::bit_cast<std::uint32_t>(frame.raw));
-            append_u32le(monitor_bytes, std::bit_cast<std::uint32_t>(frame.monitor));
-            append_u32le(faded_bytes, std::bit_cast<std::uint32_t>(frame.faded));
-            append_u32le(s32_bytes, static_cast<std::uint32_t>(frame.s32));
-            const auto encoded = serialize_pcm24le(frame.pcm24);
-            pcm24_bytes.insert(pcm24_bytes.end(), encoded.begin(), encoded.end());
-            saturation_count += frame.saturated ? 1U : 0U;
-            peak = std::max(peak, std::abs(frame.faded));
-        }
-    }
-
-    expect_sha256(raw_bytes,
-                  "fe2475249df2f6a51b2c82c8251493216db1a1ec094a7a0c5577a11c430f410f",
-                  "raw-master payload identity changed");
-    expect_sha256(monitor_bytes,
-                  "0a2abe8ea8f166c1022efda26c57e5ad4eda5e7cb515100a5e6d16eb465318db",
-                  "monitoring-gain payload identity changed");
-    expect_sha256(faded_bytes,
-                  "af194389df2ba20ab9d1bc5e3f97735afbb6c76d4c215a7ac2e1d45ecd3a3633",
-                  "faded payload identity changed");
-    expect_sha256(s32_bytes,
-                  "b0505bc9a81cfdcea0256ff6e5731ac2a1f58f90f43911bc84d799926151d924",
-                  "pre-truncation S32 payload identity changed");
-    expect_sha256(pcm24_bytes,
-                  "2153869958bb924e4eda277a37e95eab1abb7c29aa9fa389c1fa8f879e7bfdcf",
-                  "audition PCM24 payload identity changed");
-    expect(saturation_count == 0 && std::bit_cast<std::uint32_t>(peak) == 0x3f2ad253U,
-           "audition saturation count or frozen peak changed");
-
-    const contract::AudioContract raw_contract{
-        {192'000, 1}, kCanonicalAudibleFrameCount, "mono", "float32le"};
-    auto raw_encoder = require_wav_encoder(make_wav_encoder(raw_contract, {16'384}));
-    ByteCollector raw_wave{16'384};
-    raw_wave.bytes.reserve(11'520'058);
-    const WavChunkConsumer collect_raw = [&](auto offset, auto bytes) {
-        return raw_wave.consume(offset, bytes);
-    };
-    expect(!raw_encoder.begin(collect_raw).has_value() &&
-               !raw_encoder.write_float32_interleaved(raw, collect_raw).has_value() &&
-               !raw_encoder.finish(collect_raw).has_value(),
-           "existing Float32 WAVE encoder failed the raw master");
-    expect_sha256(raw_wave.bytes,
-                  "2c5473cfc3836f18164bb2fc52bec11d2a2349ca9fbd550130c520baa3750146",
-                  "raw-master complete WAVE identity changed");
-
-    const auto audition_audio = audition_contract(kCanonicalAudibleFrameCount);
-    auto audition_encoder = require_audition_encoder(
-        make_audition_wave_encoder(audition_audio, canonical_bmw_metadata(), {16'384}));
-    ByteCollector audition_wave{16'384};
-    audition_wave.bytes.reserve(kCanonicalAuditionWaveByteCount);
-    const WavChunkConsumer collect_audition = [&](auto offset, auto bytes) {
-        return audition_wave.consume(offset, bytes);
-    };
-    expect(!audition_encoder.begin(collect_audition).has_value() &&
-               !audition_encoder.write_pcm24(pcm24, collect_audition).has_value() &&
-               !audition_encoder.finish(collect_audition).has_value(),
-           "exact audition WAVE encoder failed the frozen master");
-    expect_sha256(audition_wave.bytes,
-                  "f62c164f9a3debca23b1459fae8d6b47a19a98a418490e2e99bcbdf8a7d972eb",
-                  "audition complete WAVE identity changed");
-}
-
-void run_tests(int argc, char **argv) {
+void run_tests() {
     test_gain_and_fade_boundaries();
     test_variable_mastering_settings();
     test_quantizer_vectors_and_sentinels();
-    test_mastering_block_partitioning_and_transactionality();
-    test_ordered_dynamic_route_reduction();
     test_exact_prefix_and_streaming_encoder();
     test_variable_duration_audition_waves();
-    if (argc == 3) {
-        test_frozen_master_identities(argv[1], argv[2]);
-    } else if (argc != 1) {
-        throw std::runtime_error{
-            "expected either no arguments or route-0 and route-1 selected stem paths"};
-    }
 }
 
 } // namespace
 
-int main(int argc, char **argv) {
+int main() {
     try {
-        run_tests(argc, argv);
+        run_tests();
     } catch (const std::exception &error) {
         std::cerr << "mastering test failure: " << error.what() << '\n';
         return 1;

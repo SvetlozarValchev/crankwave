@@ -445,7 +445,7 @@ void expect(bool condition, std::string_view message) {
     ],
     "audition": {
       "buses": ["main"],
-      "monitoring_gain_linear": 1,
+      "volume_linear": 1,
       "fade_in": {"value": 10, "unit": "ms"},
       "fade_out": {"value": 10, "unit": "ms"}
     },

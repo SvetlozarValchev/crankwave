@@ -177,8 +177,8 @@ void assemble_presentation(const ModelContext &context, ResolutionEmitter &emitt
     calibration.audition = {
         emitter.authored(resolved_audition_routes(context),
                          "presentation.audition.selected_routes"),
-        emitter.authored(source.audition.monitoring_gain_linear,
-                         "presentation.audition.monitoring_gain_linear"),
+        emitter.authored(source.audition.volume_linear,
+                         "presentation.audition.volume_linear"),
         emitter.authored(legacy_si_value(source.audition.fade_in),
                          "presentation.audition.fade_in_duration_s"),
         emitter.authored(legacy_si_value(source.audition.fade_out),

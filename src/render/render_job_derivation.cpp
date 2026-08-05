@@ -165,7 +165,7 @@ RenderJobProjectionResult derive_render_job_projection(
         return error(RenderJobDerivationErrorCode::route_projection_failed,
                      "source_matrix",
                      "the admitted presentation job requires three artifacts per "
-                     "published gas-source route and two master artifacts");
+                     "published exhaust-source route and two master artifacts");
     }
 
     projection.routes.reserve(calibration.route_count());
@@ -188,8 +188,7 @@ RenderJobProjectionResult derive_render_job_projection(
                               &contract::SourceRouteRequirement::semantic_id);
         const bool gas_route =
             required != request.source_matrix.required_source_routes.end() &&
-            (required->kind == contract::SourceRouteKind::exhaust_outlet ||
-             required->kind == contract::SourceRouteKind::intake_inlet);
+            required->kind == contract::SourceRouteKind::exhaust_outlet;
         const bool expected_disposition =
             required != request.source_matrix.required_source_routes.end() &&
             required->disposition == contract::RouteDisposition::rendered;
@@ -197,7 +196,7 @@ RenderJobProjectionResult derive_render_job_projection(
             required->artifact_roles.size() != 3) {
             return error(RenderJobDerivationErrorCode::route_projection_failed,
                          "source_matrix.required_source_routes",
-                         "each admitted gas-source route requires positional "
+                         "each admitted exhaust-source route requires positional "
                          "dry/configured-transfer/selected artifact roles");
         }
 

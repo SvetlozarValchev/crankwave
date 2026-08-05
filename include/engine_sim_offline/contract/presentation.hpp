@@ -136,7 +136,7 @@ struct StemPublication {
 
 struct AuthoredAuditionMix {
     AuthoredValue<std::vector<std::string>> selected_route_semantic_ids;
-    AuthoredValue<double> monitoring_gain_linear;
+    AuthoredValue<double> volume_linear;
     AuthoredValue<double> fade_in_duration_s;
     AuthoredValue<double> fade_out_duration_s;
 
@@ -146,9 +146,9 @@ struct AuthoredAuditionMix {
 
 struct AuditionMix {
     // Vector order is the deterministic arithmetic reduction order for every
-    // active gas-source route.
+    // active exhaust-source route.
     ResolvedValue<std::vector<RouteId>> selected_routes;
-    ResolvedValue<double> monitoring_gain_linear;
+    ResolvedValue<double> volume_linear;
     ResolvedValue<double> fade_in_duration_s;
     ResolvedValue<double> fade_out_duration_s;
 

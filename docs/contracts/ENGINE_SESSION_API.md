@@ -112,7 +112,8 @@ presentation data:
   per-cylinder assignments;
 - fuel, ignition, timing, limiter, starter, combustion, friction, pumping, and thermal
   parameters;
-- physical and presentation source-route declarations;
+- authorable exhaust source-route and presentation declarations; physical intake
+  systems are not audio routes;
 - default route gains, conditioning, impulse-response references, and audition mix;
 - explicit methods and quality-independent model choices.
 
@@ -583,17 +584,16 @@ exactly 3,840 samples. The spans remain valid only until the next enqueue/proces
 operation, session move, or session destruction. File publishers must consume or copy
 them before advancing the session.
 
-Exhaust routes, admitted intake routes, and both masters are `active`. Each active
-intake route is backed by captured plenum pressure on the session's admitted 10 or
-20 kHz capture clock, ambient-pressure subtraction, causal reconstruction to 192 kHz,
-deterministic 10 Hz DC removal, and its authored source gain. Its dry,
-configured-transfer, and selected buses are identical because intake uses no exhaust
-random conditioning, impulse response, or convolution. The selected intake bus
-participates once in the ordered raw and audition masters.
+Exhaust routes and both masters are `active`. Current JSON cannot author an intake
+source route, so the descriptor exposes no intake dry/configured-transfer/selected
+buses and neither master contains an intake contribution. Intake-system physics still
+executes, and plenum, runner, port, and boundary-flow observations remain available to
+simulation diagnostics; they are not microphone audio.
 
-This is the sole intake implementation. The prior `declared_silent` intake checkpoint
-is historical evidence rather than a runtime option or compatibility path. It was
-superseded after the 2026-08-04 A/B/C listening gate documented in
+The prior `declared_silent` intake checkpoint and the later active pressure-route
+implementation are historical evidence rather than runtime options or compatibility
+paths. The latter passed its 2026-08-04 held-dyno A/B/C gate but was withdrawn after
+the 2026-08-05 live transient rejection documented in
 [`POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](../POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
 Mechanical route kinds remain reserved and unadmitted until a real signal
 implementation has its own acceptance evidence.
@@ -880,17 +880,19 @@ If cross-origin isolation or AudioWorklet is unavailable, the harness reports an
 unsupported capability instead of silently using `ScriptProcessorNode` or another
 renderer. There is no MessagePort-copy audio fallback or JavaScript engine renderer.
 
-The real-module integration exports 7,680 canonical Float32 samples with SHA-256
+The historical 2026-08-04 real-module integration exported 7,680 canonical Float32
+samples with SHA-256
 `7362df73a4f3bc0925fad36285f499d2c51f2b61d4dccf8a743f45a42f4728c9`.
-The headless Chrome gate exports the complete 3,840,056-byte BMW warm-running
-free-rev Float32 WAVE at SHA-256
+That same historical headless Chrome gate exported the complete 3,840,056-byte BMW
+warm-running free-rev Float32 WAVE at SHA-256
 `f1c057e2eef807f0d68711dc1e196e04093faab3c306d37f7523c8a8d2ce6130`,
-continues past the authored 5.5-second horizon, verifies Stop/Start state continuity
-and fresh Restart state, and reports zero BMW startup underrun frames/events. The same
-clean gate reports zero startup underruns for the 6.2 L V8 and compiles/creates the
-expected sessions for all 22 visible repository packages. The former browser failure
-was an exhaust-only smoke expectation plus insufficient pump scheduling margin, not a
-core processing failure or active-intake PCM regression.
+continued past the authored 5.5-second horizon, verified Stop/Start state continuity
+and fresh Restart state, and reported zero BMW startup underrun frames/events. The same
+clean gate reported zero startup underruns for the 6.2 L V8 and compiled/created the
+expected sessions for all 22 visible repository packages. Those hashes preserve the
+then-accepted active-intake performance evidence; they are not current audio
+expectations after the 2026-08-05 transient rejection. The scheduling failure fixed
+by that gate was separate from the later audible clop/pop defect.
 The reproducible gate is
 [`verify-browser-workbench.sh`](../../scripts/verify-browser-workbench.sh).
 
@@ -1001,9 +1003,9 @@ admission.
 
 The workbench UI gate applies one three-value dyno batch and one three-value drivetrain
 batch, observes the exact returned sidecars, and verifies stop/resume/fresh-restart
-semantics for the continuous benches. It pins the current active-intake finite-export
-browser WAV identity recorded in section 11; older exhaust-only hashes remain
-historical milestone evidence rather than current expectations.
+semantics for the continuous benches. The current gate must pin the exhaust-only
+finite export. The active-intake browser WAV identity recorded in section 11 remains
+historical evidence and is not a current expectation.
 
 ## 14. Implementation order
 

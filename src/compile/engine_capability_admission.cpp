@@ -174,18 +174,12 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         std::ranges::count_if(engine.source_routes, [](const auto &route) {
             return std::holds_alternative<authoring::ExhaustRouteSource>(route.source);
         }));
-    const auto intake_source_route_count = static_cast<std::size_t>(
-        std::ranges::count_if(engine.source_routes, [](const auto &route) {
-            return std::holds_alternative<authoring::IntakeRouteSource>(route.source);
-        }));
     if (engine.source_routes.empty() || engine.exhausts.empty() ||
         exhaust_source_route_count != engine.exhausts.size() ||
-        intake_source_route_count > engine.intakes.size() ||
-        exhaust_source_route_count + intake_source_route_count !=
-            engine.source_routes.size()) {
+        exhaust_source_route_count != engine.source_routes.size()) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/source_routes",
             "the executable presentation requires exactly one source route per "
-            "declared exhaust and at most one source route per declared intake");
+            "declared exhaust");
     }
     if (engine.ports.size() != engine.heads.size() * 2U) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/ports",

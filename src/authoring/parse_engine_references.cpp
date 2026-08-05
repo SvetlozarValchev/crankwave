@@ -388,9 +388,6 @@ void validate_cylinder_and_route_references(DocumentReader &reader,
         if (const auto *exhaust = std::get_if<ExhaustRouteSource>(&route.source)) {
             require_reference(reader, indexes.exhausts, exhaust->exhaust,
                               pointer_member(path, "exhaust"), "exhaust", owner);
-        } else if (const auto *intake = std::get_if<IntakeRouteSource>(&route.source)) {
-            require_reference(reader, indexes.intakes, intake->intake,
-                              pointer_member(path, "intake"), "intake", owner);
         }
     }
 }

@@ -272,7 +272,7 @@
       {"id": "master-engine-raw", "routes": ["exhaust-0", "exhaust-1"], "gain_linear": 1, "publish": true},
       {"id": "master-engine-audition", "routes": ["exhaust-0", "exhaust-1"], "gain_linear": 1, "publish": true}
     ],
-    "audition": {"buses": ["master-engine-audition"], "monitoring_gain_linear": 8, "fade_in": {"value": 0.02, "unit": "s"}, "fade_out": {"value": 0.02, "unit": "s"}},
+    "audition": {"buses": ["master-engine-audition"], "volume_linear": 1, "fade_in": {"value": 0.02, "unit": "s"}, "fade_out": {"value": 0.02, "unit": "s"}},
     "publication_gain_linear": 1.4901161193847656e-8
   }
 }

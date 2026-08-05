@@ -417,7 +417,7 @@ add_library(
     STATIC
         src/presentation/causal_reconstruction.cpp
         src/presentation/exhaust_source_stage.cpp
-        src/presentation/intake_pressure_source_stage.cpp
+        src/presentation/master_dynamics.cpp
         src/presentation/mastering.cpp
         src/presentation/overlap_save_convolver.cpp
         src/presentation/pcm16_ir_decoder.cpp

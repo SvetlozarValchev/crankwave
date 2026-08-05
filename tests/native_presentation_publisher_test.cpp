@@ -1,7 +1,6 @@
 #include "render/native_presentation_publisher.hpp"
 
 #include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/bake.hpp"
 
 #include <algorithm>
 #include <array>
@@ -177,7 +176,7 @@ struct OwnedAsset {
 
 [[nodiscard]] compile::CompiledScenario compile_short_held_scenario(
     const std::filesystem::path &repository_root,
-    std::optional<double> audition_monitoring_gain_linear = std::nullopt) {
+    std::optional<double> audition_volume_linear = std::nullopt) {
     const auto engine_path = repository_root / "data/engines/bmw-m52b28/engine.json";
     const auto scenario_path = repository_root / "data/engines/bmw-m52b28/scenarios/"
                                                  "inertial-dyno-1500-6500rpm.json";
@@ -187,9 +186,9 @@ struct OwnedAsset {
     auto scenario_document =
         require(authoring::parse_scenario_document(read_text(scenario_path)),
                 "publisher fixture scenario parse failed");
-    if (audition_monitoring_gain_linear.has_value()) {
-        engine_document.presentation.audition.monitoring_gain_linear =
-            *audition_monitoring_gain_linear;
+    if (audition_volume_linear.has_value()) {
+        engine_document.presentation.audition.volume_linear =
+            *audition_volume_linear;
     }
 
     const auto *inertial =
@@ -504,7 +503,7 @@ void test_public_session_byte_golden(const compile::CompiledScenario &scenario) 
         "6e72dbdd2d12e13d748816cc97f24f984f904ba720e6c848b6163cd8f4caf2de",
         "6e72dbdd2d12e13d748816cc97f24f984f904ba720e6c848b6163cd8f4caf2de",
         "0f7d73ef90617b52aef89131dc564b8ea9ecf162a175b5bbfa927037891dc92b",
-        "be138c46f92d5e1d92a192623eee308a2556607a837a1d19275928271cb374bc",
+        "a8a94537a531645a93c445ba80b0acb38fda437dc92424047023bac35fc117d6",
     };
     std::vector<std::string> actual_sha256;
     actual_sha256.reserve(published.records.size());
@@ -698,37 +697,12 @@ void test_prebinding_and_transaction_failures(
     }
 }
 
-void test_native_bake_rejects_audition_saturation(
+void test_extreme_volume_is_soft_limited_before_pcm24(
     const std::filesystem::path &repository_root) {
     const auto scenario = compile_short_held_scenario(repository_root, 1.0e9);
-    CapturingSink sink;
-    const auto result = bake(scenario, sink);
-    const auto *failure = std::get_if<contract::RenderFailure>(&result);
-    if (failure == nullptr ||
-        failure->context.kind != contract::FailureKind::contract_violation ||
-        failure->context.detail_code != "native-audition-saturated") {
-        const auto detail = failure == nullptr ? std::string{"non-failure result"}
-                                               : failure->context.detail_code + ": " +
-                                                     failure->context.state_summary;
-        throw std::runtime_error{
-            "native bake did not report audition saturation explicitly: " + detail};
-    }
-
-    constexpr std::string_view prefix = "audition PCM24 quantization saturated ";
-    constexpr std::string_view suffix =
-        " samples; successful publication requires zero";
-    const auto &summary = failure->context.state_summary;
-    expect(summary.starts_with(prefix) && summary.ends_with(suffix),
-           "native bake saturation summary changed");
-    const auto count_text =
-        summary.substr(prefix.size(), summary.size() - prefix.size() - suffix.size());
-    expect(!count_text.empty() && count_text != "0" &&
-               std::ranges::all_of(
-                   count_text,
-                   [](const char value) { return value >= '0' && value <= '9'; }),
-           "native bake did not report a positive saturation count");
-    expect(sink.begin_calls == 1U && sink.commit_calls == 0U && sink.abort_calls == 1U,
-           "saturated native bake reached commit or failed to abort once");
+    const auto published = publish_complete_session(scenario);
+    expect(published.stats.audition_saturated_sample_count == 0U,
+           "tanh-bounded audition master reached PCM24 saturation");
 }
 
 } // namespace
@@ -743,7 +717,8 @@ int main(int argc, char **argv) {
             compile_short_held_scenario(std::filesystem::path{argv[1]});
         test_public_session_byte_golden(scenario);
         test_prebinding_and_transaction_failures(scenario);
-        test_native_bake_rejects_audition_saturation(std::filesystem::path{argv[1]});
+        test_extreme_volume_is_soft_limited_before_pcm24(
+            std::filesystem::path{argv[1]});
     } catch (const std::exception &error) {
         std::cerr << "native presentation publisher test failed: " << error.what()
                   << '\n';

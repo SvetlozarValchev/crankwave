@@ -1,7 +1,8 @@
 # M4 simulation-manifest wire contract
 
 Status: implemented as the sole current canonical v10 manifest and v7 request-identity
-encoding; active intake listening was accepted separately on 2026-08-04
+encoding; the 2026-08-04 active-intake dyno acceptance was superseded by transient
+rejection on 2026-08-05
 
 Manifest wire schema ID:
 `engine-sim-offline.render-manifest.simulation.v10`
@@ -352,8 +353,9 @@ currently admitted identities are:
 Admission recompiles the provisioned plan from the namespace, scenario public seed,
 and stable topology. The current executors instantiate one combustion lane per
 cylinder and one air-noise plus one jitter lane per configured exhaust presentation
-route even when the corresponding scale is zero, so all are recorded. Active intake
-pressure is deterministic and creates neither lane. The canonical order is combustion
+route even when the corresponding scale is zero, so all are recorded. Intake
+thermodynamic and diagnostic capture is deterministic, creates neither lane, and does
+not enter presentation. The canonical order is combustion
 by ascending stable cylinder ID, then exhaust air noise by ascending stable route ID,
 then exhaust jitter by ascending stable route ID. Each coordinate is derived under its
 fixed `combustion`, `synth_air_noise`, or `synth_jitter` domain with component index
@@ -589,17 +591,18 @@ rewrite, infer, or substitute them.
 The opaque simulation job derives publication names from the same admitted values; it
 does not accept a second caller-built path or INFO-metadata description.
 
-For each published gas-source route, the three
-`SourceRouteRequirement::artifact_roles` entries are the method-owned positional
+For each currently published gas-source route—all of which are exhaust routes—the
+three `SourceRouteRequirement::artifact_roles` entries are the method-owned positional
 tuple `dry`, `configured_transfer`, and `selected`, in that order. Every admitted
-exhaust and intake route uses the rendered disposition. Exhaust gives those roles its
-dry/transfer/selection products. Active intake gives all three roles the same
-ambient-referenced, reconstructed, DC-removed, source-gained pressure product and has
-no presentation-randomness lanes, impulse-response asset, or convolution. The job
-copies those identities into the corresponding named plan fields; it does not infer
-signal meaning from role spelling or artifact-list order. A different count or
-ownership mapping is not executable by this presentation method and fails before
-transaction begin.
+exhaust route uses the rendered disposition and gives those roles its
+dry/transfer/selection products. Current JSON cannot author an intake source route,
+and the encoder emits no intake artifact ownership or master participation. Physical
+intake state and diagnostic capture remain in the simulation/request record. The job
+copies admitted exhaust identities into the corresponding named plan fields; it does
+not infer signal meaning from role spelling or artifact-list order. A different count
+or ownership mapping is not executable by this presentation method and fails before
+transaction begin. Historical active-intake manifests remain evidence for the
+superseded 2026-08-04 gate, not a current authoring or compatibility surface.
 
 For each admitted audio requirement, its artifact path is `audio/`, followed by the
 artifact role with every `/` byte replaced by lowercase `%2f`, followed by `.wav`.

@@ -259,24 +259,18 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
                  "engine.routes." + route.route->id.value + ".semantic_id");
     }
 
-    for (const auto &resolved : ordered_routes(context)) {
+    for (const auto &resolved : ordered_exhaust_routes(context)) {
         const auto semantic = resolved.route->id.value;
         const auto base = "engine.routes." + semantic;
-        const bool exhaust = resolved.exhaust != nullptr;
-        const auto source_volume =
-            exhaust
-                ? volume_id(context, collector_semantic_id(resolved.exhaust->id.value))
-                : volume_id(context,
-                            intake_plenum_semantic_id(resolved.intake->id.value));
+        const auto source_volume = volume_id(
+            context, collector_semantic_id(resolved.exhaust->id.value));
         engine.routes.push_back({
             route_id(context, semantic),
             emitter.authored(semantic, base + ".semantic_id"),
             emitter.derived(
-                exhaust ? contract::SourceRouteKind::exhaust_outlet
-                        : contract::SourceRouteKind::intake_inlet,
+                contract::SourceRouteKind::exhaust_outlet,
                 base + ".kind",
-                derived_method_identity(exhaust ? "exhaust-source-route-kind-v1"
-                                                : "intake-source-route-kind-v1"),
+                derived_method_identity("exhaust-source-route-kind-v1"),
                 {base + ".semantic_id"}),
             source_volume,
             std::nullopt,

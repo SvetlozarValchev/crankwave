@@ -1,12 +1,15 @@
 # Post-parity intake-route topology gate
 
 Status: historical silent-topology checkpoint, complete and exhaust-PCM-identical on
-2026-08-03; superseded by the accepted active path on 2026-08-04.
+2026-08-03; superseded by an active experiment accepted on 2026-08-04, which was then
+rejected on live transients and withdrawn on 2026-08-05.
 
-Current production behavior and listening evidence are recorded in
+Current rejection evidence and the preserved historical acceptance are recorded in
 [`POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
+There is currently no authorable or audible intake route. Intake/plenum physics and
+diagnostic observations remain in the simulator.
 
-## Decision
+## Historical decision
 
 At this checkpoint, the engine, capture, presentation, session, C ABI, WASM, and
 native-publication contracts first carried a typed `intake_inlet` source route
@@ -68,9 +71,11 @@ diagnostic. It had to retain the accepted exhaust output, render matched
 exhaust-control/intake-solo/full comparisons, and stop for listening before further
 fidelity work.
 
-That gate closed on 2026-08-04 at commit
+That gate initially closed on 2026-08-04 at commit
 `953040294274362fd699436e3040cbcee8f70d30`. The user accepted the active intake
 comparison, every exhaust stem remained byte-identical to the accepted 20 kHz
-control, and the active implementation became the sole production path. The
-`declared_silent` behavior described above remains only this historical checkpoint;
-it is not an optional or compatibility mode in current execution.
+control, and the active implementation became the sole production path at that time.
+A 2026-08-05 live hard-reopen check subsequently exposed a clop/pop and withdrew that
+audible route. The `declared_silent` behavior described above was not reinstated as a
+compatibility mode: current JSON has no intake audio source route or stems. The
+underlying intake/plenum thermodynamics and diagnostic capture remain.

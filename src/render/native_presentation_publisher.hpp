@@ -58,7 +58,7 @@ struct NativePresentationRouteArtifacts {
     PendingArtifact selected;
 };
 
-// Publication binding for one already-produced active gas-source route. This owns no
+// Publication binding for one already-produced active exhaust-source route. This owns no
 // source conditioning, random seed, convolution kernel, or wet-selection setting.
 struct NativePresentationRoutePublicationPlan {
     contract::RouteId route_id;
@@ -66,8 +66,8 @@ struct NativePresentationRoutePublicationPlan {
     NativePresentationRouteArtifacts artifacts;
 };
 
-// Clip-envelope authority only. Monitoring gain belongs to the audio plan and
-// is already reflected in PresentationAudioBlockView::audition_master().
+// Clip-envelope authority only. Stateful master dynamics and listening volume
+// belong to the audio plan and are already reflected in audition_master().
 struct NativePresentationFadeSettings {
     std::uint64_t audible_frame_count = 0;
     std::uint64_t fade_in_frame_count = 0;

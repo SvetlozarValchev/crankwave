@@ -149,8 +149,6 @@ void parse_source_route(DocumentReader &reader, JsonValue value, std::string_vie
                   type);
     if (type == "exhaust") {
         reader.reject_unknown(value, path, {"id", "type", "exhaust"});
-    } else if (type == "intake") {
-        reader.reject_unknown(value, path, {"id", "type", "intake"});
     } else if (type == "mechanical") {
         reader.reject_unknown(value, path, {"id", "type", "component"});
     } else if (!type.empty()) {
@@ -162,10 +160,6 @@ void parse_source_route(DocumentReader &reader, JsonValue value, std::string_vie
     if (type == "exhaust") {
         ExhaustRouteSource parsed;
         read_ref_member(reader, value, "exhaust", path, parsed.exhaust, owner);
-        output.source = std::move(parsed);
-    } else if (type == "intake") {
-        IntakeRouteSource parsed;
-        read_ref_member(reader, value, "intake", path, parsed.intake, owner);
         output.source = std::move(parsed);
     } else if (type == "mechanical") {
         MechanicalRouteSource parsed;

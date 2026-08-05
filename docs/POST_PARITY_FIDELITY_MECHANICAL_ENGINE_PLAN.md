@@ -1,9 +1,10 @@
 # Post-parity mechanical-engine fidelity plan
 
 Status: checkpoint A complete and byte-identical; checkpoint B sound-bearing work
-is blocked on an engine-specific structural transfer asset.
+is blocked on an engine-specific structural transfer asset. Current comparison
+controls were amended after the 2026-08-05 active-intake transient rejection.
 
-Date: 2026-08-04
+Date: 2026-08-04; amended 2026-08-05
 
 ## Decision
 
@@ -37,14 +38,17 @@ The no-audio checkpoint is complete:
 
 The existing `CapturedSourceExcitationSession` remains one coordinator transaction.
 It publishes the force matrix on the canonical 20 kHz post-step capture clock, in
-frame-major canonical cylinder order, beside the unchanged exhaust and intake views.
+frame-major canonical cylinder order, beside the unchanged exhaust and then-existing
+intake diagnostic views.
 The raw values are forces in newtons: they are diagnostic physical excitation, not
 microphone pressure or audio.
 
 This checkpoint does **not** declare a `mechanical.engine` route, route-level wrench,
 presentation processor, stem, manifest record, or master contribution. The admitted
-product currently obtains gas, exhaust, intake, and cylinder thermodynamic capture
-from the same low-order block and coordinates them in one transaction. That coupling
+product currently obtains gas, exhaust, physical-intake diagnostics, and cylinder
+thermodynamic capture from the same low-order block and coordinates them in one
+transaction. Intake diagnostics do not create an authorable source route, stem, or
+master contribution. That coupling
 was reviewed and is non-blocking for the current product; a future mechanical-only
 capture product may split admission when such a product exists.
 
@@ -154,10 +158,11 @@ claiming a later phase will repair it.
   continuity.
 - Did not collapse the component lanes into a route-level body wrench before the
   structural transfer.
-- Kept the production master on the accepted exhaust-plus-intake route set until the
-  required transfer asset is admitted. Do not retain a runtime silent/active switch.
-- Proved every existing exhaust, intake, raw-master, and audition-master WAV byte for
-  byte against the accepted control.
+- At that checkpoint, kept the production master on the then-accepted
+  exhaust-plus-intake route set. The 2026-08-05 transient gate later withdrew the
+  intake contribution rather than retaining a runtime silent/active switch.
+- Proved every then-existing exhaust, intake, raw-master, and audition-master WAV byte
+  for byte against that checkpoint's accepted control.
 
 This checkpoint is the implemented SI capture foundation. It is not a listening
 candidate and does not claim that `mechanical.engine` exists or is
@@ -176,8 +181,9 @@ silent route or zero mechanical presentation block.
   in fixed cylinder order into one `mechanical.engine` route.
 - Publish the normal dry, configured-transfer, and selected route stems and include
   the selected route once in both engine masters.
-- Leave exhaust, intake, combustion physics, randomness, mastering, and all other
-  mechanical mechanisms frozen.
+- Leave exhaust audio, intake thermodynamics and diagnostic capture, combustion
+  physics, randomness, mastering, and all other mechanical mechanisms frozen. Do not
+  restore an audible intake route.
 
 There is one accepted production path after this checkpoint. No compatibility mode or
 optional old/new renderer remains.
@@ -188,10 +194,10 @@ Produce all four 15-second BMW held-dyno comparisons from one render:
 
 | Clip | Contents |
 |---|---|
-| A | Accepted exhaust-plus-intake control with mechanical muted; its accepted PCM must match exactly. |
+| A | Accepted exhaust-only control with mechanical absent; its accepted PCM must match exactly. |
 | B | Six-cylinder pressure/force diagnostic solo at a declared fixed monitoring scale; explicitly not microphone audio. |
 | C | Transferred `mechanical.engine` solo. |
-| D | Full exhaust plus intake plus transferred mechanical route. |
+| D | Full exhaust plus transferred mechanical route; intake remains physical/diagnostic only. |
 
 All clips have the same crop, clock, frame count, fades, and polarity convention. A
 and D use the same master gain. No clip uses independent normalization, automatic

@@ -1,8 +1,41 @@
 # Post-parity active-intake listening gate
 
-Status: accepted by user listening on 2026-08-04.
+Status: superseded by user transient listening on 2026-08-05; historically accepted
+on the held-dyno comparison on 2026-08-04.
 
-## Decision
+## Supersession
+
+This document preserves the evidence and decision made at the 2026-08-04 held-dyno
+gate. That comparison did not exercise a hard throttle reopening after a lift. Direct
+live free-rev listening on 2026-08-05 exposed a clop/pop where the expected exhaust
+bark should occur. With the audible intake route absent, both the canonical 192 kHz
+master and a separate experiment using the exact 44.1 kHz engine-sim master ordering
+restored the bark. Their agreement rules out delivery rate or master ordering as the
+cause of that defect.
+
+The audible intake route is therefore withdrawn from the production master. The
+intake and plenum thermodynamics remain in the physical simulation; only their
+pressure-derived audible contribution is withdrawn. The clips, hashes, and acceptance
+record below remain valid historical evidence for the narrower held-dyno comparison,
+not current acceptance of the intake route across engine transients.
+
+The clean exhaust-only closure keeps the former flow-coupled WAV as an upstream raw
+source/conditioning/IR oracle and gives the new stateful listening master its own
+identity instead of overwriting history:
+
+- `reference/oracles/bmw-m52b28/bmw-m52b28-canonical-exhaust-only-master-v4-20khz-5b7f919-dyno-1500-6500rpm.wav`;
+- `8,640,598` bytes, complete-WAV SHA-256
+  `58ec677b0565fad0e9a3b9eedba9590d5af9891c647185ebdb9c98f7e469cde7`;
+- decoded PCM24 SHA-256
+  `52fef731caf12b9a6353e0ed3a928039db74277193d99847b244f852edebf01f`;
+  and
+- clean Release render-body time `42.082 s` on the development PC.
+
+That current master contains exhaust only. JSON cannot author the rejected audible
+intake route, and the production presentation session has no intake-pressure DSP or
+mixing path. Intake-pressure capture remains diagnostic data rather than sound.
+
+## Historical decision
 
 The cooker has one production intake-audio path. Each rendered `intake_inlet` route
 uses the captured plenum pressure already produced by the low-order gas simulation;

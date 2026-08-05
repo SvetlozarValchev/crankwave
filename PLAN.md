@@ -176,19 +176,26 @@ equality were proven. The tracked historical WAV, JSON-compiled request/WAV gold
 and focused automated test remain. The old BMW-specific provenance and request hash
 did not become compatibility targets.
 
-Core 192 kHz PCM and the encoded PCM24 `data` chunk must remain byte-identical through
-the cutover. The generic WAV container receives a new deterministic golden because its
+Core 192 kHz PCM and the encoded PCM24 `data` chunk remained byte-identical through
+the original architecture cutover. The generic WAV container received a new
+deterministic golden because its
 INFO metadata truthfully carries the new generic presentation and source-matrix IDs;
 retaining obsolete IDs merely to reproduce the historical whole-file hash is forbidden.
 Browser device-rate conversion is compared before that final adapter; an AudioContext
 resampler is not expected to reproduce a 192 kHz WAV container.
 
+The 2026-08-05 exhaust-only v4 listening master intentionally advances audition PCM
+after user A/B confirmation. Its separate raw master and route stems retain the
+historical source/conditioning/IR bytes; the old audition WAV remains their upstream
+oracle rather than being overwritten.
+
 The current generic identities are:
 
 ```text
-simulation request SHA-256: 8c75e9bfa871e88d58031d52c5eb7278a27a9092e252c7a1fb09466755678ced
-audition WAV byte count:    8640586
-audition WAV SHA-256:       6563eca69744bf0bfa375b81e694aa0640388e995cc90e8217233a029e9942a6
+simulation request SHA-256: b08b197a2cf4df993112d9b345c095e2290a5f426ebb3b4462a60af6faed89da
+audition WAV byte count:    8640598
+audition WAV SHA-256:       58ec677b0565fad0e9a3b9eedba9590d5af9891c647185ebdb9c98f7e469cde7
+audition PCM24 SHA-256:     52fef731caf12b9a6353e0ed3a928039db74277193d99847b244f852edebf01f
 ```
 
 Checkpoint 7 truthfully renamed the route-publication and audition-mix methods from
@@ -1030,14 +1037,15 @@ candidate with the accepted parity renderer as its control:
    preserving every old rounded total arrival. Both canonical BMW renders matched all
    eight accepted WAVs byte for byte. See
    [`docs/POST_PARITY_FIDELITY_CYLINDER_LANES.md`](docs/POST_PARITY_FIDELITY_CYLINDER_LANES.md)**);
-3. add a separately published intake source bus (**complete: the sole active path uses
-   captured 20 kHz plenum pressure, ambient subtraction, causal reconstruction to
-   192 kHz, deterministic DC removal, and authored route gain. It consumes no exhaust
-   randomness or IR, preserves every accepted exhaust WAV byte for byte, and the user
-   accepted its matched exhaust-control/intake-solo/full comparison on 2026-08-04. See
-   [`docs/POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](docs/POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
-   Post-acceptance performance work also retains all 11 accepted WAVs byte for byte
-   and passes the full zero-startup-underrun browser gate**);
+3. add a separately published intake source bus (**experiment rejected and withdrawn:
+   the pressure-derived route preserved every exhaust WAV and passed its narrower
+   held-dyno comparison on 2026-08-04, but a 2026-08-05 live hard-reopen check exposed
+   a clop/pop where exhaust bark was expected. Exhaust-only 192 kHz and exact 44.1 kHz
+   engine-sim-order comparisons both restored the bark. Current JSON therefore has no
+   authorable or audible intake route; intake/plenum thermodynamics and diagnostic
+   observations remain. The former active-route WAV hashes and browser performance
+   gate remain historical evidence only. See
+   [`docs/POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](docs/POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md)**);
 4. add `mechanical.engine`, valvetrain, and `mechanical.starter` as independent gates,
    beginning with a byte-identical per-cylinder combustion/compression-force capture
    seam (**capture checkpoint complete: `59fd98c` added the 20 kHz post-step,

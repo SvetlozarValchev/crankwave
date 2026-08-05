@@ -570,8 +570,7 @@
     ],
     "source_routes": [
       {"id": "exhaust.front", "type": "exhaust", "exhaust": "exhaust.front"},
-      {"id": "exhaust.rear", "type": "exhaust", "exhaust": "exhaust.rear"},
-      {"id": "intake.inlet", "type": "intake", "intake": "intake"}
+      {"id": "exhaust.rear", "type": "exhaust", "exhaust": "exhaust.rear"}
     ]
   },
   "rig": {
@@ -634,12 +633,6 @@
         "impulse_response": "smooth-39",
         "impulse_response_gain_linear": 0.001,
         "wet_mix_01": 1
-      },
-      {
-        "route": "intake.inlet",
-        "source_gain_linear": 4,
-        "impulse_response_gain_linear": 0,
-        "wet_mix_01": 0
       }
     ],
     "conditioning": {
@@ -652,20 +645,20 @@
     "buses": [
       {
         "id": "master-engine-raw",
-        "routes": ["exhaust.front", "exhaust.rear", "intake.inlet"],
+        "routes": ["exhaust.front", "exhaust.rear"],
         "gain_linear": 1,
         "publish": true
       },
       {
         "id": "master-engine-audition",
-        "routes": ["exhaust.front", "exhaust.rear", "intake.inlet"],
+        "routes": ["exhaust.front", "exhaust.rear"],
         "gain_linear": 1,
         "publish": true
       }
     ],
     "audition": {
       "buses": ["master-engine-audition"],
-      "monitoring_gain_linear": 128,
+      "volume_linear": 1,
       "fade_in": {"value": 0.02, "unit": "s"},
       "fade_out": {"value": 0.02, "unit": "s"}
     },

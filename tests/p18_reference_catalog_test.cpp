@@ -341,11 +341,13 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
                render.expected_faded_absolute_peak_binary32_bits != 0,
            "capture and render comparator horizons disagree");
 
+    constexpr double kHistoricalP18AuditionMonitoringGainLinear = 128.0;
     const auto &scalars = catalog.expected_presentation.expected_scalars;
     expect(scalars.expected_publication_calibration_gain_linear.expected_ieee754_bits ==
                    std::bit_cast<std::uint64_t>(dsp::kSourcePublicationCalibration) &&
                scalars.expected_audition_monitoring_gain_linear.expected_ieee754_bits ==
-                   std::bit_cast<std::uint64_t>(128.0) &&
+                   std::bit_cast<std::uint64_t>(
+                       kHistoricalP18AuditionMonitoringGainLinear) &&
                scalars.expected_audition_fade_in_duration_s.expected_ieee754_bits ==
                    std::bit_cast<std::uint64_t>(
                        static_cast<double>(kFixtureFadeFrameCount) /
@@ -353,7 +355,8 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
                            presentation::CausalReconstruction::kSourceRateHz)) &&
                scalars.expected_audition_fade_out_duration_s.expected_ieee754_bits ==
                    scalars.expected_audition_fade_in_duration_s.expected_ieee754_bits,
-           "presentation scalar catalog differs from publication or mastering");
+           "historical P18 presentation scalar catalog differs from publication or "
+           "fixed-gain monitoring mastering");
 }
 
 } // namespace

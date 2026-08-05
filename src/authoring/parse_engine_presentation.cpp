@@ -145,15 +145,15 @@ void parse_audition(DocumentReader &reader, JsonValue value, std::string_view pa
         return;
     }
     reader.reject_unknown(value, path,
-                          {"buses", "monitoring_gain_linear", "fade_in", "fade_out"});
+                          {"buses", "volume_linear", "fade_in", "fade_out"});
     read_required_array(
         reader, value, "buses", path, output.buses,
         [&](JsonValue item, std::string_view item_path, AudioBusRef &reference) {
             reader.ref(item, item_path, reference);
         });
-    reader.nonnegative_number(reader.required(value, "monitoring_gain_linear", path),
-                              pointer_member(path, "monitoring_gain_linear"),
-                              output.monitoring_gain_linear);
+    reader.nonnegative_number(reader.required(value, "volume_linear", path),
+                              pointer_member(path, "volume_linear"),
+                              output.volume_linear);
     read_quantity_member(reader, value, "fade_in", path, QuantityDimension::duration,
                          output.fade_in);
     read_quantity_member(reader, value, "fade_out", path, QuantityDimension::duration,

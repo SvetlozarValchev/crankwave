@@ -70,9 +70,9 @@ if(NOT EXISTS "${audition_wave}")
 endif()
 file(SIZE "${audition_wave}" audition_wave_size)
 file(SHA256 "${audition_wave}" audition_wave_sha256)
-if(NOT audition_wave_size EQUAL 8640586 OR
+if(NOT audition_wave_size EQUAL 8640598 OR
    NOT audition_wave_sha256 STREQUAL
-       "220cd6760b4eb991cdac147a99dfcc0f345ddf9fdd86b7c1924e062d87cc2c5b")
+       "58ec677b0565fad0e9a3b9eedba9590d5af9891c647185ebdb9c98f7e469cde7")
     message(FATAL_ERROR
         "CLI audition WAV identity changed\n"
         "size: ${audition_wave_size}\nsha256: ${audition_wave_sha256}")

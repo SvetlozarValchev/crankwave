@@ -693,7 +693,7 @@ inline PresentationCalibration make_presentation(InputBuilder &builder,
     presentation.audition = {
         builder.resolved(std::vector<RouteId>{RouteId{1}},
                          "presentation.audition.selected_routes"),
-        builder.resolved(1.0, "presentation.audition.monitoring_gain_linear"),
+        builder.resolved(1.0, "presentation.audition.volume_linear"),
         builder.resolved(0.02, "presentation.audition.fade_in_duration_s"),
         builder.resolved(0.02, "presentation.audition.fade_out_duration_s"),
     };

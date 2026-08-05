@@ -81,21 +81,14 @@ void admit_engine_presentation(const authoring::EnginePackageDocument &document,
         const bool exhaust =
             source_route != nullptr &&
             std::holds_alternative<authoring::ExhaustRouteSource>(source_route->source);
-        const bool intake =
-            source_route != nullptr &&
-            std::holds_alternative<authoring::IntakeRouteSource>(source_route->source);
-        if (exhaust && !binding.impulse_response.has_value()) {
+        if (!exhaust) {
+            add(report, DiagnosticCode::unsupported_capability,
+                pointer_index("/presentation/routes", index) + "/route",
+                "presentation routes must reference an exhaust source route");
+        } else if (!binding.impulse_response.has_value()) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/presentation/routes", index) + "/impulse_response",
                 "an active exhaust route requires an impulse response");
-        }
-        if (intake && (binding.impulse_response.has_value() ||
-                       !same_binary64(binding.impulse_response_gain_linear, +0.0) ||
-                       !same_binary64(binding.wet_mix_01, +0.0))) {
-            add(report, DiagnosticCode::unsupported_capability,
-                pointer_index("/presentation/routes", index),
-                "an intake-pressure route requires no impulse response and canonical "
-                "positive-zero transfer and wet gains");
         }
     }
     if (resolved.route_presentations.size() != engine.source_routes.size()) {

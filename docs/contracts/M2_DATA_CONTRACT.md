@@ -385,8 +385,11 @@ summing to one within the declared tolerance.
 
 The source-route payload is a tagged union:
 
-- exhaust and intake routes publish `GasSourceRouteCaptureSample` with absolute
+- admitted exhaust routes publish `GasSourceRouteCaptureSample` with absolute
   pressure, temperature, signed mass flow, and effective area;
+- the same gas payload remains available to internal intake diagnostics, but current
+  JSON cannot declare an intake source route and diagnostics create no audio bus or
+  master contribution;
 - engine and starter mechanical routes publish
   `MechanicalSourceRouteCaptureSample` with an engine-local force/torque wrench at
   the route's declared emitter anchor.
@@ -413,11 +416,15 @@ production acoustic source contract.
 Physical source routes and output buses are different identity domains.
 
 `RouteSpec` and `RouteIdentity` describe physical simulator/source topology. Their
-kinds are exhaust outlet, intake inlet, engine mechanical, or starter mechanical.
-Diagnostics are artifacts, not a fifth physical route kind, and remain a separate,
-explicitly labelled output category. A source route has a stable `RouteId`, may bind a
-physical source volume or emitter anchor, and may have an acyclic default parent
-route.
+typed vocabulary contains exhaust outlet, intake inlet, engine mechanical, and
+starter mechanical. Current JSON compilation admits only exhaust outlets as authored
+source routes. The intake-inlet type remains an internal diagnostic and historical
+evidence seam; it is not authorable and cannot own a presentation route, stem, or
+master contribution. Engine and starter mechanical routes remain reserved and
+unadmitted. Diagnostics are artifacts, not a fifth physical route kind, and remain a
+separate, explicitly labelled output category. An admitted source route has a stable
+`RouteId`, may bind a physical source volume or emitter anchor, and may have an
+acyclic default parent route.
 
 `OutputBusRequirement` and `OutputBusRecord` describe downstream mixes such as raw or
 audition masters. A bus has a semantic ID and `OutputBusKind`, but no `RouteId` and no
@@ -487,15 +494,13 @@ Engine, scenario, and presentation profile IDs must agree. Assets must link to
 content-addressed provenance evidence whose digest exactly matches the asset, route
 and asset references must resolve, filter cutoffs must be below the
 source-processing Nyquist rate, and fades must fit in the audible interval.
-The current presentation validator admits configured active exhaust routes and
-active intake-pressure routes. An active intake route consumes captured absolute
-plenum pressure, references it to scenario ambient pressure, reconstructs it from the
-canonical 20 kHz capture clock to the 192 kHz presentation clock, removes DC at
-10 Hz, and applies its authored source gain. Its dry, configured-transfer, and
-selected stems are identical: it receives no exhaust conditioning seed, impulse
-response, or convolution kernel. It participates once in the ordered master
-reduction. Mechanical routes remain unadmitted. The previously declared-silent
-intake topology is historical evidence, not a retained execution alternative; see
+The current presentation validator admits configured active exhaust routes. It does
+not admit an authored intake-pressure route. Intake and plenum physics, including
+pressure, temperature, and boundary-flow observations, remain in the simulation and
+diagnostic capture, but they produce no intake stem, output bus, or master
+contribution. Mechanical routes remain unadmitted. Both the earlier declared-silent
+topology checkpoint and the subsequently active pressure-route experiment are
+historical evidence, not retained execution alternatives; see
 [`POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](../POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
 
 The historical frozen BMW reference evidence separately pins its former P1.8 method
@@ -555,11 +560,11 @@ are executable cache values only and must equal that canonical derivation.
 Current combustion requires one initialized lane per cylinder; current presentation
 jitter and air noise require one initialized lane of each kind per configured
 exhaust route even at zero scale because those executors still instantiate them.
-Presentation advances both exhaust-route-owned generators; deterministic intake
-pressure creates no presentation-randomness lane. Combustion draws only for accepted
-ignition events. The plan does not claim runtime draw counts. Historical P1.8 evidence
-separately pins its former generator, derivation, seed, and four route-owned
-presentation stream pairs in
+Presentation advances both exhaust-route-owned generators. Intake diagnostic capture
+creates no presentation-randomness lane and never enters presentation. Combustion
+draws only for accepted ignition events. The plan does not claim runtime draw counts.
+Historical P1.8 evidence separately pins its former generator, derivation, seed, and
+four route-owned presentation stream pairs in
 [`P18_PRESENTATION_RENDERER.md`](../../reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md).
 Those records are audit evidence only; their generator is not admitted by the current
 simulation contract.

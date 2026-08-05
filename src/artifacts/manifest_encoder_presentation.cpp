@@ -183,8 +183,8 @@ bool write_audition_mix(CanonicalJsonWriter &writer,
     };
     return writer.begin_object() && writer.key("selected_routes") &&
            write_resolved(writer, audition.selected_routes, write_routes) &&
-           writer.key("monitoring_gain_linear") &&
-           write_resolved(writer, audition.monitoring_gain_linear, write_f64) &&
+           writer.key("volume_linear") &&
+           write_resolved(writer, audition.volume_linear, write_f64) &&
            writer.key("fade_in_duration_s") &&
            write_resolved(writer, audition.fade_in_duration_s, write_f64) &&
            writer.key("fade_out_duration_s") &&

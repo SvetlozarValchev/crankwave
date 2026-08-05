@@ -10,6 +10,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <iterator>
 #include <new>
 #include <stdexcept>
@@ -317,10 +318,16 @@ void test_motion_contract_surface(eso_context_t *context,
                engine_provenance.bytes[0] == 0xa5U,
            "engine provenance lost invalid-handle or transactional output behavior");
     expect(eso_engine_copy_provenance_sha256(context, engine, &engine_provenance) ==
-                   ESO_STATUS_OK &&
-               digest_hex(engine_provenance) ==
-                   "1d81da0057a42fa37f138ef54881d431007409c1a2b90c58b62008f6bd3ae4cf",
-           "C ABI engine provenance differs from the compiled bundle SHA-256");
+               ESO_STATUS_OK,
+           "C ABI could not copy compiled-engine provenance");
+    const auto engine_provenance_hex = digest_hex(engine_provenance);
+    constexpr std::string_view kExpectedEngineProvenance =
+        "3918d17dc709292fa6d61681b08889647f92f6bcf1b3209cbdc5d70c91c0fa5e";
+    if (engine_provenance_hex != kExpectedEngineProvenance) {
+        throw std::runtime_error{
+            "C ABI engine provenance differs from the compiled bundle SHA-256: " +
+            engine_provenance_hex};
+    }
 
     eso_sha256_digest_t renderer_source{};
     const auto renderer_status =
@@ -901,6 +908,7 @@ int main(const int argc, char **argv) {
         run(std::filesystem::path{argv[1]});
         return 0;
     } catch (const std::exception &error) {
-        return error.what() == nullptr ? 2 : 1;
+        std::cerr << "C API integration test failed: " << error.what() << '\n';
+        return 1;
     }
 }

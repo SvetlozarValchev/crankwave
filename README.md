@@ -20,14 +20,19 @@ scope is accepted. [Slice 16](docs/SLICE_16_PARITY_LISTENING_GATE.md) froze seve
 zero-saturation recordings spanning a
 fixed-cam inline-six, fixed-cam V8, VTEC transition, governed load step, one-level
 master-rod engine, sustained vehicle pull, and launch/shift procedure. The first
-three post-parity fidelity gates are also accepted: production and cooker scenarios
-use one canonical 20 kHz physics/capture path, identity-stable cylinder-primary lanes
-merge at an explicit collector before shared route propagation, and captured plenum
-pressure drives the separately published active intake route. The mechanical-engine
-force-capture seam is complete but remains diagnostic-only pending a defensible
-structural/radiation model. The first isolated queue-item-5 correction is retained as
-an audibly neutral foundation: actual delayed exhaust-valve flow modulates only the
-existing filtered-air term. It is not claimed as a noticeable quality increase;
+two post-parity fidelity gates are also accepted: production and cooker scenarios
+use one canonical 20 kHz physics/capture path, and identity-stable cylinder-primary
+lanes merge at an explicit collector before shared route propagation. A third gate
+made captured plenum pressure audible and was accepted on its 2026-08-04 held-dyno
+comparison, but a 2026-08-05 live throttle-reopen check exposed a clop/pop in place of
+the expected bark. Exhaust-only comparisons restored the bark with both the 192 kHz
+master and an exact 44.1 kHz engine-sim-order experiment, so the audible intake route
+is withdrawn. Intake/plenum thermodynamics remain part of the simulation. The
+mechanical-engine force-capture seam is complete but remains diagnostic-only pending
+a defensible structural/radiation model. The first isolated queue-item-5 correction
+is retained as an audibly neutral foundation: actual delayed exhaust-valve flow
+modulates only the existing filtered-air term. It is not claimed as a noticeable
+quality increase;
 combustion-work and pressure-ratio coupling remain separate. Source processing,
 acoustics, and delivery remain at 192 kHz.
 This scoped claim does not include `.mr` or native-GUI parity, arbitrary unproven
@@ -304,25 +309,21 @@ The accepted 8,640,000-byte PCM24 `data` chunk has SHA-256:
 The older `bmw-m52b28-5th-gear-equivalent` reference has a different PCM
 payload and is not the accepted migration oracle.
 
-The generic JSON path deliberately produces a new deterministic whole-WAV identity
-because its metadata carries generic compiler identities rather than obsolete
-BMW-specific ones:
+The generic JSON path's current exhaust-only v4 listening master has its own
+deterministic identity. The historical migration PCM above remains an upstream
+raw/stem oracle; it is not relabelled as the current audition output:
 
 ```text
-simulation request SHA-256: e01b872b91f142ef65633783a736cbea79169e99b4c45e8df6d68ffa481369d6
-audition WAV byte count:    8640586
-audition WAV SHA-256:       630bc125815d0e80e4c4bd907f0ecd49edd55d3c24ba8e9c29202a220b01b4af
+simulation request SHA-256: b08b197a2cf4df993112d9b345c095e2290a5f426ebb3b4462a60af6faed89da
+audition WAV byte count:    8640598
+audition WAV SHA-256:       58ec677b0565fad0e9a3b9eedba9590d5af9891c647185ebdb9c98f7e469cde7
+audition PCM24 SHA-256:     52fef731caf12b9a6353e0ed3a928039db74277193d99847b244f852edebf01f
 ```
 
-Checkpoint 7 replaced obsolete two-route method names with truthful ordered N-route
-identities. That metadata-only correction added 14 container bytes and changed the
-whole-WAV hash; the PCM24 `data` chunk above remains byte-identical.
-The Slice 16 saturation gate made the method descriptor truthful about counting and
-rejecting clipped audition samples. That metadata-only correction changed the
-whole-WAV hash again without changing the accepted PCM24 `data` chunk.
-The operating-bench rig is resolved into package provenance, so adding the E36
-evaluation rig accounts for the request identity above without changing either audio
-hash.
+Checkpoint 7 and the operating-bench rig historically advanced metadata and request
+identities without changing PCM. The later v4 master is a sound-bearing change: it
+runs the user-approved stateful leveler and tanh stage at 192 kHz, and the rejected
+pressure-derived intake route is absent from both authoring and presentation.
 
 Historical model, manifest, provenance, and listening records remain under `docs/` and
 `reference/`. They document how the accepted implementation was established; they do

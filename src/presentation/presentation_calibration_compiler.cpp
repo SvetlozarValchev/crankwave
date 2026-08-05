@@ -391,11 +391,11 @@ struct PresentationCalibrationCompiler {
         for (std::size_t index = 0; index < engine.routes.size(); ++index) {
             const auto kind = engine.routes[index].kind.value;
             require(report,
-                    kind == contract::SourceRouteKind::exhaust_outlet ||
-                        kind == contract::SourceRouteKind::intake_inlet,
+                    kind == contract::SourceRouteKind::exhaust_outlet,
                     ContractIssueCode::unsupported_value,
                     "engine.routes[" + std::to_string(index) + "].kind.value",
-                    "the executable presentation accepts gas source routes only");
+                    "the executable presentation accepts exhaust source routes "
+                    "only");
         }
 
         require(report, calibration.routes.size() == engine.routes.size(),
@@ -410,21 +410,16 @@ struct PresentationCalibrationCompiler {
             const bool exhaust =
                 engine_route != engine.routes.end() &&
                 engine_route->kind.value == contract::SourceRouteKind::exhaust_outlet;
-            const bool intake =
-                engine_route != engine.routes.end() &&
-                engine_route->kind.value == contract::SourceRouteKind::intake_inlet;
             require(report, canonical_nonnegative(route.source_gain_linear.value),
                     ContractIssueCode::invalid_value,
                     path + ".source_gain_linear.value",
                     "source gain must be finite, nonnegative, and use canonical "
                     "positive zero");
             require(report,
-                    (exhaust && route.impulse_response_asset_id.has_value()) ||
-                        (intake && !route.impulse_response_asset_id.has_value()),
+                    exhaust && route.impulse_response_asset_id.has_value(),
                     ContractIssueCode::inconsistent_semantics,
                     path + ".impulse_response_asset_id",
-                    "active exhaust routes require a transfer asset while active "
-                    "intake-pressure routes use an identity transfer with none");
+                    "active exhaust routes require a transfer asset");
             require(report,
                     canonical_nonnegative(route.impulse_response_gain_linear.value),
                     ContractIssueCode::invalid_value,
@@ -435,16 +430,6 @@ struct PresentationCalibrationCompiler {
                     ContractIssueCode::invalid_value, path + ".wet_mix_01.value",
                     "wet mix must be finite in [0, 1] and use canonical positive "
                     "zero");
-            if (intake) {
-                require(report,
-                        route.impulse_response_gain_linear.value == 0.0 &&
-                            !std::signbit(route.impulse_response_gain_linear.value) &&
-                            route.wet_mix_01.value == 0.0 &&
-                            !std::signbit(route.wet_mix_01.value),
-                        ContractIssueCode::unsupported_value, path,
-                        "active intake identity-transfer values must be canonical "
-                        "positive zero");
-            }
         }
         if (calibration.routes.size() == engine.routes.size()) {
             for (std::size_t index = 0; index < engine.routes.size(); ++index) {
@@ -470,8 +455,7 @@ struct PresentationCalibrationCompiler {
                 ContractIssueCode::unsupported_value,
                 "presentation.audition.selected_routes.value",
                 "the executable audition selection must declare every configured "
-                "route once; its active-exhaust subsequence owns deterministic "
-                "arithmetic order");
+                "exhaust route once in deterministic arithmetic order");
 
         const RouteConditioningCalibration conditioning{
             calibration.conditioning.jitter_scale.value,
@@ -504,21 +488,19 @@ struct PresentationCalibrationCompiler {
                 "presentation.publication.calibration_gain_linear.value",
                 "publication calibration gain must be finite and strictly positive");
 
-        const double monitoring_gain =
-            calibration.audition.monitoring_gain_linear.value;
-        const bool monitoring_gain_in_float32_range =
-            std::isfinite(monitoring_gain) && monitoring_gain > 0.0 &&
-            monitoring_gain <= static_cast<double>(std::numeric_limits<float>::max());
-        const float compiled_monitoring_gain = monitoring_gain_in_float32_range
-                                                   ? static_cast<float>(monitoring_gain)
-                                                   : 0.0F;
+        const double volume = calibration.audition.volume_linear.value;
+        const bool volume_in_float32_range =
+            std::isfinite(volume) && volume > 0.0 &&
+            volume <= static_cast<double>(std::numeric_limits<float>::max());
+        const float compiled_volume = volume_in_float32_range
+                                          ? static_cast<float>(volume)
+                                          : 0.0F;
         require(report,
-                monitoring_gain_in_float32_range &&
-                    std::isfinite(compiled_monitoring_gain) &&
-                    compiled_monitoring_gain > 0.0F,
+                volume_in_float32_range && std::isfinite(compiled_volume) &&
+                    compiled_volume > 0.0F,
                 ContractIssueCode::invalid_value,
-                "presentation.audition.monitoring_gain_linear.value",
-                "monitoring gain must round to a finite positive Float32 value");
+                "presentation.audition.volume_linear.value",
+                "listening volume must round to a finite positive Float32 value");
 
         require_canonical_zero(report, calibration.audition.fade_in_duration_s.value,
                                "presentation.audition.fade_in_duration_s.value");
@@ -566,7 +548,7 @@ struct PresentationCalibrationCompiler {
             calibration.publication.calibration_gain_linear,
             audition_routes,
             MasteringSettings{audible_source_frames, *fade_in_frames, *fade_out_frames,
-                              compiled_monitoring_gain},
+                              compiled_volume},
             scenario.rates.capture,
             capture_frames_per_block,
             total_blocks,

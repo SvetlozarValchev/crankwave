@@ -2,6 +2,13 @@
 
 Status: retained by user listening on 2026-08-04 as audibly neutral.
 
+Supersession note (2026-08-05): the full-mix A/B files below retain the historically
+accepted intake contribution and remain evidence for this gate's original comparison,
+but that intake route is no longer accepted for production presentation. A later live
+hard-reopen check exposed its clop/pop regression and withdrew it while leaving intake
+thermodynamics intact. The exhaust-flow candidate itself remains retained: the
+exhaust-only C/D comparison independently received the same audibly neutral verdict.
+
 ## Isolated candidate
 
 Commit `4eafff8` changes one existing sound-bearing operation: the filtered stochastic

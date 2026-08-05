@@ -606,7 +606,7 @@ stem-publication = {
 
 audition-mix = {
   "selected_routes": resolved<route-id-array>,
-  "monitoring_gain_linear": resolved<f64-bits>,
+  "volume_linear": resolved<f64-bits>,
   "fade_in_duration_s": resolved<f64-bits>,
   "fade_out_duration_s": resolved<f64-bits>
 }

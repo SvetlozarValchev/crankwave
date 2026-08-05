@@ -771,16 +771,6 @@
         "exhaust": { "$ref": "#/$defs/id" }
       }
     },
-    "intakeRouteSource": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "type", "intake"],
-      "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "type": { "const": "intake" },
-        "intake": { "$ref": "#/$defs/id" }
-      }
-    },
     "mechanicalRouteSource": {
       "type": "object",
       "additionalProperties": false,
@@ -794,7 +784,6 @@
     "sourceRoute": {
       "oneOf": [
         { "$ref": "#/$defs/exhaustRouteSource" },
-        { "$ref": "#/$defs/intakeRouteSource" },
         { "$ref": "#/$defs/mechanicalRouteSource" }
       ]
     },
@@ -896,13 +885,13 @@
     "audition": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["buses", "monitoring_gain_linear", "fade_in", "fade_out"],
+      "required": ["buses", "volume_linear", "fade_in", "fade_out"],
       "properties": {
         "buses": {
           "type": "array",
           "items": { "$ref": "#/$defs/id" }
         },
-        "monitoring_gain_linear": { "$ref": "#/$defs/nonnegative" },
+        "volume_linear": { "$ref": "#/$defs/nonnegative" },
         "fade_in": { "$ref": "#/$defs/quantity" },
         "fade_out": { "$ref": "#/$defs/quantity" }
       }
