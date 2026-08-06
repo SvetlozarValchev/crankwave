@@ -12,101 +12,129 @@ namespace engine_sim_offline::authoring {
 inline constexpr auto kAtlasBakeSchema = "engine-sim-offline/atlas-bake";
 
 struct AtlasBakeTag;
-struct AtlasBakeScenarioSourceTag;
-struct AtlasBakeMovingSegmentTag;
+struct AtlasBakeLoadLaneTag;
+struct AtlasBakeLifecycleCaptureTag;
 
 using AtlasBakeId = StableId<AtlasBakeTag>;
-using AtlasBakeScenarioSourceId = StableId<AtlasBakeScenarioSourceTag>;
-using AtlasBakeScenarioSourceRef = StableRef<AtlasBakeScenarioSourceTag>;
-using AtlasBakeMovingSegmentId = StableId<AtlasBakeMovingSegmentTag>;
+using AtlasBakeLoadLaneId = StableId<AtlasBakeLoadLaneTag>;
+using AtlasBakeLoadLaneRef = StableRef<AtlasBakeLoadLaneTag>;
+using AtlasBakeLifecycleCaptureId = StableId<AtlasBakeLifecycleCaptureTag>;
 
 struct AtlasBakeAudio {
     RationalRate sample_rate;
-    // Authored order is the immutable atlas delivery order.
-    std::vector<AudioBusRef> buses;
+    // Authored order is the immutable dry-source route order.
+    std::vector<SourceRouteRef> routes;
+    AudioBusRef output_bus;
 
     friend bool operator==(const AtlasBakeAudio &, const AtlasBakeAudio &) = default;
+};
+
+enum class AtlasBakeLoadCoordinate : std::uint8_t {
+    measured_intake_manifold_pressure_pa_abs,
 };
 
 struct AtlasBakeDomain {
     double minimum_rpm = 0.0;
     double maximum_rpm = 0.0;
-    double minimum_load_coordinate = 0.0;
-    double maximum_load_coordinate = 0.0;
+    AtlasBakeLoadCoordinate load_coordinate =
+        AtlasBakeLoadCoordinate::measured_intake_manifold_pressure_pa_abs;
+    double phase_cycle_revolutions = 0.0;
+    std::uint32_t running_state_mask = 0;
 
     friend bool operator==(const AtlasBakeDomain &, const AtlasBakeDomain &) = default;
 };
 
-struct AtlasBakeScenarioSource {
-    AtlasBakeScenarioSourceId id;
-    std::string uri;
+struct AtlasBakeCapture {
+    RationalRate physics_rate;
+    std::uint32_t samples_per_cycle = 0;
+    std::uint32_t cycles_per_cell = 0;
+    std::uint32_t guard_cycles_before = 0;
+    std::uint32_t guard_cycles_after = 0;
+    Quantity preparation_duration;
+    double residual_taper_fraction_per_edge = 0.0;
+    std::uint32_t maximum_concurrency = 0;
+    // One declarative held-speed scenario supplies fuel, ambient, thermal, and
+    // crankcase context. The baker clones it and overrides cell coordinates.
+    std::string scenario_template_uri;
 
-    friend bool operator==(const AtlasBakeScenarioSource &,
-                           const AtlasBakeScenarioSource &) = default;
+    friend bool operator==(const AtlasBakeCapture &,
+                           const AtlasBakeCapture &) = default;
 };
 
-struct AtlasBakeRpmRange {
-    double minimum = 0.0;
-    double maximum = 0.0;
+struct AtlasBakeLoadLane {
+    AtlasBakeLoadLaneId id;
+    double requested_throttle_01 = 0.0;
 
-    friend bool operator==(const AtlasBakeRpmRange &,
-                           const AtlasBakeRpmRange &) = default;
+    friend bool operator==(const AtlasBakeLoadLane &,
+                           const AtlasBakeLoadLane &) = default;
 };
 
-struct AtlasBakeNormalizedRpmSlopeRange {
-    double minimum_per_second = 0.0;
-    double maximum_per_second = 0.0;
+struct AtlasBakePhaseAlignmentReference {
+    double rpm = 0.0;
+    AtlasBakeLoadLaneRef load_lane;
 
-    friend bool operator==(const AtlasBakeNormalizedRpmSlopeRange &,
-                           const AtlasBakeNormalizedRpmSlopeRange &) = default;
+    friend bool operator==(const AtlasBakePhaseAlignmentReference &,
+                           const AtlasBakePhaseAlignmentReference &) = default;
 };
 
-enum class AtlasBakeMovingDirection : std::uint8_t {
-    rising,
-    falling,
+struct AtlasBakePhaseAlignment {
+    AtlasBakePhaseAlignmentReference reference;
+
+    friend bool operator==(const AtlasBakePhaseAlignment &,
+                           const AtlasBakePhaseAlignment &) = default;
 };
 
-struct AtlasBakeHandoffEnvelope {
-    std::uint32_t transition_frames = 0;
-    double maximum_rpm_error = 0.0;
-    double maximum_normalized_rpm_slope_error_per_second = 0.0;
-    double maximum_load_error = 0.0;
-    double maximum_crank_phase_error_revolutions = 0.0;
-
-    friend bool operator==(const AtlasBakeHandoffEnvelope &,
-                           const AtlasBakeHandoffEnvelope &) = default;
+enum class AtlasBakeTransientMotion : std::uint8_t {
+    prescribed_exponential_speed,
 };
 
-// One source scenario records one chronological performance. The captured range
-// includes source context at both ends; the usable range is its strict interior.
-struct AtlasBakeMovingSegment {
-    AtlasBakeMovingSegmentId id;
-    AtlasBakeMovingDirection direction = AtlasBakeMovingDirection::rising;
-    double load_coordinate = 0.0;
-    std::uint32_t state_mask = 0;
-    AtlasBakeNormalizedRpmSlopeRange normalized_rpm_slope;
-    AtlasBakeRpmRange captured_rpm;
-    AtlasBakeRpmRange usable_rpm;
-    AtlasBakeScenarioSourceRef scenario;
-    AtlasBakeHandoffEnvelope handoff;
+struct AtlasBakeTransientCapture {
+    AtlasBakeTransientMotion motion =
+        AtlasBakeTransientMotion::prescribed_exponential_speed;
+    std::uint32_t cycles_per_cell = 0;
+    double normalized_rpm_slope_per_second = 0.0;
+    double seam_closure_fraction_per_edge = 0.0;
 
-    friend bool operator==(const AtlasBakeMovingSegment &,
-                           const AtlasBakeMovingSegment &) = default;
+    friend bool operator==(const AtlasBakeTransientCapture &,
+                           const AtlasBakeTransientCapture &) = default;
 };
 
-// Deliberate placeholders: the first sound-bearing slice admits moving material
-// only. The corresponding authored arrays must be present and empty.
-struct AtlasBakeStationaryTile {
-    friend bool operator==(const AtlasBakeStationaryTile &,
-                           const AtlasBakeStationaryTile &) = default;
+struct AtlasBakeTransientEnvelope {
+    double maximum_gain = 0.0;
+    Quantity attack_duration;
+    Quantity hold_duration;
+    Quantity release_duration;
+
+    friend bool operator==(const AtlasBakeTransientEnvelope &,
+                           const AtlasBakeTransientEnvelope &) = default;
 };
-struct AtlasBakeTransientPerformance {
-    friend bool operator==(const AtlasBakeTransientPerformance &,
-                           const AtlasBakeTransientPerformance &) = default;
+
+struct AtlasBakeTransientPolicy {
+    Quantity detection_window;
+    double onset_delta_01 = 0.0;
+    double full_delta_01 = 0.0;
+    double rearm_delta_01 = 0.0;
+    Quantity refractory_duration;
+    AtlasBakeTransientEnvelope rising;
+    AtlasBakeTransientEnvelope falling;
+
+    friend bool operator==(const AtlasBakeTransientPolicy &,
+                           const AtlasBakeTransientPolicy &) = default;
 };
-struct AtlasBakeLifecyclePerformance {
-    friend bool operator==(const AtlasBakeLifecyclePerformance &,
-                           const AtlasBakeLifecyclePerformance &) = default;
+
+enum class AtlasBakeLifecycleEvent : std::uint8_t {
+    startup,
+    shutdown,
+    limiter,
+};
+
+struct AtlasBakeLifecycleCapture {
+    AtlasBakeLifecycleCaptureId id;
+    AtlasBakeLifecycleEvent event = AtlasBakeLifecycleEvent::startup;
+    std::string scenario_uri;
+
+    friend bool operator==(const AtlasBakeLifecycleCapture &,
+                           const AtlasBakeLifecycleCapture &) = default;
 };
 
 struct AtlasBakeDocument {
@@ -116,11 +144,13 @@ struct AtlasBakeDocument {
     std::uint64_t public_seed = 0;
     AtlasBakeAudio audio;
     AtlasBakeDomain domain;
-    std::vector<AtlasBakeScenarioSource> scenario_sources;
-    std::vector<AtlasBakeMovingSegment> moving_segments;
-    std::vector<AtlasBakeStationaryTile> stationary_tiles;
-    std::vector<AtlasBakeTransientPerformance> transient_performances;
-    std::vector<AtlasBakeLifecyclePerformance> lifecycle_performances;
+    AtlasBakeCapture capture;
+    std::vector<double> rpm_anchors;
+    std::vector<AtlasBakeLoadLane> load_lanes;
+    AtlasBakePhaseAlignment phase_alignment;
+    AtlasBakeTransientCapture transient_capture;
+    AtlasBakeTransientPolicy transient_policy;
+    std::vector<AtlasBakeLifecycleCapture> lifecycle_captures;
 
     friend bool operator==(const AtlasBakeDocument &,
                            const AtlasBakeDocument &) = default;

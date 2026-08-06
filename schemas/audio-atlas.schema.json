@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://engine-sim-offline.dev/schemas/audio-atlas.schema.json",
-  "title": "Engine Sim Offline continuous audio-atlas manifest",
-  "$comment": "This is the sole current moving-segment package schema. PCM is chronological; cycle boundaries are metadata and never a second playback clock.",
+  "title": "Engine Sim Offline responsive audio-atlas manifest",
+  "$comment": "This is the sole current package schema. A phase-aligned held texture is the normal-running bed; causal directional layers carry sharp throttle gestures; lifecycle performances carry finite start/stop material. There are no legacy moving-segment representations.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,10 +12,11 @@
     "public_seed",
     "audio",
     "domain",
-    "moving_segments",
-    "stationary_tiles",
-    "transient_performances",
+    "phase_texture",
+    "transient_policy",
+    "transient_layers",
     "lifecycle_performances",
+    "presentation",
     "artifacts",
     "provenance"
   ],
@@ -26,14 +27,23 @@
     "public_seed": { "$ref": "#/$defs/uint64Decimal" },
     "audio": { "$ref": "#/$defs/audio" },
     "domain": { "$ref": "#/$defs/domain" },
-    "moving_segments": {
+    "phase_texture": { "$ref": "#/$defs/phaseTexture" },
+    "transient_policy": { "$ref": "#/$defs/transientPolicy" },
+    "transient_layers": {
       "type": "array",
-      "minItems": 1,
-      "items": { "$ref": "#/$defs/movingSegment" }
+      "minItems": 2,
+      "maxItems": 2,
+      "allOf": [
+        { "contains": { "properties": { "direction": { "const": "rising" } }, "required": ["direction"] }, "minContains": 1 },
+        { "contains": { "properties": { "direction": { "const": "falling" } }, "required": ["direction"] }, "minContains": 1 }
+      ],
+      "items": { "$ref": "#/$defs/transientLayer" }
     },
-    "stationary_tiles": { "type": "array", "maxItems": 0 },
-    "transient_performances": { "type": "array", "maxItems": 0 },
-    "lifecycle_performances": { "type": "array", "maxItems": 0 },
+    "lifecycle_performances": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/lifecyclePerformance" }
+    },
+    "presentation": { "$ref": "#/$defs/presentation" },
     "artifacts": {
       "type": "array",
       "minItems": 1,
@@ -58,6 +68,12 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[^\\u0000]+$"
+    },
     "contentIdentity": {
       "type": "object",
       "additionalProperties": false,
@@ -70,11 +86,10 @@
     "audio": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sample_rate_hz", "encoding", "channel_layout", "buses"],
+      "required": ["sample_rate_hz", "encoding", "buses"],
       "properties": {
         "sample_rate_hz": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
         "encoding": { "const": "float32le" },
-        "channel_layout": { "const": "mono" },
         "buses": {
           "type": "array",
           "minItems": 1,
@@ -93,37 +108,267 @@
       "required": [
         "minimum_rpm",
         "maximum_rpm",
-        "minimum_load_coordinate",
-        "maximum_load_coordinate"
+        "load_coordinate",
+        "minimum_load_pa_abs",
+        "maximum_load_pa_abs",
+        "phase_cycle_revolutions",
+        "supported_state_masks",
+        "out_of_domain_behavior"
       ],
       "properties": {
         "minimum_rpm": { "type": "number", "exclusiveMinimum": 0 },
         "maximum_rpm": { "type": "number", "exclusiveMinimum": 0 },
-        "minimum_load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 },
-        "maximum_load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 }
+        "load_coordinate": { "const": "measured-intake-manifold-pressure-pa-abs" },
+        "minimum_load_pa_abs": { "type": "number", "exclusiveMinimum": 0 },
+        "maximum_load_pa_abs": { "type": "number", "exclusiveMinimum": 0 },
+        "phase_cycle_revolutions": { "type": "number", "exclusiveMinimum": 0 },
+        "supported_state_masks": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 0, "maximum": 31 }
+        },
+        "out_of_domain_behavior": { "const": "unavailable" }
       }
     },
-    "artifact": {
+    "residualTaper": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "boundary_value", "fraction_per_edge", "frames_per_edge"],
+      "properties": {
+        "method": { "const": "boundary-zero-smoothstep-v1" },
+        "boundary_value": { "const": 0 },
+        "fraction_per_edge": { "type": "number", "exclusiveMinimum": 0, "maximum": 0.5 },
+        "frames_per_edge": { "type": "integer", "minimum": 1, "maximum": 4294967295 }
+      }
+    },
+    "selectorContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "no_adjacent_repeat", "change_phase"],
+      "properties": {
+        "method": { "const": "splitmix64-shuffled-bags-v1" },
+        "no_adjacent_repeat": { "const": true },
+        "change_phase": { "const": "phase-cycle-boundary" }
+      }
+    },
+    "interpolationContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mean", "residual"],
+      "properties": {
+        "mean": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "energy_target"],
+          "properties": {
+            "method": { "const": "common-delay-phase-warp-v1" },
+            "energy_target": { "const": "linear-anchor-rms" }
+          }
+        },
+        "residual": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cross_cell_correlation", "energy_target", "normalization"],
+          "properties": {
+            "cross_cell_correlation": { "const": "independent" },
+            "energy_target": { "const": "linear-anchor-power" },
+            "normalization": { "const": "sqrt-target-power-over-weighted-anchor-power" }
+          }
+        }
+      }
+    },
+    "loadLane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "requested_throttle_01", "state_mask"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "requested_throttle_01": { "type": "number", "minimum": 0, "maximum": 1 },
+        "state_mask": { "type": "integer", "minimum": 0, "maximum": 31 }
+      }
+    },
+    "phaseRouteRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["route_id", "mean_artifact_id", "residual_artifact_id", "mean_rms", "residual_power"],
+      "properties": {
+        "route_id": { "$ref": "#/$defs/id" },
+        "mean_artifact_id": { "$ref": "#/$defs/id" },
+        "residual_artifact_id": { "$ref": "#/$defs/id" },
+        "mean_rms": { "type": "number", "minimum": 0 },
+        "residual_power": { "type": "number", "minimum": 0 }
+      }
+    },
+    "phaseCell": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "id",
-        "relative_path",
-        "frame_count",
-        "byte_count",
-        "payload_sha256"
+        "load_lane_id",
+        "rpm",
+        "load_coordinate_pa_abs",
+        "requested_throttle_01",
+        "state_mask",
+        "shift_to_canonical_samples",
+        "routes"
       ],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
-        "relative_path": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4096,
-          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[^\\u0000]+$"
+        "load_lane_id": { "$ref": "#/$defs/id" },
+        "rpm": { "type": "number", "exclusiveMinimum": 0 },
+        "load_coordinate_pa_abs": { "type": "number", "exclusiveMinimum": 0 },
+        "requested_throttle_01": { "type": "number", "minimum": 0, "maximum": 1 },
+        "state_mask": { "type": "integer", "minimum": 0, "maximum": 31 },
+        "shift_to_canonical_samples": { "type": "number" },
+        "routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/phaseRouteRef" }
+        }
+      }
+    },
+    "phaseTexture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "samples_per_cycle",
+        "residual_cycle_count",
+        "residual_taper",
+        "selector",
+        "interpolation",
+        "rpm_anchors",
+        "load_lanes",
+        "reference_cell_id",
+        "source_route_ids",
+        "cells"
+      ],
+      "properties": {
+        "samples_per_cycle": { "type": "integer", "minimum": 2, "maximum": 4294967295 },
+        "residual_cycle_count": { "type": "integer", "minimum": 2, "maximum": 4294967295 },
+        "residual_taper": { "$ref": "#/$defs/residualTaper" },
+        "selector": { "$ref": "#/$defs/selectorContract" },
+        "interpolation": { "$ref": "#/$defs/interpolationContract" },
+        "rpm_anchors": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "number", "exclusiveMinimum": 0 }
         },
-        "frame_count": { "$ref": "#/$defs/uint64Decimal" },
-        "byte_count": { "$ref": "#/$defs/uint64Decimal" },
-        "payload_sha256": { "$ref": "#/$defs/sha256" }
+        "load_lanes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/loadLane" }
+        },
+        "reference_cell_id": { "$ref": "#/$defs/id" },
+        "source_route_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/phaseCell" }
+        }
+      }
+    },
+    "transientEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attack_frames", "hold_frames", "release_frames", "maximum_gain_linear"],
+      "properties": {
+        "attack_frames": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "hold_frames": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "release_frames": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "maximum_gain_linear": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "transientPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "detection_method",
+        "throttle_window_frames",
+        "minimum_history_frames",
+        "throttle_delta_onset_01",
+        "throttle_delta_full_01",
+        "throttle_delta_rearm_01",
+        "refractory_frames",
+        "opposite_return_frames",
+        "rising",
+        "falling"
+      ],
+      "properties": {
+        "detection_method": { "const": "causal-throttle-window-v1" },
+        "throttle_window_frames": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "minimum_history_frames": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "throttle_delta_onset_01": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "throttle_delta_full_01": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "throttle_delta_rearm_01": { "type": "number", "minimum": 0, "maximum": 1 },
+        "refractory_frames": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "opposite_return_frames": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "rising": { "$ref": "#/$defs/transientEnvelope" },
+        "falling": { "$ref": "#/$defs/transientEnvelope" }
+      }
+    },
+    "transientRouteRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["route_id", "artifact_id"],
+      "properties": {
+        "route_id": { "$ref": "#/$defs/id" },
+        "artifact_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "transientCell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rpm", "load_coordinate_pa_abs", "requested_throttle_01", "state_mask", "cycle_count", "samples_per_cycle", "phase_origin_revolutions", "source_cycle_origin_ordinal_mod_cycle_count", "seam_closure", "routes"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "rpm": { "type": "number", "exclusiveMinimum": 0 },
+        "load_coordinate_pa_abs": { "type": "number", "exclusiveMinimum": 0 },
+        "requested_throttle_01": { "type": "number", "minimum": 0, "maximum": 1 },
+        "state_mask": { "type": "integer", "minimum": 0, "maximum": 31 },
+        "cycle_count": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "samples_per_cycle": { "type": "integer", "minimum": 2, "maximum": 4294967295 },
+        "phase_origin_revolutions": { "type": "number", "minimum": 0 },
+        "source_cycle_origin_ordinal_mod_cycle_count": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "seam_closure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "frames_per_side"],
+          "properties": {
+            "method": { "const": "phase-aligned-boundary-smoothstep-v1" },
+            "frames_per_side": { "type": "integer", "minimum": 1, "maximum": 4294967295 }
+          }
+        },
+        "routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/transientRouteRef" }
+        }
+      }
+    },
+    "transientLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "direction", "source_route_ids", "cells"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "direction": { "enum": ["rising", "falling"] },
+        "source_route_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/transientCell" }
+        }
       }
     },
     "busArtifactRef": {
@@ -135,151 +380,108 @@
         "artifact_id": { "$ref": "#/$defs/id" }
       }
     },
-    "frameRange": {
+    "lifecycleKnot": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["begin", "end"],
-      "properties": {
-        "begin": { "$ref": "#/$defs/uint64Decimal" },
-        "end": { "$ref": "#/$defs/uint64Decimal" }
-      }
-    },
-    "rpmRange": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["minimum", "maximum"],
-      "properties": {
-        "minimum": { "type": "number", "exclusiveMinimum": 0 },
-        "maximum": { "type": "number", "exclusiveMinimum": 0 }
-      }
-    },
-    "normalizedRpmSlopeRange": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["minimum_per_second", "maximum_per_second"],
-      "properties": {
-        "minimum_per_second": { "type": "number" },
-        "maximum_per_second": { "type": "number" }
-      }
-    },
-    "timelineKnot": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "frame",
-        "rpm",
-        "rpm_slope_rpm_per_second",
-        "requested_throttle_01",
-        "signed_load_coordinate",
-        "manifold_pressure_pa_abs",
-        "unwrapped_crank_revolutions",
-        "state_mask",
-        "transition_mask"
-      ],
+      "required": ["frame", "rpm", "load_coordinate_pa_abs", "requested_throttle_01", "state_mask"],
       "properties": {
         "frame": { "$ref": "#/$defs/uint64Decimal" },
-        "rpm": { "type": "number", "exclusiveMinimum": 0 },
-        "rpm_slope_rpm_per_second": { "type": "number" },
+        "rpm": { "type": "number", "minimum": 0 },
+        "load_coordinate_pa_abs": { "type": "number", "exclusiveMinimum": 0 },
         "requested_throttle_01": { "type": "number", "minimum": 0, "maximum": 1 },
-        "signed_load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 },
-        "manifold_pressure_pa_abs": { "type": "number", "exclusiveMinimum": 0 },
-        "unwrapped_crank_revolutions": { "type": "number" },
-        "state_mask": { "type": "integer", "minimum": 0, "maximum": 31 },
-        "transition_mask": { "type": "integer", "minimum": 0, "maximum": 31 }
+        "state_mask": { "type": "integer", "minimum": 0, "maximum": 31 }
       }
     },
-    "fractionalFrame": {
+    "lifecyclePerformance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["left_frame", "right_frame", "fraction_from_left_01"],
-      "properties": {
-        "left_frame": { "$ref": "#/$defs/uint64Decimal" },
-        "right_frame": { "$ref": "#/$defs/uint64Decimal" },
-        "fraction_from_left_01": { "type": "number", "minimum": 0, "maximum": 1 }
-      }
-    },
-    "crankBoundary": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["completed_cycle_ordinal", "position"],
-      "properties": {
-        "completed_cycle_ordinal": { "$ref": "#/$defs/uint64Decimal" },
-        "position": { "$ref": "#/$defs/fractionalFrame" }
-      }
-    },
-    "handoff": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "transition_frames",
-        "maximum_rpm_error",
-        "maximum_normalized_rpm_slope_error_per_second",
-        "maximum_load_error",
-        "maximum_crank_phase_error_revolutions"
-      ],
-      "properties": {
-        "transition_frames": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
-        "maximum_rpm_error": { "type": "number", "minimum": 0 },
-        "maximum_normalized_rpm_slope_error_per_second": { "type": "number", "minimum": 0 },
-        "maximum_load_error": { "type": "number", "minimum": 0, "maximum": 2 },
-        "maximum_crank_phase_error_revolutions": { "type": "number", "minimum": 0, "maximum": 0.5 }
-      }
-    },
-    "movingSegment": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "direction",
-        "load_coordinate",
-        "state_mask",
-        "normalized_rpm_slope",
-        "captured_frames",
-        "usable_frames",
-        "captured_rpm",
-        "usable_rpm",
-        "source_scenario",
-        "capture_configuration",
-        "artifacts",
-        "timeline",
-        "crank_boundaries",
-        "handoff"
-      ],
+      "required": ["id", "event", "entry_state_mask", "exit_state_mask", "artifacts", "timeline"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
-        "direction": { "enum": ["rising", "falling"] },
-        "load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 },
-        "state_mask": { "type": "integer", "minimum": 0, "maximum": 31 },
-        "normalized_rpm_slope": { "$ref": "#/$defs/normalizedRpmSlopeRange" },
-        "captured_frames": { "$ref": "#/$defs/frameRange" },
-        "usable_frames": { "$ref": "#/$defs/frameRange" },
-        "captured_rpm": { "$ref": "#/$defs/rpmRange" },
-        "usable_rpm": { "$ref": "#/$defs/rpmRange" },
-        "source_scenario": { "$ref": "#/$defs/contentIdentity" },
-        "capture_configuration": { "$ref": "#/$defs/contentIdentity" },
+        "event": { "enum": ["startup", "shutdown", "limiter"] },
+        "entry_state_mask": { "type": "integer", "minimum": 0, "maximum": 31 },
+        "exit_state_mask": { "type": "integer", "minimum": 0, "maximum": 31 },
         "artifacts": {
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/busArtifactRef" }
         },
         "timeline": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["knots"],
-          "properties": {
-            "knots": {
-              "type": "array",
-              "minItems": 2,
-              "items": { "$ref": "#/$defs/timelineKnot" }
-            }
-          }
-        },
-        "crank_boundaries": {
           "type": "array",
           "minItems": 2,
-          "items": { "$ref": "#/$defs/crankBoundary" }
+          "items": { "$ref": "#/$defs/lifecycleKnot" }
+        }
+      }
+    },
+    "directTransfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": { "kind": { "const": "direct" } }
+    },
+    "fixedSpectrumTransfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "fft_size", "coefficient_count", "spectrum_artifact_id"],
+      "properties": {
+        "kind": { "const": "fixed-spectrum-convolution" },
+        "fft_size": { "type": "integer", "minimum": 2, "maximum": 4294967295 },
+        "coefficient_count": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "spectrum_artifact_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "presentationRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["route_id", "output_bus_id", "wet_mix_01", "transfer"],
+      "properties": {
+        "route_id": { "$ref": "#/$defs/id" },
+        "output_bus_id": { "$ref": "#/$defs/id" },
+        "wet_mix_01": { "type": "number", "minimum": 0, "maximum": 1 },
+        "transfer": {
+          "oneOf": [
+            { "$ref": "#/$defs/directTransfer" },
+            { "$ref": "#/$defs/fixedSpectrumTransfer" }
+          ]
+        }
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method_identity", "build_identity", "batch_frames", "captured_to_source_scale", "source_routes", "master"],
+      "properties": {
+        "method_identity": { "$ref": "#/$defs/contentIdentity" },
+        "build_identity": { "$ref": "#/$defs/contentIdentity" },
+        "batch_frames": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "captured_to_source_scale": { "type": "number", "exclusiveMinimum": 0 },
+        "source_routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/presentationRoute" }
         },
-        "handoff": { "$ref": "#/$defs/handoff" }
+        "master": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "volume_linear"],
+          "properties": {
+            "method": { "const": "canonical-adaptive-v1" },
+            "volume_linear": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "encoding", "element_count", "byte_count", "sha256"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "encoding": { "enum": ["float32le", "complex-float64le"] },
+        "element_count": { "$ref": "#/$defs/uint64Decimal" },
+        "byte_count": { "$ref": "#/$defs/uint64Decimal" },
+        "sha256": { "$ref": "#/$defs/sha256" }
       }
     },
     "provenance": {

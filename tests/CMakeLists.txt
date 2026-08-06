@@ -203,14 +203,31 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_atlas_bake_authoring_tests
+    atlas_bake_authoring_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_atlas_bake_authoring_tests
+    PRIVATE engine_sim_offline::authoring
+)
+
+add_test(
+    NAME authoring.atlas_bake
+    COMMAND
+        engine_sim_offline_atlas_bake_authoring_tests
+        ${PROJECT_SOURCE_DIR}
+)
+
+add_executable(
     engine_sim_offline_audio_atlas_contract_tests
     audio_atlas_contract_test.cpp
+    ${PROJECT_SOURCE_DIR}/src/artifacts/audio_atlas_manifest_encoder.cpp
 )
 
 target_link_libraries(
     engine_sim_offline_audio_atlas_contract_tests
     PRIVATE
-        engine_sim_offline::authoring
         engine_sim_offline::contract
 )
 engine_sim_offline_enable_renderer_numeric_policy(

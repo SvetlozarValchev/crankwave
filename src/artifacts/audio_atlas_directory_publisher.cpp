@@ -71,21 +71,21 @@ using Result = AudioAtlasDirectoryPublicationResult;
                         "assembled payload order or artifact identity does not match "
                         "the manifest");
         }
-        if (payload.f32le_bytes.size() >
+        if (payload.bytes.size() >
                 static_cast<std::size_t>(std::numeric_limits<std::uint64_t>::max()) ||
-            static_cast<std::uint64_t>(payload.f32le_bytes.size()) !=
+            static_cast<std::uint64_t>(payload.bytes.size()) !=
                 artifact.byte_count) {
             return fail(ErrorCode::payload_mismatch,
                         "audio-atlas-publication-payload-size-mismatch",
                         "assembled payload byte count does not match the manifest");
         }
-        if (contract::sha256(payload.f32le_bytes) != artifact.payload_sha256) {
+        if (contract::sha256(payload.bytes) != artifact.sha256) {
             return fail(ErrorCode::payload_mismatch,
                         "audio-atlas-publication-payload-digest-mismatch",
                         "assembled payload SHA-256 does not match the manifest");
         }
-        if (artifact.relative_path == "atlas.json" ||
-            !relative_paths.insert(artifact.relative_path).second) {
+        if (artifact.path == "atlas.json" ||
+            !relative_paths.insert(artifact.path).second) {
             return fail(ErrorCode::manifest_rejected,
                         "audio-atlas-publication-artifact-path-conflict",
                         "manifest artifact paths must be unique and must not reserve "
@@ -139,7 +139,7 @@ class StagingCleanup final {
         }
     };
     for (const auto &artifact : atlas.manifest.artifacts) {
-        expect_path(artifact.relative_path);
+        expect_path(artifact.path);
     }
 
     const auto expected_count = expected_files.size() + expected_directories.size();
@@ -268,8 +268,8 @@ class StagingCleanup final {
     }
     for (std::size_t index = 0U; index < atlas.payloads.size(); ++index) {
         if (auto result = write_staged_file(
-                stage_fd.get(), atlas.manifest.artifacts[index].relative_path,
-                atlas.payloads[index].f32le_bytes);
+                stage_fd.get(), atlas.manifest.artifacts[index].path,
+                atlas.payloads[index].bytes);
             std::holds_alternative<AudioAtlasDirectoryPublicationError>(result)) {
             return result;
         }

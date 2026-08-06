@@ -179,32 +179,6 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_compile)
 
 add_library(
-    engine_sim_offline_atlas_bake
-    STATIC
-        src/atlas/atlas_bake_compile.cpp
-)
-add_library(
-    engine_sim_offline::atlas_bake
-    ALIAS engine_sim_offline_atlas_bake
-)
-
-target_include_directories(
-    engine_sim_offline_atlas_bake
-    PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-    PRIVATE
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-)
-
-target_link_libraries(
-    engine_sim_offline_atlas_bake
-    PUBLIC
-        engine_sim_offline::compile
-        engine_sim_offline::build_options
-)
-engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_atlas_bake)
-
-add_library(
     engine_sim_offline_request_identity
     STATIC
         src/identity/canonical_json_writer.cpp
@@ -511,61 +485,6 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_session)
 
 add_library(
-    engine_sim_offline_atlas_capture
-    STATIC
-        src/atlas/moving_lane_capture.cpp
-)
-add_library(
-    engine_sim_offline::atlas_capture
-    ALIAS engine_sim_offline_atlas_capture
-)
-
-target_include_directories(
-    engine_sim_offline_atlas_capture
-    PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-)
-
-target_link_libraries(
-    engine_sim_offline_atlas_capture
-    PUBLIC
-        engine_sim_offline::contract
-        engine_sim_offline::session
-        engine_sim_offline::build_options
-)
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_atlas_capture
-)
-
-add_library(
-    engine_sim_offline_atlas_assembly
-    STATIC
-        src/atlas/moving_atlas_assembly.cpp
-)
-add_library(
-    engine_sim_offline::atlas_assembly
-    ALIAS engine_sim_offline_atlas_assembly
-)
-
-target_include_directories(
-    engine_sim_offline_atlas_assembly
-    PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-)
-
-target_link_libraries(
-    engine_sim_offline_atlas_assembly
-    PUBLIC
-        engine_sim_offline::atlas_bake
-        engine_sim_offline::atlas_capture
-        engine_sim_offline::contract
-        engine_sim_offline::build_options
-)
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_atlas_assembly
-)
-
-add_library(
     engine_sim_offline_c_api
     STATIC
         src/c_api/compile.cpp
@@ -792,9 +711,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     add_library(
         engine_sim_offline_cli_support
         STATIC
-            src/cli/atlas_bake_command.cpp
             src/cli/cli_app.cpp
-            src/cli/native_atlas_input.cpp
             src/cli/native_asset_root.cpp
             src/cli/native_engine_input.cpp
             src/cli/native_input_files.cpp
@@ -820,9 +737,6 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             engine_sim_offline::build_options
         PRIVATE
             engine_sim_offline::artifacts
-            engine_sim_offline::atlas_assembly
-            engine_sim_offline::atlas_bake
-            engine_sim_offline::atlas_capture
             engine_sim_offline::authoring
             engine_sim_offline::compile
             engine_sim_offline::bake
@@ -872,9 +786,6 @@ set(
     engine_sim_offline_presentation
     engine_sim_offline_excitation
     engine_sim_offline_session
-    engine_sim_offline_atlas_bake
-    engine_sim_offline_atlas_capture
-    engine_sim_offline_atlas_assembly
     engine_sim_offline_c_api
     engine_sim_offline_execution
     engine_sim_offline_renderer_determinism

@@ -1,7 +1,8 @@
-#include "engine_sim_offline/authoring/parse.hpp"
+#include "engine_sim_offline/artifacts/audio_atlas_manifest_encoder.hpp"
 #include "engine_sim_offline/contract/audio_atlas.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
@@ -15,8 +16,6 @@
 namespace {
 
 using namespace engine_sim_offline;
-
-static_assert(noexcept(authoring::parse_atlas_bake_document(std::string_view{})));
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -35,50 +34,175 @@ void expect(bool condition, std::string_view message) {
     return {std::move(id), digest(hash)};
 }
 
+void append_artifact(contract::AudioAtlasManifest &manifest, std::string id,
+                     contract::AudioAtlasArtifactEncoding encoding,
+                     std::uint64_t element_count, std::uint8_t hash) {
+    const auto bytes_per_element =
+        encoding == contract::AudioAtlasArtifactEncoding::float32le ? 4U : 16U;
+    manifest.artifacts.push_back(
+        {std::move(id),
+         "audio/" + std::to_string(hash) + ".bin",
+         encoding,
+         element_count,
+         element_count * bytes_per_element,
+         digest(hash)});
+}
+
 [[nodiscard]] contract::AudioAtlasManifest valid_manifest() {
     contract::AudioAtlasManifest manifest;
-    manifest.id = "bmw-moving-atlas";
-    manifest.engine = "bmw-m52tub28-cleanroom";
+    manifest.id = "generic-responsive-atlas";
+    manifest.engine = "generic-four-stroke-engine";
     manifest.public_seed = 42U;
-    manifest.audio.sample_rate_hz = 48000U;
+    manifest.audio.sample_rate_hz = 192000U;
     manifest.audio.buses = {{"master.engine.audition"}};
-    manifest.domain = {700.0, 6500.0, -1.0, 1.0};
-    manifest.artifacts = {
-        {"moving.power.master", "audio/moving-power-master.f32le", 48000U,
-         192000U, digest(10U)},
+    manifest.domain = {
+        700.0,
+        6500.0,
+        contract::AudioAtlasLoadCoordinate::
+            measured_intake_manifold_pressure_pa_abs,
+        10000.0,
+        102000.0,
+        2.0,
+        {3U},
+        contract::AudioAtlasOutOfDomainBehavior::unavailable,
     };
 
-    contract::AudioAtlasMovingSegment segment;
-    segment.id = "power-rise-1000-3000";
-    segment.direction = contract::AudioAtlasMovingDirection::rising;
-    segment.load_coordinate = 1.0;
-    segment.state_mask = 3U;
-    segment.normalized_rpm_slope = {0.9, 1.1};
-    segment.captured_frames = {0U, 48000U};
-    segment.usable_frames = {4800U, 43200U};
-    segment.captured_rpm = {1000.0, 3000.0};
-    segment.usable_rpm = {1200.0, 2800.0};
-    segment.source_scenario = identity("bmw-power-rise-source", 1U);
-    segment.capture_configuration = identity("atlas-capture-48k", 2U);
-    segment.artifacts = {
-        {"master.engine.audition", "moving.power.master"},
+    auto &texture = manifest.phase_texture;
+    texture.samples_per_cycle = 8U;
+    texture.residual_cycle_count = 2U;
+    texture.residual_taper = {
+        contract::AudioAtlasResidualTaperMethod::
+            boundary_zero_smoothstep_v1,
+        0.0,
+        0.25,
+        2U,
     };
-    segment.timeline.knots = {
-        {0U, 1000.0, 2000.0, 1.0, 1.0, 90000.0, 0.0, 3U, 0U},
-        {24000U, 2000.0, 2000.0, 1.0, 1.0, 90000.0, 25.0, 3U, 0U},
-        {48000U, 3000.0, 2000.0, 1.0, 1.0, 90000.0, 50.0, 3U, 0U},
+    texture.rpm_anchors = {700.0, 6500.0};
+    texture.load_lanes = {
+        {"coast", 0.0, 3U},
+        {"power", 1.0, 3U},
     };
-    segment.crank_boundaries = {
-        {12U, {12000U, 12001U, 0.25}},
-        {13U, {14400U, 14401U, 0.75}},
+    texture.reference_cell_id = "rpm700-coast";
+    texture.source_route_ids = {"exhaust.front.dry", "exhaust.rear.dry"};
+
+    std::uint8_t hash = 1U;
+    const auto add_phase_cell = [&](std::string id, std::string lane, double rpm,
+                                    double load, double throttle,
+                                    double shift) {
+        contract::AudioAtlasPhaseCell cell;
+        cell.id = std::move(id);
+        cell.load_lane_id = std::move(lane);
+        cell.rpm = rpm;
+        cell.load_coordinate_pa_abs = load;
+        cell.requested_throttle_01 = throttle;
+        cell.state_mask = 3U;
+        cell.shift_to_canonical_samples = shift;
+        for (const auto &route_id : texture.source_route_ids) {
+            const auto slug = cell.id +
+                              (route_id == "exhaust.front.dry" ? "-front"
+                                                               : "-rear");
+            const auto mean_id = slug + "-mean";
+            const auto residual_id = slug + "-residual";
+            append_artifact(manifest, mean_id,
+                            contract::AudioAtlasArtifactEncoding::float32le,
+                            8U, hash++);
+            append_artifact(manifest, residual_id,
+                            contract::AudioAtlasArtifactEncoding::float32le,
+                            16U, hash++);
+            cell.routes.push_back(
+                {route_id, mean_id, residual_id, 0.01, 0.0001});
+        }
+        texture.cells.push_back(std::move(cell));
     };
-    segment.handoff = {1024U, 25.0, 0.1, 0.1, 0.05};
-    manifest.moving_segments = {std::move(segment)};
+    add_phase_cell("rpm700-coast", "coast", 700.0, 20000.0, 0.0, 0.0);
+    add_phase_cell("rpm700-power", "power", 700.0, 100000.0, 1.0, 1.0);
+    add_phase_cell("rpm6500-coast", "coast", 6500.0, 15000.0, 0.0, -2.0);
+    add_phase_cell("rpm6500-power", "power", 6500.0, 101000.0, 1.0, -3.0);
+
+    manifest.transient_policy = {
+        contract::AudioAtlasTransientDetectionMethod::causal_throttle_window_v1,
+        15360U,
+        11520U,
+        0.30,
+        0.70,
+        0.12,
+        48000U,
+        5760U,
+        {5760U, 17280U, 63360U, 0.75},
+        {3840U, 15360U, 80640U, 0.65},
+    };
+
+    const auto add_transient_layer =
+        [&](std::string id,
+            contract::AudioAtlasTransientDirection direction) {
+            contract::AudioAtlasTransientLayer layer;
+            layer.id = std::move(id);
+            layer.direction = direction;
+            layer.source_route_ids = texture.source_route_ids;
+            contract::AudioAtlasTransientCell cell;
+            cell.id = layer.id + "-cell";
+            cell.rpm = 3000.0;
+            cell.load_coordinate_pa_abs = 80000.0;
+            cell.requested_throttle_01 =
+                direction == contract::AudioAtlasTransientDirection::rising
+                    ? 1.0
+                    : 0.0;
+            cell.state_mask = 3U;
+            cell.cycle_count = 3U;
+            cell.samples_per_cycle = 8U;
+            cell.phase_origin_revolutions = 0.5;
+            cell.source_cycle_origin_ordinal_mod_cycle_count = 1U;
+            cell.seam_closure_frames_per_side = 1U;
+            for (const auto &route_id : layer.source_route_ids) {
+                const auto artifact_id =
+                    cell.id +
+                    (route_id == "exhaust.front.dry" ? "-front" : "-rear");
+                append_artifact(
+                    manifest, artifact_id,
+                    contract::AudioAtlasArtifactEncoding::float32le, 24U,
+                    hash++);
+                cell.routes.push_back({route_id, artifact_id});
+            }
+            layer.cells.push_back(std::move(cell));
+            manifest.transient_layers.push_back(std::move(layer));
+        };
+    add_transient_layer("throttle-rise",
+                        contract::AudioAtlasTransientDirection::rising);
+    add_transient_layer("throttle-fall",
+                        contract::AudioAtlasTransientDirection::falling);
+
+    append_artifact(manifest, "fixed-transfer-spectrum",
+                    contract::AudioAtlasArtifactEncoding::complex_float64le,
+                    8U, hash++);
+    const auto renderer_build = identity("renderer-build", hash++);
+    manifest.presentation.method_identity =
+        identity("canonical-responsive-presentation", hash++);
+    manifest.presentation.build_identity = renderer_build;
+    manifest.presentation.batch_frames = 4U;
+    manifest.presentation.captured_to_source_scale = 67108864.0;
+    manifest.presentation.source_routes = {
+        {"exhaust.front.dry",
+         "master.engine.audition",
+         0.75,
+         {contract::AudioAtlasTransferKind::fixed_spectrum_convolution,
+          8U,
+          5U,
+          "fixed-transfer-spectrum"}},
+        {"exhaust.rear.dry",
+         "master.engine.audition",
+         0.75,
+         {contract::AudioAtlasTransferKind::fixed_spectrum_convolution,
+          8U,
+          5U,
+          "fixed-transfer-spectrum"}},
+    };
+    manifest.presentation.master = {
+        contract::AudioAtlasMasterMethod::canonical_adaptive_v1, 1.0};
     manifest.provenance = {
-        identity("bmw-m52tub28-cleanroom", 3U),
-        identity("bmw-moving-atlas-bake", 4U),
-        identity("engine-sim-offline-renderer", 5U),
-        {"bmw-atlas-source-inputs", digest(6U)},
+        identity("generic-four-stroke-engine", hash++),
+        identity("responsive-atlas-bake", hash++),
+        renderer_build,
+        {"responsive-atlas-source-inputs", digest(hash++)},
     };
     return manifest;
 }
@@ -91,167 +215,134 @@ void expect(bool condition, std::string_view message) {
     });
 }
 
-[[nodiscard]] std::string valid_bake_document() {
-    return R"json({
-  "schema": "engine-sim-offline/atlas-bake",
-  "id": "bmw-moving-atlas",
-  "engine": "bmw-m52tub28-cleanroom",
-  "public_seed": "42",
-  "audio": {
-    "sample_rate": {"numerator": "48000", "denominator": "1", "unit": "Hz"},
-    "buses": ["master.engine.audition"]
-  },
-  "domain": {
-    "minimum_rpm": 700,
-    "maximum_rpm": 6500,
-    "minimum_load_coordinate": -1,
-    "maximum_load_coordinate": 1
-  },
-  "scenario_sources": [
-    {"id": "power-rise-source", "uri": "scenarios/power-rise.json"}
-  ],
-  "moving_segments": [
-    {
-      "id": "power-rise-1000-3000",
-      "direction": "rising",
-      "load_coordinate": 1,
-      "state_mask": 3,
-      "normalized_rpm_slope": {
-        "minimum_per_second": 0.9,
-        "maximum_per_second": 1.1
-      },
-      "captured_rpm": {"minimum": 1000, "maximum": 3000},
-      "usable_rpm": {"minimum": 1200, "maximum": 2800},
-      "scenario": "power-rise-source",
-      "handoff": {
-        "transition_frames": 1024,
-        "maximum_rpm_error": 25,
-        "maximum_normalized_rpm_slope_error_per_second": 0.1,
-        "maximum_load_error": 0.1,
-        "maximum_crank_phase_error_revolutions": 0.05
-      }
-    }
-  ],
-  "stationary_tiles": [],
-  "transient_performances": [],
-  "lifecycle_performances": []
-})json";
+void test_responsive_manifest_is_admitted_and_encoded() {
+    const auto manifest = valid_manifest();
+    expect(contract::validate(manifest).ok(),
+           "valid responsive audio atlas was rejected");
+
+    const auto encoded = artifacts::encode_audio_atlas_manifest(manifest);
+    const auto *bytes = std::get_if<artifacts::ManifestEncoding>(&encoded);
+    expect(bytes != nullptr, "valid responsive audio atlas was not encoded");
+    const auto json = std::string{
+        reinterpret_cast<const char *>(bytes->bytes.data()), bytes->bytes.size()};
+    expect(json.find(R"json("schema":"engine-sim-offline/audio-atlas")json") !=
+               std::string::npos,
+           "encoded atlas omitted the sole current schema");
+    expect(json.find(R"json("phase_texture")json") != std::string::npos &&
+               json.find(R"json("transient_layers")json") !=
+                   std::string::npos &&
+               json.find(R"json("captured_to_source_scale")json") !=
+                   std::string::npos,
+           "encoded atlas omitted responsive package fields");
+    expect(json.find("moving_segments") == std::string::npos &&
+               json.find("stationary_tiles") == std::string::npos &&
+               json.find("publication_scale") == std::string::npos &&
+               json.find("mix_gain_linear") == std::string::npos,
+           "encoder leaked a replaced atlas representation or fake gain knob");
 }
 
-void replace_once(std::string &text, std::string_view before,
-                  std::string_view after) {
-    const auto position = text.find(before);
-    if (position == std::string::npos) {
-        throw std::runtime_error{"test mutation source text was not found"};
-    }
-    text.replace(position, before.size(), after);
+void test_grid_routes_and_artifacts_fail_closed() {
+    auto missing_cell = valid_manifest();
+    missing_cell.phase_texture.cells.pop_back();
+    expect(has_issue(contract::validate(missing_cell),
+                     contract::ContractIssueCode::inconsistent_shape,
+                     "phase_texture.cells"),
+           "incomplete phase grid was accepted");
+
+    auto missing_route = valid_manifest();
+    missing_route.phase_texture.cells[0].routes.pop_back();
+    expect(has_issue(contract::validate(missing_route),
+                     contract::ContractIssueCode::inconsistent_shape,
+                     "phase_texture.cells[0].routes"),
+           "incomplete N-route phase cell was accepted");
+
+    auto wrong_residual_size = valid_manifest();
+    const auto residual_id =
+        wrong_residual_size.phase_texture.cells[0].routes[0]
+            .residual_artifact_id;
+    const auto artifact = std::ranges::find_if(
+        wrong_residual_size.artifacts,
+        [&](const auto &value) { return value.id == residual_id; });
+    artifact->element_count = 15U;
+    artifact->byte_count = 60U;
+    expect(has_issue(contract::validate(wrong_residual_size),
+                     contract::ContractIssueCode::inconsistent_shape,
+                     "phase_texture.cells[0].routes[0].residual_artifact_id"),
+           "wrong residual-bank shape was accepted");
+
+    auto wrong_encoding = valid_manifest();
+    wrong_encoding.artifacts.front().encoding =
+        contract::AudioAtlasArtifactEncoding::complex_float64le;
+    wrong_encoding.artifacts.front().byte_count =
+        wrong_encoding.artifacts.front().element_count * 16U;
+    expect(has_issue(contract::validate(wrong_encoding),
+                     contract::ContractIssueCode::inconsistent_shape,
+                     "phase_texture.cells[0].routes[0].mean_artifact_id"),
+           "wrong phase artifact encoding was accepted");
 }
 
-[[nodiscard]] const authoring::DiagnosticReport &
-require_report(const authoring::AtlasBakeDocumentParseResult &result) {
-    const auto *report = std::get_if<authoring::DiagnosticReport>(&result);
-    if (report == nullptr) {
-        throw std::runtime_error{"invalid atlas-bake document was accepted"};
-    }
-    return *report;
-}
+void test_phase_transient_and_presentation_invariants_fail_closed() {
+    auto wrong_reference = valid_manifest();
+    wrong_reference.phase_texture.cells[0].shift_to_canonical_samples = 1.0;
+    expect(has_issue(contract::validate(wrong_reference),
+                     contract::ContractIssueCode::inconsistent_semantics,
+                     "phase_texture.reference_cell_id"),
+           "nonzero canonical phase reference was accepted");
 
-[[nodiscard]] bool has_diagnostic(const authoring::DiagnosticReport &report,
-                                  authoring::DiagnosticCode code,
-                                  std::string_view pointer) {
-    return std::ranges::any_of(report.diagnostics, [&](const auto &diagnostic) {
-        return diagnostic.code == code && diagnostic.json_pointer == pointer;
-    });
-}
+    auto non_power_of_two = valid_manifest();
+    non_power_of_two.phase_texture.samples_per_cycle = 10U;
+    expect(has_issue(contract::validate(non_power_of_two),
+                     contract::ContractIssueCode::invalid_value,
+                     "phase_texture.samples_per_cycle"),
+           "non-power-of-two canonical phase grid was accepted");
 
-void test_minimal_moving_atlas_is_admitted() {
-    expect(contract::validate(valid_manifest()).ok(),
-           "valid moving audio atlas was rejected");
+    auto nonzero_boundary = valid_manifest();
+    nonzero_boundary.phase_texture.residual_taper.boundary_value = 0.01;
+    expect(has_issue(contract::validate(nonzero_boundary),
+                     contract::ContractIssueCode::inconsistent_semantics,
+                     "phase_texture.residual_taper.boundary_value"),
+           "nonzero residual boundary contract was accepted");
 
-    const auto parsed = authoring::parse_atlas_bake_document(valid_bake_document());
-    const auto *document = std::get_if<authoring::AtlasBakeDocument>(&parsed);
-    expect(document != nullptr && document->moving_segments.size() == 1U &&
-               document->stationary_tiles.empty() &&
-               document->transient_performances.empty() &&
-               document->lifecycle_performances.empty(),
-           "valid first-slice atlas-bake document was not retained");
-}
+    auto rotated_transient = valid_manifest();
+    rotated_transient.transient_layers[0]
+        .cells[0]
+        .source_cycle_origin_ordinal_mod_cycle_count = 3U;
+    expect(has_issue(
+               contract::validate(rotated_transient),
+               contract::ContractIssueCode::invalid_value,
+               "transient_layers[0].cells[0].source_cycle_origin_ordinal_mod_cycle_count"),
+           "out-of-range transient source-cycle origin was accepted");
 
-void test_manifest_timeline_ranges_and_references_fail_closed() {
-    auto future_representation = valid_manifest();
-    future_representation.stationary_tiles.emplace_back();
-    expect(has_issue(contract::validate(future_representation),
-                     contract::ContractIssueCode::unsupported_value,
-                     "stationary_tiles"),
-           "unadmitted stationary atlas material was accepted");
+    auto missing_direction = valid_manifest();
+    missing_direction.transient_layers[1].direction =
+        contract::AudioAtlasTransientDirection::rising;
+    expect(has_issue(contract::validate(missing_direction),
+                     contract::ContractIssueCode::duplicate_identity,
+                     "transient_layers[1].direction"),
+           "duplicate transient direction was accepted");
 
-    auto nonchronological = valid_manifest();
-    nonchronological.moving_segments[0].timeline.knots[1].frame = 48000U;
-    expect(!contract::validate(nonchronological).ok(),
-           "nonchronological atlas timeline was accepted");
+    auto wrong_build = valid_manifest();
+    wrong_build.presentation.build_identity.sha256 = digest(250U);
+    expect(has_issue(contract::validate(wrong_build),
+                     contract::ContractIssueCode::inconsistent_semantics,
+                     "presentation.build_identity"),
+           "presentation/provenance build mismatch was accepted");
 
-    auto escaped_usable_range = valid_manifest();
-    escaped_usable_range.moving_segments[0].usable_frames.end = 48000U;
-    expect(!contract::validate(escaped_usable_range).ok(),
-           "non-interior atlas usable range was accepted");
-
-    auto missing_artifact = valid_manifest();
-    missing_artifact.moving_segments[0].artifacts[0].artifact_id = "missing";
-    expect(has_issue(contract::validate(missing_artifact),
-                     contract::ContractIssueCode::dangling_reference,
-                     "moving_segments[0].artifacts[0].artifact_id"),
-           "dangling atlas artifact reference was accepted");
-
-    auto missing_bus = valid_manifest();
-    missing_bus.moving_segments[0].artifacts[0].bus_id = "exhaust.missing";
-    expect(has_issue(contract::validate(missing_bus),
-                     contract::ContractIssueCode::dangling_reference,
-                     "moving_segments[0].artifacts[0].bus_id"),
-           "dangling atlas bus reference was accepted");
-
-    auto capture_rig_state = valid_manifest();
-    capture_rig_state.moving_segments[0].state_mask = 32U;
-    expect(has_issue(contract::validate(capture_rig_state),
-                     contract::ContractIssueCode::unsupported_value,
-                     "moving_segments[0].state_mask"),
-           "a capture-rig-only state bit entered the audio atlas");
-}
-
-void test_bake_grammar_and_future_arrays_are_strict() {
-    auto wrong_schema = valid_bake_document();
-    replace_once(wrong_schema, "engine-sim-offline/atlas-bake",
-                 "engine-sim-offline/atlas-bake-v1");
-    expect(has_diagnostic(
-               require_report(authoring::parse_atlas_bake_document(wrong_schema)),
-               authoring::DiagnosticCode::unsupported_schema, "/schema"),
-           "versioned atlas-bake schema alias was accepted");
-
-    auto unknown = valid_bake_document();
-    replace_once(unknown, R"json("lifecycle_performances": [])json",
-                 R"json("lifecycle_performances": [], "compatibility": 1)json");
-    expect(has_diagnostic(require_report(authoring::parse_atlas_bake_document(unknown)),
-                          authoring::DiagnosticCode::unknown_field,
-                          "/compatibility"),
-           "unknown atlas-bake member was accepted");
-
-    auto future_representation = valid_bake_document();
-    replace_once(future_representation, R"json("stationary_tiles": [])json",
-                 R"json("stationary_tiles": [{}])json");
-    expect(has_diagnostic(
-               require_report(
-                   authoring::parse_atlas_bake_document(future_representation)),
-               authoring::DiagnosticCode::unsupported_capability,
-               "/stationary_tiles"),
-           "unadmitted authored stationary material was accepted");
+    auto invalid_wet_mix = valid_manifest();
+    invalid_wet_mix.presentation.source_routes[0].wet_mix_01 = 1.1;
+    expect(has_issue(contract::validate(invalid_wet_mix),
+                     contract::ContractIssueCode::invalid_value,
+                     "presentation.source_routes[0].wet_mix_01"),
+           "out-of-range dry/wet mix was accepted");
 }
 
 } // namespace
 
 int main() {
     try {
-        test_minimal_moving_atlas_is_admitted();
-        test_manifest_timeline_ranges_and_references_fail_closed();
-        test_bake_grammar_and_future_arrays_are_strict();
+        test_responsive_manifest_is_admitted_and_encoded();
+        test_grid_routes_and_artifacts_fail_closed();
+        test_phase_transient_and_presentation_invariants_fail_closed();
         std::cout << "audio-atlas contract tests passed\n";
         return EXIT_SUCCESS;
     } catch (const std::exception &exception) {

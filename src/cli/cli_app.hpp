@@ -34,18 +34,7 @@ struct RenderCommand {
     friend bool operator==(const RenderCommand &, const RenderCommand &) = default;
 };
 
-struct BakeAtlasCommand {
-    std::string engine_path;
-    std::string atlas_bake_path;
-    std::string asset_root;
-    std::string output_directory;
-
-    friend bool operator==(const BakeAtlasCommand &,
-                           const BakeAtlasCommand &) = default;
-};
-
-using CliCommand =
-    std::variant<HelpCommand, VersionCommand, RenderCommand, BakeAtlasCommand>;
+using CliCommand = std::variant<HelpCommand, VersionCommand, RenderCommand>;
 
 struct CliUsageError {
     std::string message;

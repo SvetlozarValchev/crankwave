@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://engine-sim-offline.dev/schemas/atlas-bake.schema.json",
-  "title": "Engine Sim Offline continuous audio-atlas bake document",
-  "$comment": "This is the sole current moving-segment authoring schema. Later performance classes replace their empty placeholders in place.",
+  "title": "Engine Sim Offline phase-texture atlas bake document",
+  "$comment": "This is the sole current atlas-bake authoring contract. It contains no legacy moving-segment representation.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,11 +12,13 @@
     "public_seed",
     "audio",
     "domain",
-    "scenario_sources",
-    "moving_segments",
-    "stationary_tiles",
-    "transient_performances",
-    "lifecycle_performances"
+    "capture",
+    "rpm_anchors",
+    "load_lanes",
+    "phase_alignment",
+    "transient_capture",
+    "transient_policy",
+    "lifecycle_captures"
   ],
   "properties": {
     "schema": { "const": "engine-sim-offline/atlas-bake" },
@@ -25,19 +27,25 @@
     "public_seed": { "$ref": "#/$defs/uint64Decimal" },
     "audio": { "$ref": "#/$defs/audio" },
     "domain": { "$ref": "#/$defs/domain" },
-    "scenario_sources": {
+    "capture": { "$ref": "#/$defs/capture" },
+    "rpm_anchors": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": { "type": "number", "exclusiveMinimum": 0 }
+    },
+    "load_lanes": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/scenarioSource" }
+      "items": { "$ref": "#/$defs/loadLane" }
     },
-    "moving_segments": {
+    "phase_alignment": { "$ref": "#/$defs/phaseAlignment" },
+    "transient_capture": { "$ref": "#/$defs/transientCapture" },
+    "transient_policy": { "$ref": "#/$defs/transientPolicy" },
+    "lifecycle_captures": {
       "type": "array",
-      "minItems": 1,
-      "items": { "$ref": "#/$defs/movingSegment" }
-    },
-    "stationary_tiles": { "type": "array", "maxItems": 0 },
-    "transient_performances": { "type": "array", "maxItems": 0 },
-    "lifecycle_performances": { "type": "array", "maxItems": 0 }
+      "items": { "$ref": "#/$defs/lifecycleCapture" }
+    }
   },
   "$defs": {
     "id": {
@@ -68,18 +76,39 @@
         "unit": { "const": "Hz" }
       }
     },
+    "positiveDuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "properties": {
+        "value": { "type": "number", "exclusiveMinimum": 0 },
+        "unit": { "enum": ["s", "ms"] },
+        "standard": { "type": "null" }
+      }
+    },
+    "nonnegativeDuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0 },
+        "unit": { "enum": ["s", "ms"] },
+        "standard": { "type": "null" }
+      }
+    },
     "audio": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sample_rate", "buses"],
+      "required": ["sample_rate", "routes", "output_bus"],
       "properties": {
         "sample_rate": { "$ref": "#/$defs/rationalRate" },
-        "buses": {
+        "routes": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/id" }
-        }
+        },
+        "output_bus": { "$ref": "#/$defs/id" }
       }
     },
     "domain": {
@@ -88,85 +117,202 @@
       "required": [
         "minimum_rpm",
         "maximum_rpm",
-        "minimum_load_coordinate",
-        "maximum_load_coordinate"
+        "load_coordinate",
+        "phase_cycle_revolutions",
+        "running_state_mask"
       ],
       "properties": {
         "minimum_rpm": { "type": "number", "exclusiveMinimum": 0 },
         "maximum_rpm": { "type": "number", "exclusiveMinimum": 0 },
-        "minimum_load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 },
-        "maximum_load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 }
+        "load_coordinate": {
+          "const": "measured-intake-manifold-pressure-pa-abs"
+        },
+        "phase_cycle_revolutions": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "running_state_mask": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 31
+        }
       }
     },
-    "scenarioSource": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "uri"],
-      "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "uri": { "type": "string", "minLength": 1, "maxLength": 4096 }
-      }
-    },
-    "rpmRange": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["minimum", "maximum"],
-      "properties": {
-        "minimum": { "type": "number", "exclusiveMinimum": 0 },
-        "maximum": { "type": "number", "exclusiveMinimum": 0 }
-      }
-    },
-    "normalizedRpmSlopeRange": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["minimum_per_second", "maximum_per_second"],
-      "properties": {
-        "minimum_per_second": { "type": "number" },
-        "maximum_per_second": { "type": "number" }
-      }
-    },
-    "handoff": {
+    "capture": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "transition_frames",
-        "maximum_rpm_error",
-        "maximum_normalized_rpm_slope_error_per_second",
-        "maximum_load_error",
-        "maximum_crank_phase_error_revolutions"
+        "physics_rate",
+        "samples_per_cycle",
+        "cycles_per_cell",
+        "guard_cycles_before",
+        "guard_cycles_after",
+        "preparation_duration",
+        "residual_taper_fraction_per_edge",
+        "maximum_concurrency",
+        "scenario_template_uri"
       ],
       "properties": {
-        "transition_frames": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
-        "maximum_rpm_error": { "type": "number", "minimum": 0 },
-        "maximum_normalized_rpm_slope_error_per_second": { "type": "number", "minimum": 0 },
-        "maximum_load_error": { "type": "number", "minimum": 0, "maximum": 2 },
-        "maximum_crank_phase_error_revolutions": { "type": "number", "minimum": 0, "maximum": 0.5 }
+        "physics_rate": { "$ref": "#/$defs/rationalRate" },
+        "samples_per_cycle": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295,
+          "$comment": "The parser additionally requires a power of two for phase-alignment FFTs."
+        },
+        "cycles_per_cell": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "guard_cycles_before": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "guard_cycles_after": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "preparation_duration": { "$ref": "#/$defs/positiveDuration" },
+        "residual_taper_fraction_per_edge": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 0.5
+        },
+        "maximum_concurrency": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "scenario_template_uri": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "$comment": "A confined forward-slash relative path; the native loader performs filesystem confinement."
+        }
       }
     },
-    "movingSegment": {
+    "loadLane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "requested_throttle_01"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "requested_throttle_01": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "phaseAlignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference"],
+      "properties": {
+        "reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rpm", "load_lane"],
+          "properties": {
+            "rpm": { "type": "number", "exclusiveMinimum": 0 },
+            "load_lane": { "$ref": "#/$defs/id" }
+          }
+        }
+      }
+    },
+    "transientCapture": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "id",
-        "direction",
-        "load_coordinate",
-        "state_mask",
-        "normalized_rpm_slope",
-        "captured_rpm",
-        "usable_rpm",
-        "scenario",
-        "handoff"
+        "motion",
+        "cycles_per_cell",
+        "normalized_rpm_slope_per_second",
+        "seam_closure_fraction_per_edge"
       ],
       "properties": {
+        "motion": { "const": "prescribed-exponential-speed" },
+        "cycles_per_cell": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "normalized_rpm_slope_per_second": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "seam_closure_fraction_per_edge": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 0.5
+        }
+      }
+    },
+    "transientEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximum_gain",
+        "attack_duration",
+        "hold_duration",
+        "release_duration"
+      ],
+      "properties": {
+        "maximum_gain": { "type": "number", "minimum": 0 },
+        "attack_duration": { "$ref": "#/$defs/positiveDuration" },
+        "hold_duration": { "$ref": "#/$defs/nonnegativeDuration" },
+        "release_duration": { "$ref": "#/$defs/positiveDuration" }
+      }
+    },
+    "transientPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "detection_window",
+        "onset_delta_01",
+        "full_delta_01",
+        "rearm_delta_01",
+        "refractory_duration",
+        "rising",
+        "falling"
+      ],
+      "properties": {
+        "detection_window": { "$ref": "#/$defs/positiveDuration" },
+        "onset_delta_01": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "full_delta_01": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rearm_delta_01": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "refractory_duration": { "$ref": "#/$defs/positiveDuration" },
+        "rising": { "$ref": "#/$defs/transientEnvelope" },
+        "falling": { "$ref": "#/$defs/transientEnvelope" }
+      }
+    },
+    "lifecycleCapture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "event", "scenario_uri"],
+      "properties": {
         "id": { "$ref": "#/$defs/id" },
-        "direction": { "enum": ["rising", "falling"] },
-        "load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 },
-        "state_mask": { "type": "integer", "minimum": 0, "maximum": 31 },
-        "normalized_rpm_slope": { "$ref": "#/$defs/normalizedRpmSlopeRange" },
-        "captured_rpm": { "$ref": "#/$defs/rpmRange" },
-        "usable_rpm": { "$ref": "#/$defs/rpmRange" },
-        "scenario": { "$ref": "#/$defs/id" },
-        "handoff": { "$ref": "#/$defs/handoff" }
+        "event": { "enum": ["startup", "shutdown", "limiter"] },
+        "scenario_uri": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "$comment": "A confined forward-slash relative path; the native loader performs filesystem confinement."
+        }
       }
     }
   }

@@ -1,57 +1,83 @@
 {
   "schema": "engine-sim-offline/atlas-bake",
-  "id": "bmw-m52tub28-cleanroom-first-moving-atlas",
+  "id": "bmw-m52tub28-cleanroom-audio-atlas",
   "engine": "bmw-m52tub28-cleanroom",
-  "public_seed": "12648431",
+  "public_seed": "12648430",
   "audio": {
     "sample_rate": {
       "numerator": "192000",
       "denominator": "1",
       "unit": "Hz"
     },
-    "buses": ["master-engine-audition"]
+    "routes": ["exhaust.front", "exhaust.rear"],
+    "output_bus": "master-engine-audition"
   },
   "domain": {
-    "minimum_rpm": 1600,
-    "maximum_rpm": 4000,
-    "minimum_load_coordinate": 1,
-    "maximum_load_coordinate": 1
+    "minimum_rpm": 700,
+    "maximum_rpm": 6500,
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "phase_cycle_revolutions": 2,
+    "running_state_mask": 3
   },
-  "scenario_sources": [
-    {
-      "id": "power-rise-source",
-      "uri": "scenarios/atlas-wot-rise-1500-4100rpm.json"
-    }
+  "capture": {
+    "physics_rate": {
+      "numerator": "20000",
+      "denominator": "1",
+      "unit": "Hz"
+    },
+    "samples_per_cycle": 4096,
+    "cycles_per_cell": 48,
+    "guard_cycles_before": 4,
+    "guard_cycles_after": 4,
+    "preparation_duration": {"value": 3, "unit": "s"},
+    "residual_taper_fraction_per_edge": 0.0625,
+    "maximum_concurrency": 6,
+    "scenario_template_uri": "scenarios/held-idle-region-700rpm.json"
+  },
+  "rpm_anchors": [
+    700,
+    900,
+    1200,
+    1600,
+    2200,
+    3000,
+    4000,
+    5000,
+    6000,
+    6500
   ],
-  "moving_segments": [
-    {
-      "id": "power-rise-1500-4100",
-      "direction": "rising",
-      "load_coordinate": 1,
-      "state_mask": 11,
-      "normalized_rpm_slope": {
-        "minimum_per_second": 0.023,
-        "maximum_per_second": 0.085
-      },
-      "captured_rpm": {
-        "minimum": 1500,
-        "maximum": 4100
-      },
-      "usable_rpm": {
-        "minimum": 1600,
-        "maximum": 4000
-      },
-      "scenario": "power-rise-source",
-      "handoff": {
-        "transition_frames": 3840,
-        "maximum_rpm_error": 75,
-        "maximum_normalized_rpm_slope_error_per_second": 0.015,
-        "maximum_load_error": 0.1,
-        "maximum_crank_phase_error_revolutions": 0.125
-      }
-    }
+  "load_lanes": [
+    {"id": "coast", "requested_throttle_01": 0},
+    {"id": "mid", "requested_throttle_01": 0.2},
+    {"id": "power", "requested_throttle_01": 1}
   ],
-  "stationary_tiles": [],
-  "transient_performances": [],
-  "lifecycle_performances": []
+  "phase_alignment": {
+    "reference": {"rpm": 3000, "load_lane": "power"}
+  },
+  "transient_capture": {
+    "motion": "prescribed-exponential-speed",
+    "cycles_per_cell": 3,
+    "normalized_rpm_slope_per_second": 0.3333333333333333,
+    "seam_closure_fraction_per_edge": 0.125
+  },
+  "transient_policy": {
+    "detection_window": {"value": 80, "unit": "ms"},
+    "onset_delta_01": 0.3,
+    "full_delta_01": 0.7,
+    "rearm_delta_01": 0.12,
+    "refractory_duration": {"value": 250, "unit": "ms"},
+    "rising": {
+      "maximum_gain": 0.75,
+      "attack_duration": {"value": 30, "unit": "ms"},
+      "hold_duration": {"value": 90, "unit": "ms"},
+      "release_duration": {"value": 330, "unit": "ms"}
+    },
+    "falling": {
+      "maximum_gain": 0.65,
+      "attack_duration": {"value": 20, "unit": "ms"},
+      "hold_duration": {"value": 80, "unit": "ms"},
+      "release_duration": {"value": 420, "unit": "ms"}
+    }
+  },
+  "lifecycle_captures": []
 }

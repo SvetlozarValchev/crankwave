@@ -15,7 +15,6 @@ namespace {
 using engine_sim_offline::cli::CliCommand;
 using engine_sim_offline::cli::CliParseResult;
 using engine_sim_offline::cli::CliUsageError;
-using engine_sim_offline::cli::BakeAtlasCommand;
 using engine_sim_offline::cli::RenderCommand;
 
 static_assert(engine_sim_offline::cli::kExitSuccess == 0);
@@ -67,21 +66,6 @@ void test_exact_render_grammar() {
            "render flags must be order-independent");
 }
 
-void test_exact_atlas_grammar() {
-    const auto parsed =
-        parse({"bake-atlas", "--engine", "engine.json", "--atlas-bake",
-               "atlas-bake.json", "--asset-root", "assets", "--output-directory",
-               "atlas"});
-    const auto *command = std::get_if<CliCommand>(&parsed);
-    expect(command != nullptr, "valid bake-atlas syntax was rejected");
-    const auto *atlas = std::get_if<BakeAtlasCommand>(command);
-    expect(atlas != nullptr && atlas->engine_path == "engine.json" &&
-               atlas->atlas_bake_path == "atlas-bake.json" &&
-               atlas->asset_root == "assets" &&
-               atlas->output_directory == "atlas",
-           "bake-atlas values were not retained");
-}
-
 void test_strict_render_rejections() {
     const std::vector<std::vector<std::string_view>> invalid{
         {},
@@ -105,6 +89,8 @@ void test_strict_render_rejections() {
          "--output-directory", "o"},
         {"render", "--help", "--engine", "e", "--scenario", "s", "--asset-root", "a",
          "--output-directory", "o"},
+        {"bake-atlas", "--engine", "e", "--atlas-bake", "a",
+         "--asset-root", "assets", "--output-directory", "out"},
         {"unknown"},
         {"--help", "extra"},
         {"--version", "extra"},
@@ -143,6 +129,8 @@ void test_standalone_help_and_version() {
                "render --engine <engine.json> --scenario <scenario.json>") !=
                std::string::npos,
            "--help must document the exact current render syntax");
+    expect(help.standard_out.find("bake-atlas") == std::string::npos,
+           "--help must not advertise the withdrawn atlas baker");
     expect(help.standard_error.empty(), "--help must not write stderr");
 
     const auto version = invoke({"--version"});
@@ -177,7 +165,6 @@ void test_usage_output_channels() {
 int main() {
     try {
         test_exact_render_grammar();
-        test_exact_atlas_grammar();
         test_strict_render_rejections();
         test_standalone_help_and_version();
         test_usage_output_channels();
