@@ -33,7 +33,7 @@
   },
   "mix": {
     "default_enabled": true,
-    "source_gain": 1,
+    "source_gain": 0.5,
     "speed_up_start_rpm": 500,
     "speed_up_end_rpm": 760,
     "base_playback_rate": 0.8,
@@ -46,7 +46,7 @@
     "ignition_duck_lead_milliseconds": 30,
     "catch_starter_gain": 0.2,
     "engine_catch_gain": 1,
-    "handoff_milliseconds": 520,
+    "handoff_milliseconds": 160,
     "catch_offset_milliseconds": 0
   },
   "provenance": {

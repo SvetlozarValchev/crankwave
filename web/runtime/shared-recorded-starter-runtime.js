@@ -3,8 +3,8 @@ const KIND = "shared-recorded-starter";
 const SAMPLE_RATE = 192_000;
 const EXPECTED_ID = "shared-recorded-starter-licensed";
 const EXPECTED_MANIFEST_SHA256 =
-  "d01fa7d64aa9a1676fa3288ebb8eeaaeaddbdc05d0eca25630188f6dafbaa14d";
-const EXPECTED_MANIFEST_BYTE_COUNT = 3_118;
+  "1fb698a9c304ecee323361b059dbfc615ab82c06357e01b815faa8f3a008365e";
+const EXPECTED_MANIFEST_BYTE_COUNT = 3_120;
 const EXPECTED_SOURCE_SHA256 =
   "8edcfa21f846098472dd3f57236f23367a7667f4458f7452b565370062635a81";
 const EXPECTED_PAYLOAD_SHA256 =
@@ -27,7 +27,7 @@ const EXPECTED_MARKERS = Object.freeze({
 
 const EXPECTED_SETTINGS = Object.freeze({
   defaultEnabled: true,
-  sourceGain: 1,
+  sourceGain: 0.5,
   speedUpStartRpm: 500,
   speedUpEndRpm: 760,
   basePlaybackRate: 0.8,
@@ -40,7 +40,7 @@ const EXPECTED_SETTINGS = Object.freeze({
   ignitionDuckLeadMilliseconds: 30,
   catchStarterGain: 0.2,
   engineCatchGain: 1,
-  handoffMilliseconds: 520,
+  handoffMilliseconds: 160,
   catchOffsetMilliseconds: 0,
 });
 

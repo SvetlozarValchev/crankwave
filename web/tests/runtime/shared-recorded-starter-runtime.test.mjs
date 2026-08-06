@@ -77,7 +77,7 @@ test("canonical commissioned starter loads with exact identities and DSP", async
   assert.equal(package_.samples.length, 259_318);
   assert.equal(
     package_.manifestSha256,
-    "d01fa7d64aa9a1676fa3288ebb8eeaaeaddbdc05d0eca25630188f6dafbaa14d",
+    "1fb698a9c304ecee323361b059dbfc615ab82c06357e01b815faa8f3a008365e",
   );
   assert.equal(
     package_.payloadSha256,
@@ -85,7 +85,7 @@ test("canonical commissioned starter loads with exact identities and DSP", async
   );
   assert.deepEqual(package_.settings, {
     defaultEnabled: true,
-    sourceGain: 1,
+    sourceGain: 0.5,
     speedUpStartRpm: 500,
     speedUpEndRpm: 760,
     basePlaybackRate: 0.8,
@@ -98,7 +98,7 @@ test("canonical commissioned starter loads with exact identities and DSP", async
     ignitionDuckLeadMilliseconds: 30,
     catchStarterGain: 0.2,
     engineCatchGain: 1,
-    handoffMilliseconds: 520,
+    handoffMilliseconds: 160,
     catchOffsetMilliseconds: 0,
   });
   assert.deepEqual(
@@ -115,6 +115,53 @@ test("canonical commissioned starter loads with exact identities and DSP", async
   );
   assert.equal(manifestText.includes("/home/"), false);
   assert.equal(Object.hasOwn(package_.manifest.provenance.source, "original_path"), false);
+});
+
+test("recorded starter ends its post-catch tail after the authored 160 ms", async () => {
+  const fixture = canonicalFetch();
+  const package_ = await loadSharedRecordedStarterRuntime(MANIFEST_URL, {
+    fetch: fixture.fetch,
+    crypto: webcrypto,
+  });
+  const cursor = new SharedRecordedStarterCursor(package_);
+  cursor.setState({
+    starter: true,
+    ignition: false,
+    fuel: true,
+    rpm: 250,
+    combustionDetected: false,
+    frame: 0,
+  });
+  cursor.setState({
+    starter: true,
+    ignition: true,
+    fuel: true,
+    rpm: 800,
+    combustionDetected: true,
+    frame: 1_000,
+  });
+
+  const handoffEndFrame = 1_000 + 30 * 192 + 160 * 192;
+  cursor.mixPair(
+    new Float32Array(handoffEndFrame),
+    new Float32Array(handoffEndFrame),
+  );
+  assert.deepEqual(
+    {
+      handoffStartFrame: cursor.diagnostics().handoffStartFrame,
+      handoffEndFrame: cursor.diagnostics().handoffEndFrame,
+      active: cursor.diagnostics().active,
+    },
+    {
+      handoffStartFrame: 1_000 + 30 * 192,
+      handoffEndFrame,
+      active: true,
+    },
+  );
+
+  cursor.mixPair(new Float32Array(1), new Float32Array(1));
+  assert.equal(cursor.diagnostics().active, false);
+  assert.equal(cursor.diagnostics().starterGain, 0);
 });
 
 test("recorded starter cursor reports licensed availability and mixes A/B equally", async () => {
@@ -238,9 +285,9 @@ test("redirected or retargeted starter fetches fail closed", async () => {
 
 test("canonical fixture manifest digest is stable", async () => {
   const bytes = await fs.readFile(path.join(FIXTURE_ROOT, "runtime.json"));
-  assert.equal(bytes.length, 3_118);
+  assert.equal(bytes.length, 3_120);
   assert.equal(
     createHash("sha256").update(bytes).digest("hex"),
-    "d01fa7d64aa9a1676fa3288ebb8eeaaeaddbdc05d0eca25630188f6dafbaa14d",
+    "1fb698a9c304ecee323361b059dbfc615ab82c06357e01b815faa8f3a008365e",
   );
 });
