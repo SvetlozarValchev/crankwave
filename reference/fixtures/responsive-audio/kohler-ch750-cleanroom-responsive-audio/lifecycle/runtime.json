@@ -1,0 +1,211 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "id": "kohler-ch750-cleanroom-lifecycle-preview",
+  "engine": "kohler-ch750-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "master.engine.audition"
+  },
+  "starter": {
+    "artifact": {
+      "path": "audio/starter.master-engine-audition.f32le",
+      "sha256": "aec009fb1cfbd67fb2e69fbe3a366f765eca7e58d38584b0615dd239a17e34f8",
+      "frame_count": 480000
+    },
+    "mean_crank_rpm": 515.6620188449401,
+    "reference_rpm": 515.6620188449401,
+    "loop_start_frame": 148045,
+    "loop_end_frame": 460808,
+    "crossfade_frames": 44667,
+    "attack_fade_frames": 3840,
+    "release_fade_frames": 3840
+  },
+  "startup": {
+    "artifact": {
+      "path": "audio/startup.master-engine-audition.f32le",
+      "sha256": "aa2e30de1d5ea6be0938466694786855760770b31ec9864962f801fc41e8bac3",
+      "frame_count": 810240
+    },
+    "checkpoints": [
+      {
+        "kind": "ignition-on",
+        "frame": 134400,
+        "rpm": 499.9999994286667,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "first-combustion",
+        "frame": 145919,
+        "rpm": 501.39782099064814,
+        "precision": "advance-block",
+        "method": "first-positive-indicated-gas-torque-proxy"
+      },
+      {
+        "kind": "starter-release",
+        "frame": 234163,
+        "rpm": 948.9810531331048,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "running-floor",
+        "frame": 433301,
+        "rpm": 1409.8006241088005,
+        "precision": "cycle-boundary",
+        "method": "post-release-cycle-correlated-to-captured-running-idle"
+      }
+    ],
+    "entry": {
+      "source_frame": 113279,
+      "crossfade_frames": 19200,
+      "source_rpm": 506.78688948448166,
+      "target_source_frame": 237390,
+      "target_rpm": 515.6414579477031,
+      "correlation": -0.03518148200083796,
+      "target": "starter",
+      "target_reference": "starter-loop"
+    },
+    "exit": {
+      "source_frame": 433301,
+      "crossfade_frames": 16166,
+      "source_rpm": 1425.2209771106784,
+      "target_source_frame": 433301,
+      "target_rpm": 1425.2209771106784,
+      "correlation": 1,
+      "target": "running",
+      "target_reference": "startup-post-release-cycle-reference"
+    }
+  },
+  "shutdown": {
+    "artifact": {
+      "path": "audio/shutdown.master-engine-audition.f32le",
+      "sha256": "976342e85f2140cfba4bf3043e71c373369178344bb5822ecd7c2cf8a148b97f",
+      "frame_count": 576000
+    },
+    "checkpoints": [
+      {
+        "kind": "settled-idle",
+        "frame": 120960,
+        "rpm": 1550.8066203642493,
+        "precision": "cycle-window",
+        "method": "pre-key-off-window-correlated-to-captured-running-idle"
+      },
+      {
+        "kind": "ignition-off",
+        "frame": 153600,
+        "rpm": 1624.3677965220484,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "engine-stopped",
+        "frame": 241919,
+        "rpm": 0,
+        "precision": "advance-block",
+        "method": "first-observed-absolute-engine-speed-at-or-below-1-rpm"
+      }
+    ],
+    "entry": {
+      "source_frame": 120960,
+      "crossfade_frames": 19200,
+      "source_rpm": 1550.8066203642493,
+      "target_source_frame": 7994,
+      "target_rpm": 1082.3426569181838,
+      "correlation": -0.2976622483374458,
+      "target": "running",
+      "target_reference": "shutdown-pre-keyoff-cycle-reference"
+    },
+    "silence_frame": 248969,
+    "exit_fade_frames": 3840,
+    "quiet_tail_frames": 327031,
+    "quiet_peak_threshold": 0.0021050400591438013,
+    "quiet_rms_threshold": 0.0006736128189260164
+  },
+  "startup_admission": {
+    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "admission_lane_coordinate": "authored-throttle-01",
+    "blend": "constant-power",
+    "pre_floor_progress": "smoothstep-first-fire-rpm-to-running-floor",
+    "completion_progress": "smoothstep-committed-crank-travel",
+    "completion_crank_travel_revolutions": 2,
+    "monotone_ownership": true,
+    "lanes": [
+      {
+        "id": "coast",
+        "throttle_01": 0,
+        "floor_running_gain_linear": 0.5761944116355173
+      },
+      {
+        "id": "mid",
+        "throttle_01": 0.2,
+        "floor_running_gain_linear": 0.7179832867135557
+      },
+      {
+        "id": "power",
+        "throttle_01": 1,
+        "floor_running_gain_linear": 0.7940403012442127
+      }
+    ],
+    "coast_stability": {
+      "lane_id": "coast",
+      "requires_starter_released": true,
+      "post_peak_crank_travel_revolutions": 4,
+      "clock_law": "lane-weighted-post-peak-admission"
+    },
+    "evidence": {
+      "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
+      "path": "evidence/startup-admission.json",
+      "sha256": "7ad7de27d35590e218756caa99c875d5fca1b5edbf8c85e5a94ba0845621f6a3",
+      "corrected_held_manifest_sha256": "742623722b37f457d4c85342a449c9b5373c94635aff3ebe2c85718c2638f4b8"
+    }
+  },
+  "provenance": {
+    "engine": {
+      "id": "kohler-ch750-cleanroom",
+      "sha256": "812fcfa3fcb1c3040f695140cfc2a73df0934a3d84a848121eb94a41f374e60e"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
+    "physics_rate_hz": 10000,
+    "delivery_rate_hz": 192000,
+    "fidelity_alignment": "matches-current-responsive-preview;canonical-20khz-events-are-not-mixed-into-10khz-running-package",
+    "checkpoint_alignment": "authored-control-times-are-exact-on-final-pcm;combustion-and-stop-use-one-block-c-api-telemetry-bounds;renderer-exposes-no-separate-audio-latency-field",
+    "seam_reference_scope": "same-performance-final-master-cycle-correlation;the-responsive-held-representation-exposes-no-contiguous-final-master-reference-tape",
+    "scenarios": [
+      {
+        "role": "starter",
+        "canonical_source_id": "kohler-ch750-cleanroom-lifecycle-starter-candidate",
+        "derived_id": "kohler-ch750-cleanroom-lifecycle-starter-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/starter-10khz.json",
+        "sha256": "67c54511c6a8fa6174cf2d63f7abf30c9312056d2c232e9843815fbfb69a9b2e",
+        "evidence_path": "evidence/starter.json",
+        "evidence_sha256": "0e8148a5e86d7ebb0a55588472831b4445dac8529e24fbf5b36b1822429a3119"
+      },
+      {
+        "role": "startup",
+        "canonical_source_id": "kohler-ch750-cleanroom-lifecycle-startup-candidate",
+        "derived_id": "kohler-ch750-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/startup-10khz.json",
+        "sha256": "0c9e4eee7ef25665382d35bd33bc4ec94cf4bb0098f9db4c73c9c5cefe062332",
+        "evidence_path": "evidence/startup.json",
+        "evidence_sha256": "be4d0b75ae617ab29b5f8139d207e09a66ea87f34df8dfba64e84444a531df35"
+      },
+      {
+        "role": "shutdown",
+        "canonical_source_id": "kohler-ch750-cleanroom-lifecycle-shutdown-candidate",
+        "derived_id": "kohler-ch750-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/shutdown-10khz.json",
+        "sha256": "a20596252fda12abf7278125a2f04b4e5b7b9089f15ccfce0bd24a0a9cdba600",
+        "evidence_path": "evidence/shutdown.json",
+        "evidence_sha256": "29d142bfcf1dd7e6884a1c1dbf191fa2fb6c487bab43c59d78f143c5cb82e6a4"
+      }
+    ]
+  }
+}

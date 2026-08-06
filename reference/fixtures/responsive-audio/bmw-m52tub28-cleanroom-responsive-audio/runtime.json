@@ -16,6 +16,7 @@
   "held_package_path": "held/package.json",
   "directional_package_path": "directional/runtime.json",
   "lifecycle_package_path": "lifecycle/runtime.json",
+  "shared_recorded_starter_package_path": "../shared-recorded-starter/runtime.json",
   "domain": {
     "minimum_rpm": 550,
     "maximum_rpm": 6700

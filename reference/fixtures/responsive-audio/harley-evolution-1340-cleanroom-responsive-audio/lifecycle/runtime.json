@@ -1,0 +1,211 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "id": "harley-evolution-1340-cleanroom-lifecycle-preview",
+  "engine": "harley-evolution-1340-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "master.engine.audition"
+  },
+  "starter": {
+    "artifact": {
+      "path": "audio/starter.master-engine-audition.f32le",
+      "sha256": "12b21db0a7caa36dc13936c9660ec68c2f05b5e7d6366e708591f6dd748b74ec",
+      "frame_count": 480000
+    },
+    "mean_crank_rpm": 407.5668752852437,
+    "reference_rpm": 407.5668752852437,
+    "loop_start_frame": 174951,
+    "loop_end_frame": 457604,
+    "crossfade_frames": 56498,
+    "attack_fade_frames": 3840,
+    "release_fade_frames": 3840
+  },
+  "startup": {
+    "artifact": {
+      "path": "audio/startup.master-engine-audition.f32le",
+      "sha256": "839db36348f4126307624e8655ada3f61922c9c281ae70ed55bb8635f34da7a6",
+      "frame_count": 821760
+    },
+    "checkpoints": [
+      {
+        "kind": "ignition-on",
+        "frame": 134400,
+        "rpm": 399.9999995429333,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "first-combustion",
+        "frame": 138239,
+        "rpm": 399.9999995429333,
+        "precision": "advance-block",
+        "method": "first-positive-indicated-gas-torque-proxy"
+      },
+      {
+        "kind": "starter-release",
+        "frame": 242880,
+        "rpm": 687.6423931368099,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "running-floor",
+        "frame": 457304,
+        "rpm": 746.4800380122464,
+        "precision": "cycle-boundary",
+        "method": "post-release-cycle-correlated-to-captured-running-idle"
+      }
+    ],
+    "entry": {
+      "source_frame": 105599,
+      "crossfade_frames": 19200,
+      "source_rpm": 399.9999995429333,
+      "target_source_frame": 231449,
+      "target_rpm": 407.60707975967586,
+      "correlation": 0.1675300313374728,
+      "target": "starter",
+      "target_reference": "starter-loop"
+    },
+    "exit": {
+      "source_frame": 457304,
+      "crossfade_frames": 19200,
+      "source_rpm": 740.4784457160974,
+      "target_source_frame": 457304,
+      "target_rpm": 740.4784457160974,
+      "correlation": 0.9999999999999992,
+      "target": "running",
+      "target_reference": "startup-post-release-cycle-reference"
+    }
+  },
+  "shutdown": {
+    "artifact": {
+      "path": "audio/shutdown.master-engine-audition.f32le",
+      "sha256": "43337d28e273a6cfd8a5803be4c4a4f5fc3c5a71fa2f440a546ff85a46bb376b",
+      "frame_count": 576000
+    },
+    "checkpoints": [
+      {
+        "kind": "settled-idle",
+        "frame": 120960,
+        "rpm": 762.2438422540365,
+        "precision": "cycle-window",
+        "method": "pre-key-off-window-correlated-to-captured-running-idle"
+      },
+      {
+        "kind": "ignition-off",
+        "frame": 153600,
+        "rpm": 758.9096886341039,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "engine-stopped",
+        "frame": 215039,
+        "rpm": 0,
+        "precision": "advance-block",
+        "method": "first-observed-absolute-engine-speed-at-or-below-1-rpm"
+      }
+    ],
+    "entry": {
+      "source_frame": 120960,
+      "crossfade_frames": 19200,
+      "source_rpm": 762.2438422540365,
+      "target_source_frame": 6045,
+      "target_rpm": 688.6574628815156,
+      "correlation": -0.06677091232679061,
+      "target": "running",
+      "target_reference": "shutdown-pre-keyoff-cycle-reference"
+    },
+    "silence_frame": 223419,
+    "exit_fade_frames": 3840,
+    "quiet_tail_frames": 352581,
+    "quiet_peak_threshold": 0.0019063485088058863,
+    "quiet_rms_threshold": 0.0006100315228178836
+  },
+  "startup_admission": {
+    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "admission_lane_coordinate": "authored-throttle-01",
+    "blend": "constant-power",
+    "pre_floor_progress": "smoothstep-first-fire-rpm-to-running-floor",
+    "completion_progress": "smoothstep-committed-crank-travel",
+    "completion_crank_travel_revolutions": 2,
+    "monotone_ownership": true,
+    "lanes": [
+      {
+        "id": "coast",
+        "throttle_01": 0,
+        "floor_running_gain_linear": 0.5761944116355173
+      },
+      {
+        "id": "mid",
+        "throttle_01": 0.2,
+        "floor_running_gain_linear": 0.7179832867135557
+      },
+      {
+        "id": "power",
+        "throttle_01": 1,
+        "floor_running_gain_linear": 0.7940403012442127
+      }
+    ],
+    "coast_stability": {
+      "lane_id": "coast",
+      "requires_starter_released": true,
+      "post_peak_crank_travel_revolutions": 4,
+      "clock_law": "lane-weighted-post-peak-admission"
+    },
+    "evidence": {
+      "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
+      "path": "evidence/startup-admission.json",
+      "sha256": "1a91d68b4beb1fd48399fcabc970b10969f2871d60f1d3d03406ba970489662a",
+      "corrected_held_manifest_sha256": "fea71eca64aa25d4de28e4145e781feb44a9ad26ece2ffe950afbc6c004ace45"
+    }
+  },
+  "provenance": {
+    "engine": {
+      "id": "harley-evolution-1340-cleanroom",
+      "sha256": "a21033e0ebe6813a63c1212d429936f1cc17e4f6de0a2b206406e7cb6fd92647"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
+    "physics_rate_hz": 10000,
+    "delivery_rate_hz": 192000,
+    "fidelity_alignment": "matches-current-responsive-preview;canonical-20khz-events-are-not-mixed-into-10khz-running-package",
+    "checkpoint_alignment": "authored-control-times-are-exact-on-final-pcm;combustion-and-stop-use-one-block-c-api-telemetry-bounds;renderer-exposes-no-separate-audio-latency-field",
+    "seam_reference_scope": "same-performance-final-master-cycle-correlation;the-responsive-held-representation-exposes-no-contiguous-final-master-reference-tape",
+    "scenarios": [
+      {
+        "role": "starter",
+        "canonical_source_id": "harley-evolution-1340-cleanroom-lifecycle-starter-candidate",
+        "derived_id": "harley-evolution-1340-cleanroom-lifecycle-starter-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/starter-10khz.json",
+        "sha256": "e94a86b7505114a7a53e3ebb969341b07815d9b5711208c24a51ceb543590d4e",
+        "evidence_path": "evidence/starter.json",
+        "evidence_sha256": "87295c57c7fdb337525228faca62e6415a5bf313c95b4e33b996b223413bc83d"
+      },
+      {
+        "role": "startup",
+        "canonical_source_id": "harley-evolution-1340-cleanroom-lifecycle-startup-candidate",
+        "derived_id": "harley-evolution-1340-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/startup-10khz.json",
+        "sha256": "47e4a333027be7b4cba5edef57b3c40517c761ebd86323b85f50708e92b0312e",
+        "evidence_path": "evidence/startup.json",
+        "evidence_sha256": "ceaab75b8c0d49dfa22b14e1acdd9c0516a5a473ebfab2effa8f2e7dadcd502a"
+      },
+      {
+        "role": "shutdown",
+        "canonical_source_id": "harley-evolution-1340-cleanroom-lifecycle-shutdown-candidate",
+        "derived_id": "harley-evolution-1340-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/shutdown-10khz.json",
+        "sha256": "de7a024933da3111503466218046766522cbddda6c4a23f8fae984fa9ff1db1a",
+        "evidence_path": "evidence/shutdown.json",
+        "evidence_sha256": "975003d5bb60129b85ec4b9d1cb3b0d10a77fe51e11ab12cba6057d53484a1fd"
+      }
+    ]
+  }
+}

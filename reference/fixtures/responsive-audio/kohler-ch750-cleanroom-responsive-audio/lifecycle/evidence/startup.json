@@ -1,0 +1,2532 @@
+{
+  "schema": "engine-sim-offline/lifecycle-capture-evidence",
+  "role": "startup",
+  "physics_rate_hz": 10000,
+  "delivery_rate_hz": 192000,
+  "scenario_id": "kohler-ch750-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
+  "points": [
+    {
+      "source_frame": 3839,
+      "physics_step_end": 200,
+      "simulation_seconds": 0.02,
+      "rpm": 84.16771562032932,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -1.639717517842237,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 7679,
+      "physics_step_end": 400,
+      "simulation_seconds": 0.04,
+      "rpm": 164.4535764120486,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -6.978790390400822,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 11519,
+      "physics_step_end": 600,
+      "simulation_seconds": 0.06,
+      "rpm": 236.75219026143085,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -10.640076070556596,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 15359,
+      "physics_step_end": 800,
+      "simulation_seconds": 0.08,
+      "rpm": 308.17783258794884,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -8.807233512189326,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 19199,
+      "physics_step_end": 1000,
+      "simulation_seconds": 0.1,
+      "rpm": 384.03691150029124,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -7.891300165331529,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 23039,
+      "physics_step_end": 1200,
+      "simulation_seconds": 0.12,
+      "rpm": 432.32950192737013,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -50.16167998900684,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 26879,
+      "physics_step_end": 1400,
+      "simulation_seconds": 0.14,
+      "rpm": 388.5949358478494,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -49.43223837250165,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 30719,
+      "physics_step_end": 1600,
+      "simulation_seconds": 0.16,
+      "rpm": 525.6623134267726,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 55.432072122855345,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 34559,
+      "physics_step_end": 1800,
+      "simulation_seconds": 0.18,
+      "rpm": 533.1110705333392,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 0.19772850952713283,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 38399,
+      "physics_step_end": 2000,
+      "simulation_seconds": 0.2,
+      "rpm": 505.1498222712915,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -2.1867886753558876,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 42239,
+      "physics_step_end": 2200,
+      "simulation_seconds": 0.22,
+      "rpm": 499.9999994286667,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -1.310121445565092,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 46079,
+      "physics_step_end": 2400,
+      "simulation_seconds": 0.24,
+      "rpm": 499.9999994286667,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 0.5427623834259052,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 49919,
+      "physics_step_end": 2600,
+      "simulation_seconds": 0.26,
+      "rpm": 499.9999994286667,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -8.261792157724924,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 53759,
+      "physics_step_end": 2800,
+      "simulation_seconds": 0.28,
+      "rpm": 492.3942439135842,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -81.83835722218971,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 57599,
+      "physics_step_end": 3000,
+      "simulation_seconds": 0.3,
+      "rpm": 516.0035324342839,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 80.51835150687968,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 61439,
+      "physics_step_end": 3200,
+      "simulation_seconds": 0.32,
+      "rpm": 561.1149650736336,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 9.005366334562733,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 65279,
+      "physics_step_end": 3400,
+      "simulation_seconds": 0.34,
+      "rpm": 540.4697196415564,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -1.3852560559392137,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 69119,
+      "physics_step_end": 3600,
+      "simulation_seconds": 0.36,
+      "rpm": 499.9999994286667,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -45.38703227254896,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 72959,
+      "physics_step_end": 3800,
+      "simulation_seconds": 0.38,
+      "rpm": 495.04980027014767,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 29.61543041839706,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 76799,
+      "physics_step_end": 4000,
+      "simulation_seconds": 0.4,
+      "rpm": 559.92230235784,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 19.69846948459881,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 80639,
+      "physics_step_end": 4200,
+      "simulation_seconds": 0.42,
+      "rpm": 540.3433388034629,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -3.8768751661699055,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 84479,
+      "physics_step_end": 4400,
+      "simulation_seconds": 0.44,
+      "rpm": 510.1453052755959,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -3.1728607653163876,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 88319,
+      "physics_step_end": 4600,
+      "simulation_seconds": 0.46,
+      "rpm": 499.9999994286667,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -0.5565351222743044,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 92159,
+      "physics_step_end": 4800,
+      "simulation_seconds": 0.48,
+      "rpm": 499.9999994286667,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 0.6106949888623696,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 95999,
+      "physics_step_end": 5000,
+      "simulation_seconds": 0.5,
+      "rpm": 499.9999994286667,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -26.02049290121471,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 99839,
+      "physics_step_end": 5200,
+      "simulation_seconds": 0.52,
+      "rpm": 473.26797429428046,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -67.80191223807078,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 103679,
+      "physics_step_end": 5400,
+      "simulation_seconds": 0.54,
+      "rpm": 548.8424693902115,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 43.423812751567375,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 107519,
+      "physics_step_end": 5600,
+      "simulation_seconds": 0.56,
+      "rpm": 547.3039974714487,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 0.6154152511810191,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 111359,
+      "physics_step_end": 5800,
+      "simulation_seconds": 0.58,
+      "rpm": 520.056718814792,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -8.205098202418853,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 115199,
+      "physics_step_end": 6000,
+      "simulation_seconds": 0.6,
+      "rpm": 493.51706015417136,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -77.3595524917855,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 119039,
+      "physics_step_end": 6200,
+      "simulation_seconds": 0.62,
+      "rpm": 530.3045064157232,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 70.2499892879001,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 122879,
+      "physics_step_end": 6400,
+      "simulation_seconds": 0.64,
+      "rpm": 553.3558867128514,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 2.602877192490998,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 126719,
+      "physics_step_end": 6600,
+      "simulation_seconds": 0.66,
+      "rpm": 522.992224539973,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -4.056724141187505,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 130559,
+      "physics_step_end": 6800,
+      "simulation_seconds": 0.68,
+      "rpm": 499.9999994286667,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -2.465674505575526,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 134399,
+      "physics_step_end": 7000,
+      "simulation_seconds": 0.7,
+      "rpm": 499.9999994286667,
+      "ignition_enabled": false,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 0.4334296576471638,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 138239,
+      "physics_step_end": 7200,
+      "simulation_seconds": 0.72,
+      "rpm": 499.9999994286667,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -2.495261210333873,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 142079,
+      "physics_step_end": 7400,
+      "simulation_seconds": 0.74,
+      "rpm": 499.76540231020766,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -56.18371082148417,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 145919,
+      "physics_step_end": 7600,
+      "simulation_seconds": 0.76,
+      "rpm": 501.39782099064814,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 73.58042918149276,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 149759,
+      "physics_step_end": 7800,
+      "simulation_seconds": 0.78,
+      "rpm": 678.567077670795,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 55.255339751365796,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 153599,
+      "physics_step_end": 8000,
+      "simulation_seconds": 0.8,
+      "rpm": 685.2389313756064,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -1.0132283396780515,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 157439,
+      "physics_step_end": 8200,
+      "simulation_seconds": 0.82,
+      "rpm": 604.295225074533,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -78.45382731358448,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 161279,
+      "physics_step_end": 8400,
+      "simulation_seconds": 0.84,
+      "rpm": 669.5532924860775,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 190.50097506392828,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 165119,
+      "physics_step_end": 8600,
+      "simulation_seconds": 0.86,
+      "rpm": 779.4458602022455,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 12.011189708610607,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 168959,
+      "physics_step_end": 8800,
+      "simulation_seconds": 0.88,
+      "rpm": 753.1145145073339,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -2.671979638201933,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 172799,
+      "physics_step_end": 9000,
+      "simulation_seconds": 0.9,
+      "rpm": 726.5672323823396,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 1.5770214338280604,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 176639,
+      "physics_step_end": 9200,
+      "simulation_seconds": 0.92,
+      "rpm": 677.6212600120097,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -50.903896701509716,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 180479,
+      "physics_step_end": 9400,
+      "simulation_seconds": 0.94,
+      "rpm": 631.8919770169472,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 164.95993174117513,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 184319,
+      "physics_step_end": 9600,
+      "simulation_seconds": 0.96,
+      "rpm": 816.1077042563936,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 35.19737199793474,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 188159,
+      "physics_step_end": 9800,
+      "simulation_seconds": 0.98,
+      "rpm": 793.8664194447309,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -31.734937693354432,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 191999,
+      "physics_step_end": 10000,
+      "simulation_seconds": 1,
+      "rpm": 767.6452686392274,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 149.22154267922048,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 195839,
+      "physics_step_end": 10200,
+      "simulation_seconds": 1.02,
+      "rpm": 885.8305922721219,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 11.599817330876006,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 199679,
+      "physics_step_end": 10400,
+      "simulation_seconds": 1.04,
+      "rpm": 857.6113009083841,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -2.302582680841568,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 203519,
+      "physics_step_end": 10600,
+      "simulation_seconds": 1.06,
+      "rpm": 832.1864081560026,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 0.2933775554849491,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 207359,
+      "physics_step_end": 10800,
+      "simulation_seconds": 1.08,
+      "rpm": 743.5917286457433,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -68.54915050611545,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 211199,
+      "physics_step_end": 11000,
+      "simulation_seconds": 1.1,
+      "rpm": 909.2549146273582,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 116.27241668084274,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 215039,
+      "physics_step_end": 11200,
+      "simulation_seconds": 1.12,
+      "rpm": 935.232906348215,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -11.353462412732048,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 218879,
+      "physics_step_end": 11400,
+      "simulation_seconds": 1.14,
+      "rpm": 904.9548228099342,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 142.8235325542334,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 222719,
+      "physics_step_end": 11600,
+      "simulation_seconds": 1.16,
+      "rpm": 1015.1905880724482,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": 4.270596351392142,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 226559,
+      "physics_step_end": 11800,
+      "simulation_seconds": 1.18,
+      "rpm": 983.8673168648982,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -0.008950201617574687,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 230399,
+      "physics_step_end": 12000,
+      "simulation_seconds": 1.2,
+      "rpm": 952.510484813312,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": true,
+      "indicated_gas_torque_nm": -26.56436635615413,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 234239,
+      "physics_step_end": 12200,
+      "simulation_seconds": 1.22,
+      "rpm": 948.9097893691048,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 149.0392516287464,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 238079,
+      "physics_step_end": 12400,
+      "simulation_seconds": 1.24,
+      "rpm": 1036.651416384842,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 4.039442201833001,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 241919,
+      "physics_step_end": 12600,
+      "simulation_seconds": 1.26,
+      "rpm": 985.8707903556697,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 104.7169209160609,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 245759,
+      "physics_step_end": 12800,
+      "simulation_seconds": 1.28,
+      "rpm": 1098.755907020586,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 5.301242322035009,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 249599,
+      "physics_step_end": 13000,
+      "simulation_seconds": 1.3,
+      "rpm": 1066.4364989250612,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 0.6200861382194314,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 253439,
+      "physics_step_end": 13200,
+      "simulation_seconds": 1.32,
+      "rpm": 1028.5924953628116,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -43.75325179987248,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 257279,
+      "physics_step_end": 13400,
+      "simulation_seconds": 1.34,
+      "rpm": 1081.998786356726,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 136.00680579080029,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 261119,
+      "physics_step_end": 13600,
+      "simulation_seconds": 1.36,
+      "rpm": 1108.0299346668344,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -16.89523155591839,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 264959,
+      "physics_step_end": 13800,
+      "simulation_seconds": 1.38,
+      "rpm": 1143.361638795118,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 125.71460256538282,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 268799,
+      "physics_step_end": 14000,
+      "simulation_seconds": 1.4,
+      "rpm": 1163.1579685016104,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -6.44063030592956,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 272639,
+      "physics_step_end": 14200,
+      "simulation_seconds": 1.42,
+      "rpm": 1135.9566569135059,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 2.7212908148208013,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 276479,
+      "physics_step_end": 14400,
+      "simulation_seconds": 1.44,
+      "rpm": 1095.5546583260493,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 117.21425103699107,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 280319,
+      "physics_step_end": 14600,
+      "simulation_seconds": 1.46,
+      "rpm": 1182.6989747254922,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 5.668037282630586,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 284159,
+      "physics_step_end": 14800,
+      "simulation_seconds": 1.48,
+      "rpm": 1166.3575919355483,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 129.08335809346704,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 287999,
+      "physics_step_end": 15000,
+      "simulation_seconds": 1.5,
+      "rpm": 1228.6093852223003,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -9.48174568186295,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 291839,
+      "physics_step_end": 15200,
+      "simulation_seconds": 1.52,
+      "rpm": 1199.1942737067313,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 4.726505573218873,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 295679,
+      "physics_step_end": 15400,
+      "simulation_seconds": 1.54,
+      "rpm": 1151.2047547876484,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 102.56480393170118,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 299519,
+      "physics_step_end": 15600,
+      "simulation_seconds": 1.56,
+      "rpm": 1254.24116698274,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 7.524668138935899,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 303359,
+      "physics_step_end": 15800,
+      "simulation_seconds": 1.58,
+      "rpm": 1243.872718211653,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 111.36870937532935,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 307199,
+      "physics_step_end": 16000,
+      "simulation_seconds": 1.6,
+      "rpm": 1277.8978630746967,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -8.42355894032063,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 311039,
+      "physics_step_end": 16200,
+      "simulation_seconds": 1.62,
+      "rpm": 1250.0706369402035,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 3.9834309330433917,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 314879,
+      "physics_step_end": 16400,
+      "simulation_seconds": 1.64,
+      "rpm": 1234.75851283832,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 118.30673046639669,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 318719,
+      "physics_step_end": 16600,
+      "simulation_seconds": 1.66,
+      "rpm": 1284.1792076509223,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -5.806906386026356,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 322559,
+      "physics_step_end": 16800,
+      "simulation_seconds": 1.68,
+      "rpm": 1319.7305664428106,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 87.53087264877134,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 326399,
+      "physics_step_end": 17000,
+      "simulation_seconds": 1.7,
+      "rpm": 1307.1856147067454,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -3.2905401340136855,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 330239,
+      "physics_step_end": 17200,
+      "simulation_seconds": 1.72,
+      "rpm": 1274.3686835536873,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -29.380194301121257,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 334079,
+      "physics_step_end": 17400,
+      "simulation_seconds": 1.74,
+      "rpm": 1317.3409207484276,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 56.357904256357735,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 337919,
+      "physics_step_end": 17600,
+      "simulation_seconds": 1.76,
+      "rpm": 1292.2596471074196,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -33.69682711407481,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 341759,
+      "physics_step_end": 17800,
+      "simulation_seconds": 1.78,
+      "rpm": 1363.5708975795815,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -0.8778403612840968,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 345599,
+      "physics_step_end": 18000,
+      "simulation_seconds": 1.8,
+      "rpm": 1329.6828299810513,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 4.668511283655449,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 349439,
+      "physics_step_end": 18200,
+      "simulation_seconds": 1.82,
+      "rpm": 1284.0963987689352,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 74.04823904329749,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 353279,
+      "physics_step_end": 18400,
+      "simulation_seconds": 1.84,
+      "rpm": 1358.0997120374757,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 5.097049957942385,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 357119,
+      "physics_step_end": 18600,
+      "simulation_seconds": 1.86,
+      "rpm": 1369.5090365191322,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 94.51765580116216,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 360959,
+      "physics_step_end": 18800,
+      "simulation_seconds": 1.88,
+      "rpm": 1367.1279630095828,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -4.5978470406313425,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 364799,
+      "physics_step_end": 19000,
+      "simulation_seconds": 1.9,
+      "rpm": 1334.841060544325,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -25.908775812907194,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 368639,
+      "physics_step_end": 19200,
+      "simulation_seconds": 1.92,
+      "rpm": 1371.0949431289444,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 43.4180968903943,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 372479,
+      "physics_step_end": 19400,
+      "simulation_seconds": 1.94,
+      "rpm": 1340.799458707247,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 6.3831829683232115,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 376319,
+      "physics_step_end": 19600,
+      "simulation_seconds": 1.96,
+      "rpm": 1402.8779895605962,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -9.76351160185831,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 380159,
+      "physics_step_end": 19800,
+      "simulation_seconds": 1.98,
+      "rpm": 1371.8512599757607,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 6.294265191047696,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 383999,
+      "physics_step_end": 20000,
+      "simulation_seconds": 2,
+      "rpm": 1351.5512677523932,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 103.2478792454835,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 387839,
+      "physics_step_end": 20200,
+      "simulation_seconds": 2.02,
+      "rpm": 1388.5630373637352,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -9.263283928496357,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 391679,
+      "physics_step_end": 20400,
+      "simulation_seconds": 2.04,
+      "rpm": 1429.0223187858287,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 33.37849905246018,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 395519,
+      "physics_step_end": 20600,
+      "simulation_seconds": 2.06,
+      "rpm": 1396.5835830675665,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 1.1286721653623248,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 399359,
+      "physics_step_end": 20800,
+      "simulation_seconds": 2.08,
+      "rpm": 1348.4250828603995,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -32.450306092297986,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 403199,
+      "physics_step_end": 21000,
+      "simulation_seconds": 2.1,
+      "rpm": 1411.3445743055645,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 11.068741420549971,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 407039,
+      "physics_step_end": 21200,
+      "simulation_seconds": 2.12,
+      "rpm": 1410.015109793357,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 93.68308163134195,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 410879,
+      "physics_step_end": 21400,
+      "simulation_seconds": 2.14,
+      "rpm": 1414.4789903638748,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -5.603201578701721,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 414719,
+      "physics_step_end": 21600,
+      "simulation_seconds": 2.16,
+      "rpm": 1382.3028486236767,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -24.046517414593573,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 418559,
+      "physics_step_end": 21800,
+      "simulation_seconds": 2.18,
+      "rpm": 1417.3496956626334,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 36.723866312830914,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 422399,
+      "physics_step_end": 22000,
+      "simulation_seconds": 2.2,
+      "rpm": 1388.4181745111107,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 54.32121876601323,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 426239,
+      "physics_step_end": 22200,
+      "simulation_seconds": 2.22,
+      "rpm": 1437.886640689343,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -11.459446192391736,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 430079,
+      "physics_step_end": 22400,
+      "simulation_seconds": 2.24,
+      "rpm": 1408.9654268891438,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 5.993091253569696,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 433919,
+      "physics_step_end": 22600,
+      "simulation_seconds": 2.26,
+      "rpm": 1409.960820223558,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 94.85231517631189,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 437759,
+      "physics_step_end": 22800,
+      "simulation_seconds": 2.28,
+      "rpm": 1414.2448455327713,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -32.80515776942812,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 441599,
+      "physics_step_end": 23000,
+      "simulation_seconds": 2.3,
+      "rpm": 1459.4865020026716,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -1.2607036403200755,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 445439,
+      "physics_step_end": 23200,
+      "simulation_seconds": 2.32,
+      "rpm": 1425.1595903077616,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 5.663879956455505,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 449279,
+      "physics_step_end": 23400,
+      "simulation_seconds": 2.34,
+      "rpm": 1396.3353535179301,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 94.42853654706423,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 453119,
+      "physics_step_end": 23600,
+      "simulation_seconds": 2.36,
+      "rpm": 1437.0295758239338,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -5.003367896888071,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 456959,
+      "physics_step_end": 23800,
+      "simulation_seconds": 2.38,
+      "rpm": 1474.1461921347145,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 30.615761606173923,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 460799,
+      "physics_step_end": 24000,
+      "simulation_seconds": 2.4,
+      "rpm": 1440.608089256747,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 2.0232584332399286,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 464639,
+      "physics_step_end": 24200,
+      "simulation_seconds": 2.42,
+      "rpm": 1393.7607447527823,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 17.608639582129396,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 468479,
+      "physics_step_end": 24400,
+      "simulation_seconds": 2.44,
+      "rpm": 1451.8347364820715,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 6.391528363393703,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 472319,
+      "physics_step_end": 24600,
+      "simulation_seconds": 2.46,
+      "rpm": 1470.5832747844815,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 82.60423377319798,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 476159,
+      "physics_step_end": 24800,
+      "simulation_seconds": 2.48,
+      "rpm": 1452.656039086832,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -1.6854278103303435,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 479999,
+      "physics_step_end": 25000,
+      "simulation_seconds": 2.5,
+      "rpm": 1410.2436932805906,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -50.06750190294717,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 483839,
+      "physics_step_end": 25200,
+      "simulation_seconds": 2.52,
+      "rpm": 1466.89011635836,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 14.721190617664156,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 487679,
+      "physics_step_end": 25400,
+      "simulation_seconds": 2.54,
+      "rpm": 1465.4713175481947,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 97.67130776104501,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 491519,
+      "physics_step_end": 25600,
+      "simulation_seconds": 2.56,
+      "rpm": 1471.874742513008,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -4.93461739532187,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 495359,
+      "physics_step_end": 25800,
+      "simulation_seconds": 2.58,
+      "rpm": 1436.2007748666492,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -35.41629841309236,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 499199,
+      "physics_step_end": 26000,
+      "simulation_seconds": 2.6,
+      "rpm": 1474.0059127755183,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 21.893773711800453,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 503039,
+      "physics_step_end": 26200,
+      "simulation_seconds": 2.62,
+      "rpm": 1457.7641568149847,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 96.30801864978672,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 506879,
+      "physics_step_end": 26400,
+      "simulation_seconds": 2.64,
+      "rpm": 1479.4161098073898,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -7.6363705916418825,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 510719,
+      "physics_step_end": 26600,
+      "simulation_seconds": 2.66,
+      "rpm": 1447.990155160793,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -17.574679798698654,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 514559,
+      "physics_step_end": 26800,
+      "simulation_seconds": 2.68,
+      "rpm": 1481.2256399430387,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 35.72867310920674,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 518399,
+      "physics_step_end": 27000,
+      "simulation_seconds": 2.7,
+      "rpm": 1457.8648963411883,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 81.186203308175,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 522239,
+      "physics_step_end": 27200,
+      "simulation_seconds": 2.72,
+      "rpm": 1492.3788111802826,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -9.717266158259905,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 526079,
+      "physics_step_end": 27400,
+      "simulation_seconds": 2.74,
+      "rpm": 1462.8623673204536,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -4.7967793434851345,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 529919,
+      "physics_step_end": 27600,
+      "simulation_seconds": 2.76,
+      "rpm": 1485.9996381029416,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 49.084780143093425,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 533759,
+      "physics_step_end": 27800,
+      "simulation_seconds": 2.78,
+      "rpm": 1461.7377976760254,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 46.073863201270115,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 537599,
+      "physics_step_end": 28000,
+      "simulation_seconds": 2.8,
+      "rpm": 1502.536440342821,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -11.058515987664068,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 541439,
+      "physics_step_end": 28200,
+      "simulation_seconds": 2.82,
+      "rpm": 1473.4851919844189,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 2.5751934402566885,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 545279,
+      "physics_step_end": 28400,
+      "simulation_seconds": 2.84,
+      "rpm": 1487.548851699757,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 58.83723490811206,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 549119,
+      "physics_step_end": 28600,
+      "simulation_seconds": 2.86,
+      "rpm": 1465.5352870908332,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 10.29822497881279,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 552959,
+      "physics_step_end": 28800,
+      "simulation_seconds": 2.88,
+      "rpm": 1506.2600852603132,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -11.838756273898836,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 556799,
+      "physics_step_end": 29000,
+      "simulation_seconds": 2.9,
+      "rpm": 1477.0724784053825,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 5.4955495258481175,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 560639,
+      "physics_step_end": 29200,
+      "simulation_seconds": 2.92,
+      "rpm": 1487.3309882451717,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 74.59042507232938,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 564479,
+      "physics_step_end": 29400,
+      "simulation_seconds": 2.94,
+      "rpm": 1471.127464295554,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -16.081059500586534,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 568319,
+      "physics_step_end": 29600,
+      "simulation_seconds": 2.96,
+      "rpm": 1512.8837375570668,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -11.876353271306304,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 572159,
+      "physics_step_end": 29800,
+      "simulation_seconds": 2.98,
+      "rpm": 1483.291106515239,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 6.4140130503374335,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 575999,
+      "physics_step_end": 30000,
+      "simulation_seconds": 3,
+      "rpm": 1487.3922127001365,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 82.6177814640668,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 579839,
+      "physics_step_end": 30200,
+      "simulation_seconds": 3.02,
+      "rpm": 1475.1525160342912,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -27.491912765338487,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 583679,
+      "physics_step_end": 30400,
+      "simulation_seconds": 3.04,
+      "rpm": 1514.2299761535473,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -11.493412623246876,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 587519,
+      "physics_step_end": 30600,
+      "simulation_seconds": 3.06,
+      "rpm": 1484.188485879565,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 6.766673354013993,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 591359,
+      "physics_step_end": 30800,
+      "simulation_seconds": 3.08,
+      "rpm": 1485.9217416257188,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 87.57250690900878,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 595199,
+      "physics_step_end": 31000,
+      "simulation_seconds": 3.1,
+      "rpm": 1479.3807703559787,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -32.65616187641749,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 599039,
+      "physics_step_end": 31200,
+      "simulation_seconds": 3.12,
+      "rpm": 1515.488181050469,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -10.861194548948864,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 602879,
+      "physics_step_end": 31400,
+      "simulation_seconds": 3.14,
+      "rpm": 1484.9356493979044,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 6.913130870124445,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 606719,
+      "physics_step_end": 31600,
+      "simulation_seconds": 3.16,
+      "rpm": 1484.7984241917452,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 92.01388569698489,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 610559,
+      "physics_step_end": 31800,
+      "simulation_seconds": 3.18,
+      "rpm": 1484.1723819864183,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -34.254769964430594,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 614399,
+      "physics_step_end": 32000,
+      "simulation_seconds": 3.2,
+      "rpm": 1521.1201584738008,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -9.906865518374504,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 618239,
+      "physics_step_end": 32200,
+      "simulation_seconds": 3.22,
+      "rpm": 1490.1451421289378,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 6.970282026723289,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 622079,
+      "physics_step_end": 32400,
+      "simulation_seconds": 3.24,
+      "rpm": 1485.4164481319874,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 86.34028214461782,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 625919,
+      "physics_step_end": 32600,
+      "simulation_seconds": 3.26,
+      "rpm": 1485.1879039070225,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -34.528989042885634,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 629759,
+      "physics_step_end": 32800,
+      "simulation_seconds": 3.28,
+      "rpm": 1524.657402640637,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -9.069300765988078,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 633599,
+      "physics_step_end": 33000,
+      "simulation_seconds": 3.3,
+      "rpm": 1493.4224788032097,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 6.9913255315460905,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 637439,
+      "physics_step_end": 33200,
+      "simulation_seconds": 3.32,
+      "rpm": 1490.6569799491385,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 94.03581330304903,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 641279,
+      "physics_step_end": 33400,
+      "simulation_seconds": 3.34,
+      "rpm": 1494.570637669837,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -34.29445042399331,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 645119,
+      "physics_step_end": 33600,
+      "simulation_seconds": 3.36,
+      "rpm": 1533.3459382965464,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -9.236093962147317,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 648959,
+      "physics_step_end": 33800,
+      "simulation_seconds": 3.38,
+      "rpm": 1502.2778611041442,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 6.995813175570412,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 652799,
+      "physics_step_end": 34000,
+      "simulation_seconds": 3.4,
+      "rpm": 1500.7392229144775,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 90.94087285083035,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 656639,
+      "physics_step_end": 34200,
+      "simulation_seconds": 3.42,
+      "rpm": 1500.1751237990752,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -34.1216329619639,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 660479,
+      "physics_step_end": 34400,
+      "simulation_seconds": 3.44,
+      "rpm": 1535.5590913855385,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -10.698142656559547,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 664319,
+      "physics_step_end": 34600,
+      "simulation_seconds": 3.46,
+      "rpm": 1505.0412195441106,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 6.892916413810785,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 668159,
+      "physics_step_end": 34800,
+      "simulation_seconds": 3.48,
+      "rpm": 1505.5073713098384,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 85.15688676113128,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 671999,
+      "physics_step_end": 35000,
+      "simulation_seconds": 3.5,
+      "rpm": 1497.4839858166586,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -30.58004988094622,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 675839,
+      "physics_step_end": 35200,
+      "simulation_seconds": 3.52,
+      "rpm": 1536.1285444349896,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -11.542158305943271,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 679679,
+      "physics_step_end": 35400,
+      "simulation_seconds": 3.54,
+      "rpm": 1506.1680907255854,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 6.6086629757515905,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 683519,
+      "physics_step_end": 35600,
+      "simulation_seconds": 3.56,
+      "rpm": 1512.248878464556,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 83.4843769924858,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 687359,
+      "physics_step_end": 35800,
+      "simulation_seconds": 3.58,
+      "rpm": 1498.9709358833168,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -17.924909355567777,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 691199,
+      "physics_step_end": 36000,
+      "simulation_seconds": 3.6,
+      "rpm": 1537.6395787609497,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -11.995048094860433,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 695039,
+      "physics_step_end": 36200,
+      "simulation_seconds": 3.62,
+      "rpm": 1508.1255717890604,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 5.680429177201967,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 698879,
+      "physics_step_end": 36400,
+      "simulation_seconds": 3.64,
+      "rpm": 1518.8227256826399,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 67.31086294241689,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 702719,
+      "physics_step_end": 36600,
+      "simulation_seconds": 3.66,
+      "rpm": 1499.539258175628,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 10.167386465546404,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 706559,
+      "physics_step_end": 36800,
+      "simulation_seconds": 3.68,
+      "rpm": 1536.7756789690889,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -11.60346929987354,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 710399,
+      "physics_step_end": 37000,
+      "simulation_seconds": 3.7,
+      "rpm": 1507.40472837045,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 2.8610007444581216,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 714239,
+      "physics_step_end": 37200,
+      "simulation_seconds": 3.72,
+      "rpm": 1522.9852000498834,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 53.57368412338376,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 718079,
+      "physics_step_end": 37400,
+      "simulation_seconds": 3.74,
+      "rpm": 1500.4920482560642,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 45.40943090831868,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 721919,
+      "physics_step_end": 37600,
+      "simulation_seconds": 3.76,
+      "rpm": 1540.2613458806893,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -10.587194808985172,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 725759,
+      "physics_step_end": 37800,
+      "simulation_seconds": 3.78,
+      "rpm": 1510.391677655061,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -3.8557520544674175,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 729599,
+      "physics_step_end": 38000,
+      "simulation_seconds": 3.8,
+      "rpm": 1531.035648494072,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 41.30826064983781,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 733439,
+      "physics_step_end": 38200,
+      "simulation_seconds": 3.82,
+      "rpm": 1508.911837233603,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 75.27998709151115,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 737279,
+      "physics_step_end": 38400,
+      "simulation_seconds": 3.84,
+      "rpm": 1538.4548758759765,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -9.23410899575914,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 741119,
+      "physics_step_end": 38600,
+      "simulation_seconds": 3.86,
+      "rpm": 1507.1906521490425,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -13.468019943863128,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 744959,
+      "physics_step_end": 38800,
+      "simulation_seconds": 3.88,
+      "rpm": 1532.2812049096058,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 30.730699495445908,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 748799,
+      "physics_step_end": 39000,
+      "simulation_seconds": 3.9,
+      "rpm": 1513.4460802276208,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 91.50191229874119,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 752639,
+      "physics_step_end": 39200,
+      "simulation_seconds": 3.92,
+      "rpm": 1537.2324254989346,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -7.746177716064582,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 756479,
+      "physics_step_end": 39400,
+      "simulation_seconds": 3.94,
+      "rpm": 1503.8764859086448,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -23.829079931338907,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 760319,
+      "physics_step_end": 39600,
+      "simulation_seconds": 3.96,
+      "rpm": 1536.5381730334348,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 24.86371424018799,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 764159,
+      "physics_step_end": 39800,
+      "simulation_seconds": 3.98,
+      "rpm": 1523.1992857865075,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 92.48501219580126,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 767999,
+      "physics_step_end": 40000,
+      "simulation_seconds": 4,
+      "rpm": 1536.3319406226858,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -6.071182736987997,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 771839,
+      "physics_step_end": 40200,
+      "simulation_seconds": 4.02,
+      "rpm": 1500.106339693237,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -35.08893495474288,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 775679,
+      "physics_step_end": 40400,
+      "simulation_seconds": 4.04,
+      "rpm": 1539.518104135402,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 19.349238606377853,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 779519,
+      "physics_step_end": 40600,
+      "simulation_seconds": 4.06,
+      "rpm": 1533.8880115871723,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 91.20144062731313,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 783359,
+      "physics_step_end": 40800,
+      "simulation_seconds": 4.08,
+      "rpm": 1537.4961989978506,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -4.224904580519474,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 787199,
+      "physics_step_end": 41000,
+      "simulation_seconds": 4.1,
+      "rpm": 1497.465422717722,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -46.102272531855846,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 791039,
+      "physics_step_end": 41200,
+      "simulation_seconds": 4.12,
+      "rpm": 1544.1132448656117,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 14.135807590787627,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 794879,
+      "physics_step_end": 41400,
+      "simulation_seconds": 4.14,
+      "rpm": 1548.8722595117717,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 87.36582307514242,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 798719,
+      "physics_step_end": 41600,
+      "simulation_seconds": 4.16,
+      "rpm": 1540.5835446395663,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -2.075780551092628,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 802559,
+      "physics_step_end": 41800,
+      "simulation_seconds": 4.18,
+      "rpm": 1495.7734595250497,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": -45.09769279220839,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 806399,
+      "physics_step_end": 42000,
+      "simulation_seconds": 4.2,
+      "rpm": 1544.6841724333985,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 8.693391005843367,
+      "indicated_gas_availability": 1
+    },
+    {
+      "source_frame": 810239,
+      "physics_step_end": 42200,
+      "simulation_seconds": 4.22,
+      "rpm": 1561.4844384935025,
+      "ignition_enabled": true,
+      "fuel_enabled": true,
+      "starter_enabled": false,
+      "indicated_gas_torque_nm": 73.85646732101465,
+      "indicated_gas_availability": 1
+    }
+  ],
+  "completed_cycles": [
+    {
+      "start_frame": 58981,
+      "end_frame": 103424,
+      "mean_rpm": 518.41206467091
+    },
+    {
+      "start_frame": 103424,
+      "end_frame": 147940,
+      "mean_rpm": 517.5717934101028
+    },
+    {
+      "start_frame": 147940,
+      "end_frame": 181439,
+      "mean_rpm": 687.7712748892899
+    },
+    {
+      "start_frame": 181439,
+      "end_frame": 209824,
+      "mean_rpm": 811.7159027425549
+    },
+    {
+      "start_frame": 209824,
+      "end_frame": 234160,
+      "mean_rpm": 946.7204706325376
+    },
+    {
+      "start_frame": 234160,
+      "end_frame": 256341,
+      "mean_rpm": 1038.7486383971147
+    },
+    {
+      "start_frame": 256341,
+      "end_frame": 276870,
+      "mean_rpm": 1122.2918096504338
+    },
+    {
+      "start_frame": 276870,
+      "end_frame": 296296,
+      "mean_rpm": 1186.061151037392
+    },
+    {
+      "start_frame": 296296,
+      "end_frame": 314766,
+      "mean_rpm": 1247.4118932582967
+    },
+    {
+      "start_frame": 314766,
+      "end_frame": 332666,
+      "mean_rpm": 1287.1519785708897
+    },
+    {
+      "start_frame": 332666,
+      "end_frame": 350088,
+      "mean_rpm": 1322.5029256050605
+    },
+    {
+      "start_frame": 350088,
+      "end_frame": 367142,
+      "mean_rpm": 1350.9631148916276
+    },
+    {
+      "start_frame": 367142,
+      "end_frame": 383959,
+      "mean_rpm": 1370.0697177936315
+    },
+    {
+      "start_frame": 383959,
+      "end_frame": 400531,
+      "mean_rpm": 1390.2946940618301
+    },
+    {
+      "start_frame": 400531,
+      "end_frame": 416985,
+      "mean_rpm": 1400.2860586602872
+    },
+    {
+      "start_frame": 416985,
+      "end_frame": 433301,
+      "mean_rpm": 1412.045125015555
+    },
+    {
+      "start_frame": 433301,
+      "end_frame": 449467,
+      "mean_rpm": 1425.2209771106784
+    },
+    {
+      "start_frame": 449467,
+      "end_frame": 465501,
+      "mean_rpm": 1436.9530626178885
+    },
+    {
+      "start_frame": 465501,
+      "end_frame": 481448,
+      "mean_rpm": 1444.7584789850544
+    },
+    {
+      "start_frame": 481448,
+      "end_frame": 497253,
+      "mean_rpm": 1457.7792424624797
+    },
+    {
+      "start_frame": 497253,
+      "end_frame": 513000,
+      "mean_rpm": 1463.1765064150113
+    },
+    {
+      "start_frame": 513000,
+      "end_frame": 528642,
+      "mean_rpm": 1472.9907561947089
+    },
+    {
+      "start_frame": 528642,
+      "end_frame": 544197,
+      "mean_rpm": 1481.1942360621413
+    },
+    {
+      "start_frame": 544197,
+      "end_frame": 559719,
+      "mean_rpm": 1484.2978224729254
+    },
+    {
+      "start_frame": 559719,
+      "end_frame": 575193,
+      "mean_rpm": 1488.9320875771443
+    },
+    {
+      "start_frame": 575193,
+      "end_frame": 590655,
+      "mean_rpm": 1490.0955062780843
+    },
+    {
+      "start_frame": 590655,
+      "end_frame": 606107,
+      "mean_rpm": 1491.0717008322033
+    },
+    {
+      "start_frame": 606107,
+      "end_frame": 621519,
+      "mean_rpm": 1494.9896005718347
+    },
+    {
+      "start_frame": 621519,
+      "end_frame": 636909,
+      "mean_rpm": 1497.023772054278
+    },
+    {
+      "start_frame": 636909,
+      "end_frame": 652210,
+      "mean_rpm": 1505.7929771419251
+    },
+    {
+      "start_frame": 652210,
+      "end_frame": 667460,
+      "mean_rpm": 1510.803572885884
+    },
+    {
+      "start_frame": 667460,
+      "end_frame": 682699,
+      "mean_rpm": 1511.9446443285565
+    },
+    {
+      "start_frame": 682699,
+      "end_frame": 697905,
+      "mean_rpm": 1515.2154442275762
+    },
+    {
+      "start_frame": 697905,
+      "end_frame": 713096,
+      "mean_rpm": 1516.6799984689205
+    },
+    {
+      "start_frame": 713096,
+      "end_frame": 728254,
+      "mean_rpm": 1520.014335811139
+    },
+    {
+      "start_frame": 728254,
+      "end_frame": 743390,
+      "mean_rpm": 1522.1652781904254
+    },
+    {
+      "start_frame": 743390,
+      "end_frame": 758526,
+      "mean_rpm": 1522.2188944055615
+    },
+    {
+      "start_frame": 758526,
+      "end_frame": 773642,
+      "mean_rpm": 1524.2097632024513
+    },
+    {
+      "start_frame": 773642,
+      "end_frame": 788726,
+      "mean_rpm": 1527.4446499171497
+    },
+    {
+      "start_frame": 788726,
+      "end_frame": 803753,
+      "mean_rpm": 1533.237769041139
+    }
+  ]
+}

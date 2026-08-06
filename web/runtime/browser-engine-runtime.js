@@ -19,6 +19,7 @@ import {
 import { ResponsiveAudioLifecycleCursor } from "./responsive-audio-lifecycle-runtime.js";
 import {
   loadSharedRecordedStarterRuntime,
+  resolveSharedRecordedStarterManifestUrl,
   SharedRecordedStarterCursor,
 } from "./shared-recorded-starter-runtime.js";
 import {
@@ -60,20 +61,9 @@ async function loadBakedAudioPackage(url) {
   if (package_.lifecyclePackage === null) return package_;
   const sharedStarterPath = package_.manifest.shared_recorded_starter_package_path;
   if (sharedStarterPath === undefined) return package_;
-  if (
-    typeof sharedStarterPath !== "string" ||
-    sharedStarterPath.length === 0 ||
-    sharedStarterPath.startsWith("/") ||
-    sharedStarterPath.includes("..") ||
-    sharedStarterPath.includes("\\")
-  ) {
-    throw new TypeError(
-      "shared_recorded_starter_package_path must stay beneath the responsive package",
-    );
-  }
-  const sharedStarterUrl = new URL(
-    sharedStarterPath,
+  const sharedStarterUrl = resolveSharedRecordedStarterManifestUrl(
     package_.manifestUrl,
+    sharedStarterPath,
   );
   const sharedRecordedStarterPackage = await loadSharedRecordedStarterRuntime(
     sharedStarterUrl,

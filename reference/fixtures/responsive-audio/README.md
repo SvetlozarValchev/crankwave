@@ -2,9 +2,10 @@
 
 These packages are the browser-workbench reference set for responsive baked-B
 auditioning. They contain phase-aligned held texture, directional sharp-gesture
-material, and each engine's declared presentation transfer. The BMW M52TU
-package additionally contains the user-auditioned starter, first-fire handoff,
-and key-off lifecycle performances.
+material, each engine's declared presentation transfer, and engine-specific
+starter, first-fire handoff, and key-off lifecycle performances. The lifecycle
+packages are audition candidates: their generic admission behavior was accepted
+by ear before promotion, while engine-specific refinement remains iterative.
 
 The fixtures are deliberately identified as 10 kHz-physics previews. They are
 reference outputs, not a claim that the native 20 kHz atlas baker is complete.
@@ -19,8 +20,9 @@ report compares 21 deterministic cases across all 10 engines (14,315 blocks and
 The browser admits only this code-registered edge; any future renderer closure
 fails closed until separately proven.
 
-The optional shared semi-truck starter recording used during local research is
-not included: its source license is unverified and redistribution is explicitly
-unauthorized. The distributable M52TU package retains its engine-derived starter
-loop and lifecycle audio. A private shared starter layer may be configured only
-through `shared_recorded_starter_package_path` in a local package manifest.
+Every lifecycle also uses the single canonical `shared-recorded-starter`
+fixture. It is a commissioned original recording
+licensed to SvetlozarValchev with modification and redistribution authorized.
+The source asset and derived 192 kHz mono payload retain independent SHA-256
+identities; the original delivery path is deliberately not recorded. Source A
+and baked B receive the same recorded layer after their engine-specific paths.

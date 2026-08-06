@@ -1,0 +1,211 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "id": "honda-b18c5-cleanroom-lifecycle-preview",
+  "engine": "honda-b18c5-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "master.engine.audition"
+  },
+  "starter": {
+    "artifact": {
+      "path": "audio/starter.master-engine-audition.f32le",
+      "sha256": "209def1d6fbea092ef7e42094cea42504499df27f626ddbc34b09783a4fd6d79",
+      "frame_count": 480000
+    },
+    "mean_crank_rpm": 517.5415279904458,
+    "reference_rpm": 517.5415279904458,
+    "loop_start_frame": 181581,
+    "loop_end_frame": 448690,
+    "crossfade_frames": 44300,
+    "attack_fade_frames": 3840,
+    "release_fade_frames": 3840
+  },
+  "startup": {
+    "artifact": {
+      "path": "audio/startup.master-engine-audition.f32le",
+      "sha256": "7eafdac9c400723b74622403c51ad6db9afe23b7b811ee5b75af86bca1e60736",
+      "frame_count": 794880
+    },
+    "checkpoints": [
+      {
+        "kind": "ignition-on",
+        "frame": 134400,
+        "rpm": 544.6278309081857,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "first-combustion",
+        "frame": 145919,
+        "rpm": 579.9511280446201,
+        "precision": "advance-block",
+        "method": "first-positive-indicated-gas-torque-proxy"
+      },
+      {
+        "kind": "starter-release",
+        "frame": 216365,
+        "rpm": 650.814208316519,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "running-floor",
+        "frame": 425068,
+        "rpm": 808.2364490757458,
+        "precision": "cycle-boundary",
+        "method": "post-release-cycle-correlated-to-captured-running-idle"
+      }
+    ],
+    "entry": {
+      "source_frame": 113279,
+      "crossfade_frames": 19200,
+      "source_rpm": 535.5349938316483,
+      "target_source_frame": 181581,
+      "target_rpm": 520.0930044771383,
+      "correlation": -0.25637378050192194,
+      "target": "starter",
+      "target_reference": "starter-loop"
+    },
+    "exit": {
+      "source_frame": 425068,
+      "crossfade_frames": 19200,
+      "source_rpm": 792.7397146582393,
+      "target_source_frame": 425068,
+      "target_rpm": 792.7397146582393,
+      "correlation": 0.9999999999999989,
+      "target": "running",
+      "target_reference": "startup-post-release-cycle-reference"
+    }
+  },
+  "shutdown": {
+    "artifact": {
+      "path": "audio/shutdown.master-engine-audition.f32le",
+      "sha256": "e47a4adbe85d1a8bc4fb7779ded6e3c476e97fe2c0d42e85220adf44adba2947",
+      "frame_count": 576000
+    },
+    "checkpoints": [
+      {
+        "kind": "settled-idle",
+        "frame": 120960,
+        "rpm": 814.3256135689393,
+        "precision": "cycle-window",
+        "method": "pre-key-off-window-correlated-to-captured-running-idle"
+      },
+      {
+        "kind": "ignition-off",
+        "frame": 153600,
+        "rpm": 847.4740832225806,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "engine-stopped",
+        "frame": 245759,
+        "rpm": 0,
+        "precision": "advance-block",
+        "method": "first-observed-absolute-engine-speed-at-or-below-1-rpm"
+      }
+    ],
+    "entry": {
+      "source_frame": 120960,
+      "crossfade_frames": 19200,
+      "source_rpm": 814.3256135689393,
+      "target_source_frame": 36941,
+      "target_rpm": 705.9216191626872,
+      "correlation": 0.20918292291181262,
+      "target": "running",
+      "target_reference": "shutdown-pre-keyoff-cycle-reference"
+    },
+    "silence_frame": 252197,
+    "exit_fade_frames": 3840,
+    "quiet_tail_frames": 323803,
+    "quiet_peak_threshold": 0.0001220703125,
+    "quiet_rms_threshold": 0.00006103515625
+  },
+  "startup_admission": {
+    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "admission_lane_coordinate": "authored-throttle-01",
+    "blend": "constant-power",
+    "pre_floor_progress": "smoothstep-first-fire-rpm-to-running-floor",
+    "completion_progress": "smoothstep-committed-crank-travel",
+    "completion_crank_travel_revolutions": 2,
+    "monotone_ownership": true,
+    "lanes": [
+      {
+        "id": "coast",
+        "throttle_01": 0,
+        "floor_running_gain_linear": 0.5761944116355173
+      },
+      {
+        "id": "mid",
+        "throttle_01": 0.2,
+        "floor_running_gain_linear": 0.7179832867135557
+      },
+      {
+        "id": "power",
+        "throttle_01": 1,
+        "floor_running_gain_linear": 0.7940403012442127
+      }
+    ],
+    "coast_stability": {
+      "lane_id": "coast",
+      "requires_starter_released": true,
+      "post_peak_crank_travel_revolutions": 4,
+      "clock_law": "lane-weighted-post-peak-admission"
+    },
+    "evidence": {
+      "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
+      "path": "evidence/startup-admission.json",
+      "sha256": "389a70360ab2ca3bc10afb96170195477c48cb69809835bb7cc11c1cebfe4003",
+      "corrected_held_manifest_sha256": "0b56dd43d385493991bbccb4db76d5621ba14a73d878288d97460b1c9aa7a313"
+    }
+  },
+  "provenance": {
+    "engine": {
+      "id": "honda-b18c5-cleanroom",
+      "sha256": "beaf656419f9ec7da8d0370e2f575d2a079c1f264ff886be12df0733f7069af8"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
+    "physics_rate_hz": 10000,
+    "delivery_rate_hz": 192000,
+    "fidelity_alignment": "matches-current-responsive-preview;canonical-20khz-events-are-not-mixed-into-10khz-running-package",
+    "checkpoint_alignment": "authored-control-times-are-exact-on-final-pcm;combustion-and-stop-use-one-block-c-api-telemetry-bounds;renderer-exposes-no-separate-audio-latency-field",
+    "seam_reference_scope": "same-performance-final-master-cycle-correlation;the-responsive-held-representation-exposes-no-contiguous-final-master-reference-tape",
+    "scenarios": [
+      {
+        "role": "starter",
+        "canonical_source_id": "honda-b18c5-cleanroom-lifecycle-starter-candidate",
+        "derived_id": "honda-b18c5-cleanroom-lifecycle-starter-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/starter-10khz.json",
+        "sha256": "1a3755d5923ab92ddc5429da2216cb4f22ed395ec789ac4e8f6cfaa8a57a373e",
+        "evidence_path": "evidence/starter.json",
+        "evidence_sha256": "d07e922aa5cec46b90dbd2a65e7f0d9d687a22de782b04c566a8d3bae15bf0e2"
+      },
+      {
+        "role": "startup",
+        "canonical_source_id": "honda-b18c5-cleanroom-lifecycle-startup-candidate",
+        "derived_id": "honda-b18c5-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/startup-10khz.json",
+        "sha256": "59919731ad775729a99ab4713fadfdc7ebc10a42dda565d43e979dfe59799986",
+        "evidence_path": "evidence/startup.json",
+        "evidence_sha256": "d2f9c2b10d62f4681e4859bd5350121e512be5405f4c02e4b13dea668e0878a2"
+      },
+      {
+        "role": "shutdown",
+        "canonical_source_id": "honda-b18c5-cleanroom-lifecycle-shutdown-candidate",
+        "derived_id": "honda-b18c5-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/shutdown-10khz.json",
+        "sha256": "8d427983f3771178ad49f4217e35ff4a946440367fc2821184af96d82dc260dd",
+        "evidence_path": "evidence/shutdown.json",
+        "evidence_sha256": "32e9228447a9a27451cec6477bebf5cd1ce846a14d2d4c55f07ab995306d6399"
+      }
+    ]
+  }
+}

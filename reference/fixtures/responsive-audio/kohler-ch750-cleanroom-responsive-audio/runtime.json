@@ -36,5 +36,7 @@
     "evidence_path": "evidence/renderer-compatibility-parity-report-v1.json",
     "evidence_byte_count": 18318,
     "evidence_sha256": "688301b6904d76ab95586cdf4bfad0e8e04fbf11ed99d055ffc693a450e7c123"
-  }
+  },
+  "lifecycle_package_path": "lifecycle/runtime.json",
+  "shared_recorded_starter_package_path": "../shared-recorded-starter/runtime.json"
 }

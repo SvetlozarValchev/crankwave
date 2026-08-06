@@ -10,6 +10,11 @@ const WORKLET_URL = "/web/audio-worklet.js";
 const DEFAULT_PACKAGE_ID = "bmw-m52tub28-cleanroom-lifecycle-ab";
 const SOURCE_COMPARISON_MODE = "source-a";
 const BAKED_COMPARISON_MODE = "baked-b";
+const BAKED_SELECTABLE_ATLAS_STATUSES = Object.freeze([
+  "active",
+  "motoring",
+  "tail-only",
+]);
 const UNCONFIGURED_AUDIO_ATLAS = Object.freeze({
   status: "unavailable",
   configured: false,
@@ -29,9 +34,14 @@ const UNCONFIGURED_SHARED_STARTER = Object.freeze({
   loaded: false,
   enabled: false,
   active: false,
-  auditionOnly: true,
+  licenseStatus: null,
+  licenseBasis: null,
+  licensee: null,
+  auditionOnly: false,
+  modificationAuthorized: false,
   redistributionAuthorized: false,
-  licenseWarning: null,
+  rightsNotice: null,
+  manifestSha256: null,
   sourceSha256: null,
   payloadSha256: null,
   sessionCount: 0,
@@ -559,12 +569,27 @@ function normalizeSharedStarterSnapshot(snapshot) {
     loaded: snapshot.loaded === true,
     enabled: snapshot.enabled === true,
     active: snapshot.active === true,
-    auditionOnly: snapshot.auditionOnly !== false,
+    licenseStatus:
+      typeof snapshot.licenseStatus === "string"
+        ? snapshot.licenseStatus
+        : null,
+    licenseBasis:
+      typeof snapshot.licenseBasis === "string"
+        ? snapshot.licenseBasis
+        : null,
+    licensee:
+      typeof snapshot.licensee === "string" ? snapshot.licensee : null,
+    auditionOnly: snapshot.auditionOnly === true,
+    modificationAuthorized: snapshot.modificationAuthorized === true,
     redistributionAuthorized: snapshot.redistributionAuthorized === true,
-    licenseWarning:
-      typeof snapshot.licenseWarning === "string" &&
-      snapshot.licenseWarning.length > 0
-        ? snapshot.licenseWarning
+    rightsNotice:
+      typeof snapshot.rightsNotice === "string" &&
+      snapshot.rightsNotice.length > 0
+        ? snapshot.rightsNotice
+        : null,
+    manifestSha256:
+      typeof snapshot.manifestSha256 === "string"
+        ? snapshot.manifestSha256
         : null,
     sourceSha256:
       typeof snapshot.sourceSha256 === "string"
@@ -613,30 +638,30 @@ function renderSharedStarterControls() {
     : !available
       ? "Unavailable"
       : starter.enabled
-        ? "On · shared by A and B"
+        ? "On · Source A + B"
         : "Off";
 
   if (!available) {
     elements.sharedStarterStatus.textContent = "Unavailable";
     elements.sharedStarterStatus.dataset.state = "unavailable";
     elements.sharedStarterDetail.textContent =
-      "Local audition only. No recorded starter layer is loaded by this package.";
+      "This engine package does not include the licensed recorded starter.";
     return;
   }
 
   elements.sharedStarterStatus.textContent = starter.active
     ? "Starter active"
     : starter.enabled
-      ? "Research layer on"
-      : "Research layer off";
+      ? "Licensed · ready"
+      : "Licensed · off";
   elements.sharedStarterStatus.dataset.state = starter.active
     ? "active"
     : "loaded";
   const integrity = `sessions ${starter.sessionCount} · catches ${starter.catchCount} · fallback ${starter.fallbackCatchCount} · unavailable envelope frames ${starter.unavailableEnvelopeFrames}`;
-  const warning = starter.licenseWarning ??
-    "UNLICENSED RESEARCH SOURCE: local audition only; do not redistribute or ship.";
+  const notice = starter.rightsNotice ??
+    "Licensed commissioned original recording.";
   elements.sharedStarterDetail.textContent =
-    `${warning} Mixed identically into Source A and B after their engine-specific paths. ${integrity}.`;
+    `${notice} Mixed identically into Source A and B after their engine-specific paths. ${integrity}.`;
 }
 
 function renderBakedAuditionControls() {
@@ -711,7 +736,7 @@ function renderBakedAuditionControls() {
     button.disabled =
       mutationBlocked ||
       (mode === BAKED_COMPARISON_MODE &&
-        (!["active", "motoring", "tail-only"].includes(atlas.status) ||
+        (!BAKED_SELECTABLE_ATLAS_STATUSES.includes(atlas.status) ||
           !atlas.bakedAvailable));
     const description = button.querySelector("span");
     if (mode === SOURCE_COMPARISON_MODE) {
@@ -769,7 +794,7 @@ function requestComparisonMode(mode) {
   }
   if (
     mode === BAKED_COMPARISON_MODE &&
-    (state.audioAtlas.status !== "active" ||
+    (!BAKED_SELECTABLE_ATLAS_STATUSES.includes(state.audioAtlas.status) ||
       !state.audioAtlas.bakedAvailable)
   ) {
     return;

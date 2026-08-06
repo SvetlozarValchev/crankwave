@@ -1,0 +1,211 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "id": "sequoia-3ur-fe-cleanroom-lifecycle-preview",
+  "engine": "sequoia-3ur-fe-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "master.engine.audition"
+  },
+  "starter": {
+    "artifact": {
+      "path": "audio/starter.master-engine-audition.f32le",
+      "sha256": "02969cee2e85186d3eb797aa0b33d50f7a08fe96ae1e92d22fffaedf6c35ef4a",
+      "frame_count": 480000
+    },
+    "mean_crank_rpm": 237.09313932309087,
+    "reference_rpm": 237.09313932309087,
+    "loop_start_frame": 197383,
+    "loop_end_frame": 391737,
+    "crossfade_frames": 97109,
+    "attack_fade_frames": 3840,
+    "release_fade_frames": 3840
+  },
+  "startup": {
+    "artifact": {
+      "path": "audio/startup.master-engine-audition.f32le",
+      "sha256": "2e1b54bf5764e9cad17161b6bdb29868710e28efbe7ed0f5f973accf58aba87b",
+      "frame_count": 906240
+    },
+    "checkpoints": [
+      {
+        "kind": "ignition-on",
+        "frame": 134400,
+        "rpm": 249.76488664404278,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "first-combustion",
+        "frame": 145919,
+        "rpm": 250.70256139053438,
+        "precision": "advance-block",
+        "method": "first-positive-indicated-gas-torque-proxy"
+      },
+      {
+        "kind": "starter-release",
+        "frame": 328877,
+        "rpm": 798.7040000418003,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "running-floor",
+        "frame": 536280,
+        "rpm": 819.8478194954578,
+        "precision": "cycle-boundary",
+        "method": "post-release-cycle-correlated-to-captured-running-idle"
+      }
+    ],
+    "entry": {
+      "source_frame": 113279,
+      "crossfade_frames": 19200,
+      "source_rpm": 242.77491860374585,
+      "target_source_frame": 197383,
+      "target_rpm": 237.25842866780582,
+      "correlation": 0.6817122371240077,
+      "target": "starter",
+      "target_reference": "starter-loop"
+    },
+    "exit": {
+      "source_frame": 536280,
+      "crossfade_frames": 19200,
+      "source_rpm": 805.5366353786707,
+      "target_source_frame": 536280,
+      "target_rpm": 805.5366353786707,
+      "correlation": 1,
+      "target": "running",
+      "target_reference": "startup-post-release-cycle-reference"
+    }
+  },
+  "shutdown": {
+    "artifact": {
+      "path": "audio/shutdown.master-engine-audition.f32le",
+      "sha256": "2a832265d67bc0bc3afaecc8c954912ab2c45024d31379469f6cd93848191e3b",
+      "frame_count": 576000
+    },
+    "checkpoints": [
+      {
+        "kind": "settled-idle",
+        "frame": 120960,
+        "rpm": 871.5006605265769,
+        "precision": "cycle-window",
+        "method": "pre-key-off-window-correlated-to-captured-running-idle"
+      },
+      {
+        "kind": "ignition-off",
+        "frame": 153600,
+        "rpm": 865.8234984917045,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "engine-stopped",
+        "frame": 211199,
+        "rpm": 0,
+        "precision": "advance-block",
+        "method": "first-observed-absolute-engine-speed-at-or-below-1-rpm"
+      }
+    ],
+    "entry": {
+      "source_frame": 120960,
+      "crossfade_frames": 19200,
+      "source_rpm": 871.5006605265769,
+      "target_source_frame": 5783,
+      "target_rpm": 711.6100863311001,
+      "correlation": 0.16497750555050203,
+      "target": "running",
+      "target_reference": "shutdown-pre-keyoff-cycle-reference"
+    },
+    "silence_frame": 224071,
+    "exit_fade_frames": 3840,
+    "quiet_tail_frames": 351929,
+    "quiet_peak_threshold": 0.0001220703125,
+    "quiet_rms_threshold": 0.00006103515625
+  },
+  "startup_admission": {
+    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "admission_lane_coordinate": "authored-throttle-01",
+    "blend": "constant-power",
+    "pre_floor_progress": "smoothstep-first-fire-rpm-to-running-floor",
+    "completion_progress": "smoothstep-committed-crank-travel",
+    "completion_crank_travel_revolutions": 2,
+    "monotone_ownership": true,
+    "lanes": [
+      {
+        "id": "coast",
+        "throttle_01": 0,
+        "floor_running_gain_linear": 0.5761944116355173
+      },
+      {
+        "id": "mid",
+        "throttle_01": 0.2,
+        "floor_running_gain_linear": 0.7179832867135557
+      },
+      {
+        "id": "power",
+        "throttle_01": 1,
+        "floor_running_gain_linear": 0.7940403012442127
+      }
+    ],
+    "coast_stability": {
+      "lane_id": "coast",
+      "requires_starter_released": true,
+      "post_peak_crank_travel_revolutions": 4,
+      "clock_law": "lane-weighted-post-peak-admission"
+    },
+    "evidence": {
+      "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
+      "path": "evidence/startup-admission.json",
+      "sha256": "7d53ac28783fdad61736f35b9ca892bbde69c9435d35167875dbdae4080342b5",
+      "corrected_held_manifest_sha256": "c50473274f1c8c65d7000a352d358f6d4b1537a21352ddfb6261888ae2e6076e"
+    }
+  },
+  "provenance": {
+    "engine": {
+      "id": "sequoia-3ur-fe-cleanroom",
+      "sha256": "71ce08a1cb0dc63d7eb0eea7070e8625a5fe4628379dadc9e4402440152fa5f2"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
+    "physics_rate_hz": 10000,
+    "delivery_rate_hz": 192000,
+    "fidelity_alignment": "matches-current-responsive-preview;canonical-20khz-events-are-not-mixed-into-10khz-running-package",
+    "checkpoint_alignment": "authored-control-times-are-exact-on-final-pcm;combustion-and-stop-use-one-block-c-api-telemetry-bounds;renderer-exposes-no-separate-audio-latency-field",
+    "seam_reference_scope": "same-performance-final-master-cycle-correlation;the-responsive-held-representation-exposes-no-contiguous-final-master-reference-tape",
+    "scenarios": [
+      {
+        "role": "starter",
+        "canonical_source_id": "sequoia-3ur-fe-cleanroom-lifecycle-starter-candidate",
+        "derived_id": "sequoia-3ur-fe-cleanroom-lifecycle-starter-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/starter-10khz.json",
+        "sha256": "43a962967bd474114b74c273e51cf2cbdf45604951fa201547c2284f071edca3",
+        "evidence_path": "evidence/starter.json",
+        "evidence_sha256": "c3cf7c532e550011152be76f23dd1a3fbc2e3bd0fe34e9b7034b40ed86e48920"
+      },
+      {
+        "role": "startup",
+        "canonical_source_id": "sequoia-3ur-fe-cleanroom-lifecycle-startup-candidate",
+        "derived_id": "sequoia-3ur-fe-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/startup-10khz.json",
+        "sha256": "f015a68cfa3131fd1d2e474618afe92804f15527f5d785cf81f7ebfb0fda1481",
+        "evidence_path": "evidence/startup.json",
+        "evidence_sha256": "ebf997a4de5b81ccfe253f568e9ccb6fda6ec48e01cf077d00e8dc1b45831924"
+      },
+      {
+        "role": "shutdown",
+        "canonical_source_id": "sequoia-3ur-fe-cleanroom-lifecycle-shutdown-candidate",
+        "derived_id": "sequoia-3ur-fe-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/shutdown-10khz.json",
+        "sha256": "86f8eb37ab250759d563e2481bb7a1fc935d0e9f6f16ccfc90672c235704dba6",
+        "evidence_path": "evidence/shutdown.json",
+        "evidence_sha256": "a25ee4a0d38eb54c96a909c8a52f8d90ab5b68be5a35e3200db9abf7bcbef637"
+      }
+    ]
+  }
+}

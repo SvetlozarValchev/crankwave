@@ -8,6 +8,9 @@ import { setTimeout as delay } from "node:timers/promises";
 const PRESET_ID = "bmw-m52tub28-cleanroom-lifecycle-ab";
 const SCENARIO_ID =
   "bmw-m52tub28-cleanroom-interactive-lifecycle-0rpm";
+const OFF_STATE_PRESET_ID = "bmw-m52b28-interactive-ab";
+const OFF_STATE_SCENARIO_ID =
+  "bmw-m52b28-interactive-free-rev-10khz-preview";
 
 function usage() {
   return (
@@ -136,6 +139,7 @@ const mutedProbe = String.raw`(() => {
     workerMessages: [],
     workerErrors: [],
     telemetry: null,
+    atlasStatus: null,
     lifecycle: null,
     ring: null,
     drainTimer: null,
@@ -163,6 +167,7 @@ const mutedProbe = String.raw`(() => {
             };
           }
         } else if (message?.type === "audio-atlas-status") {
+          probe.atlasStatus = message.status ?? null;
           probe.lifecycle = message.diagnostics?.lifecycle ?? null;
         } else if (message?.type === "error") {
           probe.workerErrors.push(
@@ -295,6 +300,7 @@ async function pageState(cdp) {
         document.querySelector('[data-comparison-mode="baked-b"]')?.disabled ??
         true,
       telemetry: probe?.telemetry ?? null,
+      atlasStatus: probe?.atlasStatus ?? null,
       lifecycle: probe?.lifecycle ?? null,
       audioContextCount: probe?.audioContextCount ?? null,
       workletNodeCount: probe?.workletNodeCount ?? null,
@@ -359,6 +365,136 @@ async function waitForStoppedLifecycle(cdp, startupCount, shutdownCount) {
     `lifecycle stop ${shutdownCount}`,
     25_000,
   );
+}
+
+async function selectComparisonMode(cdp, mode, description) {
+  await cdp.evaluate(`(() => {
+    document.querySelector(
+      '[data-comparison-mode=${JSON.stringify(mode)}]'
+    ).click();
+    return true;
+  })()`);
+  return waitUntil(
+    () => pageState(cdp),
+    (state) => state.selectedMode === mode,
+    description,
+  );
+}
+
+async function runOffStateReselectionRegression(cdp) {
+  await cdp.evaluate(
+    'document.querySelector("#stop-button").click(); true',
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) => state.session === "Paused",
+    "paused lifecycle session before M52B28 replacement",
+  );
+
+  await cdp.evaluate(`(() => {
+    const select = document.querySelector("#package-select");
+    select.value = ${JSON.stringify(OFF_STATE_PRESET_ID)};
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    document.querySelector("#load-package-button").click();
+    return true;
+  })()`);
+  await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.packageId === OFF_STATE_PRESET_ID &&
+      state.scenario.includes(OFF_STATE_SCENARIO_ID) &&
+      !state.buildDisabled,
+    "committed BMW M52B28 interactive package documents",
+  );
+
+  await cdp.evaluate(
+    'document.querySelector("#build-button").click(); true',
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.build === "Build admitted" &&
+      state.session === "Ready" &&
+      state.atlasStatus === "ready" &&
+      !state.startDisabled &&
+      state.bakedDisabled,
+    "ready BMW M52B28 interactive B package",
+    45_000,
+  );
+
+  await cdp.evaluate(
+    'document.querySelector("#start-button").click(); true',
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.session === "Running" &&
+      state.atlasStatus === "active" &&
+      !state.bakedDisabled &&
+      state.telemetry?.ignition === true &&
+      state.telemetry?.rpm > 900,
+    "live BMW M52B28 atlas coverage",
+    45_000,
+  );
+  const active = await selectComparisonMode(
+    cdp,
+    "baked-b",
+    "initial M52B28 B selection",
+  );
+
+  await toggleIgnition(cdp);
+  const offState = await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.telemetry?.ignition === false &&
+      ["motoring", "tail-only"].includes(state.atlasStatus) &&
+      !state.bakedDisabled,
+    "BMW M52B28 motoring or tail-only state",
+    25_000,
+  );
+
+  const selectionMessageOrdinal = await cdp.evaluate(
+    "globalThis.__ESO_LIFECYCLE_B_ROUTING.workerMessages.length",
+  );
+  await selectComparisonMode(
+    cdp,
+    "source-a",
+    "M52B28 Source A selection while keyed off",
+  );
+  const selectedB = await selectComparisonMode(
+    cdp,
+    "baked-b",
+    "M52B28 B reselection while keyed off",
+  );
+  const selectionMessages = await cdp.evaluate(
+    `globalThis.__ESO_LIFECYCLE_B_ROUTING.workerMessages.slice(${selectionMessageOrdinal})`,
+  );
+
+  assert.ok(
+    selectionMessages.some(
+      (message) =>
+        message.type === "comparison-mode" && message.mode === "source-a",
+    ),
+    "worker did not confirm Source A while keyed off",
+  );
+  assert.ok(
+    selectionMessages.some(
+      (message) =>
+        message.type === "comparison-mode" && message.mode === "baked-b",
+    ),
+    "worker did not confirm B while keyed off",
+  );
+  assert.ok(
+    ["motoring", "tail-only"].includes(selectedB.atlasStatus),
+    `B selection completed after the off-state window: ${selectedB.atlasStatus}`,
+  );
+  assert.equal(selectedB.bakedDisabled, false);
+
+  return {
+    activeStatus: active.atlasStatus,
+    offStatus: offState.atlasStatus,
+    selectedMode: selectedB.selectedMode,
+  };
 }
 
 async function runStartCycle(cdp, { throttle, starterFirst, ordinal }) {
@@ -571,7 +707,7 @@ async function main() {
     });
     await requestLifecycleStatus(cdp);
 
-    const final = await pageState(cdp);
+    const lifecycleFinal = await pageState(cdp);
     const messagesAfterB = await cdp.evaluate(
       `globalThis.__ESO_LIFECYCLE_B_ROUTING.workerMessages.slice(${bSelectionOrdinal})`,
     );
@@ -580,16 +716,28 @@ async function main() {
         message.type === "comparison-mode" && message.mode === "source-a",
     );
 
-    assert.equal(final.selectedMode, "baked-b");
+    assert.equal(lifecycleFinal.selectedMode, "baked-b");
     assert.equal(sourceFallbacks.length, 0, "B routing fell back to source A");
-    assert.ok(final.lifecycle?.startupCount >= 2);
-    assert.ok(final.lifecycle?.shutdownCount >= 2);
-    assert.equal(final.lifecycle?.outputMode, "stopped");
-    assert.equal(final.lifecycle?.activeEvent, null);
+    assert.ok(lifecycleFinal.lifecycle?.startupCount >= 2);
+    assert.ok(lifecycleFinal.lifecycle?.shutdownCount >= 2);
+    assert.equal(lifecycleFinal.lifecycle?.outputMode, "stopped");
+    assert.equal(lifecycleFinal.lifecycle?.activeEvent, null);
+    assert.equal(lifecycleFinal.audioContextCount, 1);
+    assert.equal(lifecycleFinal.workletNodeCount, 1);
+
+    const offStateReselection = await runOffStateReselectionRegression(cdp);
+    const final = await pageState(cdp);
+
+    assert.equal(final.packageId, OFF_STATE_PRESET_ID);
+    assert.equal(final.selectedMode, "baked-b");
+    assert.ok(["motoring", "tail-only"].includes(final.atlasStatus));
     assert.equal(final.ring?.maximumUnderrunFrames, 0);
     assert.equal(final.ring?.maximumUnderrunEvents, 0);
-    assert.equal(final.audioContextCount, 1);
-    assert.equal(final.workletNodeCount, 1);
+    assert.equal(final.audioContextCount, lifecycleFinal.audioContextCount);
+    assert.equal(
+      final.workletNodeCount,
+      lifecycleFinal.workletNodeCount + 1,
+    );
     assert.deepEqual(final.workerErrors, []);
     assert.deepEqual(cdp.pageErrors, []);
     assert.deepEqual(cdp.networkFailures, []);
@@ -598,11 +746,13 @@ async function main() {
     process.stdout.write(
       `${JSON.stringify({
         presetId: PRESET_ID,
-        selectedMode: final.selectedMode,
+        selectedMode: lifecycleFinal.selectedMode,
         throttlePercents: [17, 63],
         startupOrders: ["ignition-first", "starter-first"],
-        startupCount: final.lifecycle.startupCount,
-        shutdownCount: final.lifecycle.shutdownCount,
+        startupCount: lifecycleFinal.lifecycle.startupCount,
+        shutdownCount: lifecycleFinal.lifecycle.shutdownCount,
+        offStatePresetId: OFF_STATE_PRESET_ID,
+        offStateReselection,
         underrunFrames: final.ring.maximumUnderrunFrames,
         underrunEvents: final.ring.maximumUnderrunEvents,
         sourceFallbacks: sourceFallbacks.length,

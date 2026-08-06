@@ -1,0 +1,84 @@
+{
+  "schema": "engine-sim-offline/shared-recorded-starter",
+  "id": "shared-recorded-starter-licensed",
+  "purpose": "shared-source-a-and-b-lifecycle-layer",
+  "rights": {
+    "status": "licensed",
+    "basis": "commissioned-original-recording",
+    "licensee": "SvetlozarValchev",
+    "audition_only": false,
+    "modification_authorized": true,
+    "redistribution_authorized": true,
+    "attested_by": "SvetlozarValchev",
+    "attestation_date": "2026-08-06",
+    "notice": "Commissioned original recording licensed to SvetlozarValchev; modification and redistribution are authorized."
+  },
+  "audio": {
+    "relative_path": "audio/recorded-starter.cropped.192000hz.mono.f32le",
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "frame_count": 259318,
+    "byte_count": 1037272,
+    "payload_sha256": "1949863ca58aef11146d4a842609ef217f6b7df4ba6db38f478eb918cef2964a",
+    "duration_seconds": 1.3506145833333334,
+    "peak": 0.3043845593929291,
+    "rms": 0.05258075265253623
+  },
+  "markers": {
+    "repeat_in_frame": 82969,
+    "repeat_out_frame": 255843,
+    "cut_frame": 259318,
+    "seam_crossfade_frames": 9600
+  },
+  "mix": {
+    "default_enabled": true,
+    "source_gain": 1,
+    "speed_up_start_rpm": 500,
+    "speed_up_end_rpm": 760,
+    "base_playback_rate": 0.8,
+    "catch_playback_rate": 1.05,
+    "speed_up_curve": 1.6,
+    "rpm_smoothing_milliseconds": 0,
+    "attack_milliseconds": 8,
+    "pre_catch_engine_gain": 0.903125,
+    "catch_rpm": 400,
+    "ignition_duck_lead_milliseconds": 30,
+    "catch_starter_gain": 0.2,
+    "engine_catch_gain": 1,
+    "handoff_milliseconds": 520,
+    "catch_offset_milliseconds": 0
+  },
+  "provenance": {
+    "accepted_engine_audio_lab_layer_commit": "976a67cfb36853fdf92bb325444a7cb161ea93d9",
+    "source": {
+      "origin": "commissioned-original-recording",
+      "asset_file": "recorded-starter-source.mp3",
+      "sha256": "8edcfa21f846098472dd3f57236f23367a7667f4458f7452b565370062635a81",
+      "byte_count": 1456169,
+      "codec": "mp3",
+      "sample_rate_hz": 44100,
+      "channels": 2,
+      "channel_relationship": "dual mono; FFmpeg decode is bit-identical and Chromium decode differs by at most one PCM16 LSB"
+    },
+    "selection": {
+      "description": "user-auditioned accepted starter and handoff settings",
+      "accepted_date": "2026-07-20",
+      "repeat_bed_start_frame": 21456,
+      "repeat_bed_end_frame": 61163,
+      "seam_crossfade_frames_at_44100hz": 2205
+    },
+    "canonicalization": {
+      "method": "decode-left-dual-mono-then-exact-source-frame-crop-then-soxr-resample",
+      "source_channel": 0,
+      "source_crop_begin_frame_inclusive": 2399,
+      "source_crop_end_frame_exclusive": 61961,
+      "source_crop_frames": 59562,
+      "output_sample_rate_hz": 192000,
+      "output_frames": 259318,
+      "marker_mapping": "round(relative_source_frame * 192000 / 44100)",
+      "ffmpeg_version": "6.1.1-3ubuntu5",
+      "filter_graph": "pan=mono|c0=c0,atrim=start_sample=2399:end_sample=61961,aresample=192000:resampler=soxr:precision=33:cheby=0:dither_method=none"
+    }
+  }
+}

@@ -1,0 +1,211 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "id": "subaru-ej25-cleanroom-lifecycle-preview",
+  "engine": "subaru-ej25-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "master.engine.audition"
+  },
+  "starter": {
+    "artifact": {
+      "path": "audio/starter.master-engine-audition.f32le",
+      "sha256": "0f5835332930334e2b7767b2c0a7f123481d566d07641f88c2d14b57a384b8ca",
+      "frame_count": 480000
+    },
+    "mean_crank_rpm": 535.888728659813,
+    "reference_rpm": 535.888728659813,
+    "loop_start_frame": 175164,
+    "loop_end_frame": 476122,
+    "crossfade_frames": 42855,
+    "attack_fade_frames": 3840,
+    "release_fade_frames": 3840
+  },
+  "startup": {
+    "artifact": {
+      "path": "audio/startup.master-engine-audition.f32le",
+      "sha256": "ce48b1f29027d6a6ee02f6c654c10e4024e7b54182120f1b02a6670cb565e5c7",
+      "frame_count": 814080
+    },
+    "checkpoints": [
+      {
+        "kind": "ignition-on",
+        "frame": 134400,
+        "rpm": 556.4527456976256,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "first-combustion",
+        "frame": 145919,
+        "rpm": 626.3297596624474,
+        "precision": "advance-block",
+        "method": "first-positive-indicated-gas-torque-proxy"
+      },
+      {
+        "kind": "starter-release",
+        "frame": 237082,
+        "rpm": 792.2721228006851,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "running-floor",
+        "frame": 451362,
+        "rpm": 823.3245448021823,
+        "precision": "cycle-boundary",
+        "method": "post-release-cycle-correlated-to-captured-running-idle"
+      }
+    ],
+    "entry": {
+      "source_frame": 113279,
+      "crossfade_frames": 19200,
+      "source_rpm": 542.6895169847859,
+      "target_source_frame": 175164,
+      "target_rpm": 537.6270970680235,
+      "correlation": -0.1522188418061744,
+      "target": "starter",
+      "target_reference": "starter-loop"
+    },
+    "exit": {
+      "source_frame": 451362,
+      "crossfade_frames": 19200,
+      "source_rpm": 807.2210689947731,
+      "target_source_frame": 451362,
+      "target_rpm": 807.2210689947731,
+      "correlation": 1,
+      "target": "running",
+      "target_reference": "startup-post-release-cycle-reference"
+    }
+  },
+  "shutdown": {
+    "artifact": {
+      "path": "audio/shutdown.master-engine-audition.f32le",
+      "sha256": "67e11183333d7ffeea860764babf8d20aff76d9889121094eac3bca39f353525",
+      "frame_count": 576000
+    },
+    "checkpoints": [
+      {
+        "kind": "settled-idle",
+        "frame": 120960,
+        "rpm": 855.5614352830574,
+        "precision": "cycle-window",
+        "method": "pre-key-off-window-correlated-to-captured-running-idle"
+      },
+      {
+        "kind": "ignition-off",
+        "frame": 153600,
+        "rpm": 868.7743864655499,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "engine-stopped",
+        "frame": 215039,
+        "rpm": 0,
+        "precision": "advance-block",
+        "method": "first-observed-absolute-engine-speed-at-or-below-1-rpm"
+      }
+    ],
+    "entry": {
+      "source_frame": 120960,
+      "crossfade_frames": 19200,
+      "source_rpm": 855.5614352830574,
+      "target_source_frame": 103519,
+      "target_rpm": 849.2191082553586,
+      "correlation": 0.0015069783746819113,
+      "target": "running",
+      "target_reference": "shutdown-pre-keyoff-cycle-reference"
+    },
+    "silence_frame": 223613,
+    "exit_fade_frames": 3840,
+    "quiet_tail_frames": 352387,
+    "quiet_peak_threshold": 0.0011778892430156934,
+    "quiet_rms_threshold": 0.0003769245577650219
+  },
+  "startup_admission": {
+    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "admission_lane_coordinate": "authored-throttle-01",
+    "blend": "constant-power",
+    "pre_floor_progress": "smoothstep-first-fire-rpm-to-running-floor",
+    "completion_progress": "smoothstep-committed-crank-travel",
+    "completion_crank_travel_revolutions": 2,
+    "monotone_ownership": true,
+    "lanes": [
+      {
+        "id": "coast",
+        "throttle_01": 0,
+        "floor_running_gain_linear": 0.5761944116355173
+      },
+      {
+        "id": "mid",
+        "throttle_01": 0.2,
+        "floor_running_gain_linear": 0.7179832867135557
+      },
+      {
+        "id": "power",
+        "throttle_01": 1,
+        "floor_running_gain_linear": 0.7940403012442127
+      }
+    ],
+    "coast_stability": {
+      "lane_id": "coast",
+      "requires_starter_released": true,
+      "post_peak_crank_travel_revolutions": 4,
+      "clock_law": "lane-weighted-post-peak-admission"
+    },
+    "evidence": {
+      "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
+      "path": "evidence/startup-admission.json",
+      "sha256": "8537473b24e56806021fea382828d41cb80da4e1c3e51f48013505f1e6c5ec93",
+      "corrected_held_manifest_sha256": "d408b1b83877b361518645c3f013e7302d1a83e1537cbe3d37a404d3c303d280"
+    }
+  },
+  "provenance": {
+    "engine": {
+      "id": "subaru-ej25-cleanroom",
+      "sha256": "2e383b32d9a6f46b9279159e5c3408c57395005253c8ff864ff2eb40346e7733"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
+    "physics_rate_hz": 10000,
+    "delivery_rate_hz": 192000,
+    "fidelity_alignment": "matches-current-responsive-preview;canonical-20khz-events-are-not-mixed-into-10khz-running-package",
+    "checkpoint_alignment": "authored-control-times-are-exact-on-final-pcm;combustion-and-stop-use-one-block-c-api-telemetry-bounds;renderer-exposes-no-separate-audio-latency-field",
+    "seam_reference_scope": "same-performance-final-master-cycle-correlation;the-responsive-held-representation-exposes-no-contiguous-final-master-reference-tape",
+    "scenarios": [
+      {
+        "role": "starter",
+        "canonical_source_id": "subaru-ej25-cleanroom-lifecycle-starter-candidate",
+        "derived_id": "subaru-ej25-cleanroom-lifecycle-starter-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/starter-10khz.json",
+        "sha256": "3c1c587705f0e6d64191f5bcfb1c4ec033f8821845cdc382ac012fbab03a226c",
+        "evidence_path": "evidence/starter.json",
+        "evidence_sha256": "887e51d2ae2ec761ffbd768236c9b30d7d46104a922b1207db99245e01e4f07a"
+      },
+      {
+        "role": "startup",
+        "canonical_source_id": "subaru-ej25-cleanroom-lifecycle-startup-candidate",
+        "derived_id": "subaru-ej25-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/startup-10khz.json",
+        "sha256": "e2621fa6df8accd4584aad7eb88d72142daa3b8801040490f34b32f3ff83a59d",
+        "evidence_path": "evidence/startup.json",
+        "evidence_sha256": "7463ebdb7c0491a67b7aaae198b8aebd2c2c34d108d2a6472f26fb3f49a9a892"
+      },
+      {
+        "role": "shutdown",
+        "canonical_source_id": "subaru-ej25-cleanroom-lifecycle-shutdown-candidate",
+        "derived_id": "subaru-ej25-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/shutdown-10khz.json",
+        "sha256": "d81c08758db111087df0deba0e48609463e080e2b8a153505949e13841efd019",
+        "evidence_path": "evidence/shutdown.json",
+        "evidence_sha256": "5872829fdff43615b76044c92e7def3d3acad610bfabcb32eff8d86e34907548"
+      }
+    ]
+  }
+}

@@ -1,16 +1,22 @@
-const SCHEMA = "engine-sim-offline/shared-recorded-starter-research";
-const KIND = "shared-recorded-starter-research";
+const SCHEMA = "engine-sim-offline/shared-recorded-starter";
+const KIND = "shared-recorded-starter";
 const SAMPLE_RATE = 192_000;
-const EXPECTED_ID = "shared-recorded-semi-truck-starter-local-audition";
+const EXPECTED_ID = "shared-recorded-starter-licensed";
+const EXPECTED_MANIFEST_SHA256 =
+  "d01fa7d64aa9a1676fa3288ebb8eeaaeaddbdc05d0eca25630188f6dafbaa14d";
+const EXPECTED_MANIFEST_BYTE_COUNT = 3_118;
 const EXPECTED_SOURCE_SHA256 =
   "8edcfa21f846098472dd3f57236f23367a7667f4458f7452b565370062635a81";
 const EXPECTED_PAYLOAD_SHA256 =
   "1949863ca58aef11146d4a842609ef217f6b7df4ba6db38f478eb918cef2964a";
 const EXPECTED_FRAME_COUNT = 259_318;
 const EXPECTED_BYTE_COUNT = EXPECTED_FRAME_COUNT * Float32Array.BYTES_PER_ELEMENT;
-const RIGHTS_WARNING =
-  "UNLICENSED RESEARCH SOURCE: downloaded semi-truck diesel recording; " +
-  "local audition only; do not redistribute or ship.";
+const RIGHTS_NOTICE =
+  "Commissioned original recording licensed to SvetlozarValchev; " +
+  "modification and redistribution are authorized.";
+const LICENSEE = "SvetlozarValchev";
+const SIBLING_MANIFEST_PATH =
+  /^\.\.\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)\/runtime\.json$/u;
 
 const EXPECTED_MARKERS = Object.freeze({
   repeatInFrame: 82_969,
@@ -89,12 +95,49 @@ function exact(value, expected, label) {
   return value;
 }
 
-function resolveUrl(value) {
+function resolveUrl(value, label = "shared recorded starter manifest URL") {
   if (value instanceof URL) return new URL(value.href);
   if (typeof value !== "string" || value.length === 0) {
-    fail("shared recorded starter manifest URL must be nonempty");
+    fail(`${label} must be nonempty`);
   }
   return new URL(value, globalThis.location?.href ?? "http://localhost/");
+}
+
+export function resolveSharedRecordedStarterManifestUrl(
+  responsiveManifestUrlValue,
+  packagePathValue,
+) {
+  const responsiveManifestUrl = resolveUrl(
+    responsiveManifestUrlValue,
+    "responsive package manifest URL",
+  );
+  if (
+    !responsiveManifestUrl.pathname.endsWith("/runtime.json") ||
+    responsiveManifestUrl.search !== "" ||
+    responsiveManifestUrl.hash !== ""
+  ) {
+    fail("responsive package manifest URL must identify runtime.json");
+  }
+  const packagePath = string(
+    packagePathValue,
+    "shared_recorded_starter_package_path",
+  );
+  const match = SIBLING_MANIFEST_PATH.exec(packagePath);
+  if (match === null) {
+    fail(
+      "shared_recorded_starter_package_path must identify one direct sibling package",
+    );
+  }
+  const packagesRootUrl = new URL("../", responsiveManifestUrl);
+  const expectedUrl = new URL(`${match[1]}/runtime.json`, packagesRootUrl);
+  const resolvedUrl = new URL(packagePath, responsiveManifestUrl);
+  if (
+    resolvedUrl.href !== expectedUrl.href ||
+    resolvedUrl.origin !== responsiveManifestUrl.origin
+  ) {
+    fail("shared recorded starter URL escaped its responsive package sibling root");
+  }
+  return resolvedUrl;
 }
 
 function relativeUrl(manifestUrl, value, label) {
@@ -106,11 +149,22 @@ function relativeUrl(manifestUrl, value, label) {
 }
 
 async function fetchBytes(url, fetchImplementation, label) {
-  const response = await fetchImplementation(url.href, { cache: "no-store" });
+  const response = await fetchImplementation(url.href, {
+    cache: "no-store",
+    redirect: "error",
+  });
   if (!response?.ok || typeof response.arrayBuffer !== "function") {
     throw new Error(
       `${label} fetch failed: HTTP ${response?.status ?? "?"} for ${url.href}`,
     );
+  }
+  if (
+    response.redirected === true ||
+    (typeof response.url === "string" &&
+      response.url.length > 0 &&
+      response.url !== url.href)
+  ) {
+    throw new Error(`${label} fetch was redirected or retargeted`);
   }
   return new Uint8Array(await response.arrayBuffer());
 }
@@ -120,6 +174,24 @@ function hex(bytes) {
     bytes,
     (value) => value.toString(16).padStart(2, "0"),
   ).join("");
+}
+
+async function requireSha256(
+  bytes,
+  expected,
+  cryptoImplementation,
+  label,
+) {
+  const digest = hex(
+    new Uint8Array(
+      await cryptoImplementation.subtle.digest("SHA-256", bytes),
+    ),
+  );
+  if (digest !== expected) {
+    throw new Error(
+      `${label} SHA-256 mismatch: expected ${expected}, fetched ${digest}`,
+    );
+  }
 }
 
 function decodeFloat32Le(bytes, frameCount) {
@@ -242,18 +314,45 @@ function acceptedSettings(manifest) {
   return Object.freeze(result);
 }
 
-function validateResearchProvenance(manifest) {
+function validateLicensedProvenance(manifest) {
   const rights = object(manifest.rights, "manifest.rights");
-  exact(rights.status, "unverified", "manifest.rights.status");
-  exact(rights.audition_only, true, "manifest.rights.audition_only");
+  exact(rights.status, "licensed", "manifest.rights.status");
+  exact(
+    rights.basis,
+    "commissioned-original-recording",
+    "manifest.rights.basis",
+  );
+  exact(rights.licensee, LICENSEE, "manifest.rights.licensee");
+  exact(rights.audition_only, false, "manifest.rights.audition_only");
+  exact(
+    rights.modification_authorized,
+    true,
+    "manifest.rights.modification_authorized",
+  );
   exact(
     rights.redistribution_authorized,
-    false,
+    true,
     "manifest.rights.redistribution_authorized",
   );
-  exact(rights.warning, RIGHTS_WARNING, "manifest.rights.warning");
+  exact(rights.attested_by, LICENSEE, "manifest.rights.attested_by");
+  exact(
+    rights.attestation_date,
+    "2026-08-06",
+    "manifest.rights.attestation_date",
+  );
+  exact(rights.notice, RIGHTS_NOTICE, "manifest.rights.notice");
   const provenance = object(manifest.provenance, "manifest.provenance");
+  exact(
+    provenance.accepted_engine_audio_lab_layer_commit,
+    "976a67cfb36853fdf92bb325444a7cb161ea93d9",
+    "manifest.provenance.accepted_engine_audio_lab_layer_commit",
+  );
   const source = object(provenance.source, "manifest.provenance.source");
+  exact(
+    source.origin,
+    "commissioned-original-recording",
+    "manifest.provenance.source.origin",
+  );
   exact(
     source.sha256,
     EXPECTED_SOURCE_SHA256,
@@ -264,6 +363,11 @@ function validateResearchProvenance(manifest) {
     "recorded-starter-source.mp3",
     "manifest.provenance.source.asset_file",
   );
+  exact(
+    source.byte_count,
+    1_456_169,
+    "manifest.provenance.source.byte_count",
+  );
   exact(source.codec, "mp3", "manifest.provenance.source.codec");
   exact(
     source.sample_rate_hz,
@@ -271,11 +375,66 @@ function validateResearchProvenance(manifest) {
     "manifest.provenance.source.sample_rate_hz",
   );
   exact(source.channels, 2, "manifest.provenance.source.channels");
-  if (!string(source.original_path, "manifest.provenance.source.original_path")
-    .includes("SEMI_TRUCK")) {
-    fail("shared starter source must retain its semi-truck research provenance");
+  exact(
+    source.channel_relationship,
+    "dual mono; FFmpeg decode is bit-identical and Chromium decode differs by at most one PCM16 LSB",
+    "manifest.provenance.source.channel_relationship",
+  );
+  const selection = object(
+    provenance.selection,
+    "manifest.provenance.selection",
+  );
+  exact(
+    selection.description,
+    "user-auditioned accepted starter and handoff settings",
+    "manifest.provenance.selection.description",
+  );
+  exact(
+    selection.accepted_date,
+    "2026-07-20",
+    "manifest.provenance.selection.accepted_date",
+  );
+  exact(
+    selection.repeat_bed_start_frame,
+    21_456,
+    "manifest.provenance.selection.repeat_bed_start_frame",
+  );
+  exact(
+    selection.repeat_bed_end_frame,
+    61_163,
+    "manifest.provenance.selection.repeat_bed_end_frame",
+  );
+  exact(
+    selection.seam_crossfade_frames_at_44100hz,
+    2_205,
+    "manifest.provenance.selection.seam_crossfade_frames_at_44100hz",
+  );
+  const canonicalization = object(
+    provenance.canonicalization,
+    "manifest.provenance.canonicalization",
+  );
+  const expectedCanonicalization = {
+    method:
+      "decode-left-dual-mono-then-exact-source-frame-crop-then-soxr-resample",
+    source_channel: 0,
+    source_crop_begin_frame_inclusive: 2_399,
+    source_crop_end_frame_exclusive: 61_961,
+    source_crop_frames: 59_562,
+    output_sample_rate_hz: SAMPLE_RATE,
+    output_frames: EXPECTED_FRAME_COUNT,
+    marker_mapping: "round(relative_source_frame * 192000 / 44100)",
+    ffmpeg_version: "6.1.1-3ubuntu5",
+    filter_graph:
+      "pan=mono|c0=c0,atrim=start_sample=2399:end_sample=61961," +
+      "aresample=192000:resampler=soxr:precision=33:cheby=0:dither_method=none",
+  };
+  for (const [name, expected] of Object.entries(expectedCanonicalization)) {
+    exact(
+      canonicalization[name],
+      expected,
+      `manifest.provenance.canonicalization.${name}`,
+    );
   }
-  object(provenance.canonicalization, "manifest.provenance.canonicalization");
 }
 
 export async function loadSharedRecordedStarterRuntime(
@@ -297,6 +456,18 @@ export async function loadSharedRecordedStarterRuntime(
     fetchImplementation,
     "shared starter manifest",
   );
+  if (manifestBytes.byteLength !== EXPECTED_MANIFEST_BYTE_COUNT) {
+    throw new RangeError(
+      `shared starter manifest has ${manifestBytes.byteLength} bytes; ` +
+      `expected ${EXPECTED_MANIFEST_BYTE_COUNT}`,
+    );
+  }
+  await requireSha256(
+    manifestBytes,
+    EXPECTED_MANIFEST_SHA256,
+    cryptoImplementation,
+    "shared starter manifest",
+  );
   const manifest = object(
     JSON.parse(
       new TextDecoder("utf-8", { fatal: true }).decode(manifestBytes),
@@ -307,14 +478,19 @@ export async function loadSharedRecordedStarterRuntime(
   exact(manifest.id, EXPECTED_ID, "manifest.id");
   exact(
     manifest.purpose,
-    "shared-source-a-and-b-local-audition-layer",
+    "shared-source-a-and-b-lifecycle-layer",
     "manifest.purpose",
   );
-  validateResearchProvenance(manifest);
+  validateLicensedProvenance(manifest);
   const markers = acceptedMarkers(manifest);
   const settings = acceptedSettings(manifest);
 
   const audio = object(manifest.audio, "manifest.audio");
+  exact(
+    audio.relative_path,
+    "audio/recorded-starter.cropped.192000hz.mono.f32le",
+    "manifest.audio.relative_path",
+  );
   exact(audio.sample_rate_hz, SAMPLE_RATE, "manifest.audio.sample_rate_hz");
   exact(audio.encoding, "float32le", "manifest.audio.encoding");
   exact(audio.channel_layout, "mono", "manifest.audio.channel_layout");
@@ -333,6 +509,13 @@ export async function loadSharedRecordedStarterRuntime(
     EXPECTED_PAYLOAD_SHA256,
     "manifest.audio.payload_sha256",
   );
+  exact(
+    audio.duration_seconds,
+    1.3506145833333334,
+    "manifest.audio.duration_seconds",
+  );
+  exact(audio.peak, 0.3043845593929291, "manifest.audio.peak");
+  exact(audio.rms, 0.05258075265253623, "manifest.audio.rms");
   const payloadUrl = relativeUrl(
     manifestUrl,
     audio.relative_path,
@@ -349,17 +532,12 @@ export async function loadSharedRecordedStarterRuntime(
       `expected ${EXPECTED_BYTE_COUNT}`,
     );
   }
-  const digest = hex(
-    new Uint8Array(
-      await cryptoImplementation.subtle.digest("SHA-256", payload),
-    ),
+  await requireSha256(
+    payload,
+    EXPECTED_PAYLOAD_SHA256,
+    cryptoImplementation,
+    "shared starter payload",
   );
-  if (digest !== EXPECTED_PAYLOAD_SHA256) {
-    throw new Error(
-      `shared starter SHA-256 mismatch: expected ${EXPECTED_PAYLOAD_SHA256}, ` +
-      `fetched ${digest}`,
-    );
-  }
   const samples = decodeFloat32Le(payload, EXPECTED_FRAME_COUNT);
   return Object.freeze({
     kind: KIND,
@@ -371,7 +549,9 @@ export async function loadSharedRecordedStarterRuntime(
     markers,
     settings,
     defaultEnabled: settings.defaultEnabled,
-    rightsWarning: RIGHTS_WARNING,
+    manifestSha256: EXPECTED_MANIFEST_SHA256,
+    rightsNotice: RIGHTS_NOTICE,
+    licensee: LICENSEE,
     sourceSha256: EXPECTED_SOURCE_SHA256,
     payloadSha256: EXPECTED_PAYLOAD_SHA256,
   });
@@ -849,9 +1029,14 @@ export class SharedRecordedStarterCursor {
       id: EXPECTED_ID,
       configured: true,
       loaded: true,
-      auditionOnly: true,
-      redistributionAuthorized: false,
-      licenseWarning: RIGHTS_WARNING,
+      licenseStatus: "licensed",
+      licenseBasis: "commissioned-original-recording",
+      licensee: LICENSEE,
+      auditionOnly: false,
+      modificationAuthorized: true,
+      redistributionAuthorized: true,
+      rightsNotice: RIGHTS_NOTICE,
+      manifestSha256: this.#package.manifestSha256,
       sourceSha256: this.#package.sourceSha256,
       payloadSha256: this.#package.payloadSha256,
       sampleRate: SAMPLE_RATE,

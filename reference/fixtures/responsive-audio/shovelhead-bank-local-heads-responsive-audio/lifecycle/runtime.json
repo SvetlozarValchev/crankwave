@@ -1,0 +1,211 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "id": "shovelhead-bank-local-heads-lifecycle-preview",
+  "engine": "shovelhead-bank-local-heads",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "master.engine.audition"
+  },
+  "starter": {
+    "artifact": {
+      "path": "audio/starter.master-engine-audition.f32le",
+      "sha256": "4c493048c63e80ea360de53919868712ace11d89c508152cbebf3514a58f884c",
+      "frame_count": 480000
+    },
+    "mean_crank_rpm": 504.78241273974663,
+    "reference_rpm": 504.78241273974663,
+    "loop_start_frame": 146293,
+    "loop_end_frame": 465797,
+    "crossfade_frames": 45540,
+    "attack_fade_frames": 3840,
+    "release_fade_frames": 3840
+  },
+  "startup": {
+    "artifact": {
+      "path": "audio/startup.master-engine-audition.f32le",
+      "sha256": "52b01777f8f71c2afcfd4830cbfaedf8cc18b784bdec48c1324154991f71b8c2",
+      "frame_count": 883200
+    },
+    "checkpoints": [
+      {
+        "kind": "ignition-on",
+        "frame": 134400,
+        "rpm": 499.9999994286667,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "first-combustion",
+        "frame": 145919,
+        "rpm": 552.9137049249113,
+        "precision": "advance-block",
+        "method": "first-positive-indicated-gas-torque-proxy"
+      },
+      {
+        "kind": "starter-release",
+        "frame": 304454,
+        "rpm": 634.3040181103223,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "running-floor",
+        "frame": 522094,
+        "rpm": 808.9065502030827,
+        "precision": "cycle-boundary",
+        "method": "post-release-cycle-correlated-to-captured-running-idle"
+      }
+    ],
+    "entry": {
+      "source_frame": 113279,
+      "crossfade_frames": 19200,
+      "source_rpm": 500.12624121346596,
+      "target_source_frame": 283094,
+      "target_rpm": 504.5570632718172,
+      "correlation": -0.1633248261907959,
+      "target": "starter",
+      "target_reference": "starter-loop"
+    },
+    "exit": {
+      "source_frame": 522094,
+      "crossfade_frames": 19200,
+      "source_rpm": 811.6297623242763,
+      "target_source_frame": 522094,
+      "target_rpm": 811.6297623242763,
+      "correlation": 0.9999999999999999,
+      "target": "running",
+      "target_reference": "startup-post-release-cycle-reference"
+    }
+  },
+  "shutdown": {
+    "artifact": {
+      "path": "audio/shutdown.master-engine-audition.f32le",
+      "sha256": "3a5b901642cfc6f9ca6ac4265e02c62a661ed34c08385eac1b05779748b4f223",
+      "frame_count": 576000
+    },
+    "checkpoints": [
+      {
+        "kind": "settled-idle",
+        "frame": 120960,
+        "rpm": 773.7826275897334,
+        "precision": "cycle-window",
+        "method": "pre-key-off-window-correlated-to-captured-running-idle"
+      },
+      {
+        "kind": "ignition-off",
+        "frame": 153600,
+        "rpm": 815.7701610084132,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "engine-stopped",
+        "frame": 222719,
+        "rpm": 0,
+        "precision": "advance-block",
+        "method": "first-observed-absolute-engine-speed-at-or-below-1-rpm"
+      }
+    ],
+    "entry": {
+      "source_frame": 120960,
+      "crossfade_frames": 19200,
+      "source_rpm": 773.7826275897334,
+      "target_source_frame": 16025,
+      "target_rpm": 722.979806482278,
+      "correlation": 0.2145917906644462,
+      "target": "running",
+      "target_reference": "shutdown-pre-keyoff-cycle-reference"
+    },
+    "silence_frame": 232056,
+    "exit_fade_frames": 3840,
+    "quiet_tail_frames": 343944,
+    "quiet_peak_threshold": 0.0024558337298173573,
+    "quiet_rms_threshold": 0.0007858667935415543
+  },
+  "startup_admission": {
+    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "admission_lane_coordinate": "authored-throttle-01",
+    "blend": "constant-power",
+    "pre_floor_progress": "smoothstep-first-fire-rpm-to-running-floor",
+    "completion_progress": "smoothstep-committed-crank-travel",
+    "completion_crank_travel_revolutions": 2,
+    "monotone_ownership": true,
+    "lanes": [
+      {
+        "id": "coast",
+        "throttle_01": 0,
+        "floor_running_gain_linear": 0.5761944116355173
+      },
+      {
+        "id": "mid",
+        "throttle_01": 0.2,
+        "floor_running_gain_linear": 0.7179832867135557
+      },
+      {
+        "id": "power",
+        "throttle_01": 1,
+        "floor_running_gain_linear": 0.7940403012442127
+      }
+    ],
+    "coast_stability": {
+      "lane_id": "coast",
+      "requires_starter_released": true,
+      "post_peak_crank_travel_revolutions": 4,
+      "clock_law": "lane-weighted-post-peak-admission"
+    },
+    "evidence": {
+      "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
+      "path": "evidence/startup-admission.json",
+      "sha256": "d1e31e6370f1771c08cbcb78a75b861a4c128da509f935aa453ecd017cb5512c",
+      "corrected_held_manifest_sha256": "0a415cfe5d59d3321aab0727c39417372287ecc3108ffa3387817fc33cb087ea"
+    }
+  },
+  "provenance": {
+    "engine": {
+      "id": "shovelhead-bank-local-heads",
+      "sha256": "44ce96943d08ec8cedbca7d44a36e2b767e9e1d110bdeb1618de5b0671b73fd8"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
+    "physics_rate_hz": 10000,
+    "delivery_rate_hz": 192000,
+    "fidelity_alignment": "matches-current-responsive-preview;canonical-20khz-events-are-not-mixed-into-10khz-running-package",
+    "checkpoint_alignment": "authored-control-times-are-exact-on-final-pcm;combustion-and-stop-use-one-block-c-api-telemetry-bounds;renderer-exposes-no-separate-audio-latency-field",
+    "seam_reference_scope": "same-performance-final-master-cycle-correlation;the-responsive-held-representation-exposes-no-contiguous-final-master-reference-tape",
+    "scenarios": [
+      {
+        "role": "starter",
+        "canonical_source_id": "shovelhead-bank-local-heads-lifecycle-starter-candidate",
+        "derived_id": "shovelhead-bank-local-heads-lifecycle-starter-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/starter-10khz.json",
+        "sha256": "90c7163275d86fbd50494fd7ae4828aec1ab75d6ef308aef1296b12973d4d9ad",
+        "evidence_path": "evidence/starter.json",
+        "evidence_sha256": "21f61e1673af907b9d3a4fa8473146f24a149b00f6a2819aadfdc6111817a53a"
+      },
+      {
+        "role": "startup",
+        "canonical_source_id": "shovelhead-bank-local-heads-lifecycle-startup-candidate",
+        "derived_id": "shovelhead-bank-local-heads-lifecycle-startup-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/startup-10khz.json",
+        "sha256": "fb67eea133be30b5e2fbeefbd0a53247af5f79e93d52385940393dbf4416964e",
+        "evidence_path": "evidence/startup.json",
+        "evidence_sha256": "900b23a142fba67edbbb48009017f9e025cb6962bf47f52016ec52e1410705fc"
+      },
+      {
+        "role": "shutdown",
+        "canonical_source_id": "shovelhead-bank-local-heads-lifecycle-shutdown-candidate",
+        "derived_id": "shovelhead-bank-local-heads-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/shutdown-10khz.json",
+        "sha256": "8492597dbb5746706e27e97c102a6e167db13ca02b210dcc0147a766f41f37e1",
+        "evidence_path": "evidence/shutdown.json",
+        "evidence_sha256": "f4971b1af6cc296c2c738047d2d619753cea4870750a9d6c3bf86dfdbf5f6de7"
+      }
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "schema": "engine-sim-offline/startup-admission-floor-evidence",
+  "candidate_status": "generic-variant-3-audition-not-per-engine-fitted",
+  "atlas_manifest": "../../held/package.json",
+  "atlas_manifest_sha256": "d408b1b83877b361518645c3f013e7302d1a83e1537cbe3d37a404d3c303d280",
+  "atlas_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+  "running_floor_rpm": 700,
+  "held_anchor_floor_rpm": 800,
+  "release": {
+    "method": "first-complete-four-stroke-cycle-after-first-positive-combustion-and-running-floor",
+    "seconds": 1.2348,
+    "first_positive_combustion_frame": 145919,
+    "running_floor_frame": 203519,
+    "release_cycle": {
+      "start_frame": 206200,
+      "end_frame": 237077,
+      "mean_rpm": 746.1890226740172
+    }
+  },
+  "lanes": [
+    {
+      "id": "coast",
+      "throttle_01": 0,
+      "floor_running_gain_linear": 0.5761944116355173
+    },
+    {
+      "id": "mid",
+      "throttle_01": 0.2,
+      "floor_running_gain_linear": 0.7179832867135557
+    },
+    {
+      "id": "power",
+      "throttle_01": 1,
+      "floor_running_gain_linear": 0.7940403012442127
+    }
+  ]
+}
