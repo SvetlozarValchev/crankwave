@@ -124,6 +124,51 @@
     "quiet_peak_threshold": 0.0001220703125,
     "quiet_rms_threshold": 0.00006103515625
   },
+  "shutdown_elevated": {
+    "artifact": {
+      "path": "audio/shutdown-high-rpm.master-engine-audition.f32le",
+      "sha256": "7532a64a2136fa9eb86fe0160f8c06f883683d17add54c12d96ae48ad7568c6e",
+      "frame_count": 940800
+    },
+    "checkpoints": [
+      {
+        "kind": "settled-running",
+        "frame": 2685,
+        "rpm": 4452.447124542873,
+        "precision": "cycle-window",
+        "method": "captured-high-rpm-pre-key-off-cycle"
+      },
+      {
+        "kind": "ignition-off",
+        "frame": 11520,
+        "rpm": 4928.063189508518,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "engine-stopped",
+        "frame": 456959,
+        "rpm": 0,
+        "precision": "advance-block",
+        "method": "first-observed-absolute-engine-speed-at-or-below-1-rpm"
+      }
+    ],
+    "entry": {
+      "source_frame": 2685,
+      "crossfade_frames": 3840,
+      "source_rpm": 4538.802124461807,
+      "target_source_frame": 2685,
+      "target_rpm": 4538.802124461807,
+      "correlation": 1,
+      "target": "running",
+      "target_reference": "shutdown-high-rpm-pre-keyoff-cycle-reference"
+    },
+    "silence_frame": 456959,
+    "exit_fade_frames": 3840,
+    "quiet_tail_frames": 483841,
+    "quiet_peak_threshold": 0.002080011578743332,
+    "quiet_rms_threshold": 0.0006656037051978662
+  },
   "startup_admission": {
     "schema": "engine-sim-offline/continuous-startup-admission-v1",
     "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
@@ -205,6 +250,15 @@
         "sha256": "fabba057817e9c10f37d84a19f1c41218f83d6a541c9b39b089831abf86cba12",
         "evidence_path": "evidence/shutdown.json",
         "evidence_sha256": "7e10d422779634064ace21855471bd92138b5a4760ec32a61e3fd342701e72e6"
+      },
+      {
+        "role": "shutdown-elevated",
+        "canonical_source_id": "raspy-muscle-620-cleanroom-lifecycle-shutdown-high-rpm-candidate",
+        "derived_id": "raspy-muscle-620-cleanroom-lifecycle-shutdown-high-rpm-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/shutdown-high-rpm-10khz.json",
+        "sha256": "64c0d2ce0bb580b4ded2e112cc91dad740e1e47d4ca7e1e2fa3dcfe4c21a194a",
+        "evidence_path": "evidence/shutdown-high-rpm.json",
+        "evidence_sha256": "b0c2470ea103cde3fcb9e1d95ca2d79dfda266827b8655efc56c471e6489b4ab"
       }
     ]
   }
