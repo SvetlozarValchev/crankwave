@@ -82,7 +82,10 @@ function routePath(pathname, rootDirectory) {
   if (!prefix) {
     return null;
   }
-  const relative = decoded.slice(prefix.length);
+  const relative =
+    prefix === "/web/" && decoded === "/web/"
+      ? "index.html"
+      : decoded.slice(prefix.length);
   const segments = relative.split("/");
   if (
     segments.some(
