@@ -124,6 +124,51 @@
     "quiet_peak_threshold": 0.0005148309259159083,
     "quiet_rms_threshold": 0.00016474589629309066
   },
+  "shutdown_elevated": {
+    "artifact": {
+      "path": "audio/shutdown-high-rpm.master-engine-audition.f32le",
+      "sha256": "2d68dd475331ffa4aff33ee90c7b6c0c63ded612caeab031fc47146d07922b13",
+      "frame_count": 940800
+    },
+    "checkpoints": [
+      {
+        "kind": "settled-running",
+        "frame": 6987,
+        "rpm": 2916.754869956003,
+        "precision": "cycle-window",
+        "method": "captured-high-rpm-pre-key-off-cycle"
+      },
+      {
+        "kind": "ignition-off",
+        "frame": 15360,
+        "rpm": 3397.648882235906,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "engine-stopped",
+        "frame": 368639,
+        "rpm": 0,
+        "precision": "advance-block",
+        "method": "first-observed-absolute-engine-speed-at-or-below-1-rpm"
+      }
+    ],
+    "entry": {
+      "source_frame": 6987,
+      "crossfade_frames": 3840,
+      "source_rpm": 3120.360878286891,
+      "target_source_frame": 6987,
+      "target_rpm": 3120.360878286891,
+      "correlation": 1,
+      "target": "running",
+      "target_reference": "shutdown-high-rpm-pre-keyoff-cycle-reference"
+    },
+    "silence_frame": 368639,
+    "exit_fade_frames": 3840,
+    "quiet_tail_frames": 572161,
+    "quiet_peak_threshold": 0.003987161269325871,
+    "quiet_rms_threshold": 0.0012758916061842787
+  },
   "startup_admission": {
     "schema": "engine-sim-offline/continuous-startup-admission-v1",
     "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
@@ -205,6 +250,15 @@
         "sha256": "d2afc63a8f6cddd372cc4b7e135f87716d496d9689dbe7517c307ef06bb25017",
         "evidence_path": "evidence/shutdown.json",
         "evidence_sha256": "d31c35ffd23b98e3268ad43da71b549828a2b9dc5c9bacfb42c6480b406af5ba"
+      },
+      {
+        "role": "shutdown-elevated",
+        "canonical_source_id": "bmw-m52b28-lifecycle-shutdown-high-rpm-candidate",
+        "derived_id": "bmw-m52b28-lifecycle-shutdown-high-rpm-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/shutdown-high-rpm-10khz.json",
+        "sha256": "6eed01954e1efb93b5050331b74c77ecf6a07b70dd512a79ad25ce7d4282b813",
+        "evidence_path": "evidence/shutdown-high-rpm.json",
+        "evidence_sha256": "73870a5ce1d45fecededf23c8880e6eca1cf331f0ffb2289d6add3267a8c31ae"
       }
     ]
   }

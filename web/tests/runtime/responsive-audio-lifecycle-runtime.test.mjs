@@ -43,7 +43,7 @@ function response(bytes) {
   });
 }
 
-function buildFixture() {
+function buildFixture({ elevatedShutdown = false } = {}) {
   const blobs = new Map();
   const put = (relativePath, bytes) => {
     const url = new URL(relativePath, MANIFEST_URL).href;
@@ -74,6 +74,13 @@ function buildFixture() {
     pcmBytes(40, (frame) => -0.5 - frame / 2_000),
     40,
   );
+  const shutdownElevatedArtifact = elevatedShutdown
+    ? artifact(
+      "audio/shutdown-elevated.f32le",
+      pcmBytes(64, (frame) => -0.8 - frame / 2_000),
+      64,
+    )
+    : null;
 
   const admissionEvidence = jsonBytes({
     schema: "engine-sim-offline/startup-admission-floor-evidence",
@@ -92,7 +99,12 @@ function buildFixture() {
     admissionEvidence,
   );
 
-  const scenarioRoles = ["starter", "startup", "shutdown"];
+  const scenarioRoles = [
+    "starter",
+    "startup",
+    "shutdown",
+    ...(elevatedShutdown ? ["shutdown-elevated"] : []),
+  ];
   const scenarios = scenarioRoles.map((role) => {
     const derivedId = `fixture-${role}-scenario`;
     const scenarioPath = `source/scenarios/${role}.json`;
@@ -113,6 +125,17 @@ function buildFixture() {
         physics_rate_hz: 10_000,
         delivery_rate_hz: 192_000,
         scenario_id: derivedId,
+        ...(role === "shutdown-elevated"
+          ? {
+              points: [
+                { source_frame: 8, rpm: 5_000 },
+                { source_frame: 18, rpm: 4_000 },
+                { source_frame: 28, rpm: 2_500 },
+                { source_frame: 38, rpm: 1_000 },
+                { source_frame: 48, rpm: 0 },
+              ],
+            }
+          : {}),
       }),
     );
     return Object.freeze({
@@ -188,6 +211,24 @@ function buildFixture() {
       quiet_peak_threshold: 1e-4,
       quiet_rms_threshold: 5e-5,
     },
+    ...(elevatedShutdown
+      ? {
+          shutdown_elevated: {
+            artifact: shutdownElevatedArtifact,
+            checkpoints: [
+              checkpoint("settled-running", 2, 5_000),
+              checkpoint("ignition-off", 8, 5_000),
+              checkpoint("engine-stopped", 48, 0),
+            ],
+            entry: seam("running", 2, 2, 5_000),
+            silence_frame: 52,
+            exit_fade_frames: 2,
+            quiet_tail_frames: 12,
+            quiet_peak_threshold: 1e-4,
+            quiet_rms_threshold: 5e-5,
+          },
+        }
+      : {}),
     startup_admission: {
       schema: "engine-sim-offline/continuous-startup-admission-v1",
       running_bed_load_coordinate: LOAD_COORDINATE,
@@ -394,4 +435,350 @@ test("cursor renders starter, admits the running bed, and completes shutdown", a
   assert.equal(diagnostics.shutdownCount, 1);
   assert.equal(diagnostics.outputMode, "stopped");
   assert.equal(diagnostics.activeEvent, null);
+  assert.equal(diagnostics.shutdownWarped, false);
+  assert.equal(diagnostics.shutdownProgress, 1);
+  assert.equal(diagnostics.audibleShutdownStopFrame, null);
+});
+
+test("shutdown rundown stays audible until elevated live RPM reaches zero", async () => {
+  const fixture = buildFixture({ elevatedShutdown: true });
+  const package_ = await loadResponsiveAudioLifecycleRuntime(MANIFEST_URL, {
+    fetch: fixture.fetch,
+    crypto: webcrypto,
+  });
+  const cursor = new ResponsiveAudioLifecycleCursor(package_, {
+    audioLatencyFrames: 0,
+    runningFloorRpm: 500,
+    heldAnchorFloorRpm: 600,
+    atlasLoadLanes: LANES,
+    atlasLoadCoordinate: LOAD_COORDINATE,
+  });
+  const mix = (frameCount) => cursor.mixPair(
+    new Float32Array(frameCount).fill(0.125),
+    new Float32Array(frameCount).fill(0.75),
+  ).bakedBlock;
+
+  cursor.setState(state(0, {
+    ignition: true,
+    fuel: true,
+    runningBedReady: true,
+    rpm: 3_000,
+  }));
+  cursor.setState(state(1, { runningBedReady: true, rpm: 3_000 }));
+  cursor.setState(state(31, { runningBedReady: true, rpm: 1_500 }));
+  cursor.setState(state(61, { runningBedReady: true, rpm: 0 }));
+
+  const beforeStop = mix(61);
+  assert.ok(beforeStop.some((sample) => sample < 0));
+  assert.ok(beforeStop[30] < 0);
+  assert.ok(beforeStop[60] < 0);
+  assert.equal(cursor.diagnostics().activeEvent, "shutdown");
+  assert.equal(cursor.diagnostics().shutdownTriggerRpm, 3_000);
+  assert.equal(cursor.diagnostics().shutdownWarped, false);
+  assert.equal(cursor.diagnostics().shutdownPerformance, "elevated");
+  assert.equal(cursor.diagnostics().shutdownPlaybackMethod, "native-rate-forward");
+  assert.equal(
+    cursor.diagnostics().shutdownRundownMethod,
+    "nearest-absolute-rpm-entry-then-native-rate-forward-playback",
+  );
+  assert.ok(cursor.diagnostics().shutdownProgress > 0.95);
+  assert.ok(cursor.diagnostics().shutdownProgress < 1);
+  assert.ok(mix(1)[0] < 0);
+  assert.equal(cursor.diagnostics().audibleShutdownStopFrame, 61);
+  assert.ok(mix(3).every((sample) => sample < 0));
+  assert.equal(mix(1)[0], 0);
+  assert.equal(cursor.diagnostics().outputMode, "stopped");
+});
+
+test("elevated rundown starts at its nearest RPM point and advances at native rate", async () => {
+  const fixture = buildFixture({ elevatedShutdown: true });
+  const package_ = await loadResponsiveAudioLifecycleRuntime(MANIFEST_URL, {
+    fetch: fixture.fetch,
+    crypto: webcrypto,
+  });
+  assert.equal(package_.shutdownElevated.rundown.maximumRpm, 5_000);
+  const cursor = new ResponsiveAudioLifecycleCursor(package_, {
+    audioLatencyFrames: 0,
+    runningFloorRpm: 500,
+    heldAnchorFloorRpm: 600,
+    atlasLoadLanes: LANES,
+    atlasLoadCoordinate: LOAD_COORDINATE,
+  });
+  const mix = (frameCount) => cursor.mixPair(
+    new Float32Array(frameCount).fill(0.125),
+    new Float32Array(frameCount).fill(0.75),
+  ).bakedBlock;
+
+  cursor.setState(state(0, {
+    ignition: true,
+    fuel: true,
+    runningBedReady: true,
+    rpm: 3_000,
+  }));
+  cursor.setState(state(1, { runningBedReady: true, rpm: 3_000 }));
+
+  mix(2);
+  assert.equal(cursor.diagnostics().shutdownSourceFrame, 28);
+  mix(1);
+  assert.equal(cursor.diagnostics().shutdownSourceFrame, 29);
+  mix(10);
+  assert.equal(cursor.diagnostics().shutdownSourceFrame, 39);
+});
+
+test("elevated rundown uses its high edge immediately above captured RPM", async () => {
+  const fixture = buildFixture({ elevatedShutdown: true });
+  const package_ = await loadResponsiveAudioLifecycleRuntime(MANIFEST_URL, {
+    fetch: fixture.fetch,
+    crypto: webcrypto,
+  });
+  const cursor = new ResponsiveAudioLifecycleCursor(package_, {
+    audioLatencyFrames: 0,
+    runningFloorRpm: 500,
+    heldAnchorFloorRpm: 600,
+    atlasLoadLanes: LANES,
+    atlasLoadCoordinate: LOAD_COORDINATE,
+  });
+  const mix = (frameCount) => cursor.mixPair(
+    new Float32Array(frameCount).fill(0.125),
+    new Float32Array(frameCount).fill(0.75),
+  ).bakedBlock;
+
+  cursor.setState(state(0, {
+    ignition: true,
+    fuel: true,
+    runningBedReady: true,
+    rpm: 6_000,
+  }));
+  cursor.setState(state(1, { runningBedReady: true, rpm: 6_000 }));
+
+  assert.deepEqual(mix(2), Float32Array.of(0.75, 0.75));
+  assert.equal(cursor.diagnostics().shutdownSourceFrame, 8);
+  assert.ok(mix(1)[0] < 0.75);
+  assert.equal(cursor.diagnostics().shutdownSourceFrame, 9);
+});
+
+test("shutdown key-off follows the audible latency clock", async () => {
+  const fixture = buildFixture();
+  const package_ = await loadResponsiveAudioLifecycleRuntime(MANIFEST_URL, {
+    fetch: fixture.fetch,
+    crypto: webcrypto,
+  });
+  const cursor = new ResponsiveAudioLifecycleCursor(package_, {
+    audioLatencyFrames: 4,
+    runningFloorRpm: 500,
+    heldAnchorFloorRpm: 600,
+    atlasLoadLanes: LANES,
+    atlasLoadCoordinate: LOAD_COORDINATE,
+  });
+  cursor.setState(state(0, {
+    ignition: true,
+    fuel: true,
+    runningBedReady: true,
+    rpm: 700,
+  }));
+  cursor.setState(state(1, { runningBedReady: true, rpm: 650 }));
+  cursor.setState(state(10, { runningBedReady: true, rpm: 0 }));
+  const output = cursor.mixPair(
+    new Float32Array(6).fill(0.125),
+    new Float32Array(6).fill(0.75),
+  ).bakedBlock;
+
+  assert.deepEqual(Array.from(output.slice(0, 4)), [0.75, 0.75, 0.75, 0.75]);
+  assert.ok(output[4] < 0.75);
+  assert.ok(output[5] < 0);
+});
+
+test("elevated key-off starts at the audible trigger without idle preroll", async () => {
+  const fixture = buildFixture({ elevatedShutdown: true });
+  const package_ = await loadResponsiveAudioLifecycleRuntime(MANIFEST_URL, {
+    fetch: fixture.fetch,
+    crypto: webcrypto,
+  });
+  const cursor = new ResponsiveAudioLifecycleCursor(package_, {
+    audioLatencyFrames: 4,
+    runningFloorRpm: 500,
+    heldAnchorFloorRpm: 600,
+    atlasLoadLanes: LANES,
+    atlasLoadCoordinate: LOAD_COORDINATE,
+  });
+  cursor.setState(state(0, {
+    ignition: true,
+    fuel: true,
+    runningBedReady: true,
+    rpm: 3_000,
+  }));
+  cursor.setState(state(1, { runningBedReady: true, rpm: 3_000 }));
+  cursor.setState(state(10, { runningBedReady: true, rpm: 1_500 }));
+  cursor.setState(state(20, { runningBedReady: true, rpm: 0 }));
+  const output = cursor.mixPair(
+    new Float32Array(6).fill(0.125),
+    new Float32Array(6).fill(0.75),
+  ).bakedBlock;
+
+  assert.deepEqual(Array.from(output), [0.75, 0.75, 0.75, 0.75, 0.75, 0.75]);
+  assert.equal(cursor.diagnostics().activeEvent, "shutdown");
+  assert.equal(cursor.diagnostics().shutdownWarped, false);
+  assert.equal(cursor.diagnostics().shutdownSourceFrame, 28);
+});
+
+test("rolling combustion restore cancels an active shutdown", async () => {
+  const fixture = buildFixture({ elevatedShutdown: true });
+  const package_ = await loadResponsiveAudioLifecycleRuntime(MANIFEST_URL, {
+    fetch: fixture.fetch,
+    crypto: webcrypto,
+  });
+  const cursor = new ResponsiveAudioLifecycleCursor(package_, {
+    audioLatencyFrames: 0,
+    runningFloorRpm: 500,
+    heldAnchorFloorRpm: 600,
+    atlasLoadLanes: LANES,
+    atlasLoadCoordinate: LOAD_COORDINATE,
+  });
+  const mix = (frameCount) => cursor.mixPair(
+    new Float32Array(frameCount).fill(0.125),
+    new Float32Array(frameCount).fill(0.75),
+  ).bakedBlock;
+  cursor.setState(state(0, {
+    ignition: true,
+    fuel: true,
+    runningBedReady: true,
+    rpm: 2_000,
+  }));
+  cursor.setState(state(1, { runningBedReady: true, rpm: 1_900 }));
+  cursor.setState(state(8, {
+    ignition: true,
+    fuel: true,
+    runningBedReady: true,
+    rpm: 1_700,
+  }));
+
+  mix(8);
+  assert.equal(cursor.diagnostics().activeEvent, "shutdown");
+  assert.equal(mix(1)[0], 0.75);
+  assert.equal(cursor.diagnostics().activeEvent, null);
+  assert.equal(cursor.diagnostics().outputMode, "running");
+});
+
+test("starter rise cancels shutdown and re-enters cranking", async () => {
+  const fixture = buildFixture({ elevatedShutdown: true });
+  const package_ = await loadResponsiveAudioLifecycleRuntime(MANIFEST_URL, {
+    fetch: fixture.fetch,
+    crypto: webcrypto,
+  });
+  const cursor = new ResponsiveAudioLifecycleCursor(package_, {
+    audioLatencyFrames: 0,
+    runningFloorRpm: 500,
+    heldAnchorFloorRpm: 600,
+    atlasLoadLanes: LANES,
+    atlasLoadCoordinate: LOAD_COORDINATE,
+  });
+  const mix = (frameCount) => cursor.mixPair(
+    new Float32Array(frameCount).fill(0.125),
+    new Float32Array(frameCount).fill(0.75),
+  ).bakedBlock;
+  cursor.setState(state(0, {
+    ignition: true,
+    fuel: true,
+    runningBedReady: true,
+    rpm: 2_000,
+  }));
+  cursor.setState(state(1, { runningBedReady: true, rpm: 1_900 }));
+  cursor.setState(state(8, {
+    starter: true,
+    runningBedReady: true,
+    rpm: 1_000,
+  }));
+
+  mix(8);
+  const restarted = mix(1);
+  assert.ok(restarted[0] > 0);
+  assert.equal(cursor.diagnostics().activeEvent, null);
+  assert.equal(cursor.diagnostics().outputMode, "cranking");
+});
+
+test("repeated partial startups reset admission before each new first fire", async () => {
+  const fixture = buildFixture();
+  const package_ = await loadResponsiveAudioLifecycleRuntime(MANIFEST_URL, {
+    fetch: fixture.fetch,
+    crypto: webcrypto,
+  });
+  const cursor = new ResponsiveAudioLifecycleCursor(package_, {
+    audioLatencyFrames: 0,
+    runningFloorRpm: 500,
+    heldAnchorFloorRpm: 600,
+    atlasLoadLanes: LANES,
+    atlasLoadCoordinate: LOAD_COORDINATE,
+  });
+
+  cursor.setState(state(0));
+  cursor.setState(state(1, { starter: true, rpm: 250 }));
+  cursor.setState(state(2, {
+    starter: true,
+    ignition: true,
+    fuel: true,
+    rpm: 300,
+    unwrappedCrankRevolutions: 0.1,
+    indicatedGasTorqueNm: 40,
+  }));
+  cursor.setState(state(3, {
+    starter: true,
+    ignition: true,
+    fuel: true,
+    runningBedReady: true,
+    rpm: 400,
+    unwrappedCrankRevolutions: 0.2,
+    indicatedGasTorqueNm: 50,
+  }));
+  assert.ok(cursor.diagnostics().admissionProgress > 0);
+
+  cursor.setState(state(4, {
+    runningBedReady: true,
+    rpm: 350,
+    unwrappedCrankRevolutions: 0.3,
+  }));
+  assert.equal(cursor.diagnostics().admissionProgress, 0);
+  assert.equal(cursor.diagnostics().physicalFirstFireFrame, -1);
+
+  for (const offset of [5, 9]) {
+    assert.doesNotThrow(() => cursor.setState(state(offset, {
+      starter: true,
+      ignition: true,
+      fuel: true,
+      runningBedReady: true,
+      rpm: 250,
+      unwrappedCrankRevolutions: offset / 10,
+      indicatedGasTorqueNm: 0,
+    })));
+    assert.equal(cursor.diagnostics().admissionProgress, 0);
+    assert.equal(cursor.diagnostics().physicalFirstFireFrame, -1);
+
+    cursor.setState(state(offset + 1, {
+      starter: true,
+      ignition: true,
+      fuel: true,
+      runningBedReady: true,
+      rpm: 300,
+      unwrappedCrankRevolutions: offset / 10 + 0.1,
+      indicatedGasTorqueNm: 40,
+    }));
+    cursor.setState(state(offset + 2, {
+      ignition: true,
+      fuel: true,
+      runningBedReady: true,
+      rpm: 400,
+      unwrappedCrankRevolutions: offset / 10 + 0.2,
+      indicatedGasTorqueNm: 50,
+    }));
+    assert.ok(cursor.diagnostics().admissionProgress > 0);
+
+    cursor.setState(state(offset + 3, {
+      runningBedReady: true,
+      rpm: 350,
+      unwrappedCrankRevolutions: offset / 10 + 0.3,
+    }));
+    assert.equal(cursor.diagnostics().admissionProgress, 0);
+  }
+
+  assert.equal(cursor.diagnostics().startupCount, 3);
+  assert.equal(cursor.diagnostics().shutdownCount, 3);
 });

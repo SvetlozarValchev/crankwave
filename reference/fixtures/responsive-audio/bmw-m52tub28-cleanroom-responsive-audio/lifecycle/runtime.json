@@ -124,6 +124,51 @@
     "quiet_peak_threshold": 0.0001220703125,
     "quiet_rms_threshold": 0.00006103515625
   },
+  "shutdown_elevated": {
+    "artifact": {
+      "path": "audio/shutdown-high-rpm.master-engine-audition.f32le",
+      "sha256": "01ea98f934e65810a6aab4be885e3b98e1d62e537d092a7676e8817658f129e5",
+      "frame_count": 940800
+    },
+    "checkpoints": [
+      {
+        "kind": "settled-running",
+        "frame": 3764,
+        "rpm": 3129.78627526431,
+        "precision": "cycle-window",
+        "method": "captured-high-rpm-pre-key-off-cycle"
+      },
+      {
+        "kind": "ignition-off",
+        "frame": 11520,
+        "rpm": 3418.7300490200428,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "engine-stopped",
+        "frame": 430079,
+        "rpm": 0,
+        "precision": "advance-block",
+        "method": "first-observed-absolute-engine-speed-at-or-below-1-rpm"
+      }
+    ],
+    "entry": {
+      "source_frame": 3764,
+      "crossfade_frames": 3840,
+      "source_rpm": 3256.478901574104,
+      "target_source_frame": 3764,
+      "target_rpm": 3256.478901574104,
+      "correlation": 1,
+      "target": "running",
+      "target_reference": "shutdown-high-rpm-pre-keyoff-cycle-reference"
+    },
+    "silence_frame": 430079,
+    "exit_fade_frames": 3840,
+    "quiet_tail_frames": 510721,
+    "quiet_peak_threshold": 0.0036303763684919876,
+    "quiet_rms_threshold": 0.001161720437917436
+  },
   "startup_admission": {
     "schema": "engine-sim-offline/continuous-startup-admission-v1",
     "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
@@ -210,6 +255,15 @@
         "sha256": "2b112cf422c1dd14cd456aee77ce91e7e14e7d8659de5e7584f7708489e1451e",
         "evidence_path": "evidence/shutdown.json",
         "evidence_sha256": "6e8ef5ad3f5e76431eaf5cf74e24cb436125ed604c267d0e997f6998e9cf4b63"
+      },
+      {
+        "role": "shutdown-elevated",
+        "canonical_source_id": "bmw-m52tub28-cleanroom-lifecycle-shutdown-high-rpm-candidate",
+        "derived_id": "bmw-m52tub28-cleanroom-lifecycle-shutdown-high-rpm-candidate-10khz-lifecycle-preview",
+        "path": "source/scenarios/shutdown-high-rpm-10khz.json",
+        "sha256": "730c615555939dae2cc919493f5b0bd90a48984f23129c707ed0bf41e642dad9",
+        "evidence_path": "evidence/shutdown-high-rpm.json",
+        "evidence_sha256": "2f39c979cf981975d4ecf8261294bf216af54b98104278053687da3819c13ef9"
       }
     ]
   }

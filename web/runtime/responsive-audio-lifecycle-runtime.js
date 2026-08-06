@@ -4,6 +4,7 @@ const SAMPLE_RATE = 192_000;
 const BUS_ID = "master.engine.audition";
 const FOUR_STROKE_CYCLE_REVOLUTIONS = 2;
 const LOW_LOAD_SETTLE_CYCLES = 2;
+const ELEVATED_SHUTDOWN_RPM_RATIO = 1.2;
 
 function fail(message) {
   throw new TypeError(message);
@@ -142,6 +143,62 @@ function checkpointMap(value, requiredKinds, label) {
   return result;
 }
 
+function shutdownRundownProfile(shutdown, evidence, label) {
+  const ignitionOff = shutdown.checkpoints.get("ignition-off");
+  const engineStopped = shutdown.checkpoints.get("engine-stopped");
+  const candidates = array(evidence.points, `${label}.points`).map(
+    (pointValue, index) => {
+    const point = object(
+      pointValue,
+      `${label}.points[${index}]`,
+    );
+    return Object.freeze({
+      sourceFrame: nonnegativeInteger(
+        point.source_frame,
+        `${label}.points[${index}].source_frame`,
+      ),
+      rpm: Math.abs(finite(
+        point.rpm,
+        `${label}.points[${index}].rpm`,
+      )),
+    });
+  }).filter(({ sourceFrame }) =>
+    sourceFrame >= ignitionOff.frame && sourceFrame < engineStopped.frame
+  ).sort((left, right) => left.sourceFrame - right.sourceFrame);
+
+  const maximumRpm = Math.max(
+    1,
+    Math.abs(ignitionOff.rpm),
+    ...candidates.map(({ rpm }) => rpm),
+  );
+  const points = [{
+    sourceFrame: ignitionOff.frame,
+    rpm: maximumRpm,
+  }];
+  let monotoneRpm = maximumRpm;
+  for (const candidate of candidates) {
+    if (candidate.sourceFrame <= points.at(-1).sourceFrame) continue;
+    monotoneRpm = Math.min(monotoneRpm, candidate.rpm);
+    if (monotoneRpm <= 1 || monotoneRpm === points.at(-1).rpm) continue;
+    points.push({
+      sourceFrame: candidate.sourceFrame,
+      rpm: monotoneRpm,
+    });
+  }
+  points.push({
+    sourceFrame: engineStopped.frame,
+    rpm: 0,
+  });
+  return Object.freeze({
+    method: "nearest-absolute-rpm-entry-then-native-rate-forward-playback",
+    ignitionOffSourceFrame: ignitionOff.frame,
+    engineStoppedSourceFrame: engineStopped.frame,
+    silenceSourceFrame: shutdown.silenceFrame,
+    maximumRpm,
+    points: Object.freeze(points.map((point) => Object.freeze(point))),
+  });
+}
+
 function seam(value, target, label) {
   const item = object(value, label);
   if (item.target !== target) fail(`${label}.target must be ${target}`);
@@ -165,6 +222,48 @@ function seam(value, target, label) {
     fail(`${label}.correlation must lie in [-1, 1]`);
   }
   return result;
+}
+
+function shutdownPerformance(value, loadedArtifact, label, settledKind) {
+  const checkpoints = checkpointMap(
+    value.checkpoints,
+    [settledKind, "ignition-off", "engine-stopped"],
+    `${label}.checkpoints`,
+  );
+  const performance = Object.freeze({
+    artifact: loadedArtifact,
+    checkpoints,
+    entry: seam(value.entry, "running", `${label}.entry`),
+    silenceFrame: nonnegativeInteger(
+      value.silence_frame,
+      `${label}.silence_frame`,
+    ),
+    exitFadeFrames: positiveInteger(
+      value.exit_fade_frames,
+      `${label}.exit_fade_frames`,
+    ),
+    quietTailFrames: nonnegativeInteger(
+      value.quiet_tail_frames,
+      `${label}.quiet_tail_frames`,
+    ),
+    quietPeakThreshold: finite(
+      value.quiet_peak_threshold,
+      `${label}.quiet_peak_threshold`,
+    ),
+    quietRmsThreshold: finite(
+      value.quiet_rms_threshold,
+      `${label}.quiet_rms_threshold`,
+    ),
+  });
+  if (
+    performance.entry.sourceFrame > checkpoints.get("ignition-off").frame ||
+    checkpoints.get("ignition-off").frame >= performance.silenceFrame ||
+    checkpoints.get("engine-stopped").frame > performance.silenceFrame ||
+    performance.silenceFrame > performance.artifact.frameCount
+  ) {
+    fail(`${label} checkpoint/seam ordering is invalid`);
+  }
+  return performance;
 }
 
 function unitInterval(value, label) {
@@ -326,7 +425,15 @@ export async function loadResponsiveAudioLifecycleRuntime(
   const starterValue = object(manifest.starter, "manifest.starter");
   const startupValue = object(manifest.startup, "manifest.startup");
   const shutdownValue = object(manifest.shutdown, "manifest.shutdown");
-  const [starterArtifact, startupArtifact, shutdownArtifact] = await Promise.all([
+  const shutdownElevatedValue = manifest.shutdown_elevated === undefined
+    ? null
+    : object(manifest.shutdown_elevated, "manifest.shutdown_elevated");
+  const [
+    starterArtifact,
+    startupArtifact,
+    shutdownArtifact,
+    shutdownElevatedArtifact,
+  ] = await Promise.all([
     artifact(
       starterValue.artifact,
       manifestUrl,
@@ -348,6 +455,15 @@ export async function loadResponsiveAudioLifecycleRuntime(
       cryptoImplementation,
       "shutdown.artifact",
     ),
+    shutdownElevatedValue === null
+      ? null
+      : artifact(
+        shutdownElevatedValue.artifact,
+        manifestUrl,
+        fetchImplementation,
+        cryptoImplementation,
+        "shutdown_elevated.artifact",
+      ),
   ]);
 
   const starter = Object.freeze({
@@ -450,43 +566,25 @@ export async function loadResponsiveAudioLifecycleRuntime(
     fail("startup checkpoint/seam ordering is invalid");
   }
 
-  const shutdownCheckpoints = checkpointMap(
-    shutdownValue.checkpoints,
-    ["settled-idle", "ignition-off", "engine-stopped"],
-    "shutdown.checkpoints",
+  const shutdown = shutdownPerformance(
+    shutdownValue,
+    shutdownArtifact,
+    "shutdown",
+    "settled-idle",
   );
-  const shutdown = Object.freeze({
-    artifact: shutdownArtifact,
-    checkpoints: shutdownCheckpoints,
-    entry: seam(shutdownValue.entry, "running", "shutdown.entry"),
-    silenceFrame: nonnegativeInteger(
-      shutdownValue.silence_frame,
-      "shutdown.silence_frame",
-    ),
-    exitFadeFrames: positiveInteger(
-      shutdownValue.exit_fade_frames,
-      "shutdown.exit_fade_frames",
-    ),
-    quietTailFrames: nonnegativeInteger(
-      shutdownValue.quiet_tail_frames,
-      "shutdown.quiet_tail_frames",
-    ),
-    quietPeakThreshold: finite(
-      shutdownValue.quiet_peak_threshold,
-      "shutdown.quiet_peak_threshold",
-    ),
-    quietRmsThreshold: finite(
-      shutdownValue.quiet_rms_threshold,
-      "shutdown.quiet_rms_threshold",
-    ),
-  });
-  if (
-    shutdown.entry.sourceFrame > shutdownCheckpoints.get("ignition-off").frame ||
-    shutdownCheckpoints.get("ignition-off").frame >= shutdown.silenceFrame ||
-    shutdown.silenceFrame > shutdown.artifact.frameCount
-  ) {
-    fail("shutdown checkpoint/seam ordering is invalid");
-  }
+  const shutdownElevated = shutdownElevatedValue === null
+    ? null
+    : shutdownPerformance(
+      shutdownElevatedValue,
+      shutdownElevatedArtifact,
+      "shutdown_elevated",
+      array(
+        shutdownElevatedValue.checkpoints,
+        "shutdown_elevated.checkpoints",
+      ).some(({ kind }) => kind === "settled-running")
+        ? "settled-running"
+        : "settled-idle",
+    );
 
   const provenance = object(manifest.provenance, "manifest.provenance");
   object(provenance.engine, "manifest.provenance.engine");
@@ -558,6 +656,28 @@ export async function loadResponsiveAudioLifecycleRuntime(
       },
     ),
   );
+  const shutdownSource = provenanceSources.find(({ role }) => role === "shutdown");
+  if (shutdownSource === undefined) {
+    fail("manifest.provenance.scenarios is missing shutdown evidence");
+  }
+  const elevatedShutdownSource = provenanceSources.find(
+    ({ role }) => role === "shutdown-elevated",
+  );
+  if ((shutdownElevated === null) !== (elevatedShutdownSource === undefined)) {
+    fail(
+      "manifest.shutdown_elevated and shutdown-elevated provenance must be provided together",
+    );
+  }
+  const loadedShutdownElevated = shutdownElevated === null
+    ? null
+    : Object.freeze({
+      ...shutdownElevated,
+      rundown: shutdownRundownProfile(
+        shutdownElevated,
+        elevatedShutdownSource.evidence,
+        "shutdown-elevated lifecycle evidence",
+      ),
+    });
   return Object.freeze({
     kind: KIND,
     manifestUrl: manifestUrl.href,
@@ -570,6 +690,7 @@ export async function loadResponsiveAudioLifecycleRuntime(
     startup,
     startupAdmission: loadedAdmission,
     shutdown,
+    shutdownElevated: loadedShutdownElevated,
     provenanceSources: Object.freeze(provenanceSources),
   });
 }
@@ -591,6 +712,21 @@ function sampleLinear(samples, position) {
     Math.max(0, Math.min(samples.length - 1, left + 1))
   ] ?? leftSample;
   return leftSample + (rightSample - leftSample) * amount;
+}
+
+function shutdownSourceFrameNearestRpm(profile, absoluteRpm) {
+  const rpm = Math.max(0, Math.abs(absoluteRpm));
+  let nearest = profile.points[0];
+  let nearestDistance = Math.abs(rpm - nearest.rpm);
+  for (let index = 1; index < profile.points.length; ++index) {
+    const candidate = profile.points[index];
+    const distance = Math.abs(rpm - candidate.rpm);
+    if (distance < nearestDistance) {
+      nearest = candidate;
+      nearestDistance = distance;
+    }
+  }
+  return nearest.sourceFrame;
 }
 
 function laneWeights(value, label) {
@@ -737,6 +873,7 @@ export class ResponsiveAudioLifecycleCursor {
   #lastFloorRunningGainLinear = 0;
   #peakPostFireRpm = 0;
   #peakPostFireCrankRevolutions = null;
+  #startupAdmissionEventId = null;
 
   constructor(
     package_,
@@ -839,26 +976,7 @@ export class ResponsiveAudioLifecycleCursor {
     this.#shutdownCount = 0;
     this.#lateStartFrames = 0;
     this.#renderedFrames = 0;
-    this.#physicalFirstFireFrame = -1;
-    this.#audibleFirstFireFrame = -1;
-    this.#physicalRunningFloorFrame = -1;
-    this.#audibleHandoffStartFrame = -1;
-    this.#audibleHandoffEndFrame = -1;
-    this.#handoffRpm = null;
-    this.#handoffReason = null;
-    this.#handoffStartCrankRevolutions = null;
-    this.#handoffEndCrankRevolutions = null;
-    this.#firstFireRpm = null;
-    this.#admissionProgress = 0;
-    this.#floorCrankRevolutions = null;
-    this.#completionCrankTravelRevolutions = 0;
-    this.#lastAdmissionCrankRevolutions = null;
-    this.#coastStable = false;
-    this.#lastAdmissionLaneWeights = null;
-    this.#lastRunningBedLaneWeights = null;
-    this.#lastFloorRunningGainLinear = 0;
-    this.#peakPostFireRpm = 0;
-    this.#peakPostFireCrankRevolutions = null;
+    this.#resetStartupAdmissionTracking();
   }
 
   setState(value) {
@@ -881,6 +999,8 @@ export class ResponsiveAudioLifecycleCursor {
     } else {
       const starterRose = !previous.starter && state.starter;
       const starterFell = previous.starter && !state.starter;
+      const combustionRose =
+        !(previous.ignition && previous.fuel) && state.ignition && state.fuel;
       const combustionFell =
         previous.ignition && previous.fuel && !(state.ignition && state.fuel);
       const firstPositiveCombustion =
@@ -890,21 +1010,25 @@ export class ResponsiveAudioLifecycleCursor {
         state.indicatedGasTorqueNm !== null &&
         state.indicatedGasTorqueNm > 0;
       if (starterRose) {
-        this.#cancelEventsAt(state.frame);
+        this.#cancelEventsAt(
+          this.#inputMode === "shutdown"
+            ? this.#audibleFrame(state.frame)
+            : state.frame,
+        );
+        this.#resetStartupAdmissionTracking();
         this.#inputMode = "cranking";
       }
       if (firstPositiveCombustion) {
+        this.#resetStartupAdmissionTracking();
         this.#physicalFirstFireFrame = state.frame;
         this.#audibleFirstFireFrame = this.#audibleFrame(state.frame);
         this.#firstFireRpm = Math.abs(state.rpm);
-        this.#admissionProgress = 0;
-        this.#floorCrankRevolutions = null;
-        this.#completionCrankTravelRevolutions = 0;
         this.#lastAdmissionCrankRevolutions = state.unwrappedCrankRevolutions;
-        this.#coastStable = false;
         this.#scheduleEvent("startup", this.#audibleFirstFireFrame);
+        this.#startupAdmissionEventId = this.#nextEventId - 1;
         this.#inputMode = "running";
       } else if (starterFell && this.#inputMode === "cranking") {
+        this.#resetStartupAdmissionTracking();
         this.#inputMode = "stopped";
       }
       if (
@@ -912,8 +1036,19 @@ export class ResponsiveAudioLifecycleCursor {
         ["running", "startup"].includes(this.#inputMode) &&
         Math.abs(previous.rpm) > 1
       ) {
-        this.#scheduleEvent("shutdown", state.frame);
+        const shutdownFrame = this.#audibleFrame(state.frame);
+        this.#cancelEventsAt(shutdownFrame);
+        this.#resetStartupAdmissionTracking();
+        this.#scheduleEvent(
+          "shutdown",
+          shutdownFrame,
+          Math.max(Math.abs(previous.rpm), Math.abs(state.rpm)),
+        );
         this.#inputMode = "shutdown";
+      }
+      if (combustionRose && this.#inputMode === "shutdown") {
+        this.#cancelEventsAt(this.#audibleFrame(state.frame));
+        this.#inputMode = "running";
       }
       if (
         this.#physicalFirstFireFrame >= 0 &&
@@ -979,13 +1114,41 @@ export class ResponsiveAudioLifecycleCursor {
     return clamp(result, 0, 1);
   }
 
+  #resetStartupAdmissionTracking() {
+    this.#startupAdmissionEventId = null;
+    this.#physicalFirstFireFrame = -1;
+    this.#audibleFirstFireFrame = -1;
+    this.#physicalRunningFloorFrame = -1;
+    this.#audibleHandoffStartFrame = -1;
+    this.#audibleHandoffEndFrame = -1;
+    this.#handoffRpm = null;
+    this.#handoffReason = null;
+    this.#handoffStartCrankRevolutions = null;
+    this.#handoffEndCrankRevolutions = null;
+    this.#firstFireRpm = null;
+    this.#admissionProgress = 0;
+    this.#floorCrankRevolutions = null;
+    this.#completionCrankTravelRevolutions = 0;
+    this.#lastAdmissionCrankRevolutions = null;
+    this.#coastStable = false;
+    this.#lastAdmissionLaneWeights = null;
+    this.#lastRunningBedLaneWeights = null;
+    this.#lastFloorRunningGainLinear = 0;
+    this.#peakPostFireRpm = 0;
+    this.#peakPostFireCrankRevolutions = null;
+  }
+
   #advanceStartupAdmission(state, previous) {
     if (this.#admissionProgress >= 1) return;
-    const event = this.#events.findLast((candidate) =>
-      candidate.kind === "startup" && candidate.cancelFrame === null
+    if (this.#startupAdmissionEventId === null) return;
+    const event = this.#events.find((candidate) =>
+      candidate.id === this.#startupAdmissionEventId &&
+      candidate.kind === "startup" &&
+      candidate.cancelFrame === null
     );
     if (event === undefined) {
-      fail("lifecycle admission advanced without an active first-fire event");
+      this.#resetStartupAdmissionTracking();
+      return;
     }
     const rpm = Math.abs(state.rpm);
     const floorGain = this.#floorRunningGain(state);
@@ -1081,46 +1244,91 @@ export class ResponsiveAudioLifecycleCursor {
   }
 
   #cancelEventsAt(frame) {
+    let cancelledActiveStartup = false;
     for (const event of this.#events) {
       if (event.cancelFrame === null || event.cancelFrame > frame) {
         event.cancelFrame = frame;
+        if (event.id === this.#startupAdmissionEventId) {
+          cancelledActiveStartup = true;
+        }
       }
     }
+    if (cancelledActiveStartup) this.#resetStartupAdmissionTracking();
   }
 
-  #scheduleEvent(kind, triggerFrame) {
-    const performance = this.#package[kind];
+  #scheduleEvent(kind, triggerFrame, shutdownTriggerRpm = null) {
+    const elevatedShutdown = kind === "shutdown" &&
+      this.#package.shutdownElevated !== null &&
+      shutdownTriggerRpm >
+        Math.abs(
+          this.#package.shutdown.checkpoints.get("ignition-off").rpm,
+        ) * ELEVATED_SHUTDOWN_RPM_RATIO;
+    const performance = elevatedShutdown
+      ? this.#package.shutdownElevated
+      : this.#package[kind];
     const checkpointKind = kind === "startup" ? "first-combustion" : "ignition-off";
     const checkpoint = performance.checkpoints.get(checkpointKind);
-    const desiredStart = triggerFrame - (checkpoint.frame - performance.entry.sourceFrame);
+    const desiredStart = elevatedShutdown
+      ? triggerFrame
+      : triggerFrame - (checkpoint.frame - performance.entry.sourceFrame);
     const earliest = this.#outputFrame ?? 0;
     const startFrame = Math.max(0, desiredStart, earliest);
     const skippedFrames = startFrame - desiredStart;
     this.#lateStartFrames += skippedFrames;
-    const naturalEndSourceFrame = performance.silenceFrame;
     const event = {
       id: this.#nextEventId++,
       kind,
       triggerFrame,
       startFrame,
-      sourceFrameAtStart: performance.entry.sourceFrame + skippedFrames,
-      entryFadeFrames: Math.max(
-        1,
-        Math.min(
-          performance.entry.crossfadeFrames,
-          Math.max(1, triggerFrame - startFrame),
+      sourceFrameAtStart: elevatedShutdown
+        ? shutdownSourceFrameNearestRpm(
+          performance.rundown,
+          shutdownTriggerRpm,
+        )
+        : performance.entry.sourceFrame + skippedFrames,
+      entryFadeFrames: elevatedShutdown
+        ? performance.entry.crossfadeFrames
+        : Math.max(
+          1,
+          Math.min(
+            performance.entry.crossfadeFrames,
+            Math.max(1, triggerFrame - startFrame),
+          ),
         ),
-      ),
-      endFrame: kind === "startup"
-        ? Number.MAX_SAFE_INTEGER
-        : startFrame + Math.max(
+      endFrame: kind === "shutdown" && !elevatedShutdown
+        ? startFrame + Math.max(
           0,
-          naturalEndSourceFrame - performance.entry.sourceFrame - skippedFrames,
-        ),
+          performance.silenceFrame -
+            performance.entry.sourceFrame -
+            skippedFrames,
+        )
+        : Number.MAX_SAFE_INTEGER,
       handoffStartFrame: null,
       handoffEndFrame: null,
       handoffStartCrankRevolutions: null,
       cancelFrame: null,
+      shutdownTriggerRpm: kind === "shutdown"
+        ? Math.max(1, finite(shutdownTriggerRpm, "shutdown trigger RPM"))
+        : null,
+      shutdownWarped: false,
+      shutdownPerformance: elevatedShutdown ? "elevated" : "idle",
+      shutdownPlaybackMethod: elevatedShutdown
+        ? "native-rate-forward"
+        : "captured-idle-forward",
+      shutdownLiveRpm: null,
+      shutdownProgress: 0,
+      shutdownSourceFrame: kind === "shutdown"
+        ? elevatedShutdown
+          ? shutdownSourceFrameNearestRpm(
+            performance.rundown,
+            shutdownTriggerRpm,
+          )
+          : performance.entry.sourceFrame + skippedFrames
+        : null,
+      shutdownTailStartFrame: null,
+      shutdownAssetStartFrame: startFrame,
+      shutdownHeldForPhysicalStop: false,
+      audibleShutdownStopFrame: null,
     };
     this.#events.push(event);
     this.#events.sort((left, right) => left.startFrame - right.startFrame);
@@ -1188,6 +1396,21 @@ export class ResponsiveAudioLifecycleCursor {
         amount;
   }
 
+  #audibleRpmAt(frame) {
+    const current = this.#audibleState;
+    if (current === null) return null;
+    const next = this.#scheduledAudibleStates[0] ?? null;
+    if (next === null || next.frame <= current.frame || frame >= next.frame) {
+      return Math.abs(current.rpm);
+    }
+    const amount = clamp(
+      (frame - current.frame) / (next.frame - current.frame),
+      0,
+      1,
+    );
+    return Math.abs(current.rpm + (next.rpm - current.rpm) * amount);
+  }
+
   #audibleAdmissionProgressAt(frame) {
     const current = this.#audibleState;
     if (current === null) return 0;
@@ -1225,7 +1448,27 @@ export class ResponsiveAudioLifecycleCursor {
     const event = this.#eventAt(frame);
     if (event?.id === this.#activeEvent?.id) return event;
     if (this.#activeEvent !== null && event === null) {
-      this.#outputMode = this.#activeEvent.kind === "startup" ? "running" : "stopped";
+      if (
+        this.#activeEvent.kind === "shutdown" &&
+        this.#activeEvent.shutdownPerformance === "idle" &&
+        this.#activeEvent.cancelFrame === null
+      ) {
+        this.#activeEvent.shutdownProgress = 1;
+        this.#activeEvent.shutdownSourceFrame =
+          this.#package.shutdown.silenceFrame;
+      }
+      if (this.#state.starter) this.#outputMode = "cranking";
+      else if (
+        this.#state.ignition &&
+        this.#state.fuel &&
+        Math.abs(this.#state.rpm) > 1
+      ) {
+        this.#outputMode = "running";
+      } else {
+        this.#outputMode = this.#activeEvent.kind === "startup"
+          ? "running"
+          : "stopped";
+      }
     }
     if (event !== null) this.#outputMode = event.kind;
     this.#activeEvent = event;
@@ -1266,6 +1509,75 @@ export class ResponsiveAudioLifecycleCursor {
     return sample;
   }
 
+  #shutdownSample(event, frame, performance) {
+    if (event.shutdownPerformance === "idle") {
+      const sourceFrame = event.sourceFrameAtStart + (frame - event.startFrame);
+      event.shutdownLiveRpm =
+        this.#audibleRpmAt(frame) ?? Math.abs(this.#state.rpm);
+      event.shutdownProgress = clamp(
+        (sourceFrame - performance.checkpoints.get("ignition-off").frame) /
+          Math.max(
+            1,
+            performance.checkpoints.get("engine-stopped").frame -
+              performance.checkpoints.get("ignition-off").frame,
+          ),
+        0,
+        1,
+      );
+      event.shutdownSourceFrame = sourceFrame;
+      return sourceFrame < performance.silenceFrame
+        ? sampleLinear(performance.artifact.samples, sourceFrame)
+        : 0;
+    }
+    const liveRpm = this.#audibleRpmAt(frame) ?? Math.abs(this.#state.rpm);
+    event.shutdownLiveRpm = liveRpm;
+    if (liveRpm <= 1 && event.audibleShutdownStopFrame === null) {
+      event.audibleShutdownStopFrame = frame;
+    }
+
+    const stoppedSourceFrame = performance.rundown.engineStoppedSourceFrame;
+    let sourceFrame;
+    if (event.shutdownTailStartFrame !== null) {
+      sourceFrame = stoppedSourceFrame +
+        (frame - event.shutdownTailStartFrame);
+    } else {
+      const naturalSourceFrame = event.sourceFrameAtStart +
+        (frame - event.startFrame);
+      if (naturalSourceFrame < stoppedSourceFrame) {
+        sourceFrame = naturalSourceFrame;
+      } else if (liveRpm > 1) {
+        sourceFrame = Math.max(
+          performance.rundown.ignitionOffSourceFrame,
+          stoppedSourceFrame - 1,
+        );
+        event.shutdownHeldForPhysicalStop = true;
+      } else {
+        event.shutdownTailStartFrame = event.shutdownHeldForPhysicalStop
+          ? frame
+          : frame - (naturalSourceFrame - stoppedSourceFrame);
+        sourceFrame = stoppedSourceFrame +
+          (frame - event.shutdownTailStartFrame);
+        event.endFrame = event.shutdownTailStartFrame + Math.max(
+          0,
+          performance.silenceFrame - stoppedSourceFrame,
+        );
+      }
+    }
+    event.shutdownSourceFrame = sourceFrame;
+    event.shutdownProgress = clamp(
+      (sourceFrame - performance.rundown.ignitionOffSourceFrame) /
+        Math.max(
+          1,
+          stoppedSourceFrame - performance.rundown.ignitionOffSourceFrame,
+        ),
+      0,
+      1,
+    );
+    return sourceFrame < performance.silenceFrame
+      ? sampleLinear(performance.artifact.samples, sourceFrame)
+      : 0;
+  }
+
   #renderLifecycle(frame, runningSample) {
     const event = this.#updateEvent(frame);
     const starterWanted =
@@ -1287,18 +1599,16 @@ export class ResponsiveAudioLifecycleCursor {
       return 0;
     }
 
-    const performance = this.#package[event.kind];
-    const sourceFrame = event.sourceFrameAtStart + (frame - event.startFrame);
-    if (
-      event.kind === "startup" &&
-      sourceFrame >= performance.artifact.frameCount
-    ) {
-      throw new RangeError(
-        "first-fire tape ended before the live running bed became authoritative",
-      );
-    }
-    const eventSample = performance.artifact.samples[Math.floor(sourceFrame)] ?? 0;
     if (event.kind === "startup") {
+      const performance = this.#package.startup;
+      const sourceFrame = event.sourceFrameAtStart + (frame - event.startFrame);
+      if (sourceFrame >= performance.artifact.frameCount) {
+        throw new RangeError(
+          "first-fire tape ended before the live running bed became authoritative",
+        );
+      }
+      const eventSample =
+        performance.artifact.samples[Math.floor(sourceFrame)] ?? 0;
       if (frame < event.startFrame + event.entryFadeFrames) {
         const amount = smoothstep(
           (frame - event.startFrame) / event.entryFadeFrames,
@@ -1324,13 +1634,17 @@ export class ResponsiveAudioLifecycleCursor {
       return eventSample;
     }
 
-    if (frame < event.startFrame + event.entryFadeFrames) {
+    const performance = event.shutdownPerformance === "elevated"
+      ? this.#package.shutdownElevated
+      : this.#package.shutdown;
+    const eventSample = this.#shutdownSample(event, frame, performance);
+    if (frame < event.shutdownAssetStartFrame + event.entryFadeFrames) {
       const amount = smoothstep(
-        (frame - event.startFrame) / event.entryFadeFrames,
+        (frame - event.shutdownAssetStartFrame) / event.entryFadeFrames,
       );
       return runningSample * (1 - amount) + eventSample * amount;
     }
-    return sourceFrame < performance.silenceFrame ? eventSample : 0;
+    return eventSample;
   }
 
   mixPair(sourceBlockValue, runningBakedBlockValue) {
@@ -1359,6 +1673,8 @@ export class ResponsiveAudioLifecycleCursor {
   }
 
   diagnostics() {
+    const shutdownEvent = this.#events.findLast(({ kind }) => kind === "shutdown") ??
+      null;
     return Object.freeze({
       schema: SCHEMA,
       id: this.#package.manifest.id,
@@ -1409,6 +1725,20 @@ export class ResponsiveAudioLifecycleCursor {
               this.#handoffStartCrankRevolutions,
           ),
       peakPostFireRpm: this.#peakPostFireRpm,
+      shutdownRundownMethod:
+        this.#package.shutdownElevated?.rundown.method ?? null,
+      shutdownTriggerRpm: shutdownEvent?.shutdownTriggerRpm ?? null,
+      shutdownWarped: shutdownEvent?.shutdownWarped ?? false,
+      shutdownPerformance: shutdownEvent?.shutdownPerformance ?? null,
+      shutdownPlaybackMethod:
+        shutdownEvent?.shutdownPlaybackMethod ?? null,
+      shutdownLiveRpm: shutdownEvent?.shutdownLiveRpm ?? null,
+      shutdownProgress: shutdownEvent?.shutdownProgress ?? 0,
+      shutdownSourceFrame: shutdownEvent?.shutdownSourceFrame ?? null,
+      audibleShutdownStopFrame:
+        shutdownEvent?.audibleShutdownStopFrame ?? null,
+      shutdownHeldForPhysicalStop:
+        shutdownEvent?.shutdownHeldForPhysicalStop ?? false,
       starterSourceFrame: Math.floor(this.#starterPosition),
       starterGain: this.#starterGain,
       renderedFrames: this.#renderedFrames,
