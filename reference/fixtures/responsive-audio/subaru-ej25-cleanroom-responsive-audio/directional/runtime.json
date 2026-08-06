@@ -1,0 +1,72 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-texture",
+  "id": "subaru-ej25-cleanroom-directional-transient-live-preview",
+  "engine": "subaru-ej25-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono"
+  },
+  "domain": {
+    "minimum_rpm": 700,
+    "maximum_rpm": 6700,
+    "rpm_anchors": [
+      800,
+      1000,
+      1250,
+      1500,
+      1800,
+      2200,
+      2700,
+      3300,
+      4000,
+      4800,
+      5500,
+      6100,
+      6500
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs"
+  },
+  "dry_bus_ids": [
+    "exhaust-0.dry",
+    "exhaust-1.dry"
+  ],
+  "route_manifests": [
+    {
+      "bus_id": "exhaust-0.dry",
+      "rising_manifest_path": "exhaust-0-dry-rising.json",
+      "falling_manifest_path": "exhaust-0-dry-falling.json"
+    },
+    {
+      "bus_id": "exhaust-1.dry",
+      "rising_manifest_path": "exhaust-1-dry-rising.json",
+      "falling_manifest_path": "exhaust-1-dry-falling.json"
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "subaru-ej25-cleanroom",
+      "sha256": "2e383b32d9a6f46b9279159e5c3408c57395005253c8ff864ff2eb40346e7733"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "live-rpm-map-crank-indexed-n-route-dry-directional-units-with-phase-aligned-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "63d102955c9aa243cffc533c423564935bb49b23706a0c4ff4dfffec62518d45"
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_origin_revolutions": 0,
+    "join_gate": {
+      "maximum_seam_over_source_adjacent_derivative_rms": 3,
+      "maximum_correction_rms_over_source_rms": 0.4,
+      "observed_maximum_seam_over_source_adjacent_derivative_rms": 0.9630862977096546,
+      "observed_maximum_correction_rms_over_source_rms": 0.37847091477381506,
+      "passed": true
+    }
+  }
+}

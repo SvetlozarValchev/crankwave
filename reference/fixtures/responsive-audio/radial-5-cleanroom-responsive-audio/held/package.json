@@ -1,0 +1,399 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-held-texture",
+  "id": "radial-5-cleanroom-exact-held-phase-texture-live-preview",
+  "engine": "radial-5-cleanroom",
+  "fidelity": {
+    "purpose": "interactive-source-b-versus-source-a-audition-preview",
+    "physics_rate_hz": 10000,
+    "canonical_offline_bake": false
+  },
+  "representation": {
+    "kind": "cyclic-mean-plus-boundary-zero-cycle-residual-bank",
+    "timeline_included": false,
+    "runtime_coordinates": [
+      "rpm",
+      "measured-intake-manifold-pressure-pa-abs",
+      "unwrapped-crank-revolutions"
+    ],
+    "internal_runtime_state": [
+      "residual-cycle-ordinal"
+    ]
+  },
+  "domain": {
+    "minimum_rpm": 800,
+    "maximum_rpm": 3500,
+    "rpm_anchors": [
+      800,
+      1000,
+      1250,
+      1500,
+      1650,
+      1800,
+      1950,
+      2100,
+      2250,
+      2400,
+      2550,
+      2700,
+      2800,
+      3200,
+      3500
+    ],
+    "load_lanes": [
+      {
+        "id": "coast",
+        "throttle01": 0
+      },
+      {
+        "id": "mid",
+        "throttle01": 0.2
+      },
+      {
+        "id": "power",
+        "throttle01": 1
+      }
+    ],
+    "operating_cell_count": 45
+  },
+  "dry_bus_ids": [
+    "exhaust-0.dry",
+    "exhaust-1.dry"
+  ],
+  "route_manifests": [
+    {
+      "bus_id": "exhaust-0.dry",
+      "manifest_path": "exhaust-0-dry.json"
+    },
+    {
+      "bus_id": "exhaust-1.dry",
+      "manifest_path": "exhaust-1-dry.json"
+    }
+  ],
+  "presentation": {
+    "audition_bus_id": "master-engine-audition",
+    "audition_dry_bus_order": [
+      "exhaust-0.dry",
+      "exhaust-1.dry"
+    ],
+    "captured_to_source_scale": 67108864,
+    "master_volume_linear": 1,
+    "routes": [
+      {
+        "dry_bus_id": "exhaust-0.dry",
+        "source_route_id": "exhaust-0",
+        "impulse_response_asset_id": "minimal-muffling-01",
+        "impulse_response_payload_sha256": "0d736bb7065686ae527c8487ef7850762c0381c91125e555228cf4599e4ff68c",
+        "impulse_response_gain_linear": 0.01,
+        "wet_mix_01": 1,
+        "transfer": {
+          "fft_size": 65536,
+          "coefficient_count": 30071,
+          "spectrum_encoding": "interleaved-complex-float64le",
+          "spectrum_path": "minimal-muffling-01-432a78caccaf-kernel-complex-f64le.bin",
+          "spectrum_byte_count": 1048576,
+          "spectrum_sha256": "0d4b3c2cfebb0c55433e241bdd2e47ccfdfe4390083fabfff7672b36494f7402"
+        }
+      },
+      {
+        "dry_bus_id": "exhaust-1.dry",
+        "source_route_id": "exhaust-1",
+        "impulse_response_asset_id": "minimal-muffling-01",
+        "impulse_response_payload_sha256": "0d736bb7065686ae527c8487ef7850762c0381c91125e555228cf4599e4ff68c",
+        "impulse_response_gain_linear": 0.01,
+        "wet_mix_01": 1,
+        "transfer": {
+          "fft_size": 65536,
+          "coefficient_count": 30071,
+          "spectrum_encoding": "interleaved-complex-float64le",
+          "spectrum_path": "minimal-muffling-01-432a78caccaf-kernel-complex-f64le.bin",
+          "spectrum_byte_count": 1048576,
+          "spectrum_sha256": "0d4b3c2cfebb0c55433e241bdd2e47ccfdfe4390083fabfff7672b36494f7402"
+        }
+      }
+    ]
+  },
+  "phase_alignment": {
+    "method": "shared-route-sum-circular-correlation-unwrapped-grid-v1",
+    "reference_cell_id": "2800rpm-power",
+    "unit": "phase-samples",
+    "interpolation": "unwrapped-linear",
+    "cells": [
+      {
+        "id": "800rpm-coast",
+        "shift_to_canonical_samples": 1483.6387820979655
+      },
+      {
+        "id": "800rpm-mid",
+        "shift_to_canonical_samples": 1334.3233558915722
+      },
+      {
+        "id": "800rpm-power",
+        "shift_to_canonical_samples": 1320.650468512523
+      },
+      {
+        "id": "1000rpm-coast",
+        "shift_to_canonical_samples": 1365.8969632875258
+      },
+      {
+        "id": "1000rpm-mid",
+        "shift_to_canonical_samples": 1194.2736189046614
+      },
+      {
+        "id": "1000rpm-power",
+        "shift_to_canonical_samples": 1177.5344042946313
+      },
+      {
+        "id": "1250rpm-coast",
+        "shift_to_canonical_samples": 1217.9728134033276
+      },
+      {
+        "id": "1250rpm-mid",
+        "shift_to_canonical_samples": 1025.596788733545
+      },
+      {
+        "id": "1250rpm-power",
+        "shift_to_canonical_samples": 1003.9888397208673
+      },
+      {
+        "id": "1500rpm-coast",
+        "shift_to_canonical_samples": 1062.1670011515575
+      },
+      {
+        "id": "1500rpm-mid",
+        "shift_to_canonical_samples": 862.2118851379206
+      },
+      {
+        "id": "1500rpm-power",
+        "shift_to_canonical_samples": 835.6178218269437
+      },
+      {
+        "id": "1650rpm-coast",
+        "shift_to_canonical_samples": 965.175468089547
+      },
+      {
+        "id": "1650rpm-mid",
+        "shift_to_canonical_samples": 766.1937874629679
+      },
+      {
+        "id": "1650rpm-power",
+        "shift_to_canonical_samples": 736.4024850747122
+      },
+      {
+        "id": "1800rpm-coast",
+        "shift_to_canonical_samples": 868.3751268892765
+      },
+      {
+        "id": "1800rpm-mid",
+        "shift_to_canonical_samples": 671.744103034409
+      },
+      {
+        "id": "1800rpm-power",
+        "shift_to_canonical_samples": 638.2585502514787
+      },
+      {
+        "id": "1950rpm-coast",
+        "shift_to_canonical_samples": 771.8127443986675
+      },
+      {
+        "id": "1950rpm-mid",
+        "shift_to_canonical_samples": 578.8106624561666
+      },
+      {
+        "id": "1950rpm-power",
+        "shift_to_canonical_samples": 541.1466533810176
+      },
+      {
+        "id": "2100rpm-coast",
+        "shift_to_canonical_samples": 675.8029400298207
+      },
+      {
+        "id": "2100rpm-mid",
+        "shift_to_canonical_samples": 487.1227379051678
+      },
+      {
+        "id": "2100rpm-power",
+        "shift_to_canonical_samples": 445.05164691013346
+      },
+      {
+        "id": "2250rpm-coast",
+        "shift_to_canonical_samples": 579.8424714367917
+      },
+      {
+        "id": "2250rpm-mid",
+        "shift_to_canonical_samples": 396.28425116179477
+      },
+      {
+        "id": "2250rpm-power",
+        "shift_to_canonical_samples": 348.57106754428844
+      },
+      {
+        "id": "2400rpm-coast",
+        "shift_to_canonical_samples": 484.6269509950955
+      },
+      {
+        "id": "2400rpm-mid",
+        "shift_to_canonical_samples": 306.5044513613217
+      },
+      {
+        "id": "2400rpm-power",
+        "shift_to_canonical_samples": 252.92259476573946
+      },
+      {
+        "id": "2550rpm-coast",
+        "shift_to_canonical_samples": 389.94754285410136
+      },
+      {
+        "id": "2550rpm-mid",
+        "shift_to_canonical_samples": 217.6723175430179
+      },
+      {
+        "id": "2550rpm-power",
+        "shift_to_canonical_samples": 157.66791216334917
+      },
+      {
+        "id": "2700rpm-coast",
+        "shift_to_canonical_samples": 295.46266820659923
+      },
+      {
+        "id": "2700rpm-mid",
+        "shift_to_canonical_samples": 129.8241589676718
+      },
+      {
+        "id": "2700rpm-power",
+        "shift_to_canonical_samples": 62.71826811515274
+      },
+      {
+        "id": "2800rpm-coast",
+        "shift_to_canonical_samples": 232.83622700269513
+      },
+      {
+        "id": "2800rpm-mid",
+        "shift_to_canonical_samples": 71.89230015881466
+      },
+      {
+        "id": "2800rpm-power",
+        "shift_to_canonical_samples": 0
+      },
+      {
+        "id": "3200rpm-coast",
+        "shift_to_canonical_samples": -15.403090898895442
+      },
+      {
+        "id": "3200rpm-mid",
+        "shift_to_canonical_samples": -157.79244452766392
+      },
+      {
+        "id": "3200rpm-power",
+        "shift_to_canonical_samples": -246.71844167761554
+      },
+      {
+        "id": "3500rpm-coast",
+        "shift_to_canonical_samples": -199.86362366047263
+      },
+      {
+        "id": "3500rpm-mid",
+        "shift_to_canonical_samples": -327.11045375359174
+      },
+      {
+        "id": "3500rpm-power",
+        "shift_to_canonical_samples": -427.01246919714725
+      }
+    ]
+  },
+  "texture_selection": {
+    "algorithm": "splitmix64-shuffled-bags-v1",
+    "bank_size": 48,
+    "public_seed": "12648430",
+    "no_adjacent_repeat": true,
+    "change_phase": "720-degree-boundary"
+  },
+  "interpolation": {
+    "mean": {
+      "method": "common-delay-phase-warp",
+      "energy_target": "linear-anchor-rms"
+    },
+    "residual": {
+      "cross_cell_correlation": "independent",
+      "energy_target": "linear-anchor-power",
+      "normalization": "sqrt(Ptarget/sum(w_i^2 P_i))"
+    }
+  },
+  "provenance": {
+    "engine": {
+      "id": "radial-5-cleanroom",
+      "sha256": "6acf480746b42014f0abff3bcb79a331f0af30a8918e3d645b72da5cf93a16dd"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "capture_identity": {
+      "engine_id": "radial-5-cleanroom",
+      "capture_method": "exact-held-rpm-48-cycle-20ms-exact-sum-horizon-v8",
+      "decomposition_method": "cyclic-mean-plus-boundary-zero-smoothstep-residual-bank-v1",
+      "state_capture_identities": [
+        {
+          "rpm": 800,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 1000,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 1250,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 1500,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 1650,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 1800,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 1950,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 2100,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 2250,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 2400,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 2550,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 2700,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 2800,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 3200,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        },
+        {
+          "rpm": 3500,
+          "sha256": "8fa64a7939973df800a1285b216bef7d71c46649dcfdf4efc64d5d8173cbbb9b"
+        }
+      ],
+      "sha256": "f0009d6941c03dd1773ed08bc1ba0c65dd5f3d089f4a56629bdb6dcabbc8abff"
+    }
+  }
+}

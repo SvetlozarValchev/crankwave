@@ -10,6 +10,8 @@ chrome_executable="${ENGINE_SIM_OFFLINE_CHROME:-google-chrome}"
 node --check "${repository_dir}/web/app.js"
 node --check "${repository_dir}/web/audio-worklet.js"
 node --check "${repository_dir}/web/engine-worker.js"
+node --check \
+    "${repository_dir}/web/tests/integration/lifecycle-baked-routing.integration.mjs"
 node --test "${repository_dir}"/web/tests/runtime/*.test.mjs
 
 "${repository_dir}/scripts/build-workbench.sh"
@@ -106,18 +108,24 @@ if [[ -z "${server_headers}" ]]; then
     exit 1
 fi
 if ! printf '%s\n' "${server_headers}" |
-    rg --ignore-case --quiet '^cross-origin-opener-policy: same-origin\r?$'; then
+    grep -Eiq \
+        '^cross-origin-opener-policy:[[:space:]]*same-origin[[:space:]]*$'; then
     printf '%s\n' "workbench response omitted the required COOP header" >&2
     exit 1
 fi
 if ! printf '%s\n' "${server_headers}" |
-    rg --ignore-case --quiet \
-        '^cross-origin-embedder-policy: require-corp\r?$'; then
+    grep -Eiq \
+        '^cross-origin-embedder-policy:[[:space:]]*require-corp[[:space:]]*$'; then
     printf '%s\n' "workbench response omitted the required COEP header" >&2
     exit 1
 fi
 
 node \
     "${repository_dir}/web/tests/integration/workbench-ui-smoke.mjs" \
+    "${workbench_url}" \
+    "${chrome_executable}"
+
+node \
+    "${repository_dir}/web/tests/integration/lifecycle-baked-routing.integration.mjs" \
     "${workbench_url}" \
     "${chrome_executable}"

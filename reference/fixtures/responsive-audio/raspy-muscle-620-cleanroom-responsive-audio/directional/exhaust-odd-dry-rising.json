@@ -1,0 +1,1014 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "id": "raspy-muscle-620-cleanroom-directional-rising-exhaust-odd-dry-live-preview",
+  "engine": "raspy-muscle-620-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "exhaust.odd.dry"
+  },
+  "phase": {
+    "cycle_revolutions": 2,
+    "samples_per_cycle": 4096,
+    "cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "domain": {
+    "minimum_rpm": 575,
+    "maximum_rpm": 6125,
+    "rpm_anchors": [
+      650,
+      800,
+      1000,
+      1300,
+      1700,
+      2200,
+      2800,
+      3500,
+      4300,
+      5100,
+      5900,
+      6050
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "load_lanes": [
+      {
+        "id": "coast",
+        "throttle01": 0
+      },
+      {
+        "id": "mid",
+        "throttle01": 0.2
+      },
+      {
+        "id": "power",
+        "throttle01": 1
+      }
+    ]
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "load_cell_coalescing": {
+    "policy": "coalesce-only-identical-coordinate-and-byte-identical-source-and-closed-payload",
+    "aliases": []
+  },
+  "cells": [
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-coast-650rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 650,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 67497.95982887392,
+      "relative_path": "audio/rising-coast-650rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e75a0cd81eaf4ef049a622079f783dc36c9418e77b93cfaf2d4f48628ef46918",
+      "source_capture_payload_sha256": "13c16986db5f29b661e2d42386e97f09348fca71c79c9417219328e956db5f86",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 46,
+      "source_cycle_end_revolutions": 52,
+      "loop_join_normalized_error": 0.43890699701800473,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 67497.95982887392,
+        "mean_rpm": 717.3516170302073,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 25
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-coast-800rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 58995.1355857505,
+      "relative_path": "audio/rising-coast-800rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "0098138958b353e6d0d5cdc4b08ff6e86b72ef894e28a59ebb604a03d52f6d16",
+      "source_capture_payload_sha256": "1b205e6c2aad2ffaad96c1ccb18d4bf00888efaa33e3f415085910526e7b92a7",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 54,
+      "source_cycle_end_revolutions": 60,
+      "loop_join_normalized_error": 0.3100614570356237,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 58995.1355857505,
+        "mean_rpm": 875.8642377021011,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 21
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-coast-1000rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 49310.52873610522,
+      "relative_path": "audio/rising-coast-1000rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c0cbc6fcf21eeab12ae436eeb30577774a5ef3237e98c53210302c1b7f2c791f",
+      "source_capture_payload_sha256": "5f7a0487479577a08c4009db8af628907275f566fc551df28fc6c9173b3bf84a",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 64,
+      "source_cycle_end_revolutions": 70,
+      "loop_join_normalized_error": 0.20882058489042374,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 49310.52873610522,
+        "mean_rpm": 1076.6448324406122,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-coast-1300rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1300,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 38785.072483911106,
+      "relative_path": "audio/rising-coast-1300rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "a356f997d0d5be6e085a98c97de4ec24f88e96fb4d33511cf975eb317ec4845c",
+      "source_capture_payload_sha256": "a0abc82c9afb50919e8947bcea58899d239a52d54c60f51bde08321a2c92b2d6",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 80,
+      "source_cycle_end_revolutions": 86,
+      "loop_join_normalized_error": 1.0330832083186339,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 38785.072483911106,
+        "mean_rpm": 1396.0281240903569,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 13
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-coast-1700rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1700,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 30704.286102811526,
+      "relative_path": "audio/rising-coast-1700rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "758885d894d73d27df97d3a7e063cbfb5114e8216a6272c3b924e4e5347e5d77",
+      "source_capture_payload_sha256": "1c24ae9e18692f083911c2d1cd406869d78154eb642c061d91e8d1b0b62f21bb",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 100,
+      "source_cycle_end_revolutions": 106,
+      "loop_join_normalized_error": 0.1577497169463298,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 30704.286102811526,
+        "mean_rpm": 1792.213520238641,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 10
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-coast-2200rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 24520.89346552444,
+      "relative_path": "audio/rising-coast-2200rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5a4cd91829afba8c77d823b4559e33288654c0ff0f0c4146a7679ea410c6fa1e",
+      "source_capture_payload_sha256": "5f6f4e6da9019cd289f1443e9ebd20408998674d862645732d437c8db51187b2",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 124,
+      "source_cycle_end_revolutions": 130,
+      "loop_join_normalized_error": 1.3016684782539585,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 24520.89346552444,
+        "mean_rpm": 2278.304584337057,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-coast-2800rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 2800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 20186.344495944326,
+      "relative_path": "audio/rising-coast-2800rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "af5e6c15a16a7f5e7a291b473673d27efdead35292bb4d1e63009963ac09249f",
+      "source_capture_payload_sha256": "eac2f92decaaeb51b0187f80980c5513dd021ff7f91afd8eb7770d6d480eefd5",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 154,
+      "source_cycle_end_revolutions": 160,
+      "loop_join_normalized_error": 0.1981005114701423,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 20186.344495944326,
+        "mean_rpm": 2877.5492801892688,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-coast-3500rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 3500,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 16639.36002825815,
+      "relative_path": "audio/rising-coast-3500rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "d9e0f0c3d6f8124a4f3aa3cc89f2839e25ebe3d5b247f6acaeadc859df6e501e",
+      "source_capture_payload_sha256": "b122fb1b03b7fb1198300a5850e11c948abd91dfdc2eb8c4cdbfeec41804cddb",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 190,
+      "source_cycle_end_revolutions": 196,
+      "loop_join_normalized_error": 1.4949580510488187,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 16639.36002825815,
+        "mean_rpm": 3596.537908261602,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-coast-4300rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 4300,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 14134.938264215052,
+      "relative_path": "audio/rising-coast-4300rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "b71a1d6096e519d497f0dcad60dd2e31c466f7158a543ebb0da74a29c200744b",
+      "source_capture_payload_sha256": "fa1b41aad8e34bf51f6c6d7bf356d824d961e62c239cf0e21458e5024f935c4e",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 230,
+      "source_cycle_end_revolutions": 236,
+      "loop_join_normalized_error": 0.4548245297018525,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 14134.938264215052,
+        "mean_rpm": 4408.49695070985,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-coast-5100rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 5100,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 13531.03715054694,
+      "relative_path": "audio/rising-coast-5100rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f731b2bf1596cbcc27c167f1804922e9ce1ace0c1126760ea09418ff2406292c",
+      "source_capture_payload_sha256": "f3e27010bceaffba5021ee68ce00cc735ddd90c7c6b1f9bb676c395c09b84bd3",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 270,
+      "source_cycle_end_revolutions": 276,
+      "loop_join_normalized_error": 0.15495635785884132,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 13531.03715054694,
+        "mean_rpm": 5190.873706376212,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-coast-5900rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 5900,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 13499.366554514678,
+      "relative_path": "audio/rising-coast-5900rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "fea40225b3cc704f86d87b86230e1383ce0b07061a3446c55ba5abe76894cfce",
+      "source_capture_payload_sha256": "dc6ca854be483eb4f9c83e50ffd5be48919001e872f1b2b39bdf746975908258",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 310,
+      "source_cycle_end_revolutions": 316,
+      "loop_join_normalized_error": 0.09833697913143215,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 13499.366554514678,
+        "mean_rpm": 6010.730212097361,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-coast-6050rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 6050,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 13162.622767297022,
+      "relative_path": "audio/rising-coast-6050rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "bff485c84f83d6b95942798499061c7572dbf7501547ee17a2097e94f08f76e8",
+      "source_capture_payload_sha256": "e363202d303e122ded89dd5ecab94b0ad49319844aefcb80a4442299e3ec8103",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 316,
+      "source_cycle_end_revolutions": 322,
+      "loop_join_normalized_error": 0.216893627637765,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 13162.622767297022,
+        "mean_rpm": 6132.292704898027,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-mid-650rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 650,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 99220.23367497617,
+      "relative_path": "audio/rising-mid-650rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e8968c2f3f5c405c9c49b7c6ff4886368692c4e0aeceb011456ff6c11d725c34",
+      "source_capture_payload_sha256": "f7824aaf33a908617516bec1ce5ad52603a99b0df86c1b319bc4e859e96aafc4",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 46,
+      "source_cycle_end_revolutions": 52,
+      "loop_join_normalized_error": 0.10592613007473543,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99220.23367497617,
+        "mean_rpm": 717.3516170302073,
+        "mean_requested_throttle_01": 0.20000000000000007,
+        "mean_resolved_throttle_01": 0.9297413998021586,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 25
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-mid-800rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 98405.60289833198,
+      "relative_path": "audio/rising-mid-800rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f96558d04d3e1dc6be5d5d3db1a924d0561d00c6180f3d578a05864daaff2205",
+      "source_capture_payload_sha256": "fff86a3ec6d94b05c43749925cec1f599653c55ebce6fb43b11e69c0bc1cea73",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 54,
+      "source_cycle_end_revolutions": 60,
+      "loop_join_normalized_error": 0.9555865125859244,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 98405.60289833198,
+        "mean_rpm": 875.8642377021011,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9297413998021589,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 21
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-mid-1000rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 96887.09446459959,
+      "relative_path": "audio/rising-mid-1000rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "01d19e25ea9183e06eca29efd7fdfd139cbdd722f88b1f2fabe433b677d03cd4",
+      "source_capture_payload_sha256": "f2e002dccc250ab6329fd62d80e0e50fe02357cdea5f6315954a3a1f793eb253",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 64,
+      "source_cycle_end_revolutions": 70,
+      "loop_join_normalized_error": 0.08133614244816843,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 96887.09446459959,
+        "mean_rpm": 1076.6448324406122,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9297413998021592,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-mid-1300rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1300,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 94093.45608291842,
+      "relative_path": "audio/rising-mid-1300rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "d57474578248a13999ca9c69263c2c2ea9725fcf960137af1b4eb0fd0b988285",
+      "source_capture_payload_sha256": "0d5bb4603203c0a020d18d72506fdd095dd50e1a1553c411c99ee3dc85b2054f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 80,
+      "source_cycle_end_revolutions": 86,
+      "loop_join_normalized_error": 0.3308216698822668,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 94093.45608291842,
+        "mean_rpm": 1396.0281240903569,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9297413998021592,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 13
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-mid-1700rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1700,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 89641.8664749414,
+      "relative_path": "audio/rising-mid-1700rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "75fbc12332190c40b579d297e80d318db47d4455b7633fa72b68f33426d568cf",
+      "source_capture_payload_sha256": "14c6e222e3d155148afce27b91fe15ccb8319c0121a050b60b36536e65d1c4a5",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 100,
+      "source_cycle_end_revolutions": 106,
+      "loop_join_normalized_error": 0.007096135277603797,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 89641.8664749414,
+        "mean_rpm": 1792.213520238641,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9297413998021591,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 10
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-mid-2200rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 82922.55559014388,
+      "relative_path": "audio/rising-mid-2200rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "580759679c12045de0c96d484e29c80c00331c54a070fc57686a11720363ec5a",
+      "source_capture_payload_sha256": "7c5e802bd4ef6b3b2b466014a6ab2ba895e4bc485508a6b3f4e71579339c2297",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 124,
+      "source_cycle_end_revolutions": 130,
+      "loop_join_normalized_error": 0.7094054736878407,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 82922.55559014388,
+        "mean_rpm": 2278.304584337057,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9297413998021591,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-mid-2800rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 2800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 74393.22434148846,
+      "relative_path": "audio/rising-mid-2800rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "ba742f1206f5ce5f5bbc32d284c9de6f875ff91751698030b65c824bdc6bb926",
+      "source_capture_payload_sha256": "2dcb0b34b8f8f5a24f5e954327b2dda0d2379abd910e5b8fc413ca972b49cae1",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 154,
+      "source_cycle_end_revolutions": 160,
+      "loop_join_normalized_error": 0.2981502120983085,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 74393.22434148846,
+        "mean_rpm": 2877.5492801892688,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.929741399802159,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-mid-3500rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 3500,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 63177.58274161742,
+      "relative_path": "audio/rising-mid-3500rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5927789d8107949ae2b29745192d8d6750dd65b60f2c7450df053446d39da3c2",
+      "source_capture_payload_sha256": "79ff030eb6fe577482f981b7b6b253071225b2c9cbfddc671864b433f1c77b2a",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 190,
+      "source_cycle_end_revolutions": 196,
+      "loop_join_normalized_error": 0.00915799206272722,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 63177.58274161742,
+        "mean_rpm": 3596.537908261602,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.929741399802159,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-mid-4300rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 4300,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 51651.746786168136,
+      "relative_path": "audio/rising-mid-4300rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "005a7864877af75f230032c4084339068ebfefb7dcbec496c5ae73bfbf1c0202",
+      "source_capture_payload_sha256": "d497371118cbc91a1d261a24e2c80af7fc7ddb34a6b787ae6d75004b1018a332",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 230,
+      "source_cycle_end_revolutions": 236,
+      "loop_join_normalized_error": 0.31033728973852936,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 51651.746786168136,
+        "mean_rpm": 4408.49695070985,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9297413998021589,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-mid-5100rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 5100,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 45011.14456476102,
+      "relative_path": "audio/rising-mid-5100rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "7c46343e1338379a220daf55027aceafe7083bfbd91c68a08cee2cf108fcc3ff",
+      "source_capture_payload_sha256": "0b4dda774bd5dedea17c3891d3358de28404410afd23e0980bf5407bebb45b47",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 270,
+      "source_cycle_end_revolutions": 276,
+      "loop_join_normalized_error": 0.529071446737977,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 45011.14456476102,
+        "mean_rpm": 5190.873706376212,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9297413998021589,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-mid-5900rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 5900,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 41176.783862490665,
+      "relative_path": "audio/rising-mid-5900rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "2a2e7791365fca5f7e080f3837a58d6b3eafeba403072a77f8ecf9b124da5082",
+      "source_capture_payload_sha256": "e18965409aa9754affeef9a08d922b9d0474605905c729c962d483cbe721e75a",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 310,
+      "source_cycle_end_revolutions": 316,
+      "loop_join_normalized_error": 0.07213085450394807,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 41176.783862490665,
+        "mean_rpm": 6010.730212097361,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9297413998021589,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-mid-6050rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 6050,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 40477.2276616861,
+      "relative_path": "audio/rising-mid-6050rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "7d4e9597992759b24e28daddb41d07b2c7f6e4c4429e6dae2c8cfac65a5a167f",
+      "source_capture_payload_sha256": "581711b4f1053e6d71c188278a107f65b6f8a9f83ff6b99b358a4a747f6f7620",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 316,
+      "source_cycle_end_revolutions": 322,
+      "loop_join_normalized_error": 0.11642256216622075,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 40477.2276616861,
+        "mean_rpm": 6132.292704898027,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9297413998021589,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-power-650rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 650,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101283.64292129994,
+      "relative_path": "audio/rising-power-650rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f271a74e4a7f3113d1d3e2cb568b6be29f159c8b4fcc2c59cee47cf5531ebd84",
+      "source_capture_payload_sha256": "0f939312b1a49ecf39d61bcee0a428c094928be6292207ef68452988d4b451b4",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 46,
+      "source_cycle_end_revolutions": 52,
+      "loop_join_normalized_error": 0.047750913073660826,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101283.64292129994,
+        "mean_rpm": 717.3516170302073,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 25
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-power-800rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101265.87926743201,
+      "relative_path": "audio/rising-power-800rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "82b7c01bf9de37efcb1f48fad53aa9633c7567779cdfa8d1a5c2e5aab2608b31",
+      "source_capture_payload_sha256": "ec94b10718f42caf92cd486b9bdfd027c8205c5bb50043c90480d920ed444dd9",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 54,
+      "source_cycle_end_revolutions": 60,
+      "loop_join_normalized_error": 0.6796116196082654,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101265.87926743201,
+        "mean_rpm": 875.8642377021011,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 21
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-power-1000rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101228.57921982568,
+      "relative_path": "audio/rising-power-1000rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "d7ef979a0635cb69311d97f0784931ee0f5a279508f3a1c7b07508a6695a8218",
+      "source_capture_payload_sha256": "3f421312f96c7af4659e548c101d9d61ecd19df58f81b489a02a296047f197cc",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 64,
+      "source_cycle_end_revolutions": 70,
+      "loop_join_normalized_error": 0.43200462799767786,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101228.57921982568,
+        "mean_rpm": 1076.6448324406122,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-power-1300rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1300,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101162.88243070422,
+      "relative_path": "audio/rising-power-1300rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "2d8f7a6778827ef4ed672d1343bbff6386142528dcac4953b861596e8f581b77",
+      "source_capture_payload_sha256": "cce7a839b01aafa8fa4dbb899b9368cd44192f5c2401f056205266760acb8fd5",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 80,
+      "source_cycle_end_revolutions": 86,
+      "loop_join_normalized_error": 0.5914211968906581,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101162.88243070422,
+        "mean_rpm": 1396.0281240903569,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 13
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-power-1700rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1700,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101025.04218526524,
+      "relative_path": "audio/rising-power-1700rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "007cd91c9d735c178a13e6517d28e2115432a6de594403669d0d04f9a1420377",
+      "source_capture_payload_sha256": "4c1c2539690325d6d3a0a84aee93e25be4cbc6fb77baa5db1d5802155ca30c7a",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 100,
+      "source_cycle_end_revolutions": 106,
+      "loop_join_normalized_error": 0.03099651530444849,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101025.04218526524,
+        "mean_rpm": 1792.213520238641,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 10
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-power-2200rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100712.88004292204,
+      "relative_path": "audio/rising-power-2200rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "493fd143fd97c759642cc0f11e0f994444ba326d8250c677b2b092cb412ba9c2",
+      "source_capture_payload_sha256": "4b62142e3eacdb17bd7111b7d2a527bf13d50df57183533f5540185eb05312ba",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 124,
+      "source_cycle_end_revolutions": 130,
+      "loop_join_normalized_error": 0.5155262089832852,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100712.88004292204,
+        "mean_rpm": 2278.304584337057,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-power-2800rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 2800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100472.49193477018,
+      "relative_path": "audio/rising-power-2800rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "98e1bc6d416e309ab89d4408519d9dad17af88c51dd9d06217fd8be5385db0c6",
+      "source_capture_payload_sha256": "0deeff2f2f8a57257aeca5179749a53b4782a34001aff331882bf463e1b8f3fd",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 154,
+      "source_cycle_end_revolutions": 160,
+      "loop_join_normalized_error": 0.3251958824308237,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100472.49193477018,
+        "mean_rpm": 2877.5492801892688,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-power-3500rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 3500,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99833.46664561567,
+      "relative_path": "audio/rising-power-3500rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "aaea0c9cf64fa12b45a6feba0471a7f7dba900bab17dfb8b9e35727d782add50",
+      "source_capture_payload_sha256": "d85fd66a234b376f2ccd8a5f27292b2cdd06adc1fab83df900659de6ff788de0",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 190,
+      "source_cycle_end_revolutions": 196,
+      "loop_join_normalized_error": 0.12604217900466874,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99833.46664561567,
+        "mean_rpm": 3596.537908261602,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-power-4300rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 4300,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 98487.19038777902,
+      "relative_path": "audio/rising-power-4300rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "6b744d138fca8303a0066e23017ad5ce1f65c007aee2a0c97f87f1c7656ef769",
+      "source_capture_payload_sha256": "dc531ff3f814add7ae1411993d6853441d54ccca6d1d686aa540dc6e6bc84bb5",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 230,
+      "source_cycle_end_revolutions": 236,
+      "loop_join_normalized_error": 0.16193657341115003,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 98487.19038777902,
+        "mean_rpm": 4408.49695070985,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-power-5100rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 5100,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 97832.23978765983,
+      "relative_path": "audio/rising-power-5100rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "b99684498c24959f1ebf3c5e2b8ee98b7f0d674a9e90c6e940f93f2f01496c91",
+      "source_capture_payload_sha256": "0ffcb47d6c0c903eed10194088374938f02458101f66cd3dc11ef2a1becda0f7",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 270,
+      "source_cycle_end_revolutions": 276,
+      "loop_join_normalized_error": 0.09520767633541193,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 97832.23978765983,
+        "mean_rpm": 5190.873706376212,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-power-5900rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 5900,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 97108.12419765588,
+      "relative_path": "audio/rising-power-5900rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "3afd86ba01bfaf5c6cb5fa23b68c34cf9672c981322fe659cf6f014099880027",
+      "source_capture_payload_sha256": "b428278ebac20614461187530db9b6eb3c9b7ea5f4aaea5b07e02a7f6464f9ca",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 310,
+      "source_cycle_end_revolutions": 316,
+      "loop_join_normalized_error": 0.08028500410011538,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 97108.12419765588,
+        "mean_rpm": 6010.730212097361,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "raspy-muscle-620-cleanroom-rising-power-6050rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 6050,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 97376.59453231754,
+      "relative_path": "audio/rising-power-6050rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "ac6aef651ff51f409505b669cafe32f2b9a5f8addd6f6ecdab21b68a984bd1ee",
+      "source_capture_payload_sha256": "e18dfba660f38b345e045ed7de0cbf1457aa602aa42735db9697e4f29ec04937",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 316,
+      "source_cycle_end_revolutions": 322,
+      "loop_join_normalized_error": 1.1103994869479221,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 97376.59453231754,
+        "mean_rpm": 6132.292704898027,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "raspy-muscle-620-cleanroom",
+      "sha256": "4202640822032216235ec04841804931f8993a539ae3972ca2366b083a018ffb"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "rising-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "9445f295be25926af19e1f45a1bc743fb753725bbe06865d166759fabed25875",
+    "physics_rate_hz": 10000,
+    "source_delivery_rate_hz": 192000
+  }
+}

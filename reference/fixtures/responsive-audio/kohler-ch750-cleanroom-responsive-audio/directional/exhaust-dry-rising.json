@@ -1,0 +1,1093 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "id": "kohler-ch750-cleanroom-directional-rising-exhaust-dry-live-preview",
+  "engine": "kohler-ch750-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "exhaust.dry"
+  },
+  "phase": {
+    "cycle_revolutions": 2,
+    "samples_per_cycle": 4096,
+    "cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "domain": {
+    "minimum_rpm": 850,
+    "maximum_rpm": 4250,
+    "rpm_anchors": [
+      1000,
+      1300,
+      1600,
+      1900,
+      2200,
+      2500,
+      2740,
+      3000,
+      3300,
+      3500,
+      3600,
+      3800,
+      4100
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "load_lanes": [
+      {
+        "id": "coast",
+        "throttle01": 0
+      },
+      {
+        "id": "mid",
+        "throttle01": 0.2
+      },
+      {
+        "id": "power",
+        "throttle01": 1
+      }
+    ]
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "load_cell_coalescing": {
+    "policy": "coalesce-only-identical-coordinate-and-byte-identical-source-and-closed-payload",
+    "aliases": []
+  },
+  "cells": [
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-1000rpm-exhaust-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 91213.67881193256,
+      "relative_path": "audio/rising-coast-1000rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "fba3b4799c1a3551cd4630c6b763f81356d95db31db0f365fd85d52573f97132",
+      "source_capture_payload_sha256": "d295f1deeb9bc2cf5af6fe665925c883131efa91bc592aade4caa989b425687b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 72,
+      "source_cycle_end_revolutions": 78,
+      "loop_join_normalized_error": 0.007608547749179557,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 91213.67881193256,
+        "mean_rpm": 1095.6128502438962,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 0.8874113828830719,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-1300rpm-exhaust-dry-seam-closure",
+      "rpm": 1300,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 88769.71338332964,
+      "relative_path": "audio/rising-coast-1300rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "ac41487c83a3e8ea87c8460043a84bbcc614f007636e51774b3696220a6939f1",
+      "source_capture_payload_sha256": "eea7d3cfcbdd36676463affd46347877ada8c1aa3354ca14cb76a6795fc75555",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 86,
+      "source_cycle_end_revolutions": 92,
+      "loop_join_normalized_error": 0.001977999261422003,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 88769.71338332964,
+        "mean_rpm": 1373.9967496630634,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 0.871141058214592,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 13
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-1600rpm-exhaust-dry-seam-closure",
+      "rpm": 1600,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 83621.28846925891,
+      "relative_path": "audio/rising-coast-1600rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "6e2358b9011aa998fe9ebd24ed3b03443ed989d8ec37ea2c38b3ecd4db6476bf",
+      "source_capture_payload_sha256": "3a76fe22b10240715c96546042fa8ae9501657a3b07666d7b18d8b22aaf94a6b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 102,
+      "source_cycle_end_revolutions": 108,
+      "loop_join_normalized_error": 0.23473503213487898,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 83621.28846925891,
+        "mean_rpm": 1700.5570520832612,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 0.8678901812972071,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 11
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-1900rpm-exhaust-dry-seam-closure",
+      "rpm": 1900,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 79968.6476448022,
+      "relative_path": "audio/rising-coast-1900rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "72b52f38f122c2e73684e6be7ea8875e3520b6dcc16d40f80b2cd3815e6fd425",
+      "source_capture_payload_sha256": "ebd68ebce3f858a4ced6626262c961a2488f62c034280ec9bf87eb22e12ad80d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 116,
+      "source_cycle_end_revolutions": 122,
+      "loop_join_normalized_error": 0.006090191160562013,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 79968.6476448022,
+        "mean_rpm": 1982.1115412887334,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 0.8766612639765494,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-2200rpm-exhaust-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 68434.52978132544,
+      "relative_path": "audio/rising-coast-2200rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "be229dea099adff111d484154347c12f1c838d3f1983e0227a7525946cd0c2e4",
+      "source_capture_payload_sha256": "1ac51f2c6e34097c578851ed1795b05cb4b4e91227f563ff157308b6b9856161",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 132,
+      "source_cycle_end_revolutions": 138,
+      "loop_join_normalized_error": 0.8492149820192736,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 68434.52978132544,
+        "mean_rpm": 2303.134418823621,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 0.8966358602041267,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-2500rpm-exhaust-dry-seam-closure",
+      "rpm": 2500,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 57930.03177349792,
+      "relative_path": "audio/rising-coast-2500rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "794de2ecc5f4f8b16fac82d786931ac24bd20bc49477620dd8edd544d01e0a8b",
+      "source_capture_payload_sha256": "7c98a62eea818ae202ee6b2de93373ee4402bb9a2e0a8848de29c92326160157",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 146,
+      "source_cycle_end_revolutions": 152,
+      "loop_join_normalized_error": 0.0029110623817213835,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 57930.03177349792,
+        "mean_rpm": 2570.2404837981035,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 0.9186938714333632,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 7
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-2740rpm-exhaust-dry-seam-closure",
+      "rpm": 2740,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 46408.60036088946,
+      "relative_path": "audio/rising-coast-2740rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "91165d0cc797ae72377d21885cf50d210c22e0a8f2d6471bbbf29dfec39cc577",
+      "source_capture_payload_sha256": "b5b2baa4f0425697af6f934fcf2a977d098c1be4b37da658c15082ba071826c9",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 158,
+      "source_cycle_end_revolutions": 164,
+      "loop_join_normalized_error": 0.0017618436059765052,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 46408.60036088946,
+        "mean_rpm": 2812.204549107117,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 0.9405497649794158,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-3000rpm-exhaust-dry-seam-closure",
+      "rpm": 3000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 36692.92665300788,
+      "relative_path": "audio/rising-coast-3000rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e91028942d494d735a7eb1c668196a8082882545936ead9ca8f0d8e97dc9f344",
+      "source_capture_payload_sha256": "5ccecda937fef2b4d11ed918327bddf1d43f435aa5e7cf779270b1cadac54ff5",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 172,
+      "source_cycle_end_revolutions": 178,
+      "loop_join_normalized_error": 0.16267357457507853,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 36692.92665300788,
+        "mean_rpm": 3098.2338554431776,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 0.9656572047423936,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-3300rpm-exhaust-dry-seam-closure",
+      "rpm": 3300,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 26873.281364356906,
+      "relative_path": "audio/rising-coast-3300rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "106c2000728351371d4948622bc54ee3762eb9531f32bc9a2bbb686ce16b50d3",
+      "source_capture_payload_sha256": "917d369dccbb89ddcb716214953ef80b4e13938432e5995a44c5fd383fe6897e",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 186,
+      "source_cycle_end_revolutions": 192,
+      "loop_join_normalized_error": 0.01602460937259162,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 26873.281364356906,
+        "mean_rpm": 3378.949678183143,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 0.986071421243403,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-3500rpm-exhaust-dry-seam-closure",
+      "rpm": 3500,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 22448.386011131814,
+      "relative_path": "audio/rising-coast-3500rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "61714117ac0ff09dc4dbb5bab2948a2008139a2dd4bec425dfcfdafe9eff4558",
+      "source_capture_payload_sha256": "513d81b9b34324b812703fad49e6e6e8b7faac39e7a9aeb941e3d578b61a3ae7",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 196,
+      "source_cycle_end_revolutions": 202,
+      "loop_join_normalized_error": 1.2266254751997898,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 22448.386011131814,
+        "mean_rpm": 3586.547065134676,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 0.9961526262284979,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-3600rpm-exhaust-dry-seam-closure",
+      "rpm": 3600,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 20868.474145629472,
+      "relative_path": "audio/rising-coast-3600rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c821788035388ddf3ab9750b0205e9dc80f2d05e49a15ed8fa2f1cd4ba35fcf8",
+      "source_capture_payload_sha256": "78b8e22568bf5521c31bcaa85eff0e9ee5ac0ff3aab4c57c95aad9160955b71d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 202,
+      "source_cycle_end_revolutions": 208,
+      "loop_join_normalized_error": 1.7258466001423602,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 20868.474145629472,
+        "mean_rpm": 3697.520611795786,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 0.9990475334569657,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-3800rpm-exhaust-dry-seam-closure",
+      "rpm": 3800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 20085.508434728916,
+      "relative_path": "audio/rising-coast-3800rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "83036eb552f814141dca9af11967e21fc8635b88862ebfe660e919ffd53969b5",
+      "source_capture_payload_sha256": "55afce8fbebfe89883acdba1c5fa7d7a9382d162a41f92e63ede3482377022d0",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 212,
+      "source_cycle_end_revolutions": 218,
+      "loop_join_normalized_error": 0.9007032094194287,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 20085.508434728916,
+        "mean_rpm": 3898.015907310528,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-coast-4100rpm-exhaust-dry-seam-closure",
+      "rpm": 4100,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 19378.601595372733,
+      "relative_path": "audio/rising-coast-4100rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5f0e00ab5912758482d271506c127d5be4e4a2bf4e65e91336513c32b2907b84",
+      "source_capture_payload_sha256": "3876eb968c058a001323c5efc8a8ae007fc76d55b56ba499133ca69071f7bfcb",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 226,
+      "source_cycle_end_revolutions": 232,
+      "loop_join_normalized_error": 0.028648276293427553,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 19378.601595372733,
+        "mean_rpm": 4167.860192180094,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-1000rpm-exhaust-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 97888.18123434078,
+      "relative_path": "audio/rising-mid-1000rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "b4643c957393c0f96876a4117e703e1858800f9ba511d243e14a4b5b897f6747",
+      "source_capture_payload_sha256": "69a92731d639b0bf73422cba4b8264234d6aee76d0d16d9c89071ccd321c4470",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 72,
+      "source_cycle_end_revolutions": 78,
+      "loop_join_normalized_error": 0.005488440707115894,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 97888.18123434078,
+        "mean_rpm": 1095.6128502438962,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.6649558718487958,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-1300rpm-exhaust-dry-seam-closure",
+      "rpm": 1300,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 97400.87246703604,
+      "relative_path": "audio/rising-mid-1300rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "0ad925392092abf8cc4057eecd0801ebb29aa53386b22aace8b7f457f47a88cd",
+      "source_capture_payload_sha256": "a744ed5546b67340d06d8c0f2978c9177cc49e65291e10d9033f2c8f47789af0",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 86,
+      "source_cycle_end_revolutions": 92,
+      "loop_join_normalized_error": 0.0008206265376533463,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 97400.87246703604,
+        "mean_rpm": 1373.9967496630634,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.5997301543183986,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 13
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-1600rpm-exhaust-dry-seam-closure",
+      "rpm": 1600,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 95926.28644566542,
+      "relative_path": "audio/rising-mid-1600rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "6d859b48e006532f9390678b9a88ec3957d9c1e6464c0db8994914696ff5d424",
+      "source_capture_payload_sha256": "014c7a98fd3d087ab30d722ca8785b5aaf9ae9d70eec8ca761ced3869ec86392",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 102,
+      "source_cycle_end_revolutions": 108,
+      "loop_join_normalized_error": 0.24269256898673483,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 95926.28644566542,
+        "mean_rpm": 1700.5570520832612,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.5567116983119744,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 11
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-1900rpm-exhaust-dry-seam-closure",
+      "rpm": 1900,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 97074.29805938569,
+      "relative_path": "audio/rising-mid-1900rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "69dad8101f5a9b20906611ac96e73e9a563158e3e05eea2cc7d2671a5908d621",
+      "source_capture_payload_sha256": "296d93275f729a0f0950721747e64cef127a43ebd5cbc5c97298fb7f0806918c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 116,
+      "source_cycle_end_revolutions": 122,
+      "loop_join_normalized_error": 0.010548382151902512,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 97074.29805938569,
+        "mean_rpm": 1982.1115412887334,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.5455851043274978,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-2200rpm-exhaust-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 93790.04773585427,
+      "relative_path": "audio/rising-mid-2200rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f9ecb64223a33be77b96419289c169d4bcfd5695029ec94f566d75c30f29423f",
+      "source_capture_payload_sha256": "720966a32cae2e9c39ef7e2df392ae681c324e97e823bc17c50c78097fe8920d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 132,
+      "source_cycle_end_revolutions": 138,
+      "loop_join_normalized_error": 0.8680204510807102,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 93790.04773585427,
+        "mean_rpm": 2303.134418823621,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.5583943318819424,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-2500rpm-exhaust-dry-seam-closure",
+      "rpm": 2500,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 92679.2451231777,
+      "relative_path": "audio/rising-mid-2500rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "219762fc13e36051f3873f1ac6b02aa650ded2f71373a1edcdb89471f6a94b44",
+      "source_capture_payload_sha256": "cff351890e5590b8bf52c3934daa1e07ed9226b04ca15ea698b61d08509d0959",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 146,
+      "source_cycle_end_revolutions": 152,
+      "loop_join_normalized_error": 0.0016596256722383978,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 92679.2451231777,
+        "mean_rpm": 2570.2404837981035,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.586645782065081,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 7
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-2740rpm-exhaust-dry-seam-closure",
+      "rpm": 2740,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 89279.55734399658,
+      "relative_path": "audio/rising-mid-2740rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "3b7833a1bf073f39fc0ff16b366fca85ca196fd3e8ccf940eeb35b1bb63a83e4",
+      "source_capture_payload_sha256": "40f0c6bc84972cdd5975473371c0a3e30609b530a4715e36ece49b8502b702f0",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 158,
+      "source_cycle_end_revolutions": 164,
+      "loop_join_normalized_error": 0.014250393048605208,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 89279.55734399658,
+        "mean_rpm": 2812.204549107117,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.6234035456444246,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-3000rpm-exhaust-dry-seam-closure",
+      "rpm": 3000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 90917.16007601745,
+      "relative_path": "audio/rising-mid-3000rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "641422b6aad1095d9eff4b79cb8ebfe7ed6c6e828f9a04304ddaa051ba871716",
+      "source_capture_payload_sha256": "b7df2ef35963f191befa1f453f585fabafbb4b1840afa5d7f6e2a6de639a734e",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 172,
+      "source_cycle_end_revolutions": 178,
+      "loop_join_normalized_error": 0.12591311100704827,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 90917.16007601745,
+        "mean_rpm": 3098.2338554431776,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.6772461938271983,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-3300rpm-exhaust-dry-seam-closure",
+      "rpm": 3300,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 82604.12543956375,
+      "relative_path": "audio/rising-mid-3300rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c03559ee680f16ad1c431bc5e6a13b5a577b7e1d62394e0338fcc3a707b70893",
+      "source_capture_payload_sha256": "4a9f824eed6d81b1fd08d709c4466c670d42c126a5ddcaf9e96dc3aa064f60e8",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 186,
+      "source_cycle_end_revolutions": 192,
+      "loop_join_normalized_error": 0.07635867497139384,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 82604.12543956375,
+        "mean_rpm": 3378.949678183143,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.7375449203948781,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-3500rpm-exhaust-dry-seam-closure",
+      "rpm": 3500,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 75102.06261036883,
+      "relative_path": "audio/rising-mid-3500rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5bc60d9207c4da18059299e0d3a63275d217abb8772c2f9e527978a03d1963d7",
+      "source_capture_payload_sha256": "4029bf549d128812623ee79c15e31c65ef7de3dec07de4cee0aaf3c5e4cd2a43",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 196,
+      "source_cycle_end_revolutions": 202,
+      "loop_join_normalized_error": 0.9779435207475317,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 75102.06261036883,
+        "mean_rpm": 3586.547065134676,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.7847588933440522,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-3600rpm-exhaust-dry-seam-closure",
+      "rpm": 3600,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 71126.09903052525,
+      "relative_path": "audio/rising-mid-3600rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "a4db22a14a0f54c8d63a2f26445438f46faa294dc68572625885bfdd25ebc310",
+      "source_capture_payload_sha256": "da2eae91de92108fd1d32ecf7ec713c38423782e15e667fddd6f2a68f997e6ab",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 202,
+      "source_cycle_end_revolutions": 208,
+      "loop_join_normalized_error": 2.3541266358268937,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 71126.09903052525,
+        "mean_rpm": 3697.520611795786,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.8095252558682412,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-3800rpm-exhaust-dry-seam-closure",
+      "rpm": 3800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 62962.138311360904,
+      "relative_path": "audio/rising-mid-3800rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "79d7a1993e938dfb00c20aa34975255a16ab0a3c03502e2ba3a5c4ab13850c1b",
+      "source_capture_payload_sha256": "4b9d7d69765d30958ec5125aaac7deb0309c3588445ec0b44364c5b4bce8a23b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 212,
+      "source_cycle_end_revolutions": 218,
+      "loop_join_normalized_error": 1.393070349742797,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 62962.138311360904,
+        "mean_rpm": 3898.015907310528,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.8545185637881516,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-mid-4100rpm-exhaust-dry-seam-closure",
+      "rpm": 4100,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 46230.10261328319,
+      "relative_path": "audio/rising-mid-4100rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "3bf725f44827241757acd72f30f51e49c911244fc1f29e6c4122892b01f89314",
+      "source_capture_payload_sha256": "476076beba2490ee4f183a57cc89f3e13b0c7f8517f36b8601170ce18a058ead",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 226,
+      "source_cycle_end_revolutions": 232,
+      "loop_join_normalized_error": 0.27439320423420444,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 46230.10261328319,
+        "mean_rpm": 4167.860192180094,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9096418212267202,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-1000rpm-exhaust-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99837.5446333223,
+      "relative_path": "audio/rising-power-1000rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c3ff5b702c8fe2305312b3fe54e3e7e94d5e6973ba810452b6c6c764b53acafd",
+      "source_capture_payload_sha256": "33f8560be9c640bdacec3f348cdd0535763646e85f73becd6e37c4cf757a3432",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 72,
+      "source_cycle_end_revolutions": 78,
+      "loop_join_normalized_error": 0.004857568735753838,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99837.5446333223,
+        "mean_rpm": 1095.6128502438962,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-1300rpm-exhaust-dry-seam-closure",
+      "rpm": 1300,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99281.75557640272,
+      "relative_path": "audio/rising-power-1300rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "7968f6d05c6b1beef87e24d9a5a4306771e235329bfdbdb2eb07e0a0731b0767",
+      "source_capture_payload_sha256": "1a02b6b2996812dea01c7ab75ce06ac590621e892098f6377563462d4bad448d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 86,
+      "source_cycle_end_revolutions": 92,
+      "loop_join_normalized_error": 0.0006147880483438505,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99281.75557640272,
+        "mean_rpm": 1373.9967496630634,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 13
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-1600rpm-exhaust-dry-seam-closure",
+      "rpm": 1600,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 97992.10251386203,
+      "relative_path": "audio/rising-power-1600rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "3c042fcd79518f992f5960adcb4fa064ddfa796f0fd52e319c8abb870614198f",
+      "source_capture_payload_sha256": "57cba9f2dc6b6e0f62177e9847e781e27c0b63d788b52f7eb8710d4af27f8f82",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 102,
+      "source_cycle_end_revolutions": 108,
+      "loop_join_normalized_error": 0.22955341559846498,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 97992.10251386203,
+        "mean_rpm": 1700.5570520832612,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 11
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-1900rpm-exhaust-dry-seam-closure",
+      "rpm": 1900,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 98483.03694521746,
+      "relative_path": "audio/rising-power-1900rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "39c72af0d2dc7f7f56c4587b57ab6902ff8190551beecfde1edf8e8fd10e46b2",
+      "source_capture_payload_sha256": "df9163f7229b71b61f3f8596a4b5125f94574ec50aa7b4f7eae490f080335675",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 116,
+      "source_cycle_end_revolutions": 122,
+      "loop_join_normalized_error": 0.011881746654888208,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 98483.03694521746,
+        "mean_rpm": 1982.1115412887334,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-2200rpm-exhaust-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 96578.00223500282,
+      "relative_path": "audio/rising-power-2200rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "31a3d2f6536a9e943d1eecb62365993a700c2d55cee3a295c0f6c04f30921c96",
+      "source_capture_payload_sha256": "d8979737bb534df1792646d536769f507e6083f3cfd0ad777c775c17ecb0ea1b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 132,
+      "source_cycle_end_revolutions": 138,
+      "loop_join_normalized_error": 0.8751896695244281,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 96578.00223500282,
+        "mean_rpm": 2303.134418823621,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-2500rpm-exhaust-dry-seam-closure",
+      "rpm": 2500,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 96380.62107549336,
+      "relative_path": "audio/rising-power-2500rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "cbba8432a4e806636bf8a49d9566a055662160ac928a8231637e26473855fe85",
+      "source_capture_payload_sha256": "9d56f77b82c1ba0b0c3008027962ab5c3bde2286d5b2b7fbd1ceb2535a371d4d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 146,
+      "source_cycle_end_revolutions": 152,
+      "loop_join_normalized_error": 0.008251989707129096,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 96380.62107549336,
+        "mean_rpm": 2570.2404837981035,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 7
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-2740rpm-exhaust-dry-seam-closure",
+      "rpm": 2740,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 93911.3013560556,
+      "relative_path": "audio/rising-power-2740rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5bd013c51d9fa0d9caabb5180b0e401f26a5614470e216b685fa9b18b7b8993b",
+      "source_capture_payload_sha256": "ce6ae050d94f23d3d4143ee9725a084c3051ceefcac5cb7902db4571a8cd4f48",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 158,
+      "source_cycle_end_revolutions": 164,
+      "loop_join_normalized_error": 0.014547892588264251,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 93911.3013560556,
+        "mean_rpm": 2812.204549107117,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-3000rpm-exhaust-dry-seam-closure",
+      "rpm": 3000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 97572.23617416735,
+      "relative_path": "audio/rising-power-3000rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "872f7c94a58951e6be3678eaaa1a068f6585811fea097fb28b7e4d1aa25ce176",
+      "source_capture_payload_sha256": "b8920b8bdc62894d4d100954e98f4ce0a604fd22101574fb4f2bbbf09565de00",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 172,
+      "source_cycle_end_revolutions": 178,
+      "loop_join_normalized_error": 0.12589412911055134,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 97572.23617416735,
+        "mean_rpm": 3098.2338554431776,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-3300rpm-exhaust-dry-seam-closure",
+      "rpm": 3300,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 95590.06138220102,
+      "relative_path": "audio/rising-power-3300rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "d12e08a6b1cbddec6d7253ec04144e2eaa0778bde9f120d2367b4cb71181e0d1",
+      "source_capture_payload_sha256": "916b4d0c7ecf1e57d57ba18f5f81d8c1768e80cfdb812c46d354ede8a67a4f11",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 186,
+      "source_cycle_end_revolutions": 192,
+      "loop_join_normalized_error": 0.07490515526627015,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 95590.06138220102,
+        "mean_rpm": 3378.949678183143,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-3500rpm-exhaust-dry-seam-closure",
+      "rpm": 3500,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 94826.62708756611,
+      "relative_path": "audio/rising-power-3500rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "359d6678a19ebc84ec79b380b4afa230ada7d5668af90cecfa3c194054bbb9ed",
+      "source_capture_payload_sha256": "79bd52995915547480a56ac46625ea0be246f0f33d25c75ae6cfef2e7246508b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 196,
+      "source_cycle_end_revolutions": 202,
+      "loop_join_normalized_error": 1.3335795807360558,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 94826.62708756611,
+        "mean_rpm": 3586.547065134676,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0.0015108305414298418,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-3600rpm-exhaust-dry-seam-closure",
+      "rpm": 3600,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 95230.551306535,
+      "relative_path": "audio/rising-power-3600rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "80514e4dd635cd1bf483ca24207b7a033e8839838986d3cdd3f5e6fb18f3ffc8",
+      "source_capture_payload_sha256": "2b4dba7c915f91e031da1d687e40d5da00c550426db151fc5ea59e69bdbb5902",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 202,
+      "source_cycle_end_revolutions": 208,
+      "loop_join_normalized_error": 2.1627420169410887,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 95230.551306535,
+        "mean_rpm": 3697.520611795786,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0.007154331993851487,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-3800rpm-exhaust-dry-seam-closure",
+      "rpm": 3800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 96979.83762054415,
+      "relative_path": "audio/rising-power-3800rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5a7f43682e71e80ad5e3b18a7509336bf647eb7530fb0c735326b71631939ffc",
+      "source_capture_payload_sha256": "d622a62d93c55b6ae11424d9ae788f1074839db0c68bdd9a9caad49c8adf3262",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 212,
+      "source_cycle_end_revolutions": 218,
+      "loop_join_normalized_error": 0.7325097166230803,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 96979.83762054415,
+        "mean_rpm": 3898.015907310528,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0.029344169800113173,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "kohler-ch750-cleanroom-rising-power-4100rpm-exhaust-dry-seam-closure",
+      "rpm": 4100,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 94936.54431418778,
+      "relative_path": "audio/rising-power-4100rpm.exhaust-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "eff3db9f933df6729e44dc47bee01c6982dba4eba689bf1334d386a8be74beca",
+      "source_capture_payload_sha256": "2c38656f9fd44ac5d7831bcdc32791350147a7ab2f2b4a7b5caae380355c2cca",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 226,
+      "source_cycle_end_revolutions": 232,
+      "loop_join_normalized_error": 0.35958918550613483,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 94936.54431418778,
+        "mean_rpm": 4167.860192180094,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0.080061880390431,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "kohler-ch750-cleanroom",
+      "sha256": "812fcfa3fcb1c3040f695140cfc2a73df0934a3d84a848121eb94a41f374e60e"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "rising-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "01e84bd7be2fdc8b938a4e8685aefca9716c034ea4aa84c015d6731f953b95d8",
+    "physics_rate_hz": 10000,
+    "source_delivery_rate_hz": 192000
+  }
+}

@@ -1,0 +1,935 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "id": "harley-evolution-1340-cleanroom-directional-rising-exhaust-front-dry-live-preview",
+  "engine": "harley-evolution-1340-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "exhaust.front.dry"
+  },
+  "phase": {
+    "cycle_revolutions": 2,
+    "samples_per_cycle": 4096,
+    "cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "domain": {
+    "minimum_rpm": 575,
+    "maximum_rpm": 5200,
+    "rpm_anchors": [
+      650,
+      800,
+      1000,
+      1300,
+      1700,
+      2200,
+      2800,
+      3400,
+      4000,
+      4500,
+      5000
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "load_lanes": [
+      {
+        "id": "coast",
+        "throttle01": 0
+      },
+      {
+        "id": "mid",
+        "throttle01": 0.2
+      },
+      {
+        "id": "power",
+        "throttle01": 1
+      }
+    ]
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "load_cell_coalescing": {
+    "policy": "coalesce-only-identical-coordinate-and-byte-identical-source-and-closed-payload",
+    "aliases": []
+  },
+  "cells": [
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-coast-650rpm-exhaust-front-dry-seam-closure",
+      "rpm": 650,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 46273.80396702188,
+      "relative_path": "audio/rising-coast-650rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "824073ecf1eb0ba72ed2fc9fb415486c438d9157699ee1f6b3385cfe9f4bde90",
+      "source_capture_payload_sha256": "0e4daf940bad8c8593e371ca0519a1cc8439da3a1ea0ec49cd42a51fa64dee58",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 46,
+      "source_cycle_end_revolutions": 52,
+      "loop_join_normalized_error": 0.000042843554928974974,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 46273.80396702188,
+        "mean_rpm": 715.0310185398196,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 26
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-coast-800rpm-exhaust-front-dry-seam-closure",
+      "rpm": 800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 38338.560868190856,
+      "relative_path": "audio/rising-coast-800rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "65c36224faffc213dc52a89deeb8638d2cec568c5dae9c8faf7fad39fb57a417",
+      "source_capture_payload_sha256": "8fea5b264bf497523f5f47f2a6011691b7dd817b2afc5e370f583ee617f29479",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 54,
+      "source_cycle_end_revolutions": 60,
+      "loop_join_normalized_error": 0.002802715635585519,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 38338.560868190856,
+        "mean_rpm": 875.8642377021011,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 21
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-coast-1000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 32602.790299974477,
+      "relative_path": "audio/rising-coast-1000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "d0982fb6804b446b69e102de77db226e6725c5e54d04aea47c943e8ba34b4e25",
+      "source_capture_payload_sha256": "7e14cac3dd7b32e5b26ee13bb225165aec55335f1686f61444879b0015a0300a",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 64,
+      "source_cycle_end_revolutions": 70,
+      "loop_join_normalized_error": 0.007084693667070659,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 32602.790299974477,
+        "mean_rpm": 1076.6448324406122,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-coast-1300rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1300,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 25911.483614133518,
+      "relative_path": "audio/rising-coast-1300rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "568325b0bbf93224575657f96a466d29a5dcdfbad44cc34fbf7f8627647f74c1",
+      "source_capture_payload_sha256": "02931cb99df1bff0baa6c978424c49bfc2ddab19f6332a777bc0d8b2019a802f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 80,
+      "source_cycle_end_revolutions": 86,
+      "loop_join_normalized_error": 0.009925828319473601,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 25911.483614133518,
+        "mean_rpm": 1396.0281240903569,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 13
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-coast-1700rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1700,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 21481.38792261825,
+      "relative_path": "audio/rising-coast-1700rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e7f4b668f681095b39dc17c83eefae39252be63c0dd099c911313183753a7425",
+      "source_capture_payload_sha256": "d42fc062e61ac683a679e4ddd675c9a60a9860e8ceaafa457d2458d721582954",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 100,
+      "source_cycle_end_revolutions": 106,
+      "loop_join_normalized_error": 0.016688772241336202,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 21481.38792261825,
+        "mean_rpm": 1792.213520238641,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 10
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-coast-2200rpm-exhaust-front-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 18556.061607591444,
+      "relative_path": "audio/rising-coast-2200rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e776090a52cac2355ec666b4a9d4d72d704708e06a7b39e53d736f66fa1d59b0",
+      "source_capture_payload_sha256": "c0566a5908adac7843eb0e0ece4e6d31d12ecd480ef33c47bee91ebf9cf02f7d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 124,
+      "source_cycle_end_revolutions": 130,
+      "loop_join_normalized_error": 0.050102285780180264,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 18556.061607591444,
+        "mean_rpm": 2278.304584337057,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-coast-2800rpm-exhaust-front-dry-seam-closure",
+      "rpm": 2800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 13903.900251635141,
+      "relative_path": "audio/rising-coast-2800rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "db49eec93083587efbf166638056b6bc3cb76885470536987081d086f8d05f39",
+      "source_capture_payload_sha256": "0247795a91d100d1923e37d536d31432b6f134f2980b17e3c667ba99e2533e36",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 154,
+      "source_cycle_end_revolutions": 160,
+      "loop_join_normalized_error": 0.23096556278497143,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 13903.900251635141,
+        "mean_rpm": 2877.5492801892688,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-coast-3400rpm-exhaust-front-dry-seam-closure",
+      "rpm": 3400,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 16602.734336021567,
+      "relative_path": "audio/rising-coast-3400rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "8252879ebcf0e08b776e8a9694ef7c3ca9401f668c321b82cafcb1371a6f225a",
+      "source_capture_payload_sha256": "f2c49335b8d3b136b2b05c18c18ca62abb9df2208b8851ea11d8824066d0cfad",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 184,
+      "source_cycle_end_revolutions": 190,
+      "loop_join_normalized_error": 1.0907374413678221,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 16602.734336021567,
+        "mean_rpm": 3478.5649729741926,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-coast-4000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 4000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 16181.84504600785,
+      "relative_path": "audio/rising-coast-4000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "76d48b4833decdbcd7a67950da37b5ca96bbfa891b60f9ca58b0a3f8db06c8dd",
+      "source_capture_payload_sha256": "156dbc5f8fd423d04e5d891c4b5030dd746bb269ee959a78eb8fefc58368a29b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 214,
+      "source_cycle_end_revolutions": 220,
+      "loop_join_normalized_error": 1.3785702129433048,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 16181.84504600785,
+        "mean_rpm": 4069.369485471442,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-coast-4500rpm-exhaust-front-dry-seam-closure",
+      "rpm": 4500,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 15484.57014376784,
+      "relative_path": "audio/rising-coast-4500rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "24050963b41b24fa4d8bb6ab08cc26d405f9278764565aaeed032ac7a2965989",
+      "source_capture_payload_sha256": "a01eae808d2bafa052c562c56943e7225329d73c614cdddbae73633f76f32c87",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 240,
+      "source_cycle_end_revolutions": 246,
+      "loop_join_normalized_error": 0.29450617083948055,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 15484.57014376784,
+        "mean_rpm": 4586.488431427105,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-coast-5000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 5000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 18474.084915910345,
+      "relative_path": "audio/rising-coast-5000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "cf8d4233fe994dbe86c1e47af8a5660e2bfc6514c31a43e2a01e9dbdaa3da127",
+      "source_capture_payload_sha256": "9acd3f67b661ee43435fdc1916b5d255b4f47cc0c7e53e86d6074cfd2c25528c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 264,
+      "source_cycle_end_revolutions": 270,
+      "loop_join_normalized_error": 0.02739876582345937,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 18474.084915910345,
+        "mean_rpm": 5066.834157051093,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-mid-650rpm-exhaust-front-dry-seam-closure",
+      "rpm": 650,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 96753.46635387519,
+      "relative_path": "audio/rising-mid-650rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "2c65bd77ed9edcdb4cff262ea09c8d8532430e6f0d2768821ccf99866a6a8615",
+      "source_capture_payload_sha256": "7a12515f632fc900030b80ae7c76725872fd3beb834fbc0b56f29a2f72c9db2d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 46,
+      "source_cycle_end_revolutions": 52,
+      "loop_join_normalized_error": 0.00013984480415857328,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 96753.46635387519,
+        "mean_rpm": 715.0310185398196,
+        "mean_requested_throttle_01": 0.20000000000000007,
+        "mean_resolved_throttle_01": 0.9297413998021586,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 26
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-mid-800rpm-exhaust-front-dry-seam-closure",
+      "rpm": 800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 95092.2914502911,
+      "relative_path": "audio/rising-mid-800rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f669d1334c951fd292f674506ec9b6adac1f571f9d164c14a0c6e91d62f65282",
+      "source_capture_payload_sha256": "f06079aac744db8484925c13e28f2f171d93c7d98114de3ed813459c67a8bda5",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 54,
+      "source_cycle_end_revolutions": 60,
+      "loop_join_normalized_error": 0.0004808406598964483,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 95092.2914502911,
+        "mean_rpm": 875.8642377021011,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9297413998021589,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 21
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-mid-1000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 93690.66138561114,
+      "relative_path": "audio/rising-mid-1000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "8919f0ff5b33d5a9fe05aaf34443491d99370ad19efac55a2289b5d10cff184d",
+      "source_capture_payload_sha256": "945462ef96f49b36fd2c3a96b47793fcd2372ca43b036277e8fd405d9869bbc6",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 64,
+      "source_cycle_end_revolutions": 70,
+      "loop_join_normalized_error": 0.0012479104595927248,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 93690.66138561114,
+        "mean_rpm": 1076.6448324406122,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9297413998021592,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-mid-1300rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1300,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 91143.64651589995,
+      "relative_path": "audio/rising-mid-1300rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "b4a77220702e08472fc97e2e78282ea089c9f80ad692acee1c47f56a541d10f4",
+      "source_capture_payload_sha256": "0ed56933dc22628e972f530f8ff300fba13ab70b00c52c05fbc1d11fbb5d2919",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 80,
+      "source_cycle_end_revolutions": 86,
+      "loop_join_normalized_error": 0.002881583258919662,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 91143.64651589995,
+        "mean_rpm": 1396.0281240903569,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9297413998021592,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 13
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-mid-1700rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1700,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 87907.46859857846,
+      "relative_path": "audio/rising-mid-1700rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "1e55ea13088b7edb53e752a5fd44542d21b86752cbe171cb084b14f97d8004db",
+      "source_capture_payload_sha256": "025e3233e0197a5580294619b35cf6a881da6cfa19ef42c9dcddd0b02b4b6cfe",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 100,
+      "source_cycle_end_revolutions": 106,
+      "loop_join_normalized_error": 0.004850387639293653,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 87907.46859857846,
+        "mean_rpm": 1792.213520238641,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9297413998021591,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 10
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-mid-2200rpm-exhaust-front-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 84809.77568347103,
+      "relative_path": "audio/rising-mid-2200rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "3c34387c53c562c8c20ba8f64c6bd66d28b77ad960a22a514b1855a963421eba",
+      "source_capture_payload_sha256": "4620d45322afafbc90b4a6ad75aa39cd671361f03cb49c7463f22284bf83b33f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 124,
+      "source_cycle_end_revolutions": 130,
+      "loop_join_normalized_error": 0.010938964607638303,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 84809.77568347103,
+        "mean_rpm": 2278.304584337057,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9297413998021591,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-mid-2800rpm-exhaust-front-dry-seam-closure",
+      "rpm": 2800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 71640.3043651955,
+      "relative_path": "audio/rising-mid-2800rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "61dddef2b0bfae41528e0f78d0a3800de6c37b1ffc52b90d6216492fa6a42282",
+      "source_capture_payload_sha256": "decbe9b6ea3ef750a2f13a2dbebab2c762f36e10f2d9b1f51700894803fa855f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 154,
+      "source_cycle_end_revolutions": 160,
+      "loop_join_normalized_error": 0.08097393914511442,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 71640.3043651955,
+        "mean_rpm": 2877.5492801892688,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.929741399802159,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-mid-3400rpm-exhaust-front-dry-seam-closure",
+      "rpm": 3400,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 75386.59101589491,
+      "relative_path": "audio/rising-mid-3400rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "3e0bd34b40e4fc27643cbf7ea48fcdf8d59ccac9dccc65adeea23a86c6007453",
+      "source_capture_payload_sha256": "3ab097c8ffdae0010dde7837da6fbe4821ccc925d55312e3a93586d247d28673",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 184,
+      "source_cycle_end_revolutions": 190,
+      "loop_join_normalized_error": 0.39785098920630757,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 75386.59101589491,
+        "mean_rpm": 3478.5649729741926,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.929741399802159,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-mid-4000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 4000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 71019.85904084505,
+      "relative_path": "audio/rising-mid-4000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "26fdb0df71b7ada4652da70d283aea24ddc5af0a158dc00c234fbde1086db37c",
+      "source_capture_payload_sha256": "991f0c589b733156ae18499f564df94f745006810182c036e8323225dd9e6e2f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 214,
+      "source_cycle_end_revolutions": 220,
+      "loop_join_normalized_error": 0.4429219354273762,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 71019.85904084505,
+        "mean_rpm": 4069.369485471442,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9297413998021589,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-mid-4500rpm-exhaust-front-dry-seam-closure",
+      "rpm": 4500,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 68516.50908631191,
+      "relative_path": "audio/rising-mid-4500rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "48ce070d5410f973062e5ea202d2861488bb3f9744acb807d2af3a153b99c9da",
+      "source_capture_payload_sha256": "139d70732cd5718c2d69b9b1b6e85285fac47e652b3a24f2508e12f8e329637b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 240,
+      "source_cycle_end_revolutions": 246,
+      "loop_join_normalized_error": 0.7627937513207289,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 68516.50908631191,
+        "mean_rpm": 4586.488431427105,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9297413998021589,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-mid-5000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 5000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 69088.53131845783,
+      "relative_path": "audio/rising-mid-5000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "eea500fe69cc3481fe45383229d07fd0156baba80037436a3d689a1cbd355d13",
+      "source_capture_payload_sha256": "f938c994982df9d5714e1686c6a3d419cd3cc177ca4683777dff80ec7ee53c00",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 264,
+      "source_cycle_end_revolutions": 270,
+      "loop_join_normalized_error": 0.1457940350494423,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 69088.53131845783,
+        "mean_rpm": 5066.834157051093,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9297413998021589,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-power-650rpm-exhaust-front-dry-seam-closure",
+      "rpm": 650,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101232.82840088755,
+      "relative_path": "audio/rising-power-650rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "ea102a252ebe4a389d0d6aa43c91f3b51b8d0669d0f110132445058c71f1795e",
+      "source_capture_payload_sha256": "bc0ac306bae9ce70ba1bdd995a51b6e6100e2c3babe6ba383b27ddb51cf1a508",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 46,
+      "source_cycle_end_revolutions": 52,
+      "loop_join_normalized_error": 0.0001451924584454176,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101232.82840088755,
+        "mean_rpm": 715.0310185398196,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 26
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-power-800rpm-exhaust-front-dry-seam-closure",
+      "rpm": 800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101175.40733200761,
+      "relative_path": "audio/rising-power-800rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "3183ef68f8147f6b1901a577b5944e77dc8ad63e31ea03765768cb0508862f46",
+      "source_capture_payload_sha256": "a89699488a1f8f605783007bcb9d0bd4328924ae99e64b283e59a8a1ece564ae",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 54,
+      "source_cycle_end_revolutions": 60,
+      "loop_join_normalized_error": 0.0005254627064818163,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101175.40733200761,
+        "mean_rpm": 875.8642377021011,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 21
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-power-1000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101106.40167655528,
+      "relative_path": "audio/rising-power-1000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "fa86f8c61e89000c7f0dbc7a8cc0c0df64d2941d77aa64b10f56687d6fe14878",
+      "source_capture_payload_sha256": "55b322224bcb67811d2767e811ff2a73e40d6f837c95383b62271c98cfecf1e7",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 64,
+      "source_cycle_end_revolutions": 70,
+      "loop_join_normalized_error": 0.0014832965382502161,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101106.40167655528,
+        "mean_rpm": 1076.6448324406122,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-power-1300rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1300,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101028.15549714814,
+      "relative_path": "audio/rising-power-1300rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "dfa2ff1d6296059fe251afa992cccbc7dd76648de8a35eb3cd692037073cf333",
+      "source_capture_payload_sha256": "b7e00594bc22543a07acc8ee974d85096f39123d71917f840b74df6ebd866d79",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 80,
+      "source_cycle_end_revolutions": 86,
+      "loop_join_normalized_error": 0.003767682123758451,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101028.15549714814,
+        "mean_rpm": 1396.0281240903569,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 13
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-power-1700rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1700,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100795.2799575474,
+      "relative_path": "audio/rising-power-1700rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "96e8832d32e5b4fba9772b4183f6944daca508c6a7a3774873e8b4ce2123c7e3",
+      "source_capture_payload_sha256": "730be9d37453040b1f6e14717dd335fac2d4f4973b86e48daf25dc9f865662de",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 100,
+      "source_cycle_end_revolutions": 106,
+      "loop_join_normalized_error": 0.006061477141689018,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100795.2799575474,
+        "mean_rpm": 1792.213520238641,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 10
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-power-2200rpm-exhaust-front-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100554.85137258423,
+      "relative_path": "audio/rising-power-2200rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "21820cb37d75777b744b49f6aa37438b8c09b04abc8f8837e0102a77abd7d29a",
+      "source_capture_payload_sha256": "283e619a8426636dad1c3c2f80ca6117dd8b5a33e273a8416a21cb9e5aff4b5c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 124,
+      "source_cycle_end_revolutions": 130,
+      "loop_join_normalized_error": 0.013906656924451827,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100554.85137258423,
+        "mean_rpm": 2278.304584337057,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-power-2800rpm-exhaust-front-dry-seam-closure",
+      "rpm": 2800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100623.81225293632,
+      "relative_path": "audio/rising-power-2800rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "bc424e62c073e9555b8c12e1891b5e3b522e2a0ddd369f3c684a72ca9dd40c14",
+      "source_capture_payload_sha256": "a8629900c3457b7cb485963aeb77ce0f6a4b71d7f6eba6d54ac18580b6ff98c4",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 154,
+      "source_cycle_end_revolutions": 160,
+      "loop_join_normalized_error": 0.07804718220827278,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100623.81225293632,
+        "mean_rpm": 2877.5492801892688,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-power-3400rpm-exhaust-front-dry-seam-closure",
+      "rpm": 3400,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99582.92561301998,
+      "relative_path": "audio/rising-power-3400rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "bfc4474af03de33a1a80c63e0aa182caabaecf6b5c162cac6d774ed52a969917",
+      "source_capture_payload_sha256": "75b00008592e599da4c0c9723f5c5c2a12953f5dbcad690484cc2510145c7d51",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 184,
+      "source_cycle_end_revolutions": 190,
+      "loop_join_normalized_error": 0.10483057152073116,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99582.92561301998,
+        "mean_rpm": 3478.5649729741926,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-power-4000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 4000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100360.7557850973,
+      "relative_path": "audio/rising-power-4000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "31b2a0511ba5f3bf158a2322a34e2bfe4f3873b8222f78b6649c66f9e4b3253f",
+      "source_capture_payload_sha256": "ff3db0e605ab814099d4e2fd7ea9bfaf35e5f3c8f01d74eaf86203993504cc0c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 214,
+      "source_cycle_end_revolutions": 220,
+      "loop_join_normalized_error": 0.6004529088326326,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100360.7557850973,
+        "mean_rpm": 4069.369485471442,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-power-4500rpm-exhaust-front-dry-seam-closure",
+      "rpm": 4500,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99410.71185520595,
+      "relative_path": "audio/rising-power-4500rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "9a4e7cdcc93148e9fe3a18777bc6ab99bb9d1284e95bf52b65aeaaab49fc0b10",
+      "source_capture_payload_sha256": "c3ccf87247f68e5aceffe60a0d845036528592a93acbb47ecb53fb88b0c6199c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 240,
+      "source_cycle_end_revolutions": 246,
+      "loop_join_normalized_error": 0.5811557030482334,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99410.71185520595,
+        "mean_rpm": 4586.488431427105,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "harley-evolution-1340-cleanroom-rising-power-5000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 5000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99164.9329532798,
+      "relative_path": "audio/rising-power-5000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "0b0a81932378e293f667152e39f3e1a017639432fa0143edeeea86fd8255eb1e",
+      "source_capture_payload_sha256": "01e8209197888e80f2e1b9709fff7b5fc50fa57aa6ce2f149ab2d2bc3b4da0f7",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 264,
+      "source_cycle_end_revolutions": 270,
+      "loop_join_normalized_error": 0.13535201882417755,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99164.9329532798,
+        "mean_rpm": 5066.834157051093,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "harley-evolution-1340-cleanroom",
+      "sha256": "a21033e0ebe6813a63c1212d429936f1cc17e4f6de0a2b206406e7cb6fd92647"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "rising-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "0f8e79e9e6c7f396930cfa692bd28569878924fde65232e16b72608ccfadaeb0",
+    "physics_rate_hz": 10000,
+    "source_delivery_rate_hz": 192000
+  }
+}

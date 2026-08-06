@@ -1,0 +1,74 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-texture",
+  "id": "radial-5-cleanroom-directional-transient-live-preview",
+  "engine": "radial-5-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono"
+  },
+  "domain": {
+    "minimum_rpm": 700,
+    "maximum_rpm": 3650,
+    "rpm_anchors": [
+      800,
+      1000,
+      1250,
+      1500,
+      1650,
+      1800,
+      1950,
+      2100,
+      2250,
+      2400,
+      2550,
+      2700,
+      2800,
+      3200,
+      3500
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs"
+  },
+  "dry_bus_ids": [
+    "exhaust-0.dry",
+    "exhaust-1.dry"
+  ],
+  "route_manifests": [
+    {
+      "bus_id": "exhaust-0.dry",
+      "rising_manifest_path": "exhaust-0-dry-rising.json",
+      "falling_manifest_path": "exhaust-0-dry-falling.json"
+    },
+    {
+      "bus_id": "exhaust-1.dry",
+      "rising_manifest_path": "exhaust-1-dry-rising.json",
+      "falling_manifest_path": "exhaust-1-dry-falling.json"
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "radial-5-cleanroom",
+      "sha256": "6acf480746b42014f0abff3bcb79a331f0af30a8918e3d645b72da5cf93a16dd"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "live-rpm-map-crank-indexed-n-route-dry-directional-units-with-phase-aligned-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "8ccd6bdc72be6bebd164eeda1801fd6b8cb718a4ede4965c804303b8a35e7e2a"
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_origin_revolutions": 0,
+    "join_gate": {
+      "maximum_seam_over_source_adjacent_derivative_rms": 3,
+      "maximum_correction_rms_over_source_rms": 0.4,
+      "observed_maximum_seam_over_source_adjacent_derivative_rms": 1.3632714929065053,
+      "observed_maximum_correction_rms_over_source_rms": 0.22179719189036035,
+      "passed": true
+    }
+  }
+}

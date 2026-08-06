@@ -1,0 +1,216 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "id": "bmw-m52tub28-cleanroom-lifecycle-preview",
+  "engine": "bmw-m52tub28-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "master.engine.audition"
+  },
+  "starter": {
+    "artifact": {
+      "path": "audio/starter.master-engine-audition.f32le",
+      "sha256": "c8c4cdf4c17f39dd014ac30aa23535bd0c5f41efe7583d2e62497b027ce1b0f0",
+      "frame_count": 480000
+    },
+    "mean_crank_rpm": 282.8277868480169,
+    "reference_rpm": 282.8277868480169,
+    "loop_start_frame": 170899,
+    "loop_end_frame": 415288,
+    "crossfade_frames": 81455,
+    "attack_fade_frames": 3840,
+    "release_fade_frames": 3840
+  },
+  "startup": {
+    "artifact": {
+      "path": "audio/startup.master-engine-audition.f32le",
+      "sha256": "4250fe127e71065334374ccd04d4ae4b9edf3be35571ac548e7192f0e99b32ac",
+      "frame_count": 768000
+    },
+    "checkpoints": [
+      {
+        "kind": "ignition-on",
+        "frame": 134400,
+        "rpm": 260.0030743750142,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "first-combustion",
+        "frame": 138239,
+        "rpm": 271.80674059575534,
+        "precision": "advance-block",
+        "method": "first-positive-indicated-gas-torque-proxy"
+      },
+      {
+        "kind": "starter-release",
+        "frame": 249600,
+        "rpm": 686.3101694633256,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "running-floor",
+        "frame": 459229,
+        "rpm": 775.1305417583383,
+        "precision": "cycle-boundary",
+        "method": "post-release-cycle-correlated-to-captured-running-idle"
+      }
+    ],
+    "entry": {
+      "source_frame": 105599,
+      "crossfade_frames": 19200,
+      "source_rpm": 259.9999997029067,
+      "target_source_frame": 170899,
+      "target_rpm": 282.79177597726357,
+      "correlation": -0.3146760082094716,
+      "target": "starter",
+      "target_reference": "starter-loop"
+    },
+    "exit": {
+      "source_frame": 459229,
+      "crossfade_frames": 19200,
+      "source_rpm": 764.8224010918833,
+      "target_source_frame": 459229,
+      "target_rpm": 764.8224010918833,
+      "correlation": 1,
+      "target": "running",
+      "target_reference": "startup-post-release-cycle-reference"
+    }
+  },
+  "shutdown": {
+    "artifact": {
+      "path": "audio/shutdown.master-engine-audition.f32le",
+      "sha256": "2052c9fd9116ac6f312e1b267a6a5a0ea6a5acf4c5862a3a9932217af8128249",
+      "frame_count": 364800
+    },
+    "checkpoints": [
+      {
+        "kind": "settled-idle",
+        "frame": 120960,
+        "rpm": 667.6325740121619,
+        "precision": "cycle-window",
+        "method": "pre-key-off-window-correlated-to-captured-running-idle"
+      },
+      {
+        "kind": "ignition-off",
+        "frame": 153600,
+        "rpm": 705.7786996916303,
+        "precision": "exact",
+        "method": "authored-operating-state-event"
+      },
+      {
+        "kind": "engine-stopped",
+        "frame": 207359,
+        "rpm": 0,
+        "precision": "advance-block",
+        "method": "first-observed-absolute-engine-speed-at-or-below-1-rpm"
+      }
+    ],
+    "entry": {
+      "source_frame": 120960,
+      "crossfade_frames": 19200,
+      "source_rpm": 667.6325740121619,
+      "target_source_frame": 57267,
+      "target_rpm": 710.0859046747022,
+      "correlation": 0.012854238491148121,
+      "target": "running",
+      "target_reference": "shutdown-pre-keyoff-cycle-reference"
+    },
+    "silence_frame": 218611,
+    "exit_fade_frames": 3840,
+    "quiet_tail_frames": 146189,
+    "quiet_peak_threshold": 0.0001220703125,
+    "quiet_rms_threshold": 0.00006103515625
+  },
+  "startup_admission": {
+    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "admission_lane_coordinate": "authored-throttle-01",
+    "blend": "constant-power",
+    "pre_floor_progress": "smoothstep-first-fire-rpm-to-running-floor",
+    "completion_progress": "smoothstep-committed-crank-travel",
+    "completion_crank_travel_revolutions": 2,
+    "monotone_ownership": true,
+    "lanes": [
+      {
+        "id": "coast",
+        "throttle_01": 0,
+        "floor_running_gain_linear": 0.5761944116355173
+      },
+      {
+        "id": "low",
+        "throttle_01": 0.05,
+        "floor_running_gain_linear": 0.48887626246321264
+      },
+      {
+        "id": "mid",
+        "throttle_01": 0.2,
+        "floor_running_gain_linear": 0.7179832867135557
+      },
+      {
+        "id": "power",
+        "throttle_01": 1,
+        "floor_running_gain_linear": 0.7940403012442127
+      }
+    ],
+    "coast_stability": {
+      "lane_id": "coast",
+      "requires_starter_released": true,
+      "post_peak_crank_travel_revolutions": 4,
+      "clock_law": "lane-weighted-post-peak-admission"
+    },
+    "evidence": {
+      "method": "constant-power-minimum-error-50ms-at-first-550rpm-crossing; exact authored throttle lanes; corrected 5-percent held lane",
+      "path": "evidence/startup-admission.json",
+      "sha256": "34d8f02172c848d2d9aefb848f1b1418b71ce60df30ceba051b3b672b0b593d3",
+      "corrected_held_manifest_sha256": "1aa567c8d6e329e003e3f0fe528ab0373829af63787f3ba14eb042fad8d18998"
+    }
+  },
+  "provenance": {
+    "engine": {
+      "id": "bmw-m52tub28-cleanroom",
+      "sha256": "3918d17dc709292fa6d61681b08889647f92f6bcf1b3209cbdc5d70c91c0fa5e"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
+    "physics_rate_hz": 10000,
+    "delivery_rate_hz": 192000,
+    "fidelity_alignment": "matches-current-responsive-preview;canonical-20khz-events-are-not-mixed-into-10khz-running-package",
+    "checkpoint_alignment": "authored-control-times-are-exact-on-final-pcm;combustion-and-stop-use-one-block-c-api-telemetry-bounds;renderer-exposes-no-separate-audio-latency-field",
+    "seam_reference_scope": "same-performance-final-master-cycle-correlation;the-responsive-held-representation-exposes-no-contiguous-final-master-reference-tape",
+    "scenarios": [
+      {
+        "role": "starter",
+        "canonical_source_id": "bmw-m52tub28-cleanroom-canonical-crank-only-0rpm",
+        "derived_id": "bmw-m52tub28-cleanroom-canonical-crank-only-0rpm-10khz-lifecycle-preview",
+        "path": "source/scenarios/starter-10khz.json",
+        "sha256": "93492b47f2d0a140d780ee3a0e5c59aa8621804b8f330979a55a5661ee9288d1",
+        "evidence_path": "evidence/starter.json",
+        "evidence_sha256": "17471252901371bd1cd309a9a30ed8c710badf20d8aa917ed3ca90ad020b3768"
+      },
+      {
+        "role": "startup",
+        "canonical_source_id": "bmw-m52tub28-cleanroom-cold-start-crank-catch-0rpm",
+        "derived_id": "bmw-m52tub28-cleanroom-cold-start-crank-catch-0rpm-10khz-lifecycle-preview-zero-throttle-audition",
+        "path": "source/scenarios/startup-10khz.json",
+        "sha256": "80ef14b5bf62b6b420e257947b84386df19d078819ee7067e8d1a2c73949c09b",
+        "evidence_path": "evidence/startup.json",
+        "evidence_sha256": "b04a07829fe11fe9b9b84d0bb9ed04dd1cb210f7929d10a7f99ed0d2e2d8c6fa"
+      },
+      {
+        "role": "shutdown",
+        "canonical_source_id": "bmw-m52tub28-cleanroom-canonical-key-off-shutdown-700rpm",
+        "derived_id": "bmw-m52tub28-cleanroom-canonical-key-off-shutdown-700rpm-10khz-lifecycle-preview",
+        "path": "source/scenarios/shutdown-10khz.json",
+        "sha256": "2b112cf422c1dd14cd456aee77ce91e7e14e7d8659de5e7584f7708489e1451e",
+        "evidence_path": "evidence/shutdown.json",
+        "evidence_sha256": "6e8ef5ad3f5e76431eaf5cf74e24cb436125ed604c267d0e997f6998e9cf4b63"
+      }
+    ]
+  }
+}

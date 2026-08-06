@@ -1,0 +1,1251 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "id": "radial-5-cleanroom-directional-falling-exhaust-1-dry-live-preview",
+  "engine": "radial-5-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "exhaust-1.dry"
+  },
+  "phase": {
+    "cycle_revolutions": 2,
+    "samples_per_cycle": 4096,
+    "cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "domain": {
+    "minimum_rpm": 700,
+    "maximum_rpm": 3650,
+    "rpm_anchors": [
+      800,
+      1000,
+      1250,
+      1500,
+      1650,
+      1800,
+      1950,
+      2100,
+      2250,
+      2400,
+      2550,
+      2700,
+      2800,
+      3200,
+      3500
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "load_lanes": [
+      {
+        "id": "coast",
+        "throttle01": 0
+      },
+      {
+        "id": "mid",
+        "throttle01": 0.2
+      },
+      {
+        "id": "power",
+        "throttle01": 1
+      }
+    ]
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "load_cell_coalescing": {
+    "policy": "coalesce-only-identical-coordinate-and-byte-identical-source-and-closed-payload",
+    "aliases": []
+  },
+  "cells": [
+    {
+      "id": "radial-5-cleanroom-falling-coast-800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 80045.11856229608,
+      "relative_path": "audio/falling-coast-800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5d69c93f9029f4f865d3275cbd9c7293e18deee7ce5b92beee1589f52ad1b402",
+      "source_capture_payload_sha256": "b1e1dbe0112b37945a84760c4714db048e4df824ea0225e151c37f5efe778fcf",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 420,
+      "source_cycle_end_revolutions": 426,
+      "loop_join_normalized_error": 0.07019581277263379,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 80045.11856229608,
+        "mean_rpm": 730.8997122197621,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 24
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-1000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 70811.7826976511,
+      "relative_path": "audio/falling-coast-1000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "96475d27c8295c588362d08e30ebb0f93841b1eacc11e385046fc1cb50342be9",
+      "source_capture_payload_sha256": "6c2e77466413e83a4416796dfc7f3e5cf11379c531af326c3921f7225a982c65",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 410,
+      "source_cycle_end_revolutions": 416,
+      "loop_join_normalized_error": 0.06878522828710343,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 70811.7826976511,
+        "mean_rpm": 931.8286953419083,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 19
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-1250rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1250,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 60127.92443385033,
+      "relative_path": "audio/falling-coast-1250rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "ba12ea6a1ed586d03360dc4cd02ff6485ffca9e8cee6639de16b4fd0c7d26191",
+      "source_capture_payload_sha256": "fa9ff2ad87cfe9495fe03bdf0d106b5366b8ee8ac89f43b6fc346c9d38a3d81f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 398,
+      "source_cycle_end_revolutions": 404,
+      "loop_join_normalized_error": 0.030655338502695653,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 60127.92443385033,
+        "mean_rpm": 1172.6514464106724,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 16
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-1500rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1500,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 52475.60715414599,
+      "relative_path": "audio/falling-coast-1500rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "6509927c1a51a5d8b872b067dadddfd7eae66da047dc2047871c1e7bb201124b",
+      "source_capture_payload_sha256": "9fe04917b1cba2f0cab1a5bad6580dda0e1ce6251378c07e350bd36d27970bd7",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 386,
+      "source_cycle_end_revolutions": 392,
+      "loop_join_normalized_error": 1.141143321249059,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 52475.60715414599,
+        "mean_rpm": 1413.0520236794275,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-1650rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1650,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 48179.39401816146,
+      "relative_path": "audio/falling-coast-1650rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "466a3261c263b4d71e2a7ac682e1bf3c6f5507650195ce7f77b4550f30802ca9",
+      "source_capture_payload_sha256": "094738b0f48d886e1ad5eaaab68440cd7795dea4d5a5e762e2e1f7df059a05d2",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 378,
+      "source_cycle_end_revolutions": 384,
+      "loop_join_normalized_error": 0.09793659073523323,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 48179.39401816146,
+        "mean_rpm": 1572.052138094814,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-1800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 44476.88655944843,
+      "relative_path": "audio/falling-coast-1800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "20358940df66af46d6d9b846ff726394ddf21efaaf20e622807c37c40e2d46a2",
+      "source_capture_payload_sha256": "7d04f38e1c7acfcdd24f95d25081f28a2ec6dd076b94664544ca5b0e4c76ace0",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 370,
+      "source_cycle_end_revolutions": 376,
+      "loop_join_normalized_error": 0.04731550000868982,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 44476.88655944843,
+        "mean_rpm": 1731.4916952719161,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 11
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-1950rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1950,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 42050.95449130844,
+      "relative_path": "audio/falling-coast-1950rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "515b6c1f3760a6deb0ea909462221df4df4a53deae6d834aff8ff55f5a652509",
+      "source_capture_payload_sha256": "07f66d23b2765dd329660954d865272f2ed3f357c3575259575f46f95bdea125",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 364,
+      "source_cycle_end_revolutions": 370,
+      "loop_join_normalized_error": 0.5333417916733876,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 42050.95449130844,
+        "mean_rpm": 1856.9503962317929,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 10
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-2100rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2100,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 39591.515359074416,
+      "relative_path": "audio/falling-coast-2100rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "9a41c1ab0abc76f2d31d2cbaaf1b157af685e96a9641d5044f109f7a862158d1",
+      "source_capture_payload_sha256": "bc52bbe5c50a6df83c69fdc462c16d490c9324f6ecdca19f50db9b2428b78f9b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 356,
+      "source_cycle_end_revolutions": 362,
+      "loop_join_normalized_error": 0.1447832321581287,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 39591.515359074416,
+        "mean_rpm": 2018.2382402169621,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-2250rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2250,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 37174.00610689453,
+      "relative_path": "audio/falling-coast-2250rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "8a41c41b54267b08ee591736d0d4924e84da5ece3f19626e83b9f8b4662d2a12",
+      "source_capture_payload_sha256": "4a1a2415053c30c5a4b2b97add40de7469d7b5c8a5f63ecac74bf335254c728c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 348,
+      "source_cycle_end_revolutions": 354,
+      "loop_join_normalized_error": 0.05192426579936893,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 37174.00610689453,
+        "mean_rpm": 2171.969450047446,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-2400rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2400,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 35520.5805508153,
+      "relative_path": "audio/falling-coast-2400rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "dbbeb66ec0a7f37b279f0ef0acb252ae223cf1b2b9f499bc3cc843cda5e60070",
+      "source_capture_payload_sha256": "6420634658195a6dcd7ee9d97ba2d4601d616d94e1dbae76b0aae736a2b577be",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 340,
+      "source_cycle_end_revolutions": 346,
+      "loop_join_normalized_error": 0.3405198874661489,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 35520.5805508153,
+        "mean_rpm": 2329.728928046133,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-2550rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2550,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 34027.19876284186,
+      "relative_path": "audio/falling-coast-2550rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "88d11bdeb2cb16dddbb79c2e051929a57635ef0bb6a538b230a005c4f3cea6f2",
+      "source_capture_payload_sha256": "8c7dcd6f9d108af011cb0165c241cca2405be25144b7898380e64fc3e20395ea",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 334,
+      "source_cycle_end_revolutions": 340,
+      "loop_join_normalized_error": 0.8328101930540507,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 34027.19876284186,
+        "mean_rpm": 2448.359285661661,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 7
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-2700rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2700,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 32521.79207608676,
+      "relative_path": "audio/falling-coast-2700rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "0693c4d419abae95a5e06d9c768a95cc73a8fd431fd9c11acfafc368454cdd37",
+      "source_capture_payload_sha256": "8521e090184ace7bb58c952537a8f589fe8992950f6fbf749321e68c2e083fe4",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 326,
+      "source_cycle_end_revolutions": 332,
+      "loop_join_normalized_error": 0.43708310695659963,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 32521.79207608676,
+        "mean_rpm": 2617.0364341365703,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 7
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-2800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 31749.201140276287,
+      "relative_path": "audio/falling-coast-2800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5bc8d20ee5a9d9f5b9cd668d7bbe614fae49898c92fd3df0368b0b055911ca19",
+      "source_capture_payload_sha256": "871c0180e8b00222a536de1b08eccd506d4dd449324d50f2de70789017b73efe",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 320,
+      "source_cycle_end_revolutions": 326,
+      "loop_join_normalized_error": 0.2844391477900415,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 31749.201140276287,
+        "mean_rpm": 2733.9423033873195,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-3200rpm-exhaust-1-dry-seam-closure",
+      "rpm": 3200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 29296.420828731207,
+      "relative_path": "audio/falling-coast-3200rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e46dcc676b84692cbd55d287bf5755cf6735ec58ec9f87ac55459bc1c9b0afcb",
+      "source_capture_payload_sha256": "8d8e4d9cdcb6a3c949c1a464e0590712a995a96b797d009dcfaf8b6bd4b77c37",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 300,
+      "source_cycle_end_revolutions": 306,
+      "loop_join_normalized_error": 0.3063444292247591,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 29296.420828731207,
+        "mean_rpm": 3132.7936165338538,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-coast-3500rpm-exhaust-1-dry-seam-closure",
+      "rpm": 3500,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 27817.539407660784,
+      "relative_path": "audio/falling-coast-3500rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "7a7d77e354b3b2d51b144dc98f244ad98bd584814d15149010e82d160805c7f1",
+      "source_capture_payload_sha256": "c505ddc1fa6ac846522b8222b3a81819eedfa92289afb7c9fa053f84693389bf",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 286,
+      "source_cycle_end_revolutions": 292,
+      "loop_join_normalized_error": 0.0342080074799407,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 27817.539407660784,
+        "mean_rpm": 3416.6115880428115,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 98006.22039608215,
+      "relative_path": "audio/falling-mid-800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "ba99839735acada5c347f15020b713abcacdb6c40dfdfaa812e42b0d328a4254",
+      "source_capture_payload_sha256": "1b3953efa9cfe0ae9ecddd06b7f23233f2d58ac50dde488f696751e2e5aad42d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 420,
+      "source_cycle_end_revolutions": 426,
+      "loop_join_normalized_error": 0.00865161949539703,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 98006.22039608215,
+        "mean_rpm": 730.8997122197621,
+        "mean_requested_throttle_01": 0.20000000000000007,
+        "mean_resolved_throttle_01": 0.9600000000000005,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 24
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-1000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 95977.63104626167,
+      "relative_path": "audio/falling-mid-1000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "b5037ff3120d472def6e61d8bb7a7bc68c270ef8dbd9fa78cdf0d1a26a1a25e5",
+      "source_capture_payload_sha256": "45ab4d8a117d79a14b125f7a2db7a7b807dbdd4210038150b7b42684a224daf4",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 410,
+      "source_cycle_end_revolutions": 416,
+      "loop_join_normalized_error": 0.04149700909532716,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 95977.63104626167,
+        "mean_rpm": 931.8286953419083,
+        "mean_requested_throttle_01": 0.20000000000000007,
+        "mean_resolved_throttle_01": 0.9600000000000005,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 19
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-1250rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1250,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 92547.0971088753,
+      "relative_path": "audio/falling-mid-1250rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "a1956441a5958fcfb6bbab084359a4452fd9ab99e7799dc1ab8d937e091aa5f1",
+      "source_capture_payload_sha256": "e5a451b1e3c393c1536dd58cd9f4f72d0721f0732949138595245378848b3c29",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 398,
+      "source_cycle_end_revolutions": 404,
+      "loop_join_normalized_error": 0.7859770077894837,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 92547.0971088753,
+        "mean_rpm": 1172.6514464106724,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9600000000000004,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 16
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-1500rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1500,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 89284.94376911077,
+      "relative_path": "audio/falling-mid-1500rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "dcb3f030433a0196bb9d5497cbbfdf242478e111efad25fb565fd91c4180bc49",
+      "source_capture_payload_sha256": "8f634de149cf1eff730154b7359957b793ee71149f1f4fa321582de293d5b505",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 386,
+      "source_cycle_end_revolutions": 392,
+      "loop_join_normalized_error": 0.8775342326048071,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 89284.94376911077,
+        "mean_rpm": 1413.0520236794275,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9600000000000003,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-1650rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1650,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 86719.98777640147,
+      "relative_path": "audio/falling-mid-1650rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "1dcf992a9dc049f8bf5f0a72a8f8053bca5ebc957c4e3c037d1aef42f961cda4",
+      "source_capture_payload_sha256": "e56acb8f4e086838e2effbbd68144a87c4048224934ccd96e4853613bf10d8c7",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 378,
+      "source_cycle_end_revolutions": 384,
+      "loop_join_normalized_error": 0.33547752946434106,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 86719.98777640147,
+        "mean_rpm": 1572.052138094814,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9600000000000003,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-1800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 83955.75013923192,
+      "relative_path": "audio/falling-mid-1800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "32590038f307fc65a5f513e2fe0e20d70c5924877cb09975e5f84e3a0b0d0805",
+      "source_capture_payload_sha256": "e4c1ba6516d3b39c7e1e775b2067d2c91c7e37e4090517ad2f99b50e5dddd250",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 370,
+      "source_cycle_end_revolutions": 376,
+      "loop_join_normalized_error": 0.4683035282106328,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 83955.75013923192,
+        "mean_rpm": 1731.4916952719161,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9600000000000002,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 11
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-1950rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1950,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 81735.96262383599,
+      "relative_path": "audio/falling-mid-1950rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "aaa3af14d0108e4734a210661bc52fdb800b545693c8bc90574fd9476e132517",
+      "source_capture_payload_sha256": "2b739f60386b183a5e2b31b7d36b793ac29afa006aa8067543a6d478cf9405a1",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 364,
+      "source_cycle_end_revolutions": 370,
+      "loop_join_normalized_error": 0.10501711363171606,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 81735.96262383599,
+        "mean_rpm": 1856.9503962317929,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9600000000000002,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 10
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-2100rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2100,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 79086.35719337084,
+      "relative_path": "audio/falling-mid-2100rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "862b9af1c156dc92ce903e900f272e8060906ccd9a427f85e495c768d207af04",
+      "source_capture_payload_sha256": "91916747742dc5bee7c591b530684083988e880cc35ea54838c9548a0e584835",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 356,
+      "source_cycle_end_revolutions": 362,
+      "loop_join_normalized_error": 0.058679101983711075,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 79086.35719337084,
+        "mean_rpm": 2018.2382402169621,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9600000000000001,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-2250rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2250,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 76189.04989468191,
+      "relative_path": "audio/falling-mid-2250rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "3bdbe6d8d8292f81d54c6e41d03b2f6672e4381d273aea90121abd6ab48e26ed",
+      "source_capture_payload_sha256": "cd39e3c8e162d08cd1d7251b0506a763c55ccffac0589eea082eff89469b4f2f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 348,
+      "source_cycle_end_revolutions": 354,
+      "loop_join_normalized_error": 0.0023521162856485027,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 76189.04989468191,
+        "mean_rpm": 2171.969450047446,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9600000000000001,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-2400rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2400,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 73463.8121318526,
+      "relative_path": "audio/falling-mid-2400rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "bdd562be0b3502340147d2aaf28a79a489001fa2b60294e0efd0c93f381ddab3",
+      "source_capture_payload_sha256": "a29dcb79bed64572c62ba1c91acad6401c9bce5a4431c59372f96952434252b2",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 340,
+      "source_cycle_end_revolutions": 346,
+      "loop_join_normalized_error": 0.10740509183727612,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 73463.8121318526,
+        "mean_rpm": 2329.728928046133,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-2550rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2550,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 71232.63789217085,
+      "relative_path": "audio/falling-mid-2550rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "d994e1300a94aa77890a7184828c0c6ca86ec4241030472fd9638d10109dd335",
+      "source_capture_payload_sha256": "ce9798ff98e85e4e073adfeb93142cb343ef349a714c419d62d9c2cad5f69f09",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 334,
+      "source_cycle_end_revolutions": 340,
+      "loop_join_normalized_error": 0.03326368037872165,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 71232.63789217085,
+        "mean_rpm": 2448.359285661661,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 7
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-2700rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2700,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 68462.3926350556,
+      "relative_path": "audio/falling-mid-2700rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "64d978a0c8ba67459087c3e2109ab158fbf1d0723d2fb39e55a3ad7ccaabeb57",
+      "source_capture_payload_sha256": "b2f99343a86d8a1156e5703918af9bd221ba3e04576694d3ed08311f4fb492ef",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 326,
+      "source_cycle_end_revolutions": 332,
+      "loop_join_normalized_error": 0.014779288225473084,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 68462.3926350556,
+        "mean_rpm": 2617.0364341365703,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 7
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-2800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 66323.62998473091,
+      "relative_path": "audio/falling-mid-2800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "07cfd48cfb145e65f3a81066d40140bc9e24a5259adaa349c8e48e39ff210094",
+      "source_capture_payload_sha256": "2c829f2d14960e4eee3b8cd2cc86263690d958302596e1b588cd354b77a12b5f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 320,
+      "source_cycle_end_revolutions": 326,
+      "loop_join_normalized_error": 0.02077843349186376,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 66323.62998473091,
+        "mean_rpm": 2733.9423033873195,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-3200rpm-exhaust-1-dry-seam-closure",
+      "rpm": 3200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 60539.17490214207,
+      "relative_path": "audio/falling-mid-3200rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "16471835fd0f07c564dfed09b3e0343592f82865823c03da52f3cdee15cda18d",
+      "source_capture_payload_sha256": "fff932ef65dd234f37bd5e7d564417872cfc228cbd6acf32b9bf74be1c83fd54",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 300,
+      "source_cycle_end_revolutions": 306,
+      "loop_join_normalized_error": 0.07277289531096061,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 60539.17490214207,
+        "mean_rpm": 3132.7936165338538,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-mid-3500rpm-exhaust-1-dry-seam-closure",
+      "rpm": 3500,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 56553.798329439465,
+      "relative_path": "audio/falling-mid-3500rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "31c7c68f4f395a35a1e6fccc9ca86e2367507173c47c2d5b6613017840246d94",
+      "source_capture_payload_sha256": "0f7d83e6ad88d69b46ce55b4fe2ae5c67bf0c195d71eec8da9633b9dbe5bdeda",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 286,
+      "source_cycle_end_revolutions": 292,
+      "loop_join_normalized_error": 0.09516476905406372,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 56553.798329439465,
+        "mean_rpm": 3416.6115880428115,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101292.16227158926,
+      "relative_path": "audio/falling-power-800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "d83e0e23f0c48de11249bbcf4d93448aaa55409dd11d7ab0ad4ae12272012cdb",
+      "source_capture_payload_sha256": "6e7d1c40c74a2a1e74af92707015a0e61e3c10f99675256d4b60d983aaa6ac9d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 420,
+      "source_cycle_end_revolutions": 426,
+      "loop_join_normalized_error": 0.013470149231014049,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101292.16227158926,
+        "mean_rpm": 730.8997122197621,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 24
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-1000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101267.12773675697,
+      "relative_path": "audio/falling-power-1000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5c3a3b099e68bab3b16923c33a8078a1a9fa9269f66230a7e689c32d4a97c294",
+      "source_capture_payload_sha256": "750e93ee7f0d8e1c55373dc5d3916cc8f474fe7b4782e8a718782513e78e8ef2",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 410,
+      "source_cycle_end_revolutions": 416,
+      "loop_join_normalized_error": 0.038797773192891946,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101267.12773675697,
+        "mean_rpm": 931.8286953419083,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 19
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-1250rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1250,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101260.69327788024,
+      "relative_path": "audio/falling-power-1250rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "7b14595294d52af78dcb67eda254cc519ef443b2e1b5218d6efac18a6ed24e49",
+      "source_capture_payload_sha256": "34f0c168210b30c00c27e959456ee30ea865b5c7ae3bf1a964dfd38fa4b34634",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 398,
+      "source_cycle_end_revolutions": 404,
+      "loop_join_normalized_error": 0.4086227687864898,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101260.69327788024,
+        "mean_rpm": 1172.6514464106724,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 16
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-1500rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1500,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101177.97169422708,
+      "relative_path": "audio/falling-power-1500rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "787dfe41c18f56c47e0eecfa30052945e6e834c18cb1cfb656ada4eaf04ec2c7",
+      "source_capture_payload_sha256": "29026c2cae697e16c77e30a6d6c1443f2d02bbccde4275145bfc49996fd8038d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 386,
+      "source_cycle_end_revolutions": 392,
+      "loop_join_normalized_error": 0.8160274649477127,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101177.97169422708,
+        "mean_rpm": 1413.0520236794275,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-1650rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1650,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101137.4820578337,
+      "relative_path": "audio/falling-power-1650rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "204425fd2f1b5cfbe504fee793d40df030122affac1a7ad9159490c717c7e39a",
+      "source_capture_payload_sha256": "3fa95651277c347e637f85fcca9f0b52bf6f54908e91a8a2f1cc48f1061ac3f8",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 378,
+      "source_cycle_end_revolutions": 384,
+      "loop_join_normalized_error": 0.2943521575987148,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101137.4820578337,
+        "mean_rpm": 1572.052138094814,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-1800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101057.87958132458,
+      "relative_path": "audio/falling-power-1800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "7391fa7d462adbbe0c13e8f5218092f37d0461ada967c96cfef5035c0c487a33",
+      "source_capture_payload_sha256": "d4803cb723498c0ee6cebe1fe2e6cb6ff58cd031f0d24d1b84099963f57d261c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 370,
+      "source_cycle_end_revolutions": 376,
+      "loop_join_normalized_error": 0.44046842641239947,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101057.87958132458,
+        "mean_rpm": 1731.4916952719161,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 11
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-1950rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1950,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101012.91432895695,
+      "relative_path": "audio/falling-power-1950rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e0bccb86f420a7860a2551fdd837b2a237e444f59e0e1fb15983526a073d47b6",
+      "source_capture_payload_sha256": "406aa353aba13b4937f2c1927342b35998dc12bab6689c5f3eec287dba9ffb1c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 364,
+      "source_cycle_end_revolutions": 370,
+      "loop_join_normalized_error": 0.09191631377827135,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101012.91432895695,
+        "mean_rpm": 1856.9503962317929,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 10
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-2100rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2100,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100955.13683210593,
+      "relative_path": "audio/falling-power-2100rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "af42125a90f5713b096109f874ab14b8d45931ea96296cffed020863dea7eb0e",
+      "source_capture_payload_sha256": "b5949a7854d703baf7db0562749e2e9be238e2c54d2d8917caf14dbf83f2a076",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 356,
+      "source_cycle_end_revolutions": 362,
+      "loop_join_normalized_error": 0.0003351412823100548,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100955.13683210593,
+        "mean_rpm": 2018.2382402169621,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-2250rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2250,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100958.75605541962,
+      "relative_path": "audio/falling-power-2250rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "ac98e33e1adc81c40bdf54c602b13f0e9840b75bb11e3aa4c5b325aeed91c014",
+      "source_capture_payload_sha256": "4fc9f1a175d7da9779ac47f92654e83fd62162cee41851f866bdb1a81afc0221",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 348,
+      "source_cycle_end_revolutions": 354,
+      "loop_join_normalized_error": 0.0015145153417650261,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100958.75605541962,
+        "mean_rpm": 2171.969450047446,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-2400rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2400,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101115.8033969746,
+      "relative_path": "audio/falling-power-2400rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "a66e17b62cee2974fe8ae0627ef88d91a368041dfb83f57c1d7c82bb93456376",
+      "source_capture_payload_sha256": "1d1288433c11d6a00b76a3fac4bcda33f8165810bd691fff6d259fcd2ec2cd41",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 340,
+      "source_cycle_end_revolutions": 346,
+      "loop_join_normalized_error": 0.018523325613462035,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101115.8033969746,
+        "mean_rpm": 2329.728928046133,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-2550rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2550,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101184.57016317046,
+      "relative_path": "audio/falling-power-2550rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "0099765d007edf88ef0f8975087cadda83c54e430f2f9186f05504bb62a1b18d",
+      "source_capture_payload_sha256": "d6e53dabc1076f04bf46a123b5517a33478871caf82f69eef93228c2d02bb5b4",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 334,
+      "source_cycle_end_revolutions": 340,
+      "loop_join_normalized_error": 0.014236662839531082,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101184.57016317046,
+        "mean_rpm": 2448.359285661661,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 7
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-2700rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2700,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100691.74153609683,
+      "relative_path": "audio/falling-power-2700rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "651306fbee20043077ecfd414c21c9b81184520a64c86c0921c20c8b2c3234ea",
+      "source_capture_payload_sha256": "f1efb93a4b8de7afaf54c514229d0a431b9ce288370966255335bdecf9c5491c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 326,
+      "source_cycle_end_revolutions": 332,
+      "loop_join_normalized_error": 0.005558659377046904,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100691.74153609683,
+        "mean_rpm": 2617.0364341365703,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 7
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-2800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100490.53915674826,
+      "relative_path": "audio/falling-power-2800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "961d1e053985da073846eff6cd8f14bdc8b07af79edba1cfbe6857893e3edaa7",
+      "source_capture_payload_sha256": "9b0f7f00f316c5e3393e4c5b74fadcd728e3a70927138a5f55005312d15031e7",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 320,
+      "source_cycle_end_revolutions": 326,
+      "loop_join_normalized_error": 0.04886591806200879,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100490.53915674826,
+        "mean_rpm": 2733.9423033873195,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-3200rpm-exhaust-1-dry-seam-closure",
+      "rpm": 3200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100315.47484641057,
+      "relative_path": "audio/falling-power-3200rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "dcb4405d826f6f88a8dd7d05e5811f94906e70026192cf4b0db1f48a520fa658",
+      "source_capture_payload_sha256": "74abe5a052b5bd103dd8af43c80e8cab1255d98caf40387e3c6b47c609a5bef0",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 300,
+      "source_cycle_end_revolutions": 306,
+      "loop_join_normalized_error": 0.09680427052116922,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100315.47484641057,
+        "mean_rpm": 3132.7936165338538,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "radial-5-cleanroom-falling-power-3500rpm-exhaust-1-dry-seam-closure",
+      "rpm": 3500,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100143.00044617316,
+      "relative_path": "audio/falling-power-3500rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "8654a8db7b18443fd818fb4a59bd7574b63f488caa35cfbc9c5319274a48c0ac",
+      "source_capture_payload_sha256": "610e561b623ceecfe15c06a1b7cba4d7396c671dfd12e170e09e390e1ec4e445",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 286,
+      "source_cycle_end_revolutions": 292,
+      "loop_join_normalized_error": 0.05874175696824132,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100143.00044617316,
+        "mean_rpm": 3416.6115880428115,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "radial-5-cleanroom",
+      "sha256": "6acf480746b42014f0abff3bcb79a331f0af30a8918e3d645b72da5cf93a16dd"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "falling-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "8ccd6bdc72be6bebd164eeda1801fd6b8cb718a4ede4965c804303b8a35e7e2a",
+    "physics_rate_hz": 10000,
+    "source_delivery_rate_hz": 192000
+  }
+}

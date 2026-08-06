@@ -1,0 +1,1816 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-held-route",
+  "id": "sequoia-3ur-fe-cleanroom-exact-held-exhaust-even-dry-live-preview",
+  "engine": "sequoia-3ur-fe-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "exhaust.even.dry"
+  },
+  "phase": {
+    "cycle_revolutions": 2,
+    "samples_per_cycle": 4096,
+    "residual_cycle_count": 48,
+    "residual_boundary_value": 0,
+    "residual_taper": {
+      "shape": "smoothstep",
+      "fraction_per_edge": 0.0625,
+      "frames_per_edge": 256
+    }
+  },
+  "domain": {
+    "rpm_anchors": [
+      650,
+      900,
+      1200,
+      1600,
+      2100,
+      2800,
+      3600,
+      4400,
+      5200,
+      6000,
+      6100
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "load_lanes": [
+      {
+        "id": "coast",
+        "throttle01": 0
+      },
+      {
+        "id": "mid",
+        "throttle01": 0.2
+      },
+      {
+        "id": "power",
+        "throttle01": 1
+      }
+    ]
+  },
+  "cells": [
+    {
+      "id": "650rpm-coast-exhaust-even-dry",
+      "rpm": 650,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "coast"
+        ],
+        "coalesced_capture_throttles_01": [
+          0
+        ]
+      },
+      "manifold_pressure_pa_abs": 39736.81873093701,
+      "source_cycle_begin_revolutions": 44,
+      "source_cycle_end_revolutions": 140,
+      "mean": {
+        "relative_path": "audio/650rpm-coast.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "d665146a835a12e53761e83d871757b3c442e58c31b703da5f46d6e0ccb4a3bc"
+      },
+      "residual_bank": {
+        "relative_path": "audio/650rpm-coast.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "95faa50a3dd2800551f6ed4948789021359a06c5431e670ed98ec102f49aac9a",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 39736.81873093701,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 443
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.00001419537825487893,
+        "mean_rms": 0.000014195161383024256,
+        "raw_residual_rms_over_source_rms": 0.005922857441076483,
+        "tapered_residual_rms_over_source_rms": 0.00585206983935543,
+        "reconstruction_error_rms_over_source_rms": 0.0007271029425873546,
+        "mean_seam_absolute_delta": 2.3836037144064903e-8,
+        "mean_seam_over_mean_derivative_rms": 0.1271550156777192,
+        "mean_closure_correction_absolute": 4.057871668312229e-9,
+        "mean_closure_correction_over_source_rms": 0.0002858586502911639,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 8.30723449436189e-8,
+        "tapered_residual_power": 6.901014494431606e-15
+      }
+    },
+    {
+      "id": "650rpm-mid-exhaust-even-dry",
+      "rpm": 650,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "mid"
+        ],
+        "coalesced_capture_throttles_01": [
+          0.2
+        ]
+      },
+      "manifold_pressure_pa_abs": 98867.73846158864,
+      "source_cycle_begin_revolutions": 44,
+      "source_cycle_end_revolutions": 140,
+      "mean": {
+        "relative_path": "audio/650rpm-mid.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "ceffecb91f75720bc0b82d19cb9b79131f744dbc278a1e929c53738e123d79e0"
+      },
+      "residual_bank": {
+        "relative_path": "audio/650rpm-mid.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "55f4b4beca743271c1e2484d7e32dddf9fc3ae77bc33fc876f6cc75b86543068",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 98867.73846158864,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 443
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.00036067806705351825,
+        "mean_rms": 0.0003606692345312898,
+        "raw_residual_rms_over_source_rms": 0.006843848832315788,
+        "tapered_residual_rms_over_source_rms": 0.006834805656413972,
+        "reconstruction_error_rms_over_source_rms": 0.0002581232120950849,
+        "mean_seam_absolute_delta": 1.7876664060167968e-7,
+        "mean_seam_over_mean_derivative_rms": 0.03381614347596917,
+        "mean_closure_correction_absolute": 1.840127576240353e-8,
+        "mean_closure_correction_over_source_rms": 0.0000510185604373695,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.0000024651644928418445,
+        "tapered_residual_power": 6.077035976768189e-12
+      }
+    },
+    {
+      "id": "650rpm-power-exhaust-even-dry",
+      "rpm": 650,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "power"
+        ],
+        "coalesced_capture_throttles_01": [
+          1
+        ]
+      },
+      "manifold_pressure_pa_abs": 101297.36305051029,
+      "source_cycle_begin_revolutions": 44,
+      "source_cycle_end_revolutions": 140,
+      "mean": {
+        "relative_path": "audio/650rpm-power.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "ca593d4171e88fa60a87f2ef1084cbb7fded9e469a33e4fa4aa502f1a5827432"
+      },
+      "residual_bank": {
+        "relative_path": "audio/650rpm-power.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "314d0a621cc6bc5a20be07b952c5c9f97ffc2fa9df9f3f4dd44cb12a4515336a",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101297.36305051029,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 443
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0004142401865749426,
+        "mean_rms": 0.0004142294731040249,
+        "raw_residual_rms_over_source_rms": 0.007076008135896643,
+        "tapered_residual_rms_over_source_rms": 0.007067985267158425,
+        "reconstruction_error_rms_over_source_rms": 0.0002467991413325587,
+        "mean_seam_absolute_delta": 2.0424340618774295e-7,
+        "mean_seam_over_mean_derivative_rms": 0.03427823609116515,
+        "mean_closure_correction_absolute": 1.554788771804239e-8,
+        "mean_closure_correction_over_source_rms": 0.00003753350887222414,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.0000029278435357766515,
+        "tapered_residual_power": 8.572267769989125e-12
+      }
+    },
+    {
+      "id": "900rpm-coast-exhaust-even-dry",
+      "rpm": 900,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "coast"
+        ],
+        "coalesced_capture_throttles_01": [
+          0
+        ]
+      },
+      "manifold_pressure_pa_abs": 29761.4913154647,
+      "source_cycle_begin_revolutions": 56,
+      "source_cycle_end_revolutions": 152,
+      "mean": {
+        "relative_path": "audio/900rpm-coast.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "4e9c4fe7bd47398f35f65e9897a603e826ef329877e516f84e3fdae227b7172b"
+      },
+      "residual_bank": {
+        "relative_path": "audio/900rpm-coast.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "aca603374843d7cdeb0609ff93513269f83fb5b43c2952db7aa23ccf5fccbf9f",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 29761.4913154647,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 320
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.000042610628271113235,
+        "mean_rms": 0.000042610066595797474,
+        "raw_residual_rms_over_source_rms": 0.00548654382941515,
+        "tapered_residual_rms_over_source_rms": 0.005426925610338227,
+        "reconstruction_error_rms_over_source_rms": 0.000610038804798724,
+        "mean_seam_absolute_delta": 5.2712493925355375e-8,
+        "mean_seam_over_mean_derivative_rms": 0.10465251335545656,
+        "mean_closure_correction_absolute": 2.012863357474915e-9,
+        "mean_closure_correction_over_source_rms": 0.00004723852801859491,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 2.312447098371065e-7,
+        "tapered_residual_power": 5.3474115827647576e-14
+      }
+    },
+    {
+      "id": "900rpm-mid-exhaust-even-dry",
+      "rpm": 900,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "mid"
+        ],
+        "coalesced_capture_throttles_01": [
+          0.2
+        ]
+      },
+      "manifold_pressure_pa_abs": 96499.19190805018,
+      "source_cycle_begin_revolutions": 56,
+      "source_cycle_end_revolutions": 152,
+      "mean": {
+        "relative_path": "audio/900rpm-mid.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "e43c4e576d9aa2be56655c97d00d0551b540b63cdb2a5282e7d9da395b28f4e5"
+      },
+      "residual_bank": {
+        "relative_path": "audio/900rpm-mid.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "94d31c2286f60d2286101d38f62e03a7adf6042ce4d2a91989d19d2f3fac92ac",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 96499.19190805018,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 320
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0006001388437974688,
+        "mean_rms": 0.0006001247076642257,
+        "raw_residual_rms_over_source_rms": 0.006928423672500649,
+        "tapered_residual_rms_over_source_rms": 0.006907669875765811,
+        "reconstruction_error_rms_over_source_rms": 0.0003916308371990166,
+        "mean_seam_absolute_delta": 0.0000011396186891943216,
+        "mean_seam_over_mean_derivative_rms": 0.14980080225415487,
+        "mean_closure_correction_absolute": 3.2646312320112154e-8,
+        "mean_closure_correction_over_source_rms": 0.00005439793250764723,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000004145561012576699,
+        "tapered_residual_power": 1.7185676108995947e-11
+      }
+    },
+    {
+      "id": "900rpm-power-exhaust-even-dry",
+      "rpm": 900,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "power"
+        ],
+        "coalesced_capture_throttles_01": [
+          1
+        ]
+      },
+      "manifold_pressure_pa_abs": 101267.72114564775,
+      "source_cycle_begin_revolutions": 56,
+      "source_cycle_end_revolutions": 152,
+      "mean": {
+        "relative_path": "audio/900rpm-power.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "b5ab26d2d633a14ad002999274ec8a8c8fcb313fa82228e7326d329b6b16fba1"
+      },
+      "residual_bank": {
+        "relative_path": "audio/900rpm-power.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "8b687b1515165bfeece6be7f515f6d370bbfd715d7c11752cfa86d40232c1c85",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101267.72114564775,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 320
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0007253731754507533,
+        "mean_rms": 0.0007253528352475267,
+        "raw_residual_rms_over_source_rms": 0.007563155276707285,
+        "tapered_residual_rms_over_source_rms": 0.007548439969500626,
+        "reconstruction_error_rms_over_source_rms": 0.000348611499969426,
+        "mean_seam_absolute_delta": 0.0000013194221537560225,
+        "mean_seam_over_mean_derivative_rms": 0.14558217732666498,
+        "mean_closure_correction_absolute": 3.764277304682431e-8,
+        "mean_closure_correction_over_source_rms": 0.00005189435496209625,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000005475435870376056,
+        "tapered_residual_power": 2.9980397970600805e-11
+      }
+    },
+    {
+      "id": "1200rpm-coast-exhaust-even-dry",
+      "rpm": 1200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "coast"
+        ],
+        "coalesced_capture_throttles_01": [
+          0
+        ]
+      },
+      "manifold_pressure_pa_abs": 23326.049762525654,
+      "source_cycle_begin_revolutions": 72,
+      "source_cycle_end_revolutions": 168,
+      "mean": {
+        "relative_path": "audio/1200rpm-coast.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "483169850afdd5bc33418e1600fea46f9b243912e4ddadab2dde2f6a77587666"
+      },
+      "residual_bank": {
+        "relative_path": "audio/1200rpm-coast.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "90cebe1dbf96da315a2066447f72a63db0cb3d1ea24e356713c5f8dd81b65422",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 23326.049762525654,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 240
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.00009762996324803239,
+        "mean_rms": 0.00009763087638002114,
+        "raw_residual_rms_over_source_rms": 0.0043174794080522985,
+        "tapered_residual_rms_over_source_rms": 0.003939014460184709,
+        "reconstruction_error_rms_over_source_rms": 0.0015455891381579664,
+        "mean_seam_absolute_delta": 0.0000022730673663318157,
+        "mean_seam_over_mean_derivative_rms": 2.121451592395603,
+        "mean_closure_correction_absolute": 3.231995530464404e-8,
+        "mean_closure_correction_over_source_rms": 0.00033104545192272626,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 3.8456583698130127e-7,
+        "tapered_residual_power": 1.4789088297312879e-13
+      }
+    },
+    {
+      "id": "1200rpm-mid-exhaust-even-dry",
+      "rpm": 1200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "mid"
+        ],
+        "coalesced_capture_throttles_01": [
+          0.2
+        ]
+      },
+      "manifold_pressure_pa_abs": 92812.53969115006,
+      "source_cycle_begin_revolutions": 72,
+      "source_cycle_end_revolutions": 168,
+      "mean": {
+        "relative_path": "audio/1200rpm-mid.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "f7fa00d67ec608ee1f9fec911fb7abc390505076e5d6ce1636d570b4ba0db880"
+      },
+      "residual_bank": {
+        "relative_path": "audio/1200rpm-mid.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "6b140f9a06eb1a7fd8a5154ddcca6bcdbbde5174b72769934b9909e1b7f6bffe",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 92812.53969115006,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 240
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0008740325019663759,
+        "mean_rms": 0.0008740025646434705,
+        "raw_residual_rms_over_source_rms": 0.007326748042187966,
+        "tapered_residual_rms_over_source_rms": 0.00658868879083352,
+        "reconstruction_error_rms_over_source_rms": 0.002214489471314784,
+        "mean_seam_absolute_delta": 0.00002315283859388728,
+        "mean_seam_over_mean_derivative_rms": 2.2780442412146353,
+        "mean_closure_correction_absolute": 1.278602063114963e-7,
+        "mean_closure_correction_over_source_rms": 0.0001462877021436156,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000005758728148530037,
+        "tapered_residual_power": 3.316294988867219e-11
+      }
+    },
+    {
+      "id": "1200rpm-power-exhaust-even-dry",
+      "rpm": 1200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "power"
+        ],
+        "coalesced_capture_throttles_01": [
+          1
+        ]
+      },
+      "manifold_pressure_pa_abs": 101222.30329707383,
+      "source_cycle_begin_revolutions": 72,
+      "source_cycle_end_revolutions": 168,
+      "mean": {
+        "relative_path": "audio/1200rpm-power.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "09c23fd4839d4f8470cfd5b3f9bc1c069de51de6fd35acfe14834f0ab25845e0"
+      },
+      "residual_bank": {
+        "relative_path": "audio/1200rpm-power.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "87e5c826258319c72427a9c8a99144d36322825cad7ad448629361925dfff5fd",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101222.30329707383,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 240
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0011512041940144088,
+        "mean_rms": 0.0011511503845042423,
+        "raw_residual_rms_over_source_rms": 0.008821531756484636,
+        "tapered_residual_rms_over_source_rms": 0.00808004576358305,
+        "reconstruction_error_rms_over_source_rms": 0.0024382568072898406,
+        "mean_seam_absolute_delta": 0.000032334181014448404,
+        "mean_seam_over_mean_derivative_rms": 2.2751946459801804,
+        "mean_closure_correction_absolute": 2.0294661832545601e-7,
+        "mean_closure_correction_over_source_rms": 0.00017629072182038619,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000009301782570865163,
+        "tapered_residual_power": 8.652315899565093e-11
+      }
+    },
+    {
+      "id": "1600rpm-coast-exhaust-even-dry",
+      "rpm": 1600,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "coast"
+        ],
+        "coalesced_capture_throttles_01": [
+          0
+        ]
+      },
+      "manifold_pressure_pa_abs": 18551.086079568704,
+      "source_cycle_begin_revolutions": 92,
+      "source_cycle_end_revolutions": 188,
+      "mean": {
+        "relative_path": "audio/1600rpm-coast.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "5e5206eb7c3f2035ef90a772f0cf23f788ec9b22d8500aa14dd1aaa05b807e11"
+      },
+      "residual_bank": {
+        "relative_path": "audio/1600rpm-coast.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "1f99d15794122580c0f5bcaaa253514b26f362c062aa38a7392e773faf08b0fb",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 18551.086079568704,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 180
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.00017863575540674357,
+        "mean_rms": 0.00017863416156951054,
+        "raw_residual_rms_over_source_rms": 0.004397722920749975,
+        "tapered_residual_rms_over_source_rms": 0.004392811811961696,
+        "reconstruction_error_rms_over_source_rms": 0.00012510361612697623,
+        "mean_seam_absolute_delta": 4.931098374072462e-8,
+        "mean_seam_over_mean_derivative_rms": 0.0303041705206629,
+        "mean_closure_correction_absolute": 3.273783022448822e-9,
+        "mean_closure_correction_over_source_rms": 0.00001832658313558001,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 7.847132563894435e-7,
+        "tapered_residual_power": 6.157748947533246e-13
+      }
+    },
+    {
+      "id": "1600rpm-mid-exhaust-even-dry",
+      "rpm": 1600,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "mid"
+        ],
+        "coalesced_capture_throttles_01": [
+          0.2
+        ]
+      },
+      "manifold_pressure_pa_abs": 86808.06216928155,
+      "source_cycle_begin_revolutions": 92,
+      "source_cycle_end_revolutions": 188,
+      "mean": {
+        "relative_path": "audio/1600rpm-mid.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "994a063ea8ab3eda963575cdbfce4f3ccf29f6fde78b897dc15f2bb8d828f0e2"
+      },
+      "residual_bank": {
+        "relative_path": "audio/1600rpm-mid.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "6d078f492957a231f8522f75fb4cf458c1818bd587379bd9ebbafc4535e55bc1",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 86808.06216928155,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 180
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0011311143229364746,
+        "mean_rms": 0.0011310752359658556,
+        "raw_residual_rms_over_source_rms": 0.008348819364008081,
+        "tapered_residual_rms_over_source_rms": 0.008266456470487833,
+        "reconstruction_error_rms_over_source_rms": 0.00039634486273301467,
+        "mean_seam_absolute_delta": 1.436856109648943e-7,
+        "mean_seam_over_mean_derivative_rms": 0.011262826953748462,
+        "mean_closure_correction_absolute": 6.519561187197647e-9,
+        "mean_closure_correction_over_source_rms": 0.000005763839299879325,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000009350307313699684,
+        "tapered_residual_power": 8.74282468606258e-11
+      }
+    },
+    {
+      "id": "1600rpm-power-exhaust-even-dry",
+      "rpm": 1600,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "power"
+        ],
+        "coalesced_capture_throttles_01": [
+          1
+        ]
+      },
+      "manifold_pressure_pa_abs": 101124.99044443482,
+      "source_cycle_begin_revolutions": 92,
+      "source_cycle_end_revolutions": 188,
+      "mean": {
+        "relative_path": "audio/1600rpm-power.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "21dedf647b863f43661dbc9e29dd9e329416f724be650c58bd176707502c933c"
+      },
+      "residual_bank": {
+        "relative_path": "audio/1600rpm-power.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "ab097d7e5933bba57d5a420c37f545eae08700158069dba26b92119193375de6",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101124.99044443482,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 180
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0016340942212726595,
+        "mean_rms": 0.0016340002332664585,
+        "raw_residual_rms_over_source_rms": 0.010692860488665312,
+        "tapered_residual_rms_over_source_rms": 0.01060506538748103,
+        "reconstruction_error_rms_over_source_rms": 0.000454176666705922,
+        "mean_seam_absolute_delta": 3.6909477785229683e-7,
+        "mean_seam_over_mean_derivative_rms": 0.020321161482724795,
+        "mean_closure_correction_absolute": 9.673688812993596e-9,
+        "mean_closure_correction_over_source_rms": 0.000005919908832098781,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.00001732967606590145,
+        "tapered_residual_power": 3.0031767254907753e-10
+      }
+    },
+    {
+      "id": "2100rpm-coast-exhaust-even-dry",
+      "rpm": 2100,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "coast"
+        ],
+        "coalesced_capture_throttles_01": [
+          0
+        ]
+      },
+      "manifold_pressure_pa_abs": 15189.637255889738,
+      "source_cycle_begin_revolutions": 120,
+      "source_cycle_end_revolutions": 216,
+      "mean": {
+        "relative_path": "audio/2100rpm-coast.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "af76ad0678169ad6a4656be57224408a70de6543e445c8c848bf9c2037406b76"
+      },
+      "residual_bank": {
+        "relative_path": "audio/2100rpm-coast.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "85fdf22811555d9bb6546ded28ac970d03f2183a351c272c85dc11973ab6d9e0",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 15189.637255889738,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 137
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0002784806056982017,
+        "mean_rms": 0.0002784773668226007,
+        "raw_residual_rms_over_source_rms": 0.004964310032809499,
+        "tapered_residual_rms_over_source_rms": 0.004904612750120558,
+        "reconstruction_error_rms_over_source_rms": 0.0005714634654151631,
+        "mean_seam_absolute_delta": 0.0000011682277545332909,
+        "mean_seam_over_mean_derivative_rms": 0.5531184470717303,
+        "mean_closure_correction_absolute": 3.7954729729532425e-9,
+        "mean_closure_correction_over_source_rms": 0.000013629218320023754,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.0000013658395293686957,
+        "tapered_residual_power": 1.8655176199861002e-12
+      }
+    },
+    {
+      "id": "2100rpm-mid-exhaust-even-dry",
+      "rpm": 2100,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "mid"
+        ],
+        "coalesced_capture_throttles_01": [
+          0.2
+        ]
+      },
+      "manifold_pressure_pa_abs": 78263.08617032206,
+      "source_cycle_begin_revolutions": 120,
+      "source_cycle_end_revolutions": 216,
+      "mean": {
+        "relative_path": "audio/2100rpm-mid.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "db2a2a4ea319d8eb3bf66d72179bdcb78740be21c1f9fa07d659f99ff2a20ef0"
+      },
+      "residual_bank": {
+        "relative_path": "audio/2100rpm-mid.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "4b7d7360b01160c6e99fa522535ad876540c4b3eb1eae00d9fb548c7421c0b50",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 78263.08617032206,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 137
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0012816942376283815,
+        "mean_rms": 0.0012816245382013998,
+        "raw_residual_rms_over_source_rms": 0.010354048295531852,
+        "tapered_residual_rms_over_source_rms": 0.010351779753800474,
+        "reconstruction_error_rms_over_source_rms": 0.00016684045766773972,
+        "mean_seam_absolute_delta": 3.710010787472129e-7,
+        "mean_seam_over_mean_derivative_rms": 0.027328368272480846,
+        "mean_closure_correction_absolute": 2.6305770006715737e-8,
+        "mean_closure_correction_over_source_rms": 0.000020524216489723282,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000013267816459644213,
+        "tapered_residual_power": 1.7603495360680591e-10
+      }
+    },
+    {
+      "id": "2100rpm-power-exhaust-even-dry",
+      "rpm": 2100,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "power"
+        ],
+        "coalesced_capture_throttles_01": [
+          1
+        ]
+      },
+      "manifold_pressure_pa_abs": 100960.72212411033,
+      "source_cycle_begin_revolutions": 120,
+      "source_cycle_end_revolutions": 216,
+      "mean": {
+        "relative_path": "audio/2100rpm-power.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "eb4bff9c79aa0d95ee5ca85815b688e22f3fe00c2eaf23955fbb09491bf34152"
+      },
+      "residual_bank": {
+        "relative_path": "audio/2100rpm-power.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "b4fbc7961e93b09425fe5953dece7d07893eab89de0ff0b952a8e8495d13d2c6",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100960.72212411033,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 137
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.002173480078791144,
+        "mean_rms": 0.0021732744927525473,
+        "raw_residual_rms_over_source_rms": 0.013564128751947261,
+        "tapered_residual_rms_over_source_rms": 0.013550417084632702,
+        "reconstruction_error_rms_over_source_rms": 0.0004679705757874873,
+        "mean_seam_absolute_delta": 0.0000011689262464642525,
+        "mean_seam_over_mean_derivative_rms": 0.05810333403306676,
+        "mean_closure_correction_absolute": 1.5072024931806274e-7,
+        "mean_closure_correction_over_source_rms": 0.00006934512572201306,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.00002945156159276035,
+        "tapered_residual_power": 8.673944802521565e-10
+      }
+    },
+    {
+      "id": "2800rpm-coast-exhaust-even-dry",
+      "rpm": 2800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "coast"
+        ],
+        "coalesced_capture_throttles_01": [
+          0
+        ]
+      },
+      "manifold_pressure_pa_abs": 12563.988835010294,
+      "source_cycle_begin_revolutions": 156,
+      "source_cycle_end_revolutions": 252,
+      "mean": {
+        "relative_path": "audio/2800rpm-coast.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "503c5b87b1aef963cc6571631d10d9920636898e005287fd5133708ace757841"
+      },
+      "residual_bank": {
+        "relative_path": "audio/2800rpm-coast.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "29ef36b679bc14df9a5becbb8d095a28af295a301d7088bb2c4c25f6f485dd77",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 12563.988835010294,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 102
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.00040618214937343197,
+        "mean_rms": 0.000406176638151385,
+        "raw_residual_rms_over_source_rms": 0.0051886210745375845,
+        "tapered_residual_rms_over_source_rms": 0.004675238560340527,
+        "reconstruction_error_rms_over_source_rms": 0.0018612607587945305,
+        "mean_seam_absolute_delta": 0.0000014640390872955322,
+        "mean_seam_over_mean_derivative_rms": 0.5521484993364727,
+        "mean_closure_correction_absolute": 5.727997631874322e-9,
+        "mean_closure_correction_over_source_rms": 0.000014102041758137848,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.0000018989984472726651,
+        "tapered_residual_power": 3.6061951027439933e-12
+      }
+    },
+    {
+      "id": "2800rpm-mid-exhaust-even-dry",
+      "rpm": 2800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "mid"
+        ],
+        "coalesced_capture_throttles_01": [
+          0.2
+        ]
+      },
+      "manifold_pressure_pa_abs": 66206.3583888242,
+      "source_cycle_begin_revolutions": 156,
+      "source_cycle_end_revolutions": 252,
+      "mean": {
+        "relative_path": "audio/2800rpm-mid.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "42188e12351c08fcd06039ff0d003fa8249637da1177d60dac96850909c79fd1"
+      },
+      "residual_bank": {
+        "relative_path": "audio/2800rpm-mid.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "29017beacb585521573cd0f1e89699471410dc2fe8e5d298631b5156ad647a22",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 66206.3583888242,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 102
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0012879515125845333,
+        "mean_rms": 0.0012879122386897511,
+        "raw_residual_rms_over_source_rms": 0.011777925982782522,
+        "tapered_residual_rms_over_source_rms": 0.010875534486017618,
+        "reconstruction_error_rms_over_source_rms": 0.0032708537766752603,
+        "mean_seam_absolute_delta": 0.00002727154060266912,
+        "mean_seam_over_mean_derivative_rms": 2.3123363062201685,
+        "mean_closure_correction_absolute": 6.310765456873924e-7,
+        "mean_closure_correction_over_source_rms": 0.000489984707903336,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000014007161091431645,
+        "tapered_residual_power": 1.9620056184131657e-10
+      }
+    },
+    {
+      "id": "2800rpm-power-exhaust-even-dry",
+      "rpm": 2800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "power"
+        ],
+        "coalesced_capture_throttles_01": [
+          1
+        ]
+      },
+      "manifold_pressure_pa_abs": 100652.96318034586,
+      "source_cycle_begin_revolutions": 156,
+      "source_cycle_end_revolutions": 252,
+      "mean": {
+        "relative_path": "audio/2800rpm-power.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "0ae971360c909545c3c419ee9d6eb9f2e71ad5fed0ae36285f14c5cfb1ace23c"
+      },
+      "residual_bank": {
+        "relative_path": "audio/2800rpm-power.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "387683b99fbbaa719253972cdc39563758911871b9c9396f3cde559e20743e70",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100652.96318034586,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 102
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.002875599498876274,
+        "mean_rms": 0.002875208316366092,
+        "raw_residual_rms_over_source_rms": 0.01563187068023962,
+        "tapered_residual_rms_over_source_rms": 0.014532038265191368,
+        "reconstruction_error_rms_over_source_rms": 0.0038127410662155705,
+        "mean_seam_absolute_delta": 0.00003981159534305334,
+        "mean_seam_over_mean_derivative_rms": 1.8106544793287949,
+        "mean_closure_correction_absolute": 4.224845421656447e-7,
+        "mean_closure_correction_over_source_rms": 0.00014692050903846073,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000041788321953035135,
+        "tapered_residual_power": 1.7462638516505183e-9
+      }
+    },
+    {
+      "id": "3600rpm-coast-exhaust-even-dry",
+      "rpm": 3600,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "coast"
+        ],
+        "coalesced_capture_throttles_01": [
+          0
+        ]
+      },
+      "manifold_pressure_pa_abs": 10941.477635095238,
+      "source_cycle_begin_revolutions": 198,
+      "source_cycle_end_revolutions": 294,
+      "mean": {
+        "relative_path": "audio/3600rpm-coast.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "7b9eeae6a24c7f8528a7d1d6378b110efcc279587f71ccae66bd386871495ebf"
+      },
+      "residual_bank": {
+        "relative_path": "audio/3600rpm-coast.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "efdf0309998788443c5357c5e3855bcbbe4a6424cae26adbe672d97cc367210b",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10941.477635095238,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 80
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0005288285066046718,
+        "mean_rms": 0.0005288212256149022,
+        "raw_residual_rms_over_source_rms": 0.005556948602096624,
+        "tapered_residual_rms_over_source_rms": 0.005294000941205046,
+        "reconstruction_error_rms_over_source_rms": 0.0013005924506763716,
+        "mean_seam_absolute_delta": 0.0000010789954103529453,
+        "mean_seam_over_mean_derivative_rms": 0.33783288149871626,
+        "mean_closure_correction_absolute": 3.693215451972161e-8,
+        "mean_closure_correction_over_source_rms": 0.00006983767716465106,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.0000027996186117011914,
+        "tapered_residual_power": 7.837864370983707e-12
+      }
+    },
+    {
+      "id": "3600rpm-mid-exhaust-even-dry",
+      "rpm": 3600,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "mid"
+        ],
+        "coalesced_capture_throttles_01": [
+          0.2
+        ]
+      },
+      "manifold_pressure_pa_abs": 54195.709928611046,
+      "source_cycle_begin_revolutions": 198,
+      "source_cycle_end_revolutions": 294,
+      "mean": {
+        "relative_path": "audio/3600rpm-mid.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "2c2dc64b5233b592fd197ee87490e18defd697de9ed54b864a814b69d7a546b4"
+      },
+      "residual_bank": {
+        "relative_path": "audio/3600rpm-mid.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "0b4f64a8963728efe15a64ad82e14df71c015db92dae62cb1804dbd469e94905",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 54195.709928611046,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 80
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0011003093292787044,
+        "mean_rms": 0.0011002306075936794,
+        "raw_residual_rms_over_source_rms": 0.011986146174462036,
+        "tapered_residual_rms_over_source_rms": 0.01195196659826231,
+        "reconstruction_error_rms_over_source_rms": 0.0005858551871094912,
+        "mean_seam_absolute_delta": 0.0000010415678843855858,
+        "mean_seam_over_mean_derivative_rms": 0.12275843763344257,
+        "mean_closure_correction_absolute": 1.5249194499581536e-8,
+        "mean_closure_correction_over_source_rms": 0.000013859006820907333,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000013150860351295482,
+        "tapered_residual_power": 1.7294512797927552e-10
+      }
+    },
+    {
+      "id": "3600rpm-power-exhaust-even-dry",
+      "rpm": 3600,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "power"
+        ],
+        "coalesced_capture_throttles_01": [
+          1
+        ]
+      },
+      "manifold_pressure_pa_abs": 100209.3632831233,
+      "source_cycle_begin_revolutions": 198,
+      "source_cycle_end_revolutions": 294,
+      "mean": {
+        "relative_path": "audio/3600rpm-power.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "74da13d9cc5c5ad0b6b2f50da4e27ca6743663ee96502423f0a2a6b57ab34283"
+      },
+      "residual_bank": {
+        "relative_path": "audio/3600rpm-power.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "03f477066961b84f5d3d33f8235c3e4a4355fdaa62af4c2ca4f7ba0d645502f6",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100209.3632831233,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 80
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.003424673453147531,
+        "mean_rms": 0.003424131682828966,
+        "raw_residual_rms_over_source_rms": 0.017835506047795106,
+        "tapered_residual_rms_over_source_rms": 0.017802872471343656,
+        "reconstruction_error_rms_over_source_rms": 0.0008376506222849185,
+        "mean_seam_absolute_delta": 0.0000014388933777809143,
+        "mean_seam_over_mean_derivative_rms": 0.06564313233720169,
+        "mean_closure_correction_absolute": 3.5620663159765045e-8,
+        "mean_closure_correction_over_source_rms": 0.000010401185294623343,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.0000609690247423816,
+        "tapered_residual_power": 3.7172219780371395e-9
+      }
+    },
+    {
+      "id": "4400rpm-coast-exhaust-even-dry",
+      "rpm": 4400,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "coast"
+        ],
+        "coalesced_capture_throttles_01": [
+          0
+        ]
+      },
+      "manifold_pressure_pa_abs": 10172.819853794028,
+      "source_cycle_begin_revolutions": 240,
+      "source_cycle_end_revolutions": 336,
+      "mean": {
+        "relative_path": "audio/4400rpm-coast.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "87c046d0255065687f05f0d57d2219c982ddec495e4d516f6f1df9bb027063c6"
+      },
+      "residual_bank": {
+        "relative_path": "audio/4400rpm-coast.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "4d51e1933c60998deed163270583efec04f7e9321efcdc1e8025adaaab009eb8",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10172.819853794028,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 66
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.000624551839583635,
+        "mean_rms": 0.0006245401329973526,
+        "raw_residual_rms_over_source_rms": 0.00589447554034266,
+        "tapered_residual_rms_over_source_rms": 0.005584536220891811,
+        "reconstruction_error_rms_over_source_rms": 0.0013892595482744253,
+        "mean_seam_absolute_delta": 0.000007413153070956469,
+        "mean_seam_over_mean_derivative_rms": 2.026634805750786,
+        "mean_closure_correction_absolute": 1.5034553750071546e-8,
+        "mean_closure_correction_over_source_rms": 0.000024072547380685825,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000003487832369979422,
+        "tapered_residual_power": 1.2164974641076271e-11
+      }
+    },
+    {
+      "id": "4400rpm-mid-exhaust-even-dry",
+      "rpm": 4400,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "mid"
+        ],
+        "coalesced_capture_throttles_01": [
+          0.2
+        ]
+      },
+      "manifold_pressure_pa_abs": 45980.713044630254,
+      "source_cycle_begin_revolutions": 240,
+      "source_cycle_end_revolutions": 336,
+      "mean": {
+        "relative_path": "audio/4400rpm-mid.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "93836fca3075f86f7299d5c2c3da98f78446291be52b9cbd93ecfd865ea58ec0"
+      },
+      "residual_bank": {
+        "relative_path": "audio/4400rpm-mid.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "74c9a758a5df9b5b529c2a481aab352b50db512c2766ecc5d7ea39f5a54619a3",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 45980.713044630254,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 66
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0008810513664210611,
+        "mean_rms": 0.000880969609992654,
+        "raw_residual_rms_over_source_rms": 0.014035362278613739,
+        "tapered_residual_rms_over_source_rms": 0.01343976790641486,
+        "reconstruction_error_rms_over_source_rms": 0.0027523916252932064,
+        "mean_seam_absolute_delta": 0.0000022904278011992574,
+        "mean_seam_over_mean_derivative_rms": 0.3868216252784846,
+        "mean_closure_correction_absolute": 1.5500048296719648e-7,
+        "mean_closure_correction_over_source_rms": 0.00017592672672063093,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000011841125878328737,
+        "tapered_residual_power": 1.402122620664265e-10
+      }
+    },
+    {
+      "id": "4400rpm-power-exhaust-even-dry",
+      "rpm": 4400,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "power"
+        ],
+        "coalesced_capture_throttles_01": [
+          1
+        ]
+      },
+      "manifold_pressure_pa_abs": 99707.68175869755,
+      "source_cycle_begin_revolutions": 240,
+      "source_cycle_end_revolutions": 336,
+      "mean": {
+        "relative_path": "audio/4400rpm-power.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "06e38b2ddf46f632d267d9fe748d95dff781b29d5e43e7435f031a75bc216225"
+      },
+      "residual_bank": {
+        "relative_path": "audio/4400rpm-power.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "46a05b518a5f021fd968d4235df3c8949edcc1a27c4fd415a8b4ce94e4cfcc29",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99707.68175869755,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 66
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0036237504654699857,
+        "mean_rms": 0.0036229367811774957,
+        "raw_residual_rms_over_source_rms": 0.021582636595983695,
+        "tapered_residual_rms_over_source_rms": 0.020311328349777693,
+        "reconstruction_error_rms_over_source_rms": 0.004853643040916264,
+        "mean_seam_absolute_delta": 0.000005101785063743591,
+        "mean_seam_over_mean_derivative_rms": 0.25842691132712187,
+        "mean_closure_correction_absolute": 0.0000017329075490126692,
+        "mean_closure_correction_over_source_rms": 0.00047820829980574234,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.00007360318556182064,
+        "tapered_residual_power": 5.417428924847802e-9
+      }
+    },
+    {
+      "id": "5200rpm-coast-exhaust-even-dry",
+      "rpm": 5200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "coast"
+        ],
+        "coalesced_capture_throttles_01": [
+          0
+        ]
+      },
+      "manifold_pressure_pa_abs": 10091.06537603029,
+      "source_cycle_begin_revolutions": 282,
+      "source_cycle_end_revolutions": 378,
+      "mean": {
+        "relative_path": "audio/5200rpm-coast.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "896fe7a0f6de5a0336c28211af78c422d662dcecf3ec608fd629186b21c23eb5"
+      },
+      "residual_bank": {
+        "relative_path": "audio/5200rpm-coast.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "f06612e372d3cca1157ac94ff2fc1bd81903c5aeda48e23d461af39f5dc696ec",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10091.06537603029,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 56
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0006945025658771789,
+        "mean_rms": 0.0006944871562479467,
+        "raw_residual_rms_over_source_rms": 0.006178416514392154,
+        "tapered_residual_rms_over_source_rms": 0.0057927250406613175,
+        "reconstruction_error_rms_over_source_rms": 0.0016873613061298939,
+        "mean_seam_absolute_delta": 0.0000036482233554124832,
+        "mean_seam_over_mean_derivative_rms": 0.9121169854519768,
+        "mean_closure_correction_absolute": 3.81193482704178e-8,
+        "mean_closure_correction_over_source_rms": 0.00005488726772704122,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.0000040230624041602706,
+        "tapered_residual_power": 1.6185031107767816e-11
+      }
+    },
+    {
+      "id": "5200rpm-mid-exhaust-even-dry",
+      "rpm": 5200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "mid"
+        ],
+        "coalesced_capture_throttles_01": [
+          0.2
+        ]
+      },
+      "manifold_pressure_pa_abs": 41420.98402760976,
+      "source_cycle_begin_revolutions": 282,
+      "source_cycle_end_revolutions": 378,
+      "mean": {
+        "relative_path": "audio/5200rpm-mid.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "3cea527f1291b934e07fda4dcc14f7bbf362e740a310bdccaa5cab3e532f3683"
+      },
+      "residual_bank": {
+        "relative_path": "audio/5200rpm-mid.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "3cc9ef6d1730db0e42395cc2a1d280ba53436a8802c17e29dbd817c87bde8393",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 41420.98402760976,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 56
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0007041151835208379,
+        "mean_rms": 0.0007040029983166212,
+        "raw_residual_rms_over_source_rms": 0.017904615583098315,
+        "tapered_residual_rms_over_source_rms": 0.017463981468603302,
+        "reconstruction_error_rms_over_source_rms": 0.0029716747268706827,
+        "mean_seam_absolute_delta": 0.000001284817699342966,
+        "mean_seam_over_mean_derivative_rms": 0.30369672853129936,
+        "mean_closure_correction_absolute": 1.2239373366586606e-8,
+        "mean_closure_correction_over_source_rms": 0.000017382629508690872,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000012296654516770127,
+        "tapered_residual_power": 1.5120771230480317e-10
+      }
+    },
+    {
+      "id": "5200rpm-power-exhaust-even-dry",
+      "rpm": 5200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "power"
+        ],
+        "coalesced_capture_throttles_01": [
+          1
+        ]
+      },
+      "manifold_pressure_pa_abs": 99292.33009424675,
+      "source_cycle_begin_revolutions": 282,
+      "source_cycle_end_revolutions": 378,
+      "mean": {
+        "relative_path": "audio/5200rpm-power.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "f2e77d1f04be9cf7c4bdd58d51d5ab00cd756726b3f8bb9544dcf1e1d8e5dc65"
+      },
+      "residual_bank": {
+        "relative_path": "audio/5200rpm-power.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "7b4597e21339410e9a6b693d30ac1fe3ca68e24201a7811e8368dd57e8c53b80",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99292.33009424675,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 56
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.003532933781730515,
+        "mean_rms": 0.0035319427480829256,
+        "raw_residual_rms_over_source_rms": 0.0235336378746123,
+        "tapered_residual_rms_over_source_rms": 0.02333009957526098,
+        "reconstruction_error_rms_over_source_rms": 0.0022279566028484397,
+        "mean_seam_absolute_delta": 0.000012035015970468521,
+        "mean_seam_over_mean_derivative_rms": 0.6848467585659552,
+        "mean_closure_correction_absolute": 1.6606160594886954e-7,
+        "mean_closure_correction_over_source_rms": 0.000047003882950653154,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.00008242369692057627,
+        "tapered_residual_power": 6.793665814055014e-9
+      }
+    },
+    {
+      "id": "6000rpm-coast-exhaust-even-dry",
+      "rpm": 6000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "coast"
+        ],
+        "coalesced_capture_throttles_01": [
+          0
+        ]
+      },
+      "manifold_pressure_pa_abs": 10624.738509551133,
+      "source_cycle_begin_revolutions": 324,
+      "source_cycle_end_revolutions": 420,
+      "mean": {
+        "relative_path": "audio/6000rpm-coast.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "dfff637208dd28865a19496f1938dcf15616fc47fdba923da259803c8fa40eb5"
+      },
+      "residual_bank": {
+        "relative_path": "audio/6000rpm-coast.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "0fe6c81cb97151653ff06890918b3b4323857902cc5b949a0fe77561b6a801d0",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10624.738509551133,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 48
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0007405064064334076,
+        "mean_rms": 0.0007404911508131357,
+        "raw_residual_rms_over_source_rms": 0.006212320495736417,
+        "tapered_residual_rms_over_source_rms": 0.006100971485871898,
+        "reconstruction_error_rms_over_source_rms": 0.0007889114704023214,
+        "mean_seam_absolute_delta": 0.0000019510043784976006,
+        "mean_seam_over_mean_derivative_rms": 0.4641614046049837,
+        "mean_closure_correction_absolute": 1.701118890185243e-8,
+        "mean_closure_correction_over_source_rms": 0.000022972372357702505,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000004517808470755686,
+        "tapered_residual_power": 2.041059337843183e-11
+      }
+    },
+    {
+      "id": "6000rpm-mid-exhaust-even-dry",
+      "rpm": 6000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "mid"
+        ],
+        "coalesced_capture_throttles_01": [
+          0.2
+        ]
+      },
+      "manifold_pressure_pa_abs": 39161.662294827474,
+      "source_cycle_begin_revolutions": 324,
+      "source_cycle_end_revolutions": 420,
+      "mean": {
+        "relative_path": "audio/6000rpm-mid.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "b22eea791fc26e071eb06aec6b274e39e7ad7efe7a7f2eb4d67db74c024850cf"
+      },
+      "residual_bank": {
+        "relative_path": "audio/6000rpm-mid.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "72af2a74908a38bb3b54b6eb60e6ce1cf68758300a2338390984417dd5a4ea0b",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 39161.662294827474,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 48
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0007448837944878553,
+        "mean_rms": 0.0007448638774247264,
+        "raw_residual_rms_over_source_rms": 0.0060232421072584355,
+        "tapered_residual_rms_over_source_rms": 0.005533676026952454,
+        "reconstruction_error_rms_over_source_rms": 0.001839368996964821,
+        "mean_seam_absolute_delta": 0.000006272399332374334,
+        "mean_seam_over_mean_derivative_rms": 1.4833366647041464,
+        "mean_closure_correction_absolute": 5.925115450128348e-8,
+        "mean_closure_correction_over_source_rms": 0.00007954415835025864,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.000004121945596422823,
+        "tapered_residual_power": 1.69904354998695e-11
+      }
+    },
+    {
+      "id": "6000rpm-power-exhaust-even-dry",
+      "rpm": 6000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "power"
+        ],
+        "coalesced_capture_throttles_01": [
+          1
+        ]
+      },
+      "manifold_pressure_pa_abs": 99041.52929398937,
+      "source_cycle_begin_revolutions": 324,
+      "source_cycle_end_revolutions": 420,
+      "mean": {
+        "relative_path": "audio/6000rpm-power.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "3f5988258c390ac1242a1b02c7b9cc467d239eb55c1e629d3c808da88ad92cfe"
+      },
+      "residual_bank": {
+        "relative_path": "audio/6000rpm-power.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "e0ea0da63b8883e5a7a987db527f90758dca178ecadb98b7ed02126401643418",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99041.52929398937,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 48
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0039225383640762185,
+        "mean_rms": 0.003922090525556319,
+        "raw_residual_rms_over_source_rms": 0.016021745008845602,
+        "tapered_residual_rms_over_source_rms": 0.015589382550410976,
+        "reconstruction_error_rms_over_source_rms": 0.0022390219669981286,
+        "mean_seam_absolute_delta": 0.000035552046028897166,
+        "mean_seam_over_mean_derivative_rms": 1.8879415883592061,
+        "mean_closure_correction_absolute": 4.305741943729511e-7,
+        "mean_closure_correction_over_source_rms": 0.00010976927550697236,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.00006114995112624742,
+        "tapered_residual_power": 3.739316522742448e-9
+      }
+    },
+    {
+      "id": "6100rpm-coast-exhaust-even-dry",
+      "rpm": 6100,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "coast"
+        ],
+        "coalesced_capture_throttles_01": [
+          0
+        ]
+      },
+      "manifold_pressure_pa_abs": 10680.049887949006,
+      "source_cycle_begin_revolutions": 328,
+      "source_cycle_end_revolutions": 424,
+      "mean": {
+        "relative_path": "audio/6100rpm-coast.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "ca4167c8882b2d477e4a2880f3f860686cc0c30b520bda7a55849f0a053cca42"
+      },
+      "residual_bank": {
+        "relative_path": "audio/6100rpm-coast.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "47c7927db14b33d40bd5d2f47c15627833a329b4ff9381df0f83f1c60c5835ed",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10680.049887949006,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 47
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0007463538518878572,
+        "mean_rms": 0.0007463391620265969,
+        "raw_residual_rms_over_source_rms": 0.006359565607522953,
+        "tapered_residual_rms_over_source_rms": 0.006304544899571845,
+        "reconstruction_error_rms_over_source_rms": 0.0005722083793377925,
+        "mean_seam_absolute_delta": 0.0000013191311154514551,
+        "mean_seam_over_mean_derivative_rms": 0.31245636125886905,
+        "mean_closure_correction_absolute": 5.667364651656742e-9,
+        "mean_closure_correction_over_source_rms": 0.000007593401758859399,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.00000470542137019539,
+        "tapered_residual_power": 2.2140990271091463e-11
+      }
+    },
+    {
+      "id": "6100rpm-mid-exhaust-even-dry",
+      "rpm": 6100,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "mid"
+        ],
+        "coalesced_capture_throttles_01": [
+          0.2
+        ]
+      },
+      "manifold_pressure_pa_abs": 38860.79360355295,
+      "source_cycle_begin_revolutions": 328,
+      "source_cycle_end_revolutions": 424,
+      "mean": {
+        "relative_path": "audio/6100rpm-mid.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "d7c4345e43d7b81d4cfe1df01e1dd4c2e7129a2e9ccbf41cf3d6670f921e6f24"
+      },
+      "residual_bank": {
+        "relative_path": "audio/6100rpm-mid.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "b8be53088e0cf64b8374735bd480adf8ef03e6f154f169980864e070cb980308",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 38860.79360355295,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 47
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.0005648826304253588,
+        "mean_rms": 0.000564729174019894,
+        "raw_residual_rms_over_source_rms": 0.025526180484278745,
+        "tapered_residual_rms_over_source_rms": 0.024792644552152653,
+        "reconstruction_error_rms_over_source_rms": 0.004221133011247216,
+        "mean_seam_absolute_delta": 0.00000543691567145288,
+        "mean_seam_over_mean_derivative_rms": 1.780298706753517,
+        "mean_closure_correction_absolute": 2.0142897483309307e-7,
+        "mean_closure_correction_over_source_rms": 0.0003565855347356251,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.00001400493426982093,
+        "tapered_residual_power": 1.9613818390200473e-10
+      }
+    },
+    {
+      "id": "6100rpm-power-exhaust-even-dry",
+      "rpm": 6100,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "capture_provenance": {
+        "coalesced_authored_lanes": [
+          "power"
+        ],
+        "coalesced_capture_throttles_01": [
+          1
+        ]
+      },
+      "manifold_pressure_pa_abs": 99003.35676296464,
+      "source_cycle_begin_revolutions": 328,
+      "source_cycle_end_revolutions": 424,
+      "mean": {
+        "relative_path": "audio/6100rpm-power.exhaust-even-dry.mean.f32le",
+        "sample_count": 4096,
+        "byte_count": 16384,
+        "payload_sha256": "d3b7d8c7d2d966e7e2b2b4dbd84511f1d0cf7414e6d0987c12f6a6f8a491f977"
+      },
+      "residual_bank": {
+        "relative_path": "audio/6100rpm-power.exhaust-even-dry.residuals.f32le",
+        "cycle_count": 48,
+        "samples_per_cycle": 4096,
+        "sample_count": 196608,
+        "byte_count": 786432,
+        "payload_sha256": "58364037b888093ecb18d38b821c0bd93040a4a5f6842126fa4c8e0c3187400e",
+        "selection_contract": "change residual ordinal only at a 720-degree boundary"
+      },
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99003.35676296464,
+        "rpm_error_rms": 0,
+        "maximum_absolute_rpm_error": 0,
+        "telemetry_endpoint_count": 47
+      },
+      "decomposition_metrics": {
+        "source_rms": 0.003274379063553102,
+        "mean_rms": 0.003273269114707306,
+        "raw_residual_rms_over_source_rms": 0.026573612321335992,
+        "tapered_residual_rms_over_source_rms": 0.025832654401355605,
+        "reconstruction_error_rms_over_source_rms": 0.004704783556985708,
+        "mean_seam_absolute_delta": 0.000026313820853829384,
+        "mean_seam_over_mean_derivative_rms": 1.6790314532500121,
+        "mean_closure_correction_absolute": 3.8589496398344636e-7,
+        "mean_closure_correction_over_source_rms": 0.00011785286812966093,
+        "maximum_residual_boundary_magnitude": 0,
+        "residual_taper_frames_per_edge": 256,
+        "tapered_residual_rms": 0.00008458590272780168,
+        "tapered_residual_power": 7.154774940277128e-9
+      }
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "sequoia-3ur-fe-cleanroom",
+      "sha256": "71ce08a1cb0dc63d7eb0eea7070e8625a5fe4628379dadc9e4402440152fa5f2"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "capture_method": "exact-held-rpm-48-cycle-20ms-exact-sum-horizon-v8",
+    "decomposition_method": "cyclic-mean-plus-boundary-zero-smoothstep-residual-bank-v1",
+    "capture_identity_sha256": "3244036d601e1317e889ec13b73ce375f19c8af909fd78e6bc47d62611ce7b2f"
+  }
+}

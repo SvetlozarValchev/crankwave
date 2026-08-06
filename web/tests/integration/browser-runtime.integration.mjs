@@ -9,7 +9,7 @@ import { SessionExecutionKind } from "../../runtime/c-api-abi.js";
 
 const EXPECTED_FRAME_COUNT = 7_680;
 const EXPECTED_PCM_SHA256 =
-  "5658b9947142a71c031a7444426bb4c2ea230144a0f3902855934730edfb40f3";
+  "ede3c34fc94cd25c32329e37ee84cdd80f6093f1f2a3c36e055be71e55dc4610";
 const CANONICAL_SAMPLE_RATE = 192_000;
 const WAV_HEADER_BYTES = 56;
 

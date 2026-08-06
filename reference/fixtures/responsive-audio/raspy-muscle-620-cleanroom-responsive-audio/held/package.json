@@ -1,0 +1,348 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-held-texture",
+  "id": "raspy-muscle-620-cleanroom-exact-held-phase-texture-live-preview",
+  "engine": "raspy-muscle-620-cleanroom",
+  "fidelity": {
+    "purpose": "interactive-source-b-versus-source-a-audition-preview",
+    "physics_rate_hz": 10000,
+    "canonical_offline_bake": false
+  },
+  "representation": {
+    "kind": "cyclic-mean-plus-boundary-zero-cycle-residual-bank",
+    "timeline_included": false,
+    "runtime_coordinates": [
+      "rpm",
+      "measured-intake-manifold-pressure-pa-abs",
+      "unwrapped-crank-revolutions"
+    ],
+    "internal_runtime_state": [
+      "residual-cycle-ordinal"
+    ]
+  },
+  "domain": {
+    "minimum_rpm": 650,
+    "maximum_rpm": 6050,
+    "rpm_anchors": [
+      650,
+      800,
+      1000,
+      1300,
+      1700,
+      2200,
+      2800,
+      3500,
+      4300,
+      5100,
+      5900,
+      6050
+    ],
+    "load_lanes": [
+      {
+        "id": "coast",
+        "throttle01": 0
+      },
+      {
+        "id": "mid",
+        "throttle01": 0.2
+      },
+      {
+        "id": "power",
+        "throttle01": 1
+      }
+    ],
+    "operating_cell_count": 36
+  },
+  "dry_bus_ids": [
+    "exhaust.odd.dry",
+    "exhaust.even.dry"
+  ],
+  "route_manifests": [
+    {
+      "bus_id": "exhaust.odd.dry",
+      "manifest_path": "exhaust-odd-dry.json"
+    },
+    {
+      "bus_id": "exhaust.even.dry",
+      "manifest_path": "exhaust-even-dry.json"
+    }
+  ],
+  "presentation": {
+    "audition_bus_id": "master-engine-audition",
+    "audition_dry_bus_order": [
+      "exhaust.even.dry",
+      "exhaust.odd.dry"
+    ],
+    "captured_to_source_scale": 67108864,
+    "master_volume_linear": 1,
+    "routes": [
+      {
+        "dry_bus_id": "exhaust.odd.dry",
+        "source_route_id": "exhaust.odd",
+        "impulse_response_asset_id": "smooth-46",
+        "impulse_response_payload_sha256": "97408471f8b699a93b888db448367cf7abbe20e6c4891cc8af0d1946889f8b69",
+        "impulse_response_gain_linear": 0.001,
+        "wet_mix_01": 1,
+        "transfer": {
+          "fft_size": 65536,
+          "coefficient_count": 30071,
+          "spectrum_encoding": "interleaved-complex-float64le",
+          "spectrum_path": "smooth-46-7117478d0347-kernel-complex-f64le.bin",
+          "spectrum_byte_count": 1048576,
+          "spectrum_sha256": "5cf17c6932994ca0974e0066745449ae5d2a4cef726812a71a01f8a3910b85e1"
+        }
+      },
+      {
+        "dry_bus_id": "exhaust.even.dry",
+        "source_route_id": "exhaust.even",
+        "impulse_response_asset_id": "smooth-46",
+        "impulse_response_payload_sha256": "97408471f8b699a93b888db448367cf7abbe20e6c4891cc8af0d1946889f8b69",
+        "impulse_response_gain_linear": 0.001,
+        "wet_mix_01": 1,
+        "transfer": {
+          "fft_size": 65536,
+          "coefficient_count": 30071,
+          "spectrum_encoding": "interleaved-complex-float64le",
+          "spectrum_path": "smooth-46-7117478d0347-kernel-complex-f64le.bin",
+          "spectrum_byte_count": 1048576,
+          "spectrum_sha256": "5cf17c6932994ca0974e0066745449ae5d2a4cef726812a71a01f8a3910b85e1"
+        }
+      }
+    ]
+  },
+  "phase_alignment": {
+    "method": "shared-route-sum-circular-correlation-unwrapped-grid-v1",
+    "reference_cell_id": "2800rpm-power",
+    "unit": "phase-samples",
+    "interpolation": "unwrapped-linear",
+    "cells": [
+      {
+        "id": "650rpm-coast",
+        "shift_to_canonical_samples": 1694.597405235492
+      },
+      {
+        "id": "650rpm-mid",
+        "shift_to_canonical_samples": 1666.149469340388
+      },
+      {
+        "id": "650rpm-power",
+        "shift_to_canonical_samples": 1684.720320335503
+      },
+      {
+        "id": "800rpm-coast",
+        "shift_to_canonical_samples": 1598.1173732289644
+      },
+      {
+        "id": "800rpm-mid",
+        "shift_to_canonical_samples": 1563.2301166766085
+      },
+      {
+        "id": "800rpm-power",
+        "shift_to_canonical_samples": 1593.1016525839432
+      },
+      {
+        "id": "1000rpm-coast",
+        "shift_to_canonical_samples": 1476.8153547755123
+      },
+      {
+        "id": "1000rpm-mid",
+        "shift_to_canonical_samples": 1434.32559793332
+      },
+      {
+        "id": "1000rpm-power",
+        "shift_to_canonical_samples": 1444.3855487658275
+      },
+      {
+        "id": "1300rpm-coast",
+        "shift_to_canonical_samples": 1302.77248150823
+      },
+      {
+        "id": "1300rpm-mid",
+        "shift_to_canonical_samples": 1219.3303900167587
+      },
+      {
+        "id": "1300rpm-power",
+        "shift_to_canonical_samples": 1188.470172024284
+      },
+      {
+        "id": "1700rpm-coast",
+        "shift_to_canonical_samples": 1013.4272759035932
+      },
+      {
+        "id": "1700rpm-mid",
+        "shift_to_canonical_samples": 915.4056401685026
+      },
+      {
+        "id": "1700rpm-power",
+        "shift_to_canonical_samples": 863.648633293207
+      },
+      {
+        "id": "2200rpm-coast",
+        "shift_to_canonical_samples": 647.3864022906627
+      },
+      {
+        "id": "2200rpm-mid",
+        "shift_to_canonical_samples": 547.8550401966812
+      },
+      {
+        "id": "2200rpm-power",
+        "shift_to_canonical_samples": 467.7937050915345
+      },
+      {
+        "id": "2800rpm-coast",
+        "shift_to_canonical_samples": 224.43086153908578
+      },
+      {
+        "id": "2800rpm-mid",
+        "shift_to_canonical_samples": 124.40061734715744
+      },
+      {
+        "id": "2800rpm-power",
+        "shift_to_canonical_samples": 0
+      },
+      {
+        "id": "3500rpm-coast",
+        "shift_to_canonical_samples": -253.79073203967397
+      },
+      {
+        "id": "3500rpm-mid",
+        "shift_to_canonical_samples": -359.4718403556021
+      },
+      {
+        "id": "3500rpm-power",
+        "shift_to_canonical_samples": -546.7040726710464
+      },
+      {
+        "id": "4300rpm-coast",
+        "shift_to_canonical_samples": -802.619408802731
+      },
+      {
+        "id": "4300rpm-mid",
+        "shift_to_canonical_samples": -902.5287277579854
+      },
+      {
+        "id": "4300rpm-power",
+        "shift_to_canonical_samples": -1161.2263312412092
+      },
+      {
+        "id": "5100rpm-coast",
+        "shift_to_canonical_samples": -1347.4844674184792
+      },
+      {
+        "id": "5100rpm-mid",
+        "shift_to_canonical_samples": -1443.375650145183
+      },
+      {
+        "id": "5100rpm-power",
+        "shift_to_canonical_samples": -1733.489918110229
+      },
+      {
+        "id": "5900rpm-coast",
+        "shift_to_canonical_samples": -1886.5531677991376
+      },
+      {
+        "id": "5900rpm-mid",
+        "shift_to_canonical_samples": -1985.2590477300487
+      },
+      {
+        "id": "5900rpm-power",
+        "shift_to_canonical_samples": -2284.293632018395
+      },
+      {
+        "id": "6050rpm-coast",
+        "shift_to_canonical_samples": -1987.0675320580795
+      },
+      {
+        "id": "6050rpm-mid",
+        "shift_to_canonical_samples": -2085.0911321748586
+      },
+      {
+        "id": "6050rpm-power",
+        "shift_to_canonical_samples": -2390.92184290502
+      }
+    ]
+  },
+  "texture_selection": {
+    "algorithm": "splitmix64-shuffled-bags-v1",
+    "bank_size": 48,
+    "public_seed": "12648430",
+    "no_adjacent_repeat": true,
+    "change_phase": "720-degree-boundary"
+  },
+  "interpolation": {
+    "mean": {
+      "method": "common-delay-phase-warp",
+      "energy_target": "linear-anchor-rms"
+    },
+    "residual": {
+      "cross_cell_correlation": "independent",
+      "energy_target": "linear-anchor-power",
+      "normalization": "sqrt(Ptarget/sum(w_i^2 P_i))"
+    }
+  },
+  "provenance": {
+    "engine": {
+      "id": "raspy-muscle-620-cleanroom",
+      "sha256": "4202640822032216235ec04841804931f8993a539ae3972ca2366b083a018ffb"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "capture_identity": {
+      "engine_id": "raspy-muscle-620-cleanroom",
+      "capture_method": "exact-held-rpm-48-cycle-20ms-exact-sum-horizon-v8",
+      "decomposition_method": "cyclic-mean-plus-boundary-zero-smoothstep-residual-bank-v1",
+      "state_capture_identities": [
+        {
+          "rpm": 650,
+          "sha256": "2704367828a63e434648a418b6efc68a798f47ae13e221eb98f6f2ebad07be70"
+        },
+        {
+          "rpm": 800,
+          "sha256": "7887c676c6a0ad0fb9509291b76955924f6de760e6b7c284ad0d9908375b0198"
+        },
+        {
+          "rpm": 1000,
+          "sha256": "7887c676c6a0ad0fb9509291b76955924f6de760e6b7c284ad0d9908375b0198"
+        },
+        {
+          "rpm": 1300,
+          "sha256": "7887c676c6a0ad0fb9509291b76955924f6de760e6b7c284ad0d9908375b0198"
+        },
+        {
+          "rpm": 1700,
+          "sha256": "7887c676c6a0ad0fb9509291b76955924f6de760e6b7c284ad0d9908375b0198"
+        },
+        {
+          "rpm": 2200,
+          "sha256": "7887c676c6a0ad0fb9509291b76955924f6de760e6b7c284ad0d9908375b0198"
+        },
+        {
+          "rpm": 2800,
+          "sha256": "7887c676c6a0ad0fb9509291b76955924f6de760e6b7c284ad0d9908375b0198"
+        },
+        {
+          "rpm": 3500,
+          "sha256": "7887c676c6a0ad0fb9509291b76955924f6de760e6b7c284ad0d9908375b0198"
+        },
+        {
+          "rpm": 4300,
+          "sha256": "7887c676c6a0ad0fb9509291b76955924f6de760e6b7c284ad0d9908375b0198"
+        },
+        {
+          "rpm": 5100,
+          "sha256": "7887c676c6a0ad0fb9509291b76955924f6de760e6b7c284ad0d9908375b0198"
+        },
+        {
+          "rpm": 5900,
+          "sha256": "7887c676c6a0ad0fb9509291b76955924f6de760e6b7c284ad0d9908375b0198"
+        },
+        {
+          "rpm": 6050,
+          "sha256": "7887c676c6a0ad0fb9509291b76955924f6de760e6b7c284ad0d9908375b0198"
+        }
+      ],
+      "sha256": "6d69532967c5ef1ccc14062c8d30abc6463177be4722c7d39b8960dafa11800b"
+    }
+  }
+}

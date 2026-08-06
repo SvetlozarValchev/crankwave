@@ -128,12 +128,31 @@ test("compound procedures retain their canonical phase boundaries", () => {
   );
 });
 
-test("the Web workbench catalogs all six canonical procedures", () => {
+test("the Web workbench keeps the listening catalog focused on responsive A/B", () => {
   const app = fs.readFileSync(path.join(REPOSITORY, "web/app.js"), "utf8");
-  for (const { packageId, file, webFile } of PROCEDURES) {
-    assert.match(app, new RegExp(`id: "${packageId}"`, "u"));
-    assert.match(app, new RegExp(`/scenarios/${webFile ?? file}`, "u"));
+  const responsiveEngines = [
+    "bmw-m52b28",
+    "bmw-m52tub28-cleanroom",
+    "raspy-muscle-620-cleanroom",
+    "sequoia-3ur-fe-cleanroom",
+    "harley-evolution-1340-cleanroom",
+    "shovelhead-bank-local-heads",
+    "honda-b18c5-cleanroom",
+    "kohler-ch750-cleanroom",
+    "radial-5-cleanroom",
+    "subaru-ej25-cleanroom",
+  ];
+  for (const engine of responsiveEngines) {
+    assert.match(app, new RegExp(`id: "${engine}-interactive-ab"`, "u"));
+    assert.match(
+      app,
+      new RegExp(`/packages/${engine}-responsive-audio/runtime\\.json`, "u"),
+    );
   }
+  for (const { packageId } of PROCEDURES) {
+    assert.doesNotMatch(app, new RegExp(`id: "${packageId}"`, "u"));
+  }
+  assert.match(app, /id: "bmw-m52tub28-cleanroom-lifecycle-ab"/u);
 });
 
 test("the temporary realtime preview halves only the physics and capture clocks", () => {
@@ -171,7 +190,7 @@ test("every Web package declares its session lifetime independently of mode", ()
   for (const [, label, executionKind] of entries) {
     assert.equal(
       executionKind,
-      label.endsWith("Interactive free rev")
+      label.endsWith("Interactive A/B") || label.endsWith("Lifecycle A/B")
         ? "openEnded"
         : "finiteScenario",
       label,

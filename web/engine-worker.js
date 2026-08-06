@@ -94,6 +94,9 @@ async function dispatch(message) {
     case "set-comparison-mode":
       runtime.setComparisonMode(message);
       break;
+    case "set-shared-starter-enabled":
+      runtime.setSharedStarterEnabled(message);
+      break;
     case "enqueue-controls":
       runtime.enqueueControls(message);
       break;

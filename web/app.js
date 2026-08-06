@@ -7,8 +7,7 @@ import { WORKER_PROTOCOL_ID } from "./runtime/protocol.js";
 
 const WORKER_URL = "/web/engine-worker.js";
 const WORKLET_URL = "/web/audio-worklet.js";
-const DEFAULT_PACKAGE_ID = "bmw-m52tub28-free-rev";
-const AUDIO_ATLAS_PACKAGE_ID = "bmw-m52tub28-fifth-gear-pull-lift";
+const DEFAULT_PACKAGE_ID = "bmw-m52tub28-cleanroom-lifecycle-ab";
 const SOURCE_COMPARISON_MODE = "source-a";
 const BAKED_COMPARISON_MODE = "baked-b";
 const UNCONFIGURED_AUDIO_ATLAS = Object.freeze({
@@ -25,232 +24,189 @@ const UNCONFIGURED_AUDIO_ATLAS = Object.freeze({
   message: "This build has no continuous audio atlas. Source A remains live.",
   diagnostics: null,
 });
+const UNCONFIGURED_SHARED_STARTER = Object.freeze({
+  configured: false,
+  loaded: false,
+  enabled: false,
+  active: false,
+  auditionOnly: true,
+  redistributionAuthorized: false,
+  licenseWarning: null,
+  sourceSha256: null,
+  payloadSha256: null,
+  sessionCount: 0,
+  catchCount: 0,
+  fallbackCatchCount: 0,
+  unavailableEnvelopeFrames: 0,
+});
 const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
-    id: "bmw-m52b28-free-rev",
-    label: "BMW M52B28 · Interactive free rev",
+    id: "bmw-m52tub28-cleanroom-lifecycle-ab",
+    label: "BMW M52TU · Lifecycle A/B",
+    executionKind: SessionExecutionKind.openEnded,
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl: "/data/engines/bmw-m52tub28-cleanroom/scenarios/interactive-lifecycle-0rpm.json",
+    audioAtlasManifestUrl: "/packages/bmw-m52tub28-cleanroom-responsive-audio/runtime.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52tub28-cleanroom-interactive-ab",
+    label: "BMW M52TUB28 2.8L I6 (Clean Room Baseline) · Interactive A/B",
+    executionKind: SessionExecutionKind.openEnded,
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl: "/data/engines/bmw-m52tub28-cleanroom/scenarios/interactive-free-rev-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/bmw-m52tub28-cleanroom-responsive-audio/runtime.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52tub28-cleanroom-inertial-dyno-ab",
+    label: "BMW M52TUB28 2.8L I6 (Clean Room Baseline) · Inertial dyno A/B",
+    executionKind: SessionExecutionKind.finiteScenario,
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl: "/data/engines/bmw-m52tub28-cleanroom/scenarios/inertial-dyno-700-6500rpm-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/bmw-m52tub28-cleanroom-responsive-audio/runtime.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52b28-interactive-ab",
+    label: "BMW M52B28 · Interactive A/B",
     executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/bmw-m52b28/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52b28/scenarios/warm-running-free-rev-1500rpm.json",
+    scenarioUrl: "/data/engines/bmw-m52b28/scenarios/interactive-free-rev-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/bmw-m52b28-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "bmw-m52b28-dyno",
-    label: "BMW M52B28 · Inertial dyno 1500–6500 rpm",
+    id: "bmw-m52b28-inertial-dyno-ab",
+    label: "BMW M52B28 · Inertial dyno A/B",
     executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/bmw-m52b28/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52b28/scenarios/inertial-dyno-1500-6500rpm.json",
+    scenarioUrl: "/data/engines/bmw-m52b28/scenarios/inertial-dyno-1500-6500rpm-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/bmw-m52b28-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "bmw-m52b28-dyno-lift-overrun",
-    label: "BMW M52B28 · Dyno with lift and overrun",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/bmw-m52b28/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52b28/scenarios/inertial-dyno-1500-6500rpm-lift-overrun.json",
-  }),
-  Object.freeze({
-    id: "raspy-muscle-620-free-rev",
-    label: "6.2L old-school V8 · Interactive free rev",
+    id: "raspy-muscle-620-cleanroom-interactive-ab",
+    label: "Clean-Room 6.2L Rough Old-School Muscle V8 · Interactive A/B",
     executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/raspy-muscle-620-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/raspy-muscle-620-cleanroom/scenarios/warm-running-free-rev-800rpm.json",
+    scenarioUrl: "/data/engines/raspy-muscle-620-cleanroom/scenarios/interactive-free-rev-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/raspy-muscle-620-cleanroom-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "raspy-muscle-620-held-idle",
-    label: "6.2L old-school V8 · Held idle 800 rpm",
+    id: "raspy-muscle-620-cleanroom-inertial-dyno-ab",
+    label: "Clean-Room 6.2L Rough Old-School Muscle V8 · Inertial dyno A/B",
     executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/raspy-muscle-620-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/raspy-muscle-620-cleanroom/scenarios/held-idle-region-800rpm.json",
+    scenarioUrl: "/data/engines/raspy-muscle-620-cleanroom/scenarios/inertial-dyno-800-5900rpm-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/raspy-muscle-620-cleanroom-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "raspy-muscle-620-dyno",
-    label: "6.2L old-school V8 · Inertial dyno 800–5900 rpm",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/raspy-muscle-620-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/raspy-muscle-620-cleanroom/scenarios/inertial-dyno-800-5900rpm.json",
-  }),
-  Object.freeze({
-    id: "sequoia-3ur-fe-free-rev",
-    label: "Toyota Sequoia 3UR-FE · Interactive free rev",
+    id: "sequoia-3ur-fe-cleanroom-interactive-ab",
+    label: "Toyota Sequoia 3UR-FE 5.7L V8 (Clean Room) · Interactive A/B",
     executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/sequoia-3ur-fe-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/sequoia-3ur-fe-cleanroom/scenarios/warm-running-free-rev-650rpm.json",
+    scenarioUrl: "/data/engines/sequoia-3ur-fe-cleanroom/scenarios/interactive-free-rev-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/sequoia-3ur-fe-cleanroom-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "sequoia-3ur-fe-held-idle",
-    label: "Toyota Sequoia 3UR-FE · Held idle 650 rpm",
+    id: "sequoia-3ur-fe-cleanroom-inertial-dyno-ab",
+    label: "Toyota Sequoia 3UR-FE 5.7L V8 (Clean Room) · Inertial dyno A/B",
     executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/sequoia-3ur-fe-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/sequoia-3ur-fe-cleanroom/scenarios/held-idle-region-650rpm.json",
+    scenarioUrl: "/data/engines/sequoia-3ur-fe-cleanroom/scenarios/inertial-dyno-650-6000rpm-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/sequoia-3ur-fe-cleanroom-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "sequoia-3ur-fe-dyno",
-    label: "Toyota Sequoia 3UR-FE · Inertial dyno 650–6000 rpm",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/sequoia-3ur-fe-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/sequoia-3ur-fe-cleanroom/scenarios/inertial-dyno-650-6000rpm.json",
-  }),
-  Object.freeze({
-    id: "harley-evolution-1340-free-rev",
-    label: "Harley-Davidson Evolution 1340 · Interactive free rev",
+    id: "harley-evolution-1340-cleanroom-interactive-ab",
+    label: "Harley-Davidson Evolution 1340 V-Twin (Clean Room BRAAP) · Interactive A/B",
     executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/harley-evolution-1340-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/harley-evolution-1340-cleanroom/scenarios/warm-running-free-rev-800rpm.json",
+    scenarioUrl: "/data/engines/harley-evolution-1340-cleanroom/scenarios/interactive-free-rev-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/harley-evolution-1340-cleanroom-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "harley-evolution-1340-held-idle",
-    label: "Harley-Davidson Evolution 1340 · Held idle 800 rpm",
+    id: "harley-evolution-1340-cleanroom-inertial-dyno-ab",
+    label: "Harley-Davidson Evolution 1340 V-Twin (Clean Room BRAAP) · Inertial dyno A/B",
     executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/harley-evolution-1340-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/harley-evolution-1340-cleanroom/scenarios/held-idle-region-800rpm.json",
+    scenarioUrl: "/data/engines/harley-evolution-1340-cleanroom/scenarios/inertial-dyno-800-5000rpm-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/harley-evolution-1340-cleanroom-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "harley-evolution-1340-dyno",
-    label: "Harley-Davidson Evolution 1340 · Inertial dyno 800–5000 rpm",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/harley-evolution-1340-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/harley-evolution-1340-cleanroom/scenarios/inertial-dyno-800-5000rpm.json",
-  }),
-  Object.freeze({
-    id: "harley-shovelhead-free-rev",
-    label: "Harley-Davidson Shovelhead · Interactive free rev",
+    id: "shovelhead-bank-local-heads-interactive-ab",
+    label: "Harley-Davidson Shovelhead Bank-Local Heads (Source Fixture) · Interactive A/B",
     executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/shovelhead-bank-local-heads/engine.json",
-    scenarioUrl:
-      "/data/engines/shovelhead-bank-local-heads/scenarios/warm-running-free-rev-1000rpm.json",
+    scenarioUrl: "/data/engines/shovelhead-bank-local-heads/scenarios/interactive-free-rev-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/shovelhead-bank-local-heads-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "harley-shovelhead-source-pull",
-    label: "Harley-Davidson Shovelhead · Source pull 1000–5000 rpm",
+    id: "shovelhead-bank-local-heads-inertial-dyno-ab",
+    label: "Harley-Davidson Shovelhead Bank-Local Heads (Source Fixture) · Inertial dyno A/B",
     executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/shovelhead-bank-local-heads/engine.json",
-    scenarioUrl:
-      "/data/engines/shovelhead-bank-local-heads/scenarios/source-pull-1000-5000rpm.json",
+    scenarioUrl: "/data/engines/shovelhead-bank-local-heads/scenarios/inertial-dyno-1000-5000rpm-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/shovelhead-bank-local-heads-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "bmw-m52tub28-free-rev",
-    label: "BMW M52TUB28 · 10 kHz preview · Interactive free rev",
+    id: "honda-b18c5-cleanroom-interactive-ab",
+    label: "Honda B18C5 1.8L VTEC I4 (Clean Room) · Interactive A/B",
     executionKind: SessionExecutionKind.openEnded,
-    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52tub28-cleanroom/scenarios/warm-running-free-rev-700rpm-10khz-preview.json",
+    engineUrl: "/data/engines/honda-b18c5-cleanroom/engine.json",
+    scenarioUrl: "/data/engines/honda-b18c5-cleanroom/scenarios/interactive-free-rev-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/honda-b18c5-cleanroom-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "bmw-m52tub28-canonical-crank",
-    label: "BMW M52TUB28 · Capture · Non-fired crank",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-crank-only-0rpm.json",
-  }),
-  Object.freeze({
-    id: "bmw-m52tub28-cold-start",
-    label: "BMW M52TUB28 · Cold crank and catch",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52tub28-cleanroom/scenarios/cold-start-crank-catch-0rpm.json",
-  }),
-  Object.freeze({
-    id: "bmw-m52tub28-held-idle",
-    label: "BMW M52TUB28 · Held idle 700 rpm",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52tub28-cleanroom/scenarios/held-idle-region-700rpm.json",
-  }),
-  Object.freeze({
-    id: "bmw-m52tub28-dyno",
-    label: "BMW M52TUB28 · Inertial dyno 700–6500 rpm",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52tub28-cleanroom/scenarios/inertial-dyno-700-6500rpm.json",
-  }),
-  Object.freeze({
-    id: "bmw-m52tub28-held-dyno-pull-lift",
-    label: "BMW M52TUB28 · Held-dyno pull, hold, lift and overrun",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52tub28-cleanroom/scenarios/held-dyno-pull-lift-1500-6500rpm.json",
-  }),
-  Object.freeze({
-    id: "bmw-m52tub28-canonical-load-cycle",
-    label: "BMW M52TUB28 · Capture · Loaded rise, part load and coast",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-loaded-rise-part-load-coast-1500-4500rpm.json",
-  }),
-  Object.freeze({
-    id: "bmw-m52tub28-canonical-shutdown",
-    label: "BMW M52TUB28 · Capture · Key-off shutdown",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-key-off-shutdown-700rpm.json",
-  }),
-  Object.freeze({
-    id: "bmw-m52tub28-launch-first-second",
-    label: "BMW M52TUB28 · Vehicle launch and first-to-second shift",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52tub28-cleanroom/scenarios/free-vehicle-launch-first-second.json",
-  }),
-  Object.freeze({
-    id: "bmw-m52tub28-fifth-gear-pull-lift",
-    label: "BMW M52TUB28 · Fifth-gear pull and lift",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/bmw-m52tub28-cleanroom/scenarios/free-vehicle-fifth-gear-pull-lift-1500rpm.json",
-    audioAtlasManifestUrl:
-      "/packages/bmw-m52tub28-first-moving-atlas/atlas.json",
-  }),
-  Object.freeze({
-    id: "honda-b18c5-held-below-vtec",
-    label: "Honda B18C5 · Held below VTEC 5400 rpm",
+    id: "honda-b18c5-cleanroom-inertial-dyno-ab",
+    label: "Honda B18C5 1.8L VTEC I4 (Clean Room) · Inertial dyno A/B",
     executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/honda-b18c5-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/honda-b18c5-cleanroom/scenarios/held-below-vtec-5400rpm.json",
+    scenarioUrl: "/data/engines/honda-b18c5-cleanroom/scenarios/inertial-dyno-1000-8400rpm-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/honda-b18c5-cleanroom-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "honda-b18c5-dyno",
-    label: "Honda B18C5 · Inertial dyno 5000–8000 rpm",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/honda-b18c5-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/honda-b18c5-cleanroom/scenarios/inertial-dyno-5000-8000rpm.json",
+    id: "kohler-ch750-cleanroom-interactive-ab",
+    label: "Kohler CH750 747 cc Governed V-Twin (Clean Room) · Interactive A/B",
+    executionKind: SessionExecutionKind.openEnded,
+    engineUrl: "/data/engines/kohler-ch750-cleanroom/engine.json",
+    scenarioUrl: "/data/engines/kohler-ch750-cleanroom/scenarios/interactive-free-rev-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/kohler-ch750-cleanroom-responsive-audio/runtime.json",
   }),
   Object.freeze({
-    id: "honda-b18c5-held-above-vtec",
-    label: "Honda B18C5 · Held above VTEC 7000 rpm",
-    executionKind: SessionExecutionKind.finiteScenario,
-    engineUrl: "/data/engines/honda-b18c5-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/honda-b18c5-cleanroom/scenarios/held-above-vtec-7000rpm.json",
-  }),
-  Object.freeze({
-    id: "kohler-ch750-governed-load-step",
-    label: "Kohler CH750 · Governed load step at 2740 rpm",
+    id: "kohler-ch750-cleanroom-held-dyno-ab",
+    label: "Kohler CH750 747 cc Governed V-Twin (Clean Room) · HeldDyno A/B",
     executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/kohler-ch750-cleanroom/engine.json",
-    scenarioUrl:
-      "/data/engines/kohler-ch750-cleanroom/scenarios/governed-load-step-2740rpm.json",
+    scenarioUrl: "/data/engines/kohler-ch750-cleanroom/scenarios/held-dyno-1000-3500rpm-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/kohler-ch750-cleanroom-responsive-audio/runtime.json",
+  }),
+  Object.freeze({
+    id: "radial-5-cleanroom-interactive-ab",
+    label: "Radial 5 (Clean Room) · Interactive A/B",
+    executionKind: SessionExecutionKind.openEnded,
+    engineUrl: "/data/engines/radial-5-cleanroom/engine.json",
+    scenarioUrl: "/data/engines/radial-5-cleanroom/scenarios/interactive-free-rev-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/radial-5-cleanroom-responsive-audio/runtime.json",
+  }),
+  Object.freeze({
+    id: "radial-5-cleanroom-held-dyno-ab",
+    label: "Radial 5 (Clean Room) · HeldDyno A/B",
+    executionKind: SessionExecutionKind.finiteScenario,
+    engineUrl: "/data/engines/radial-5-cleanroom/engine.json",
+    scenarioUrl: "/data/engines/radial-5-cleanroom/scenarios/held-dyno-1500-2800rpm-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/radial-5-cleanroom-responsive-audio/runtime.json",
+  }),
+  Object.freeze({
+    id: "subaru-ej25-cleanroom-interactive-ab",
+    label: "Subaru EJ25 2.5L Flat-Four (Clean Room) · Interactive A/B",
+    executionKind: SessionExecutionKind.openEnded,
+    engineUrl: "/data/engines/subaru-ej25-cleanroom/engine.json",
+    scenarioUrl: "/data/engines/subaru-ej25-cleanroom/scenarios/interactive-free-rev-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/subaru-ej25-cleanroom-responsive-audio/runtime.json",
+  }),
+  Object.freeze({
+    id: "subaru-ej25-cleanroom-inertial-dyno-ab",
+    label: "Subaru EJ25 2.5L Flat-Four (Clean Room) · Inertial dyno A/B",
+    executionKind: SessionExecutionKind.finiteScenario,
+    engineUrl: "/data/engines/subaru-ej25-cleanroom/engine.json",
+    scenarioUrl: "/data/engines/subaru-ej25-cleanroom/scenarios/inertial-dyno-1500-6500rpm-10khz-preview.json",
+    audioAtlasManifestUrl: "/packages/subaru-ej25-cleanroom-responsive-audio/runtime.json",
   }),
 ]);
 
@@ -354,6 +310,10 @@ const elements = {
   comparisonModeButtons: [
     ...document.querySelectorAll("[data-comparison-mode]"),
   ],
+  sharedStarterButton: $("#shared-starter-button"),
+  sharedStarterLabel: $("#shared-starter-label"),
+  sharedStarterStatus: $("#shared-starter-status"),
+  sharedStarterDetail: $("#shared-starter-detail"),
   controlsAdmission: $("#controls-admission"),
   throttleLabel: $("#throttle-label"),
   throttleInput: $("#throttle-input"),
@@ -449,6 +409,8 @@ const state = {
   comparisonMode: SOURCE_COMPARISON_MODE,
   comparisonModeRequestId: null,
   requestedComparisonMode: null,
+  sharedStarter: { ...UNCONFIGURED_SHARED_STARTER },
+  sharedStarterRequestId: null,
   liveState: {
     throttle: 0.1,
     starter: false,
@@ -513,8 +475,12 @@ function normalizeAudioAtlasSnapshot(snapshot) {
   const statuses = new Set([
     "loading",
     "unavailable",
+    "ready",
     "arming",
     "active",
+    "motoring",
+    "tail-only",
+    "outside-coverage",
     "error",
   ]);
   const status = statuses.has(snapshot.status)
@@ -534,9 +500,16 @@ function normalizeAudioAtlasSnapshot(snapshot) {
       typeof snapshot.atlasEngineId === "string"
         ? snapshot.atlasEngineId
         : null,
+    minimumRpm: Number.isFinite(snapshot.minimumRpm)
+      ? snapshot.minimumRpm
+      : null,
+    maximumRpm: Number.isFinite(snapshot.maximumRpm)
+      ? snapshot.maximumRpm
+      : null,
     selectedBusEligible: snapshot.selectedBusEligible === true,
     bakedAvailable:
-      status === "active" && snapshot.bakedAvailable === true,
+      ["active", "motoring", "tail-only"].includes(status) &&
+      snapshot.bakedAvailable === true,
     comparisonMode,
     activeSegmentId:
       typeof snapshot.activeSegmentId === "string"
@@ -556,15 +529,114 @@ function audioAtlasStatusLabel(status) {
   switch (status) {
     case "loading":
       return "Baked loading";
+    case "ready":
+      return "Baked ready";
     case "arming":
       return "Baked arming";
     case "active":
       return "Baked active";
+    case "motoring":
+      return "Baked motoring";
+    case "tail-only":
+      return "Baked tail only";
+    case "outside-coverage":
+      return "Baked outside coverage";
     case "error":
       return "Baked error";
     default:
       return "Baked unavailable";
   }
+}
+
+function normalizeSharedStarterSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return { ...UNCONFIGURED_SHARED_STARTER };
+  }
+  const nonnegativeInteger = (value) =>
+    Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  return {
+    configured: snapshot.configured === true,
+    loaded: snapshot.loaded === true,
+    enabled: snapshot.enabled === true,
+    active: snapshot.active === true,
+    auditionOnly: snapshot.auditionOnly !== false,
+    redistributionAuthorized: snapshot.redistributionAuthorized === true,
+    licenseWarning:
+      typeof snapshot.licenseWarning === "string" &&
+      snapshot.licenseWarning.length > 0
+        ? snapshot.licenseWarning
+        : null,
+    sourceSha256:
+      typeof snapshot.sourceSha256 === "string"
+        ? snapshot.sourceSha256
+        : null,
+    payloadSha256:
+      typeof snapshot.payloadSha256 === "string"
+        ? snapshot.payloadSha256
+        : null,
+    sessionCount: nonnegativeInteger(snapshot.sessionCount),
+    catchCount: nonnegativeInteger(snapshot.catchCount),
+    fallbackCatchCount: nonnegativeInteger(snapshot.fallbackCatchCount),
+    unavailableEnvelopeFrames: nonnegativeInteger(
+      snapshot.unavailableEnvelopeFrames,
+    ),
+  };
+}
+
+function adoptSharedStarterFromAtlas(atlas) {
+  const snapshot = atlas?.diagnostics?.sharedRecordedStarter;
+  state.sharedStarter = normalizeSharedStarterSnapshot(snapshot);
+  state.sharedStarterRequestId = null;
+  renderSharedStarterControls();
+}
+
+function renderSharedStarterControls() {
+  const starter = state.sharedStarter;
+  const available = starter.configured && starter.loaded;
+  const requestPending = state.sharedStarterRequestId !== null;
+  elements.sharedStarterButton.disabled =
+    !state.workerReady || !state.built || !available || requestPending;
+  elements.sharedStarterButton.classList.toggle(
+    "is-enabled",
+    available && starter.enabled,
+  );
+  elements.sharedStarterButton.setAttribute(
+    "aria-checked",
+    String(available && starter.enabled),
+  );
+  elements.sharedStarterButton.setAttribute(
+    "aria-busy",
+    String(requestPending),
+  );
+  elements.sharedStarterLabel.textContent = requestPending
+    ? "Applying…"
+    : !available
+      ? "Unavailable"
+      : starter.enabled
+        ? "On · shared by A and B"
+        : "Off";
+
+  if (!available) {
+    elements.sharedStarterStatus.textContent = "Unavailable";
+    elements.sharedStarterStatus.dataset.state = "unavailable";
+    elements.sharedStarterDetail.textContent =
+      "Local audition only. No recorded starter layer is loaded by this package.";
+    return;
+  }
+
+  elements.sharedStarterStatus.textContent = starter.active
+    ? "Starter active"
+    : starter.enabled
+      ? "Research layer on"
+      : "Research layer off";
+  elements.sharedStarterStatus.dataset.state = starter.active
+    ? "active"
+    : "loaded";
+  const integrity = `sessions ${starter.sessionCount} · catches ${starter.catchCount} · fallback ${starter.fallbackCatchCount} · unavailable envelope frames ${starter.unavailableEnvelopeFrames}`;
+  const warning = starter.licenseWarning ??
+    "UNLICENSED RESEARCH SOURCE: local audition only; do not redistribute or ship.";
+  elements.sharedStarterDetail.textContent =
+    `${warning} Mixed identically into Source A and B after their engine-specific paths. ${integrity}.`;
 }
 
 function renderBakedAuditionControls() {
@@ -576,7 +648,7 @@ function renderBakedAuditionControls() {
       state.sessionState,
     );
   const statusState =
-    atlas.status === "active"
+    ["active", "motoring", "tail-only", "ready"].includes(atlas.status)
       ? "loaded"
       : atlas.status === "loading" || atlas.status === "arming"
         ? "loading"
@@ -588,6 +660,7 @@ function renderBakedAuditionControls() {
 
   const failureDetail =
     atlas.status === "error" ||
+    atlas.status === "outside-coverage" ||
     (atlas.status === "unavailable" && atlas.configured)
       ? atlas.detailCode
       : null;
@@ -598,8 +671,24 @@ function renderBakedAuditionControls() {
     : typeof atlas.diagnostics?.message === "string"
       ? atlas.diagnostics.message
       : null;
+  const outsideCoverageMessage =
+    atlas.status === "outside-coverage" &&
+    Number.isFinite(state.telemetry?.engineSpeedRpm) &&
+    Number.isFinite(atlas.minimumRpm) &&
+    Number.isFinite(atlas.maximumRpm)
+      ? `baked audio is outside package coverage: current ${Math.round(
+          state.telemetry.engineSpeedRpm,
+        )} RPM vs admitted ${Math.round(atlas.minimumRpm)}..${Math.round(
+          atlas.maximumRpm,
+        )} RPM${
+          atlas.detailCode ===
+          "browser-runtime-atlas-running-state-outside-coverage"
+            ? "; ignition and fuel must both be on"
+            : ""
+        }. Source A remains live.`
+      : null;
   elements.bakedAuditionDetail.textContent = [
-    atlas.message,
+    outsideCoverageMessage ?? atlas.message,
     failureDetail ? `[${failureDetail}]` : null,
     diagnosticDetail,
   ]
@@ -622,7 +711,8 @@ function renderBakedAuditionControls() {
     button.disabled =
       mutationBlocked ||
       (mode === BAKED_COMPARISON_MODE &&
-        (atlas.status !== "active" || !atlas.bakedAvailable));
+        (!["active", "motoring", "tail-only"].includes(atlas.status) ||
+          !atlas.bakedAvailable));
     const description = button.querySelector("span");
     if (mode === SOURCE_COMPARISON_MODE) {
       description.textContent = "Live simulator";
@@ -630,8 +720,16 @@ function renderBakedAuditionControls() {
       description.textContent = atlas.activeSegmentId
         ? `Atlas · ${atlas.activeSegmentId}`
         : "Continuous atlas";
+    } else if (atlas.status === "motoring") {
+      description.textContent = "Source-derived ignition-off texture";
+    } else if (atlas.status === "tail-only") {
+      description.textContent = "Transfer tail · no motored pumping";
+    } else if (atlas.status === "ready") {
+      description.textContent = "Ready when the session starts";
     } else if (atlas.status === "arming") {
-      description.textContent = "Waiting for covered motion";
+      description.textContent = "Acquiring consecutive endpoints";
+    } else if (atlas.status === "outside-coverage") {
+      description.textContent = "Outside package coverage";
     } else if (atlas.status === "loading") {
       description.textContent = "Loading atlas package";
     } else {
@@ -691,6 +789,26 @@ function requestComparisonMode(mode) {
     mode,
   });
   renderBakedAuditionControls();
+}
+
+function requestSharedStarterEnabled(enabled) {
+  if (
+    !state.workerReady ||
+    !state.built ||
+    !state.sharedStarter.configured ||
+    !state.sharedStarter.loaded ||
+    state.sharedStarterRequestId !== null
+  ) {
+    return;
+  }
+  const requestId = nextRequestId();
+  state.sharedStarterRequestId = requestId;
+  postWorker({
+    type: "set-shared-starter-enabled",
+    requestId,
+    enabled: enabled === true,
+  });
+  renderSharedStarterControls();
 }
 
 function activeDocument() {
@@ -1268,9 +1386,6 @@ function packageById(id) {
 }
 
 function currentAudioAtlasManifestUrl() {
-  if (state.loadedPresetId !== AUDIO_ATLAS_PACKAGE_ID) {
-    return null;
-  }
   const packageDefinition = packageById(state.loadedPresetId);
   if (
     !packageDefinition?.audioAtlasManifestUrl ||
@@ -1821,6 +1936,7 @@ function acceptBuilt(message) {
     throttlePresentation: compiledThrottlePresentation,
   };
   state.audioAtlas = normalizeAudioAtlasSnapshot(message.audioAtlas);
+  adoptSharedStarterFromAtlas(state.audioAtlas);
   state.comparisonMode = state.audioAtlas.comparisonMode;
   state.comparisonModeRequestId = null;
   state.requestedComparisonMode = null;
@@ -2362,6 +2478,9 @@ function acceptTelemetry(message) {
     state.trace.splice(0, state.trace.length - MAX_TRACE_POINTS);
   }
   renderTelemetry();
+  if (state.audioAtlas.status === "outside-coverage") {
+    renderBakedAuditionControls();
+  }
   scheduleTraceDraw();
 }
 
@@ -2760,11 +2879,31 @@ function acceptWavExport(message) {
 function acceptAudioAtlasStatus(message) {
   const snapshot = normalizeAudioAtlasSnapshot(message.audioAtlas ?? message);
   state.audioAtlas = snapshot;
+  if (snapshot.diagnostics?.sharedRecordedStarter !== undefined) {
+    state.sharedStarter = normalizeSharedStarterSnapshot(
+      snapshot.diagnostics.sharedRecordedStarter,
+    );
+    renderSharedStarterControls();
+  }
   state.comparisonMode =
-    snapshot.status === "active" && snapshot.bakedAvailable
+    ["active", "motoring", "tail-only"].includes(snapshot.status) &&
+    snapshot.bakedAvailable
       ? snapshot.comparisonMode
       : SOURCE_COMPARISON_MODE;
   renderBakedAuditionControls();
+}
+
+function acceptSharedStarterStatus(message) {
+  if (message.requestId !== null && message.requestId !== undefined) {
+    state.requestKinds.delete(message.requestId);
+  }
+  if (message.requestId === state.sharedStarterRequestId) {
+    state.sharedStarterRequestId = null;
+  }
+  state.sharedStarter = normalizeSharedStarterSnapshot(
+    message.sharedStarter,
+  );
+  renderSharedStarterControls();
 }
 
 function acceptComparisonMode(message) {
@@ -2789,7 +2928,9 @@ function acceptComparisonMode(message) {
     ...state.audioAtlas,
     comparisonMode: message.mode,
     bakedAvailable:
-      state.audioAtlas.status === "active" &&
+      ["active", "motoring", "tail-only"].includes(
+        state.audioAtlas.status,
+      ) &&
       message.bakedAvailable === true,
   };
   renderBakedAuditionControls();
@@ -2805,6 +2946,14 @@ function acceptWorkerError(message) {
       state.requestedComparisonMode = null;
     }
     renderBakedAuditionControls();
+    showToast(error.message, true);
+    return;
+  }
+  if (requestKind === "set-shared-starter-enabled") {
+    if (message.requestId === state.sharedStarterRequestId) {
+      state.sharedStarterRequestId = null;
+    }
+    renderSharedStarterControls();
     showToast(error.message, true);
     return;
   }
@@ -2906,6 +3055,9 @@ function handleWorkerMessage(event) {
         break;
       case "comparison-mode":
         acceptComparisonMode(message);
+        break;
+      case "shared-starter-status":
+        acceptSharedStarterStatus(message);
         break;
       case "controls-result":
         acceptControlsResult(message);
@@ -3083,6 +3235,9 @@ function bindEvents() {
       requestComparisonMode(button.dataset.comparisonMode);
     });
   }
+  elements.sharedStarterButton.addEventListener("click", () => {
+    requestSharedStarterEnabled(!state.sharedStarter.enabled);
+  });
   elements.throttleInput.addEventListener("input", () => {
     const value = Number(elements.throttleInput.value) / 100;
     state.editingControls.add("throttle");
@@ -3287,6 +3442,7 @@ async function initialize() {
   renderTelemetry();
   renderRuntimeStats();
   renderBakedAuditionControls();
+  renderSharedStarterControls();
   drawTrace();
   startWorker();
   window.setInterval(renderRuntimeStats, 250);

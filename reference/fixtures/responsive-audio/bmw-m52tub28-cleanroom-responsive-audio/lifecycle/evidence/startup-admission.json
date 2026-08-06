@@ -1,0 +1,170 @@
+{
+  "schema": "engine-sim-offline/startup-admission-floor-evidence",
+  "atlas_manifest": "../../held/exhaust-front-dry.json",
+  "atlas_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+  "running_floor_rpm": 550,
+  "presentation_latency_frames": 32768,
+  "fit": "minimum-error constant-power E/R blend at first physical 550rpm crossing",
+  "rows": [
+    {
+      "throttle_01": 0,
+      "physical_first_fire_frame": 142080,
+      "physical_floor": {
+        "frame": 338325,
+        "rpm": 550.0016717999216,
+        "mapPa": 51740.33521626741,
+        "crankRevolutions": 6.299301017146766,
+        "starter": true
+      },
+      "audible_floor_frame": 371093,
+      "atlas_lane_weights_at_floor": {
+        "coast": 0,
+        "low": 0.9109612962395774,
+        "mid": 0.08903870376042251,
+        "power": 0
+      },
+      "constant_power_fit_20ms": {
+        "progress_01": 0.284,
+        "running_gain_linear": 0.532916503778969,
+        "event_gain_linear": 0.8461678320522472,
+        "normalized_error_db": -6.369796267485216,
+        "level_error_db": -0.005679003633620267
+      },
+      "constant_power_fit_50ms": {
+        "progress_01": 0.332,
+        "running_gain_linear": 0.5761944116355173,
+        "event_gain_linear": 0.8173126696681019,
+        "normalized_error_db": -6.411422794457888,
+        "level_error_db": -0.35551991375324027
+      }
+    },
+    {
+      "throttle_01": 0.05,
+      "physical_first_fire_frame": 142080,
+      "physical_floor": {
+        "frame": 264426,
+        "rpm": 550.0001171819616,
+        "mapPa": 74375.20174935939,
+        "crankRevolutions": 4.206758394688757,
+        "starter": true
+      },
+      "audible_floor_frame": 297194,
+      "atlas_lane_weights_at_floor": {
+        "coast": 0,
+        "low": 0.4701888500530108,
+        "mid": 0.5298111499469892,
+        "power": 0
+      },
+      "constant_power_fit_20ms": {
+        "progress_01": 0.2945,
+        "running_gain_linear": 0.5426785420486054,
+        "event_gain_linear": 0.8399404740813482,
+        "normalized_error_db": -1.5775246861456391,
+        "level_error_db": -3.3291411221850815
+      },
+      "constant_power_fit_50ms": {
+        "progress_01": 0.239,
+        "running_gain_linear": 0.48887626246321264,
+        "event_gain_linear": 0.8723531395025755,
+        "normalized_error_db": -0.6453198276873908,
+        "level_error_db": -4.413639814425871
+      }
+    },
+    {
+      "throttle_01": 0.1,
+      "physical_first_fire_frame": 126720,
+      "physical_floor": {
+        "frame": 220834,
+        "rpm": 550.0113702063551,
+        "mapPa": 90591.61330815774,
+        "crankRevolutions": 3.459541949936987,
+        "starter": true
+      },
+      "audible_floor_frame": 253602,
+      "atlas_lane_weights_at_floor": {
+        "coast": 0,
+        "low": 0.15440402398877406,
+        "mid": 0.8455959760112259,
+        "power": 0
+      },
+      "constant_power_fit_20ms": {
+        "progress_01": 0.217,
+        "running_gain_linear": 0.4658325879540846,
+        "event_gain_linear": 0.8848728722251575,
+        "normalized_error_db": -2.548920763570311,
+        "level_error_db": -3.6635304007434977
+      },
+      "constant_power_fit_50ms": {
+        "progress_01": 0.317,
+        "running_gain_linear": 0.5630275304103699,
+        "event_gain_linear": 0.8264381404557755,
+        "normalized_error_db": -2.3438948651484446,
+        "level_error_db": -3.469114391396263
+      }
+    },
+    {
+      "throttle_01": 0.2,
+      "physical_first_fire_frame": 142080,
+      "physical_floor": {
+        "frame": 225398,
+        "rpm": 549.9923481020546,
+        "mapPa": 99292.54523164066,
+        "crankRevolutions": 3.144665572739962,
+        "starter": true
+      },
+      "audible_floor_frame": 258166,
+      "atlas_lane_weights_at_floor": {
+        "coast": 0,
+        "low": 0,
+        "mid": 0.7226725624997661,
+        "power": 0.277327437500234
+      },
+      "constant_power_fit_20ms": {
+        "progress_01": 0.3765,
+        "running_gain_linear": 0.6135959582656978,
+        "event_gain_linear": 0.7896201618499872,
+        "normalized_error_db": -3.7371048703403584,
+        "level_error_db": -2.294603956388507
+      },
+      "constant_power_fit_50ms": {
+        "progress_01": 0.5155,
+        "running_gain_linear": 0.7179832867135557,
+        "event_gain_linear": 0.6960603422117942,
+        "normalized_error_db": -3.76697535256001,
+        "level_error_db": -2.2909569942614656
+      }
+    },
+    {
+      "throttle_01": 1,
+      "physical_first_fire_frame": 142080,
+      "physical_floor": {
+        "frame": 214108,
+        "rpm": 550.0035154207217,
+        "mapPa": 101310.28800138322,
+        "crankRevolutions": 2.8523978356472734,
+        "starter": true
+      },
+      "audible_floor_frame": 246876,
+      "atlas_lane_weights_at_floor": {
+        "coast": 0,
+        "low": 0,
+        "mid": 0,
+        "power": 1
+      },
+      "constant_power_fit_20ms": {
+        "progress_01": 0.494,
+        "running_gain_linear": 0.7028513356322231,
+        "event_gain_linear": 0.7113367697511496,
+        "normalized_error_db": -3.8547221687817963,
+        "level_error_db": -2.310616052538168
+      },
+      "constant_power_fit_50ms": {
+        "progress_01": 0.6305,
+        "running_gain_linear": 0.7940403012442127,
+        "event_gain_linear": 0.6078651166171654,
+        "normalized_error_db": -3.972641002981626,
+        "level_error_db": -2.1988642631676596
+      }
+    }
+  ]
+}

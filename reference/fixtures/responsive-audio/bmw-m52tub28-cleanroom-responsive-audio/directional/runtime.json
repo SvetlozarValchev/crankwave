@@ -1,0 +1,70 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-texture",
+  "id": "bmw-m52tub28-cleanroom-directional-transient-live-preview",
+  "engine": "bmw-m52tub28-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono"
+  },
+  "domain": {
+    "minimum_rpm": 550,
+    "maximum_rpm": 6700,
+    "rpm_anchors": [
+      600,
+      700,
+      900,
+      1200,
+      1600,
+      2200,
+      3000,
+      4000,
+      5000,
+      6000,
+      6500
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs"
+  },
+  "dry_bus_ids": [
+    "exhaust.front.dry",
+    "exhaust.rear.dry"
+  ],
+  "route_manifests": [
+    {
+      "bus_id": "exhaust.front.dry",
+      "rising_manifest_path": "exhaust-front-dry-rising.json",
+      "falling_manifest_path": "exhaust-front-dry-falling.json"
+    },
+    {
+      "bus_id": "exhaust.rear.dry",
+      "rising_manifest_path": "exhaust-rear-dry-rising.json",
+      "falling_manifest_path": "exhaust-rear-dry-falling.json"
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "bmw-m52tub28-cleanroom",
+      "sha256": "3918d17dc709292fa6d61681b08889647f92f6bcf1b3209cbdc5d70c91c0fa5e"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "live-rpm-map-crank-indexed-n-route-dry-directional-units-with-phase-aligned-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "ef280abc67a816ec94d57e40fd5ea5aa872d3a31ee376e9a8f4c6fc0555df82c"
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_origin_revolutions": 0,
+    "join_gate": {
+      "maximum_seam_over_source_adjacent_derivative_rms": 3,
+      "maximum_correction_rms_over_source_rms": 0.4,
+      "observed_maximum_seam_over_source_adjacent_derivative_rms": 1.933238419363622,
+      "observed_maximum_correction_rms_over_source_rms": 0.16990725972154508,
+      "passed": true
+    }
+  }
+}

@@ -5,6 +5,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repository_dir=$(CDPATH= cd -- "${script_dir}/.." && pwd)
 build_dir="${repository_dir}/.work/browser-workbench/build"
 output_dir="${build_dir}/workbench"
+responsive_fixture_dir="${repository_dir}/reference/fixtures/responsive-audio"
 emsdk_image="emscripten/emsdk@sha256:3a0d11e50f072dc2c4bc92e3b05ab1340fb7d4dd152f80b8af35fc1c6f15e644"
 
 cmake -E remove_directory "${repository_dir}/.work/browser-workbench"
@@ -29,5 +30,27 @@ docker run --rm \
             --target engine_sim_offline_web_workbench \
             --parallel 4
     '
+
+responsive_fixture_count=0
+for responsive_package_dir in "${responsive_fixture_dir}"/*; do
+    if [[ ! -d "${responsive_package_dir}" ]]; then
+        continue
+    fi
+    if [[ ! -f "${responsive_package_dir}/runtime.json" ]]; then
+        printf '%s\n' \
+            "responsive-audio fixture '${responsive_package_dir}' is incomplete: runtime.json is missing" \
+            >&2
+        exit 1
+    fi
+    responsive_package_leaf=$(basename -- "${responsive_package_dir}")
+    cmake -E copy_directory \
+        "${responsive_package_dir}" \
+        "${output_dir}/packages/${responsive_package_leaf}"
+    responsive_fixture_count=$((responsive_fixture_count + 1))
+done
+if ((responsive_fixture_count == 0)); then
+    printf '%s\n' "no responsive-audio fixtures were found" >&2
+    exit 1
+fi
 
 printf '%s\n' "${output_dir}"

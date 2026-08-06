@@ -1,0 +1,1093 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "id": "subaru-ej25-cleanroom-directional-rising-exhaust-0-dry-live-preview",
+  "engine": "subaru-ej25-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "exhaust-0.dry"
+  },
+  "phase": {
+    "cycle_revolutions": 2,
+    "samples_per_cycle": 4096,
+    "cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "domain": {
+    "minimum_rpm": 700,
+    "maximum_rpm": 6700,
+    "rpm_anchors": [
+      800,
+      1000,
+      1250,
+      1500,
+      1800,
+      2200,
+      2700,
+      3300,
+      4000,
+      4800,
+      5500,
+      6100,
+      6500
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "load_lanes": [
+      {
+        "id": "coast",
+        "throttle01": 0
+      },
+      {
+        "id": "mid",
+        "throttle01": 0.2
+      },
+      {
+        "id": "power",
+        "throttle01": 1
+      }
+    ]
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "load_cell_coalescing": {
+    "policy": "coalesce-only-identical-coordinate-and-byte-identical-source-and-closed-payload",
+    "aliases": []
+  },
+  "cells": [
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-800rpm-exhaust-0-dry-seam-closure",
+      "rpm": 800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 39787.34750833134,
+      "relative_path": "audio/rising-coast-800rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5dfd905adbd589f4445122a47566a3ac2b8375d04000eb46b3c2c75ae9741e01",
+      "source_capture_payload_sha256": "57389ac86aadf6574d60da3c1fe11c405fc136db03d25f27ea45ca42c2e1a249",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 58,
+      "source_cycle_end_revolutions": 64,
+      "loop_join_normalized_error": 0.16770823061800375,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 39787.34750833134,
+        "mean_rpm": 888.542636469402,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 21
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-1000rpm-exhaust-0-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 32442.21438685416,
+      "relative_path": "audio/rising-coast-1000rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "4cd26e3f62895a58c7b002f612982933583ef47c6c0017a8b4a7067727a5b341",
+      "source_capture_payload_sha256": "07faf35e41c8f756cd5f3442457ab20fcefd74799c00c25fdf0e0080a784d528",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 68,
+      "source_cycle_end_revolutions": 74,
+      "loop_join_normalized_error": 0.07862892971301737,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 32442.21438685416,
+        "mean_rpm": 1088.4134098582178,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 16
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-1250rpm-exhaust-0-dry-seam-closure",
+      "rpm": 1250,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 26498.295498433534,
+      "relative_path": "audio/rising-coast-1250rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f275499e8bdb6598307ceaf8efd5ba2156d54fe7d19031f83d72f6f6457e0a21",
+      "source_capture_payload_sha256": "f7ddf80ad90ab5924afb444287790c1600ca4f6828213bd36ded1371e8205418",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 80,
+      "source_cycle_end_revolutions": 86,
+      "loop_join_normalized_error": 0.11870542511582384,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 26498.295498433534,
+        "mean_rpm": 1329.3111263947314,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 14
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-1500rpm-exhaust-0-dry-seam-closure",
+      "rpm": 1500,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 22851.94141595259,
+      "relative_path": "audio/rising-coast-1500rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "1f192c14283c7c8aa5ad8181ae6e2ad7f021a432df3f1bb5ccb8fb14643bf1d8",
+      "source_capture_payload_sha256": "8b5700956ed929c1ece3a29ddfdd252a7a3eebfb218682b94ed7c4eb4282a661",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 92,
+      "source_cycle_end_revolutions": 98,
+      "loop_join_normalized_error": 0.1206790431717034,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 22851.94141595259,
+        "mean_rpm": 1570.2207711733274,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-1800rpm-exhaust-0-dry-seam-closure",
+      "rpm": 1800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 19016.056127165863,
+      "relative_path": "audio/rising-coast-1800rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "b802ba06b999c5779a44b920754ea93a53134c8e819986cb18c75f5ad4b88737",
+      "source_capture_payload_sha256": "634368f3dd86ff3e478ad81ccde00bbe8fc039aacd984d7173d782c5089c302e",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 108,
+      "source_cycle_end_revolutions": 114,
+      "loop_join_normalized_error": 0.4093017555997965,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 19016.056127165863,
+        "mean_rpm": 1892.2012536543655,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 10
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-2200rpm-exhaust-0-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 16321.071315883564,
+      "relative_path": "audio/rising-coast-2200rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "71ba35e31d7dbb4367676b86e8fafe045e4a42d162825078961f29ca39e39b55",
+      "source_capture_payload_sha256": "8e9b4ad7889bf4a287e2acdf09732dc020bc874e5ae7602c5b97405eba311852",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 128,
+      "source_cycle_end_revolutions": 134,
+      "loop_join_normalized_error": 0.0003028548927287374,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 16321.071315883564,
+        "mean_rpm": 2295.9404399185087,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-2700rpm-exhaust-0-dry-seam-closure",
+      "rpm": 2700,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 13975.396983423832,
+      "relative_path": "audio/rising-coast-2700rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "8d9ba5d2af1453bc3a2eb8e724ec74db12176a48412f63825ab65d8eab1e07fe",
+      "source_capture_payload_sha256": "d893d12e5d3673ebcaca75c7241adf45ba4c51cf7a57a63dcc9703b0a8f5a865",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 152,
+      "source_cycle_end_revolutions": 158,
+      "loop_join_normalized_error": 0.0017399516832102711,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 13975.396983423832,
+        "mean_rpm": 2767.3735668403438,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-3300rpm-exhaust-0-dry-seam-closure",
+      "rpm": 3300,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 12239.875679465824,
+      "relative_path": "audio/rising-coast-3300rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "02a8b2c588ac8042fe27bac9ff7d4cdc129b4105025a663b8dd9f894fad91397",
+      "source_capture_payload_sha256": "a4bb751153d8bbcdf94001e8f2298b7f0985d5343d93aab659373bc1c98ccce5",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 182,
+      "source_cycle_end_revolutions": 188,
+      "loop_join_normalized_error": 0.11945048274569633,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 12239.875679465824,
+        "mean_rpm": 3367.1761558790677,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-4000rpm-exhaust-0-dry-seam-closure",
+      "rpm": 4000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 10751.168922818351,
+      "relative_path": "audio/rising-coast-4000rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "ceeb50cc6d466c5ff77ed2cd767473a17378738a4cd414449aff7f53f11a8099",
+      "source_capture_payload_sha256": "01bef98c5fc039d491cdf7be7252b4c9f6b5e468931e8e1d08973c95cc232b2f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 218,
+      "source_cycle_end_revolutions": 224,
+      "loop_join_normalized_error": 1.9524324949986327,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10751.168922818351,
+        "mean_rpm": 4086.499247257947,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-4800rpm-exhaust-0-dry-seam-closure",
+      "rpm": 4800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 9611.401796697826,
+      "relative_path": "audio/rising-coast-4800rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "7028ccb709cb6e983b9050fe0d65ce550b3695a87b22634b3a79026ce8800e45",
+      "source_capture_payload_sha256": "6b5a1f9f6b1e9fa75c9b22efc3a4a3b9d4e2f02388e2a700a743f468b1a9abf8",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 258,
+      "source_cycle_end_revolutions": 264,
+      "loop_join_normalized_error": 0.0002545820136492178,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 9611.401796697826,
+        "mean_rpm": 4893.383460982587,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-5500rpm-exhaust-0-dry-seam-closure",
+      "rpm": 5500,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 9109.710677025654,
+      "relative_path": "audio/rising-coast-5500rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "7556e663d9654cae8231b7e93102a424a4cc1ab7449c4f3e815b1197650ef9db",
+      "source_capture_payload_sha256": "ca05e5fe1577b8ec89e58b7335fb75cfc6c1cbf4a5dd1839f662d88fb9ba7e01",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 292,
+      "source_cycle_end_revolutions": 298,
+      "loop_join_normalized_error": 0.08673961676246984,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 9109.710677025654,
+        "mean_rpm": 5569.557575112786,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-6100rpm-exhaust-0-dry-seam-closure",
+      "rpm": 6100,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 8820.293626515619,
+      "relative_path": "audio/rising-coast-6100rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "1aa3bf9d5fa52c2bf8cadadb528f26ef6e1eb8eb956480ce9c5c1f1bb22b24e4",
+      "source_capture_payload_sha256": "ed848975eebd9e73629d30671b3f2196dc58165d331752697344bad53f8ec14e",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 322,
+      "source_cycle_end_revolutions": 328,
+      "loop_join_normalized_error": 0.5887264881210428,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 8820.293626515619,
+        "mean_rpm": 6177.689836385263,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-coast-6500rpm-exhaust-0-dry-seam-closure",
+      "rpm": 6500,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 9735.61323091288,
+      "relative_path": "audio/rising-coast-6500rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "eac7e5e042d3a8d2238919d74534cd3c88d7750528f20b47cdcce8f02ad2c2e8",
+      "source_capture_payload_sha256": "c85b013ae1940e9f717daea8bd3688d28bc021ee1b7543cd384b02f3b04c8ab4",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 342,
+      "source_cycle_end_revolutions": 348,
+      "loop_join_normalized_error": 0.561055072447677,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 9735.61323091288,
+        "mean_rpm": 6557.629880402164,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-800rpm-exhaust-0-dry-seam-closure",
+      "rpm": 800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 98541.06094770486,
+      "relative_path": "audio/rising-mid-800rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "ce1f7a339becf90679e5671aab7e3fd9691dbb04e5296c9a235e752a12738516",
+      "source_capture_payload_sha256": "da6ff13b77e4aed3160ec08e4ffe29f88988d7bc4a4edbe866dba9a00f2c3d09",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 58,
+      "source_cycle_end_revolutions": 64,
+      "loop_join_normalized_error": 0.019686762721458084,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 98541.06094770486,
+        "mean_rpm": 888.542636469402,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9600000000000005,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 21
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-1000rpm-exhaust-0-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 97212.45245192776,
+      "relative_path": "audio/rising-mid-1000rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "0618c26484c2b3b194f3b84c6eec51fd3db9be8db156562925ca8666ee4c31a1",
+      "source_capture_payload_sha256": "c36318f4100cf627cc8f5699e4243a73be4625354297b79d52168756b6bfba4f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 68,
+      "source_cycle_end_revolutions": 74,
+      "loop_join_normalized_error": 0.0007211710257514085,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 97212.45245192776,
+        "mean_rpm": 1088.4134098582178,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9600000000000004,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 16
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-1250rpm-exhaust-0-dry-seam-closure",
+      "rpm": 1250,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 95216.03996995678,
+      "relative_path": "audio/rising-mid-1250rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "90ccfb868bcf99228947d6dc2541d19d335f0c9889695ab468362714b536a59f",
+      "source_capture_payload_sha256": "1087120698a58e9cef234d40956e77e588d1671858f5d9b4a85f8d8d7a478e7f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 80,
+      "source_cycle_end_revolutions": 86,
+      "loop_join_normalized_error": 1.01995693774226,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 95216.03996995678,
+        "mean_rpm": 1329.3111263947314,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9600000000000003,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 14
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-1500rpm-exhaust-0-dry-seam-closure",
+      "rpm": 1500,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 92817.0656376306,
+      "relative_path": "audio/rising-mid-1500rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "2a0d5ca639773bed9763814c8bbb2496df8237749993a17ae621dd537071f27e",
+      "source_capture_payload_sha256": "68b47832db89aab1108b5771c44164e2927be1233047db729848ecf8a3649146",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 92,
+      "source_cycle_end_revolutions": 98,
+      "loop_join_normalized_error": 0.008090536492178302,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 92817.0656376306,
+        "mean_rpm": 1570.2207711733274,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9600000000000003,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-1800rpm-exhaust-0-dry-seam-closure",
+      "rpm": 1800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 88798.3117078366,
+      "relative_path": "audio/rising-mid-1800rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "4be858f56f6c8b1299d37a00c100595cdbd7796a82845f9a7c5fa788bf7b56a2",
+      "source_capture_payload_sha256": "ff9661423705e622d5e12ae6835c2f12c94b7c61d0a012bb969e598f443c586c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 108,
+      "source_cycle_end_revolutions": 114,
+      "loop_join_normalized_error": 0.1708508284901265,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 88798.3117078366,
+        "mean_rpm": 1892.2012536543655,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9600000000000002,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 10
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-2200rpm-exhaust-0-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 84029.33446814361,
+      "relative_path": "audio/rising-mid-2200rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "39ae835144f781595339ae0fb90a5077d20e8a9a306af4668aaf30ac6ddad486",
+      "source_capture_payload_sha256": "030655ded1ce49fb9451dab462bb4ef3fbd262318a7f39c4ad229f173d5945a6",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 128,
+      "source_cycle_end_revolutions": 134,
+      "loop_join_normalized_error": 0.00007435586674763634,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 84029.33446814361,
+        "mean_rpm": 2295.9404399185087,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-2700rpm-exhaust-0-dry-seam-closure",
+      "rpm": 2700,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 76892.08980334745,
+      "relative_path": "audio/rising-mid-2700rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "ddc02e3396495964067efeb34786a906d701fa229357afe3312632d96268f27b",
+      "source_capture_payload_sha256": "30803e17e8c2f2d5f5b9ac2b2aafed4ebff61a546ce0392d840b6b2f2d3bf705",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 152,
+      "source_cycle_end_revolutions": 158,
+      "loop_join_normalized_error": 0.0005464899655399674,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 76892.08980334745,
+        "mean_rpm": 2767.3735668403438,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-3300rpm-exhaust-0-dry-seam-closure",
+      "rpm": 3300,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 67848.14504765818,
+      "relative_path": "audio/rising-mid-3300rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "cf943457cc4fbf935e32c3abb875def8c02c7e3e3d40c86075711767f17f86ff",
+      "source_capture_payload_sha256": "8538ae4dc7ac85246ff29ca3f32abcd76ee612758e92a310818a44bac2e75301",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 182,
+      "source_cycle_end_revolutions": 188,
+      "loop_join_normalized_error": 0.02713140518326763,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 67848.14504765818,
+        "mean_rpm": 3367.1761558790677,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-4000rpm-exhaust-0-dry-seam-closure",
+      "rpm": 4000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 54617.18396997363,
+      "relative_path": "audio/rising-mid-4000rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "7ceeb9216d824639ee937a0480467a15b4aeaaeca38384a499a8865e2db2c028",
+      "source_capture_payload_sha256": "15b85fe9f2712a72d4c163942f98bf6ad21f705d7dd5d7931e2325a3cf7f3c23",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 218,
+      "source_cycle_end_revolutions": 224,
+      "loop_join_normalized_error": 1.2571374435025482,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 54617.18396997363,
+        "mean_rpm": 4086.499247257947,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-4800rpm-exhaust-0-dry-seam-closure",
+      "rpm": 4800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 42372.06021879965,
+      "relative_path": "audio/rising-mid-4800rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "cbda0599d94c22ec425877706408d1837dd8463848ff8043fe8ce44c798b8b4b",
+      "source_capture_payload_sha256": "31d9a8b151c232025a854af76a162b2990dcc4d4d58055e0184ba81edf00d185",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 258,
+      "source_cycle_end_revolutions": 264,
+      "loop_join_normalized_error": 0.0006457967522398177,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 42372.06021879965,
+        "mean_rpm": 4893.383460982587,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-5500rpm-exhaust-0-dry-seam-closure",
+      "rpm": 5500,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 36854.66155372725,
+      "relative_path": "audio/rising-mid-5500rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "2acec710b1eb5ad33a8e2f6045433157bcd496c948241050809add10fc4ff7b1",
+      "source_capture_payload_sha256": "f0c62951475f5da3cf17bb6d3588657e97c41ebb184bbc7329a7d8e0eb208944",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 292,
+      "source_cycle_end_revolutions": 298,
+      "loop_join_normalized_error": 0.015508860553504656,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 36854.66155372725,
+        "mean_rpm": 5569.557575112786,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-6100rpm-exhaust-0-dry-seam-closure",
+      "rpm": 6100,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 33380.60156316136,
+      "relative_path": "audio/rising-mid-6100rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "257b326864448c073544fe48bd37d58516ffd8dd3be37e5992ff503012ac6fa0",
+      "source_capture_payload_sha256": "f6ce592b8fe6e0f2ef9e14dcb24ea314f32862c8e0faed31bf506d1a1b21765d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 322,
+      "source_cycle_end_revolutions": 328,
+      "loop_join_normalized_error": 1.23202553670966,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 33380.60156316136,
+        "mean_rpm": 6177.689836385263,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-mid-6500rpm-exhaust-0-dry-seam-closure",
+      "rpm": 6500,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 32578.11986003707,
+      "relative_path": "audio/rising-mid-6500rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "64a2f8e5695e4a9a5476b9149853bd2092743ceca1e72d0d4921ce8ca3fe5c49",
+      "source_capture_payload_sha256": "bd3fe9d03d2f802e89856c19fb651642a62caa6e7ff1ee027ebd4b97c5bc1f86",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 342,
+      "source_cycle_end_revolutions": 348,
+      "loop_join_normalized_error": 0.26502919419289456,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 32578.11986003707,
+        "mean_rpm": 6557.629880402164,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-800rpm-exhaust-0-dry-seam-closure",
+      "rpm": 800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101310.50831737116,
+      "relative_path": "audio/rising-power-800rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "aab9489fbdbf60d84ecdeae12a12b1ffa9eea7f89d7393dd2fddc2e5004b73e3",
+      "source_capture_payload_sha256": "53762e0bcfdb0f47579a9f84f6c62140821c793e98c7a119f748493d9c6fae9f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 58,
+      "source_cycle_end_revolutions": 64,
+      "loop_join_normalized_error": 0.03409898981627524,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101310.50831737116,
+        "mean_rpm": 888.542636469402,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 21
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-1000rpm-exhaust-0-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101295.32315271121,
+      "relative_path": "audio/rising-power-1000rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "47ad3281d5aded091891cfac9be64a5d91421b6926223ae9f100a3c68f20d995",
+      "source_capture_payload_sha256": "b42d8d65d4c2286fc324b3d6f6a770d3825687731b582ad54b04476aa26cddb2",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 68,
+      "source_cycle_end_revolutions": 74,
+      "loop_join_normalized_error": 0.03625087043551937,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101295.32315271121,
+        "mean_rpm": 1088.4134098582178,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 16
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-1250rpm-exhaust-0-dry-seam-closure",
+      "rpm": 1250,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101293.81289288362,
+      "relative_path": "audio/rising-power-1250rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "772a85d3ea9e73880c57b4a23ea223121fedb6546a33128a1566a8d34632601d",
+      "source_capture_payload_sha256": "73ebd2d62997bfca8a95cad160c5f53e5036c39881ddfc22f024c8727866a743",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 80,
+      "source_cycle_end_revolutions": 86,
+      "loop_join_normalized_error": 1.0059234300133277,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101293.81289288362,
+        "mean_rpm": 1329.3111263947314,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 14
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-1500rpm-exhaust-0-dry-seam-closure",
+      "rpm": 1500,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101213.73073244221,
+      "relative_path": "audio/rising-power-1500rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "12fe8decf2f5ea2eb0ce3f0441a2ad223bd9b0621c39f41fe10835e036ddd319",
+      "source_capture_payload_sha256": "a6e0bb018759477ce7a2b809a6775af5cb5275d39095561d25e77c2c1d8e1634",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 92,
+      "source_cycle_end_revolutions": 98,
+      "loop_join_normalized_error": 0.005133438588054973,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101213.73073244221,
+        "mean_rpm": 1570.2207711733274,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-1800rpm-exhaust-0-dry-seam-closure",
+      "rpm": 1800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101219.1979313521,
+      "relative_path": "audio/rising-power-1800rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f46e973329a6ca541e4acad74d0d4c03f9f89182556da1657fd844a8b968a6ae",
+      "source_capture_payload_sha256": "94ef179b16f5ae47f15557973198a6874fbd2e7aee4fb8cb992c175deafc91ab",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 108,
+      "source_cycle_end_revolutions": 114,
+      "loop_join_normalized_error": 0.10388222681100916,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101219.1979313521,
+        "mean_rpm": 1892.2012536543655,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 10
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-2200rpm-exhaust-0-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101203.9833526505,
+      "relative_path": "audio/rising-power-2200rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "240e51eb271aededb98451fa337284932cdc6908befc96b8f6b01aea92923c23",
+      "source_capture_payload_sha256": "9a3295d2328589f71986e2cba5f2a0b69251886fe583f5ac2d5a652159c9ad94",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 128,
+      "source_cycle_end_revolutions": 134,
+      "loop_join_normalized_error": 0.0000797335712837646,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101203.9833526505,
+        "mean_rpm": 2295.9404399185087,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 8
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-2700rpm-exhaust-0-dry-seam-closure",
+      "rpm": 2700,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101004.59478631425,
+      "relative_path": "audio/rising-power-2700rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "54b15c24b5124b777f619e1f037ee22499887354c9d163d93e172fe4020ffc31",
+      "source_capture_payload_sha256": "b57b8ff7f0e2ea44698cc35089fea896c601713b220735b464818cc80b1cd491",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 152,
+      "source_cycle_end_revolutions": 158,
+      "loop_join_normalized_error": 0.0000620877261404116,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101004.59478631425,
+        "mean_rpm": 2767.3735668403438,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-3300rpm-exhaust-0-dry-seam-closure",
+      "rpm": 3300,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100848.9225664428,
+      "relative_path": "audio/rising-power-3300rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f72c8536a6e4cfb0b07763d2a3af47ad9b5a49369daa50c8becc5d81cb1e736a",
+      "source_capture_payload_sha256": "aad6237e9f7a5c657437440466cd0583bc17a217eaa942571438253056dbfc2a",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 182,
+      "source_cycle_end_revolutions": 188,
+      "loop_join_normalized_error": 0.03522665634407461,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100848.9225664428,
+        "mean_rpm": 3367.1761558790677,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-4000rpm-exhaust-0-dry-seam-closure",
+      "rpm": 4000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100626.18857301644,
+      "relative_path": "audio/rising-power-4000rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "6177e84e14e07b9fa14cc9413c837ce4d27a01242475abe1554b51961feb2f36",
+      "source_capture_payload_sha256": "135f4b43aa3df64ea44503eb16531055486f2a113933a235e939d67fd072d30b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 218,
+      "source_cycle_end_revolutions": 224,
+      "loop_join_normalized_error": 0.7786215556710582,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100626.18857301644,
+        "mean_rpm": 4086.499247257947,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-4800rpm-exhaust-0-dry-seam-closure",
+      "rpm": 4800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100367.69014074888,
+      "relative_path": "audio/rising-power-4800rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c847753ae097423a8d86ca411e6cbed31d6405343d983ac2436ee1f2125a0c19",
+      "source_capture_payload_sha256": "13e8fb63d93579735297478fc141999d0c4f4e2c07174720d442bf63c87078a2",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 258,
+      "source_cycle_end_revolutions": 264,
+      "loop_join_normalized_error": 0.0000202582971780599,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100367.69014074888,
+        "mean_rpm": 4893.383460982587,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-5500rpm-exhaust-0-dry-seam-closure",
+      "rpm": 5500,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99900.59661780504,
+      "relative_path": "audio/rising-power-5500rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "cfd36bc86c0c4ecf0a9bf180f40c6a61f4531177ebac21f563bed80f9aeb4616",
+      "source_capture_payload_sha256": "fec21bdac239c34cc21997e0213203bc34a7179d9dff6cc75c6d662dda141120",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 292,
+      "source_cycle_end_revolutions": 298,
+      "loop_join_normalized_error": 0.0017048828225520525,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99900.59661780504,
+        "mean_rpm": 5569.557575112786,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-6100rpm-exhaust-0-dry-seam-closure",
+      "rpm": 6100,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99256.61128297164,
+      "relative_path": "audio/rising-power-6100rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "a7c6eafa43f22afd133f461fc25a94b356f1687d379aa6f48c85cd0c10a8008b",
+      "source_capture_payload_sha256": "9edbbd887fdb0bef07042518fd39c343cadf5b2a3b974def3fb5d31adbed922b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 322,
+      "source_cycle_end_revolutions": 328,
+      "loop_join_normalized_error": 0.747982271117208,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99256.61128297164,
+        "mean_rpm": 6177.689836385263,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "subaru-ej25-cleanroom-rising-power-6500rpm-exhaust-0-dry-seam-closure",
+      "rpm": 6500,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99922.74583201909,
+      "relative_path": "audio/rising-power-6500rpm.exhaust-0-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "eebe27e8e21a453721ca4ce239e814bece3dcd30f298ac66bef106e442daf9bf",
+      "source_capture_payload_sha256": "371ebde3ecd4e432fdb001e4602a63ce12d128574873917f65cadcdf06d68661",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 342,
+      "source_cycle_end_revolutions": 348,
+      "loop_join_normalized_error": 0.7126092193676418,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99922.74583201909,
+        "mean_rpm": 6557.629880402164,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "subaru-ej25-cleanroom",
+      "sha256": "2e383b32d9a6f46b9279159e5c3408c57395005253c8ff864ff2eb40346e7733"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "rising-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "63d102955c9aa243cffc533c423564935bb49b23706a0c4ff4dfffec62518d45",
+    "physics_rate_hz": 10000,
+    "source_delivery_rate_hz": 192000
+  }
+}

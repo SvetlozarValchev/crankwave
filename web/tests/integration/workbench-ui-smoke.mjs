@@ -5,149 +5,86 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
-const EXPECTED_WAV_BYTES = 4_224_056;
+const EXPECTED_WAV_BYTES = 4_608_056;
 const EXPECTED_WAV_SHA256 =
-  "1c67f7d7075f5647960ff635a550aa9004e9b11eb4585f3257d3389c5c0d1b93";
+  "6dc5856865685462943c49060b2b524e068e11ea1ca44175af9cb1a7711a7c05";
 const FINITE_EXECUTION_KIND = "1";
 const OPEN_ENDED_EXECUTION_KIND = "2";
 
-function repositoryPackageExpectations(
-  packagePrefix,
-  engineId,
-  idleRpm,
-  dynoRange,
-  freeRevScenarioId = `${engineId}-warm-running-free-rev-${idleRpm}rpm`,
-) {
+function responsivePackageExpectations(engineId, secondaryKind, secondaryId) {
   return [
     {
-      packageId: `${packagePrefix}-free-rev`,
+      packageId: `${engineId}-interactive-ab`,
       engineId,
-      scenarioId: freeRevScenarioId,
+      scenarioId: `${engineId}-interactive-free-rev-10khz-preview`,
       executionKind: OPEN_ENDED_EXECUTION_KIND,
     },
     {
-      packageId: `${packagePrefix}-held-idle`,
+      packageId: `${engineId}-${secondaryKind}-ab`,
       engineId,
-      scenarioId: `${engineId}-held-idle-region-${idleRpm}rpm`,
-      executionKind: FINITE_EXECUTION_KIND,
-    },
-    {
-      packageId: `${packagePrefix}-dyno`,
-      engineId,
-      scenarioId: `${engineId}-inertial-dyno-${dynoRange}rpm`,
+      scenarioId: secondaryId,
       executionKind: FINITE_EXECUTION_KIND,
     },
   ];
 }
 
 const NEW_REPOSITORY_PACKAGES = Object.freeze([
-  ...repositoryPackageExpectations(
-    "sequoia-3ur-fe",
-    "sequoia-3ur-fe-cleanroom",
-    650,
-    "650-6000",
-  ),
-  ...repositoryPackageExpectations(
-    "harley-evolution-1340",
-    "harley-evolution-1340-cleanroom",
-    800,
-    "800-5000",
-  ),
   {
-    packageId: "harley-shovelhead-free-rev",
-    engineId: "shovelhead-bank-local-heads",
-    scenarioId: "shovelhead-bank-local-heads-warm-running-free-rev-1000rpm",
+    packageId: "bmw-m52tub28-cleanroom-lifecycle-ab",
+    engineId: "bmw-m52tub28-cleanroom",
+    scenarioId: "bmw-m52tub28-cleanroom-interactive-lifecycle-0rpm",
     executionKind: OPEN_ENDED_EXECUTION_KIND,
   },
-  {
-    packageId: "harley-shovelhead-source-pull",
-    engineId: "shovelhead-bank-local-heads",
-    scenarioId: "shovelhead-bank-local-heads-source-pull-1000-5000rpm",
-    executionKind: FINITE_EXECUTION_KIND,
-  },
-  ...repositoryPackageExpectations(
-    "bmw-m52tub28",
+  ...responsivePackageExpectations(
     "bmw-m52tub28-cleanroom",
-    700,
-    "700-6500",
-    "bmw-m52tub28-cleanroom-warm-running-free-rev-700rpm-10khz-preview",
+    "inertial-dyno",
+    "bmw-m52tub28-cleanroom-inertial-dyno-700-6500rpm-10khz-preview",
   ),
-  {
-    packageId: "bmw-m52tub28-cold-start",
-    engineId: "bmw-m52tub28-cleanroom",
-    scenarioId: "bmw-m52tub28-cleanroom-cold-start-crank-catch-0rpm",
-    executionKind: FINITE_EXECUTION_KIND,
-  },
-  {
-    packageId: "bmw-m52tub28-canonical-crank",
-    engineId: "bmw-m52tub28-cleanroom",
-    scenarioId: "bmw-m52tub28-cleanroom-canonical-crank-only-0rpm",
-    executionKind: FINITE_EXECUTION_KIND,
-  },
-  {
-    packageId: "bmw-m52tub28-held-dyno-pull-lift",
-    engineId: "bmw-m52tub28-cleanroom",
-    scenarioId:
-      "bmw-m52tub28-cleanroom-held-dyno-pull-lift-1500-6500rpm",
-    executionKind: FINITE_EXECUTION_KIND,
-  },
-  {
-    packageId: "bmw-m52tub28-canonical-load-cycle",
-    engineId: "bmw-m52tub28-cleanroom",
-    scenarioId:
-      "bmw-m52tub28-cleanroom-canonical-loaded-rise-part-load-coast-1500-4500rpm",
-    executionKind: FINITE_EXECUTION_KIND,
-  },
-  {
-    packageId: "bmw-m52tub28-canonical-shutdown",
-    engineId: "bmw-m52tub28-cleanroom",
-    scenarioId:
-      "bmw-m52tub28-cleanroom-canonical-key-off-shutdown-700rpm",
-    executionKind: FINITE_EXECUTION_KIND,
-  },
-  {
-    packageId: "bmw-m52tub28-launch-first-second",
-    engineId: "bmw-m52tub28-cleanroom",
-    scenarioId: "bmw-m52tub28-cleanroom-free-vehicle-launch-first-second",
-    executionKind: FINITE_EXECUTION_KIND,
-  },
-  {
-    packageId: "bmw-m52tub28-fifth-gear-pull-lift",
-    engineId: "bmw-m52tub28-cleanroom",
-    scenarioId:
-      "bmw-m52tub28-cleanroom-free-vehicle-fifth-gear-pull-lift-1500rpm",
-    executionKind: FINITE_EXECUTION_KIND,
-  },
-  {
-    packageId: "honda-b18c5-held-below-vtec",
-    engineId: "honda-b18c5-cleanroom",
-    scenarioId: "honda-b18c5-cleanroom-held-below-vtec-5400rpm",
-    executionKind: FINITE_EXECUTION_KIND,
-  },
-  {
-    packageId: "honda-b18c5-dyno",
-    engineId: "honda-b18c5-cleanroom",
-    scenarioId: "honda-b18c5-cleanroom-inertial-dyno-5000-8000rpm",
-    executionKind: FINITE_EXECUTION_KIND,
-  },
-  {
-    packageId: "honda-b18c5-held-above-vtec",
-    engineId: "honda-b18c5-cleanroom",
-    scenarioId: "honda-b18c5-cleanroom-held-above-vtec-7000rpm",
-    executionKind: FINITE_EXECUTION_KIND,
-  },
-  {
-    packageId: "kohler-ch750-governed-load-step",
-    engineId: "kohler-ch750-cleanroom",
-    scenarioId: "kohler-ch750-cleanroom-governed-load-step-2740rpm",
-    executionKind: FINITE_EXECUTION_KIND,
-    throttlePresentation: {
-      label: "Governor setpoint",
-      minimum: "1,600 rpm",
-      maximum: "3,500 rpm",
-      authoredValue: "2,740 rpm",
-    },
-  },
+  ...responsivePackageExpectations(
+    "bmw-m52b28",
+    "inertial-dyno",
+    "bmw-m52b28-inertial-dyno-1500-6500rpm-10khz-preview",
+  ),
+  ...responsivePackageExpectations(
+    "raspy-muscle-620-cleanroom",
+    "inertial-dyno",
+    "raspy-muscle-620-cleanroom-inertial-dyno-800-5900rpm-10khz-preview",
+  ),
+  ...responsivePackageExpectations(
+    "sequoia-3ur-fe-cleanroom",
+    "inertial-dyno",
+    "sequoia-3ur-fe-cleanroom-inertial-dyno-650-6000rpm-10khz-preview",
+  ),
+  ...responsivePackageExpectations(
+    "harley-evolution-1340-cleanroom",
+    "inertial-dyno",
+    "harley-evolution-1340-cleanroom-inertial-dyno-800-5000rpm-10khz-preview",
+  ),
+  ...responsivePackageExpectations(
+    "shovelhead-bank-local-heads",
+    "inertial-dyno",
+    "shovelhead-bank-local-heads-inertial-dyno-1000-5000rpm-10khz-preview",
+  ),
+  ...responsivePackageExpectations(
+    "honda-b18c5-cleanroom",
+    "inertial-dyno",
+    "honda-b18c5-cleanroom-inertial-dyno-1000-8400rpm-10khz-preview",
+  ),
+  ...responsivePackageExpectations(
+    "kohler-ch750-cleanroom",
+    "held-dyno",
+    "kohler-ch750-cleanroom-held-dyno-1000-3500rpm-10khz-preview",
+  ),
+  ...responsivePackageExpectations(
+    "radial-5-cleanroom",
+    "held-dyno",
+    "radial-5-cleanroom-held-dyno-1500-2800rpm-10khz-preview",
+  ),
+  ...responsivePackageExpectations(
+    "subaru-ej25-cleanroom",
+    "inertial-dyno",
+    "subaru-ej25-cleanroom-inertial-dyno-1500-6500rpm-10khz-preview",
+  ),
 ]);
 
 function usage() {
@@ -804,6 +741,23 @@ async function main() {
     assert.equal(loaded.executionKindVisible, true);
     assert.match(loaded.diagnostics, /No diagnostics reported/u);
 
+    await cdp.evaluate(`(() => {
+      const packages = document.querySelector("#package-select");
+      packages.value = "bmw-m52tub28-cleanroom-interactive-ab";
+      packages.dispatchEvent(new Event("change", { bubbles: true }));
+      document.querySelector("#load-package-button").click();
+      return true;
+    })()`);
+    await waitUntil(
+      () => pageState(cdp),
+      (state) =>
+        state.selectedPackage ===
+          "bmw-m52tub28-cleanroom-interactive-ab" &&
+        state.authoredScenarioId ===
+          "bmw-m52tub28-cleanroom-interactive-free-rev-10khz-preview" &&
+        !state.buildDisabled,
+      "the default responsive BMW listening bench",
+    );
     await cdp.evaluate(
       `document.querySelector("#build-button").click(); true`,
     );
@@ -812,11 +766,11 @@ async function main() {
       (state) =>
         state.build === "Build admitted" &&
         state.session === "Ready" &&
-        state.busCount === 11 &&
+        state.busCount === 8 &&
         !state.startDisabled,
       "the compiled BMW workbench session",
     );
-    assert.equal(built.selectedBus, "10");
+    assert.equal(built.selectedBus, "7");
     assert.equal(built.throttleLabel, "Throttle");
     assert.equal(built.throttleMinimumLabel, "Closed");
     assert.equal(built.throttleMaximumLabel, "Wide open");
@@ -987,7 +941,7 @@ async function main() {
 
     await cdp.evaluate(`(() => {
       const packages = document.querySelector("#package-select");
-      packages.value = "raspy-muscle-620-free-rev";
+      packages.value = "raspy-muscle-620-cleanroom-interactive-ab";
       packages.dispatchEvent(new Event("change", { bubbles: true }));
       document.querySelector("#load-package-button").click();
       return true;
@@ -995,10 +949,11 @@ async function main() {
     await waitUntil(
       () => pageState(cdp),
       (state) =>
-        state.selectedPackage === "raspy-muscle-620-free-rev" &&
+        state.selectedPackage ===
+          "raspy-muscle-620-cleanroom-interactive-ab" &&
         state.authoredEngineId === "raspy-muscle-620-cleanroom" &&
         state.authoredScenarioId ===
-          "raspy-muscle-620-cleanroom-warm-running-free-rev-800rpm" &&
+          "raspy-muscle-620-cleanroom-interactive-free-rev-10khz-preview" &&
         !state.buildDisabled,
       "the repository V8 package",
     );
@@ -1044,37 +999,10 @@ async function main() {
     );
 
     const verifiedPackages = [];
-    let sourceOnlyAudition = null;
     for (const expectation of NEW_REPOSITORY_PACKAGES) {
       verifiedPackages.push(
         await verifyRepositoryPackage(cdp, expectation),
       );
-      if (expectation.packageId === "bmw-m52tub28-held-dyno-pull-lift") {
-        await selectExecutionKindAndRebuild(
-          cdp,
-          OPEN_ENDED_EXECUTION_KIND,
-        );
-        await verifyHeldDynoBench(cdp);
-      }
-      if (expectation.packageId === "bmw-m52tub28-free-rev") {
-        sourceOnlyAudition = await verifySourceOnlyAudition(cdp);
-      }
-      if (expectation.packageId === "bmw-m52tub28-canonical-shutdown") {
-        await verifyFiniteProcedure(cdp);
-      }
-      if (expectation.packageId === "harley-shovelhead-source-pull") {
-        await verifyFiniteProcedure(cdp);
-      }
-      if (expectation.packageId === "harley-shovelhead-free-rev") {
-        await verifyInteractiveFreeEngine(cdp);
-      }
-      if (expectation.packageId === "bmw-m52tub28-launch-first-second") {
-        await selectExecutionKindAndRebuild(
-          cdp,
-          OPEN_ENDED_EXECUTION_KIND,
-        );
-        await verifyFreeVehicleBench(cdp);
-      }
     }
     assert.deepEqual(cdp.exceptions, []);
 
@@ -1089,7 +1017,6 @@ async function main() {
         selectedRoute,
         v8Engine: v8Running.sessionTitle,
         v8StartupUnderruns: Number(v8Running.underruns),
-        sourceOnlyAudition,
         verifiedPackages,
       }) + "\n",
     );

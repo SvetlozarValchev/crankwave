@@ -1,0 +1,935 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "id": "bmw-m52tub28-cleanroom-directional-falling-exhaust-front-dry-live-preview",
+  "engine": "bmw-m52tub28-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "exhaust.front.dry"
+  },
+  "phase": {
+    "cycle_revolutions": 2,
+    "samples_per_cycle": 4096,
+    "cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "domain": {
+    "minimum_rpm": 550,
+    "maximum_rpm": 6700,
+    "rpm_anchors": [
+      600,
+      700,
+      900,
+      1200,
+      1600,
+      2200,
+      3000,
+      4000,
+      5000,
+      6000,
+      6500
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "load_lanes": [
+      {
+        "id": "coast",
+        "throttle01": 0
+      },
+      {
+        "id": "mid",
+        "throttle01": 0.2
+      },
+      {
+        "id": "power",
+        "throttle01": 1
+      }
+    ]
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "load_cell_coalescing": {
+    "policy": "coalesce-only-identical-coordinate-and-byte-identical-source-and-closed-payload",
+    "aliases": []
+  },
+  "cells": [
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-coast-600rpm-exhaust-front-dry-seam-closure",
+      "rpm": 600,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 28257.4177018089,
+      "relative_path": "audio/falling-coast-600rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "68b9a9c828a027041ece96a82a08f35a48dae75811552304c5d5e7267be3e1b4",
+      "source_capture_payload_sha256": "9d83309cec8b478232ce580636d895aedcda0d075c593dd62a851e8d6d36db95",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 816,
+      "source_cycle_end_revolutions": 822,
+      "loop_join_normalized_error": 2.2608263684969123,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 28257.4177018089,
+        "mean_rpm": 550.7205309868557,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 33
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-coast-700rpm-exhaust-front-dry-seam-closure",
+      "rpm": 700,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 24481.219421539303,
+      "relative_path": "audio/falling-coast-700rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "dde1c438dc2487128d724b115b9f322468b2c5486d186b21ac8e832233d4e608",
+      "source_capture_payload_sha256": "fc0daed8345beb3df88074070fba775fc323d150e66a7c93ced7c84b744922f2",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 810,
+      "source_cycle_end_revolutions": 816,
+      "loop_join_normalized_error": 0.8529547666286639,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 24481.219421539303,
+        "mean_rpm": 621.9065363554739,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 29
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-coast-900rpm-exhaust-front-dry-seam-closure",
+      "rpm": 900,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 19419.27539266845,
+      "relative_path": "audio/falling-coast-900rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "8c7eca0c431f79931695ea4ff94d5746a902012f75372d0626b621d2db547db6",
+      "source_capture_payload_sha256": "cdb3ad7295d7f739607a0d4c5e70eaf49bfce854aafd741b0d4254e74e36f845",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 800,
+      "source_cycle_end_revolutions": 806,
+      "loop_join_normalized_error": 0.018513341280357896,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 19419.27539266845,
+        "mean_rpm": 822.222081277155,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 21
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-coast-1200rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 15286.470749923807,
+      "relative_path": "audio/falling-coast-1200rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "1479134433f668df6de253e856916bfe569148ee1b6868b20bfa2b549efe82c9",
+      "source_capture_payload_sha256": "c5b9e0f8966b27ca8644b9407189ed416131638724e660f6ba8fe1f01d19b899",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 786,
+      "source_cycle_end_revolutions": 792,
+      "loop_join_normalized_error": 0.06247238401643772,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 15286.470749923807,
+        "mean_rpm": 1102.2262058574142,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-coast-1600rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1600,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 11967.849167051745,
+      "relative_path": "audio/falling-coast-1600rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "128fec58cae8ea27e6211603918544aeffc1ade6a1ad8baf31a43bd3da37d51b",
+      "source_capture_payload_sha256": "c8f677c27fddf4bb0cde62e7888a9e012add072d53a0cf72fa4a9ab51753df72",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 766,
+      "source_cycle_end_revolutions": 772,
+      "loop_join_normalized_error": 0.21282943209466174,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 11967.849167051745,
+        "mean_rpm": 1502.3581733535223,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-coast-2200rpm-exhaust-front-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 9428.558444181508,
+      "relative_path": "audio/falling-coast-2200rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e1a7dba609ae3c9a81b430e4ac152d71c8478dc9d3e8db0812129874985f5c12",
+      "source_capture_payload_sha256": "3e6c6cf68dedc7127ce7f2cc69b4b1fbcd075923b468f64b710bec8be6473751",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 736,
+      "source_cycle_end_revolutions": 742,
+      "loop_join_normalized_error": 1.308792376263773,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 9428.558444181508,
+        "mean_rpm": 2103.2700259061767,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-coast-3000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 3000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 7787.612154724365,
+      "relative_path": "audio/falling-coast-3000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "b3597158f9d9f77e4ce9b9f3f61a164c3fd1c1b177870ff6f5ddac9d4151cbb5",
+      "source_capture_payload_sha256": "44bccdd912700497942e11e63fe4a1ddc9d072cd7fd1bfd498999a003032fb9d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 696,
+      "source_cycle_end_revolutions": 702,
+      "loop_join_normalized_error": 0.6597388521291172,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 7787.612154724365,
+        "mean_rpm": 2905.663359657825,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-coast-4000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 4000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 7317.54824838925,
+      "relative_path": "audio/falling-coast-4000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c448df2c47a3eb96b8f1b16a68613c16a4643407ceef5f6d9abd57e00317dbcb",
+      "source_capture_payload_sha256": "b913068c9e70257b0993d07f7adff3e13e3e082df97e2fdea1e576f913f70bf0",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 646,
+      "source_cycle_end_revolutions": 652,
+      "loop_join_normalized_error": 0.9762663406099183,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 7317.54824838925,
+        "mean_rpm": 3910.7689103573002,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-coast-5000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 5000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 8589.275985407303,
+      "relative_path": "audio/falling-coast-5000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "477fd28f489440031a6e6baf93d641b1d8f7a7baee3c7eab7c3ac0db3175aeca",
+      "source_capture_payload_sha256": "eb9afbe7ece5f19dec3b3e8ddea6be1c85176dd46ad15e7ec59cca2208a20c33",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 596,
+      "source_cycle_end_revolutions": 602,
+      "loop_join_normalized_error": 0.8392061518462289,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 8589.275985407303,
+        "mean_rpm": 4903.837376670503,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-coast-6000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 6000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 10949.769698998083,
+      "relative_path": "audio/falling-coast-6000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "bc7502575f62b729fd2c4ff2bdf6e607eeeeee1347e148aa3c1279a4ba3d75f4",
+      "source_capture_payload_sha256": "46a3e96225c69f8e45afd530e5299a00e08a17bc722022b7bacf0391852e3025",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 546,
+      "source_cycle_end_revolutions": 552,
+      "loop_join_normalized_error": 0.6083418995586998,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10949.769698998083,
+        "mean_rpm": 5912.370905306158,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-coast-6500rpm-exhaust-front-dry-seam-closure",
+      "rpm": 6500,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 12409.05991068911,
+      "relative_path": "audio/falling-coast-6500rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "959047013682f2e284ee2e1c69f246f1432608442fac1964188645976211f3da",
+      "source_capture_payload_sha256": "fe277142405f198eac4549af9414d596545bcf4bc2483ae3944606a62dabd25e",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 520,
+      "source_cycle_end_revolutions": 526,
+      "loop_join_normalized_error": 0.4786897127432617,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 12409.05991068911,
+        "mean_rpm": 6426.179879248759,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-mid-600rpm-exhaust-front-dry-seam-closure",
+      "rpm": 600,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 98998.37845201137,
+      "relative_path": "audio/falling-mid-600rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "266e36b3a11e5261612e24389a27bec72762aa76532a18f80c0564178b379d08",
+      "source_capture_payload_sha256": "681dedbd96326177922e367d3c7aacb7ab76d25fc763e3e8e05b4ee53160c3b3",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 816,
+      "source_cycle_end_revolutions": 822,
+      "loop_join_normalized_error": 1.0169028396753659,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 98998.37845201137,
+        "mean_rpm": 550.7205309868557,
+        "mean_requested_throttle_01": 0.2000000000000001,
+        "mean_resolved_throttle_01": 0.9490779953781433,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 33
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-mid-700rpm-exhaust-front-dry-seam-closure",
+      "rpm": 700,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 98219.23262536606,
+      "relative_path": "audio/falling-mid-700rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "bbe4c85d1cc809951c6b9b349063a83919129f83fcaae722e803faccdb967207",
+      "source_capture_payload_sha256": "2510bd353f13f3a283da0e1917891d4b2ae41c8305c41afcb80ab0a0c6888280",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 810,
+      "source_cycle_end_revolutions": 816,
+      "loop_join_normalized_error": 0.9758585414833681,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 98219.23262536606,
+        "mean_rpm": 621.9065363554739,
+        "mean_requested_throttle_01": 0.2000000000000001,
+        "mean_resolved_throttle_01": 0.9490779953781433,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 29
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-mid-900rpm-exhaust-front-dry-seam-closure",
+      "rpm": 900,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 95655.76569223616,
+      "relative_path": "audio/falling-mid-900rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "817345a4bfeb9455092d1daf957a6e625fb73affe468aaf2dcd7c55fe105efee",
+      "source_capture_payload_sha256": "013a03f51807a6c1ef3053a9ad91a801145fa45821c24de9a00181a688e96e5d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 800,
+      "source_cycle_end_revolutions": 806,
+      "loop_join_normalized_error": 0.009284928955012655,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 95655.76569223616,
+        "mean_rpm": 822.222081277155,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9490779953781432,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 21
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-mid-1200rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 91030.6814777302,
+      "relative_path": "audio/falling-mid-1200rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "107bae52d32841ab7abbdabcb1c13fab55d2059df7d0e087fc148b789bfe4f23",
+      "source_capture_payload_sha256": "ff37077d9df7ac1ddeb30be1289012f1ddb8a3865a1d5ca3408f5cd7ca987dbc",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 786,
+      "source_cycle_end_revolutions": 792,
+      "loop_join_normalized_error": 0.010270398037547309,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 91030.6814777302,
+        "mean_rpm": 1102.2262058574142,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9490779953781432,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-mid-1600rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1600,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 82945.4470317303,
+      "relative_path": "audio/falling-mid-1600rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "75bea5add7b9bcb182d66f6abaaf4768d0190686a1938a4646f103c60d2a441b",
+      "source_capture_payload_sha256": "b298d99b5e686efea937535d2e9038d3f93e78aec9964b8761425fd4e9929f95",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 766,
+      "source_cycle_end_revolutions": 772,
+      "loop_join_normalized_error": 0.0025751802540369437,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 82945.4470317303,
+        "mean_rpm": 1502.3581733535223,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9490779953781433,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-mid-2200rpm-exhaust-front-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 69485.70182301773,
+      "relative_path": "audio/falling-mid-2200rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "009cf50c8e9f84c16bc829e9c13dc149eac9cad91b7eabbbf31611c2eb9aebb6",
+      "source_capture_payload_sha256": "7c4eef4c8d593b7ace5dcd91e28e7744529b0a695300b24c14e8665d8f11c572",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 736,
+      "source_cycle_end_revolutions": 742,
+      "loop_join_normalized_error": 1.090093955732388,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 69485.70182301773,
+        "mean_rpm": 2103.2700259061767,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9490779953781432,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-mid-3000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 3000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 51697.894770542036,
+      "relative_path": "audio/falling-mid-3000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "552e33a3bc4011f7c80d1d682d24ceafeab68f160e8cdcddab5fb50cff131b74",
+      "source_capture_payload_sha256": "1de864f7e00de951f2abfd8f48cbdaf77923e6b3d6f249c3f3b7ace61b00da29",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 696,
+      "source_cycle_end_revolutions": 702,
+      "loop_join_normalized_error": 0.03525514046941253,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 51697.894770542036,
+        "mean_rpm": 2905.663359657825,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9490779953781431,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-mid-4000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 4000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 36899.372702177,
+      "relative_path": "audio/falling-mid-4000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "687b955383d91f1bb4ede0f34bce7a713806fa1b406263ef8205660f6233a069",
+      "source_capture_payload_sha256": "5ce7456a89afa61d678767194928e0129957041ccb19e404ae8db14109754dfc",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 646,
+      "source_cycle_end_revolutions": 652,
+      "loop_join_normalized_error": 2.562537126653947,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 36899.372702177,
+        "mean_rpm": 3910.7689103573002,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9490779953781431,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-mid-5000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 5000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 30524.407321007555,
+      "relative_path": "audio/falling-mid-5000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "0d0d37b40efc72b655667ca3eac19469056abeb3c52435fad63b91e01d5c5d1a",
+      "source_capture_payload_sha256": "a56c8395cfa30fbe3f0493bd924698b160c795698cf0255c56a1925ffcb846db",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 596,
+      "source_cycle_end_revolutions": 602,
+      "loop_join_normalized_error": 0.14461854278805808,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 30524.407321007555,
+        "mean_rpm": 4903.837376670503,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9490779953781431,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-mid-6000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 6000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 28801.120874501004,
+      "relative_path": "audio/falling-mid-6000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "15c25d876e2ca85bd96839682bffbaa8ba10f80fd1276c964ca7a76fa97b146f",
+      "source_capture_payload_sha256": "fb9f452dac5f8f6f1d3c5c05b59e004e3f7363a24299fe07254122f44d45e323",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 546,
+      "source_cycle_end_revolutions": 552,
+      "loop_join_normalized_error": 0.1870932351324174,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 28801.120874501004,
+        "mean_rpm": 5912.370905306158,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9490779953781431,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-mid-6500rpm-exhaust-front-dry-seam-closure",
+      "rpm": 6500,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 28591.11460937075,
+      "relative_path": "audio/falling-mid-6500rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "556d3d97d6a5a1d84788a9aaa430a85b17a20b5dd8690eb36c85a588590d585e",
+      "source_capture_payload_sha256": "56f919867b16f6845bf4f667e4f9fdb078d5ef8d51cc04e16087d6308097aad3",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 520,
+      "source_cycle_end_revolutions": 526,
+      "loop_join_normalized_error": 0.19372413086066798,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 28591.11460937075,
+        "mean_rpm": 6426.179879248759,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9490779953781431,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-power-600rpm-exhaust-front-dry-seam-closure",
+      "rpm": 600,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101307.31528394531,
+      "relative_path": "audio/falling-power-600rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "393bbb51457dc29244b665a491c53db5e85201c20b457125d317ffd20f6d17f7",
+      "source_capture_payload_sha256": "372b85fcbd999906efdf0748a6b34173f2d01d34c3a036c58edf82820c5d7a5f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 816,
+      "source_cycle_end_revolutions": 822,
+      "loop_join_normalized_error": 1.0847466197175781,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101307.31528394531,
+        "mean_rpm": 550.7205309868557,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 33
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-power-700rpm-exhaust-front-dry-seam-closure",
+      "rpm": 700,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101301.90158197828,
+      "relative_path": "audio/falling-power-700rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "31b157d51c9810e00f0548151238e269907546fd09b84f7227c9b3cd55c51160",
+      "source_capture_payload_sha256": "b4aaf271ee44795690ec08bd30bec6cc6337e1476d576d23cd52a10cf84fa68f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 810,
+      "source_cycle_end_revolutions": 816,
+      "loop_join_normalized_error": 0.9602901106440954,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101301.90158197828,
+        "mean_rpm": 621.9065363554739,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 29
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-power-900rpm-exhaust-front-dry-seam-closure",
+      "rpm": 900,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101280.46035564598,
+      "relative_path": "audio/falling-power-900rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "6f5817485bd66f67750805abdf20dee5865adc8ac1a58705f149b6067fb51c6c",
+      "source_capture_payload_sha256": "7d0565b06ad48f3b8a17893a644c75b79dd444f7b4a659b62d46dde726df8add",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 800,
+      "source_cycle_end_revolutions": 806,
+      "loop_join_normalized_error": 0.010731366384284985,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101280.46035564598,
+        "mean_rpm": 822.222081277155,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 21
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-power-1200rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101238.34568496695,
+      "relative_path": "audio/falling-power-1200rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c63dc4d8a50b9fc708ad0a725927844565434090a4847d73321e0a5b97ab4a13",
+      "source_capture_payload_sha256": "c7e12a2ac3ce7124b82e6745a1e709e714594b99e64a59c260560f908061274d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 786,
+      "source_cycle_end_revolutions": 792,
+      "loop_join_normalized_error": 0.007268144660131375,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101238.34568496695,
+        "mean_rpm": 1102.2262058574142,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-power-1600rpm-exhaust-front-dry-seam-closure",
+      "rpm": 1600,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101147.68238650712,
+      "relative_path": "audio/falling-power-1600rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "d3e73f07bf2473a2d47fe728e42ff270df19f143d106ed6eeb741d0bdcd2ee05",
+      "source_capture_payload_sha256": "642f6d304efaddf774df458cbeb78784d601ce652373bf58787f2e53bf99b0cc",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 766,
+      "source_cycle_end_revolutions": 772,
+      "loop_join_normalized_error": 0.03341521057734571,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101147.68238650712,
+        "mean_rpm": 1502.3581733535223,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-power-2200rpm-exhaust-front-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101006.6893970398,
+      "relative_path": "audio/falling-power-2200rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "92e0f9877431f43eae24dcc124629a9122ac276b231e5898e4d1fd5713f8f40b",
+      "source_capture_payload_sha256": "efcdd046d45b277b3f65afbb255acc195d0fc0b632a1df2794a5e6970e04d49f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 736,
+      "source_cycle_end_revolutions": 742,
+      "loop_join_normalized_error": 1.8545732399589998,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101006.6893970398,
+        "mean_rpm": 2103.2700259061767,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-power-3000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 3000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100526.93573967925,
+      "relative_path": "audio/falling-power-3000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e90e59ba2ce8605cfe8d396d0f7ba4dc5c617a00dd2d7ecccf3d12c38872dbcd",
+      "source_capture_payload_sha256": "2d33fe5b79e8d3c2d6a6f398357e6dec39474328c7bdd567e99d84804ca8ad10",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 696,
+      "source_cycle_end_revolutions": 702,
+      "loop_join_normalized_error": 0.06973460062367377,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100526.93573967925,
+        "mean_rpm": 2905.663359657825,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-power-4000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 4000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99810.27966231586,
+      "relative_path": "audio/falling-power-4000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c7b85b007f168c19ae7ae8d54c84a15173475161ea02b06980f383ed5a1c457c",
+      "source_capture_payload_sha256": "c7a036c2d30c87a419ad7cd8cc27ca07879525c0c3c486e6cc064b18c86d93bd",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 646,
+      "source_cycle_end_revolutions": 652,
+      "loop_join_normalized_error": 0.31604367614000073,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99810.27966231586,
+        "mean_rpm": 3910.7689103573002,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-power-5000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 5000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99511.48690433985,
+      "relative_path": "audio/falling-power-5000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "6315f871fe5fc851d387477f724a1149ff6e9ce4ea09fca4ba6177e4f6a96dd4",
+      "source_capture_payload_sha256": "3da9ca895adfbe01d2a3c1639db58a4172edfb3adf4a8563892383b7c970b1d8",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 596,
+      "source_cycle_end_revolutions": 602,
+      "loop_join_normalized_error": 0.07949635072782026,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99511.48690433985,
+        "mean_rpm": 4903.837376670503,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-power-6000rpm-exhaust-front-dry-seam-closure",
+      "rpm": 6000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99221.6232584915,
+      "relative_path": "audio/falling-power-6000rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "567b795acbf9ed9db5bce1998552363b3744ea5106f20d1cf14d5f26638593ea",
+      "source_capture_payload_sha256": "32a0f51fb8249082a81d7c5137dd059e0d1e5d052457cc6ca6f100816c5961b4",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 546,
+      "source_cycle_end_revolutions": 552,
+      "loop_join_normalized_error": 1.3950295230332608,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99221.6232584915,
+        "mean_rpm": 5912.370905306158,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "bmw-m52tub28-cleanroom-falling-power-6500rpm-exhaust-front-dry-seam-closure",
+      "rpm": 6500,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 98904.25623001716,
+      "relative_path": "audio/falling-power-6500rpm.exhaust-front-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "b51318ed47bc213b16a7788b405c38e19bf3796d1a94f508285a06045f48c71a",
+      "source_capture_payload_sha256": "084e455477b8a66cb7584e8e1a152cf60b77d4e5156fa00d34875cfd2a9d9a22",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 520,
+      "source_cycle_end_revolutions": 526,
+      "loop_join_normalized_error": 0.11409992325362554,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 98904.25623001716,
+        "mean_rpm": 6426.179879248759,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "bmw-m52tub28-cleanroom",
+      "sha256": "3918d17dc709292fa6d61681b08889647f92f6bcf1b3209cbdc5d70c91c0fa5e"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "falling-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "ef280abc67a816ec94d57e40fd5ea5aa872d3a31ee376e9a8f4c6fc0555df82c",
+    "physics_rate_hz": 10000,
+    "source_delivery_rate_hz": 192000
+  }
+}

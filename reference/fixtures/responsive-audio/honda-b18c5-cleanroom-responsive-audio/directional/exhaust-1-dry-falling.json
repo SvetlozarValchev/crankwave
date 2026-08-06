@@ -1,0 +1,1409 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "id": "honda-b18c5-cleanroom-directional-falling-exhaust-1-dry-live-preview",
+  "engine": "honda-b18c5-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "exhaust.1.dry"
+  },
+  "phase": {
+    "cycle_revolutions": 2,
+    "samples_per_cycle": 4096,
+    "cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "domain": {
+    "minimum_rpm": 500,
+    "maximum_rpm": 9500,
+    "rpm_anchors": [
+      600,
+      800,
+      1000,
+      1500,
+      2200,
+      3000,
+      4000,
+      5000,
+      5600,
+      5800,
+      6500,
+      7400,
+      8000,
+      8400,
+      8800,
+      9200,
+      9400
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "load_lanes": [
+      {
+        "id": "coast",
+        "throttle01": 0
+      },
+      {
+        "id": "mid",
+        "throttle01": 0.2
+      },
+      {
+        "id": "power",
+        "throttle01": 1
+      }
+    ]
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "load_cell_coalescing": {
+    "policy": "coalesce-only-identical-coordinate-and-byte-identical-source-and-closed-payload",
+    "aliases": []
+  },
+  "cells": [
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-600rpm-exhaust-1-dry-seam-closure",
+      "rpm": 600,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 45149.33404472818,
+      "relative_path": "audio/falling-coast-600rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "4b4e219115017b8a2d10c5d54c573bb3bf2a4340f2586c5cc6f4271535cfbce0",
+      "source_capture_payload_sha256": "ae438088f658e2c58eb9a8442da7577916709012cb061d73017a7385d89ca440",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1206,
+      "source_cycle_end_revolutions": 1212,
+      "loop_join_normalized_error": 0.029012926141393586,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 45149.33404472818,
+        "mean_rpm": 508.0971313613883,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 35
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 33634.554930581064,
+      "relative_path": "audio/falling-coast-800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c9660a6f74339bd473a769ae97bc9501f02d6d16f3fac79c0ed29432b5b5e331",
+      "source_capture_payload_sha256": "bca173e81ead92ab3ccc2cc82d65a20e725f87f4ca3e1ad723bc67d0e051dd50",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1196,
+      "source_cycle_end_revolutions": 1202,
+      "loop_join_normalized_error": 0.91048620721322,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 33634.554930581064,
+        "mean_rpm": 703.2766662922761,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 26
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-1000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 26855.792951423744,
+      "relative_path": "audio/falling-coast-1000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e79235c856e72e5ac6f649c987bae6e98b9d6d8bf86e3112de6684b684f2f689",
+      "source_capture_payload_sha256": "d4f6dad4b9c03f4be2489bb0fa99e1bbde2afe55ce1b1a7f90bdd04765589a54",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1186,
+      "source_cycle_end_revolutions": 1192,
+      "loop_join_normalized_error": 0.000277293346892463,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 26855.792951423744,
+        "mean_rpm": 905.5424148591889,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 20
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-1500rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1500,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 17617.861936356974,
+      "relative_path": "audio/falling-coast-1500rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f8f79abd67b9dceefcbb40080dcbe22f69b12daae82da58d480b38a9881ecf7c",
+      "source_capture_payload_sha256": "86461c7f5c54bd884e31d18d0ad0d50a625182077fdc65730a8b64b3adecdd10",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1160,
+      "source_cycle_end_revolutions": 1166,
+      "loop_join_normalized_error": 0.00018171308247198005,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 17617.861936356974,
+        "mean_rpm": 1424.2848823295237,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-2200rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 13143.627603218807,
+      "relative_path": "audio/falling-coast-2200rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "d4a5eccad153d41e084624b57db14938209695dcb7ac104f9ca43f1ff277e03e",
+      "source_capture_payload_sha256": "885be569f1103837d253b8a8b0e772502aba8176316b1508487af37710bbba03",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1126,
+      "source_cycle_end_revolutions": 1132,
+      "loop_join_normalized_error": 0.11190985814617078,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 13143.627603218807,
+        "mean_rpm": 2103.6866548682756,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-3000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 3000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 10266.769568481952,
+      "relative_path": "audio/falling-coast-3000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "976fb5d39dc9b5dd76b1fe2b9b20057ff55e364716627f8b9977aa2b7a2e061c",
+      "source_capture_payload_sha256": "1eea6524825f3db68d7b37eb4a175b9781b6852cc112e6f5d7f3809cded8b960",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1086,
+      "source_cycle_end_revolutions": 1092,
+      "loop_join_normalized_error": 0.38617326182345285,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10266.769568481952,
+        "mean_rpm": 2906.4415370187176,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-4000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 4000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 8495.36099469589,
+      "relative_path": "audio/falling-coast-4000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f40b58bbcea59b231726dd8a8954a3c5642a8e09d2f6e80a5c2672d95f481ff6",
+      "source_capture_payload_sha256": "029eeab7f9a7b8a39e3454d7d2f3e26275227097fddb5ddecc06fb9ff0e72eb9",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1036,
+      "source_cycle_end_revolutions": 1042,
+      "loop_join_normalized_error": 0.04030156570739766,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 8495.36099469589,
+        "mean_rpm": 3908.86994570554,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-5000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 5000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 7654.328425396971,
+      "relative_path": "audio/falling-coast-5000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "8b56fff510af14d43be4094af27d8bb75e962bcd642364f5e2c480db90d93eee",
+      "source_capture_payload_sha256": "5b459ce388be7d99e15560791b02fabe672ec22e3b40d5db8504fe07f9fc57c9",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 986,
+      "source_cycle_end_revolutions": 992,
+      "loop_join_normalized_error": 0.2394691967635457,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 7654.328425396971,
+        "mean_rpm": 4905.359329132537,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-5600rpm-exhaust-1-dry-seam-closure",
+      "rpm": 5600,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 7193.971634290214,
+      "relative_path": "audio/falling-coast-5600rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "448ed54ccb31d130b4f2c51df950be43a8a34eb9cee9ecbedda27184b6f8642a",
+      "source_capture_payload_sha256": "9395a7572aa52f5df58f3f50cf649e88d6ec57e74ef01920bd231b30968ad114",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 956,
+      "source_cycle_end_revolutions": 962,
+      "loop_join_normalized_error": 0.009009384081414096,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 7193.971634290214,
+        "mean_rpm": 5490.701969110614,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-5800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 5800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 7004.567872740857,
+      "relative_path": "audio/falling-coast-5800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "b2bb54ef3dd8dceb9b2c8d391ed7d51aa77419739a6934d45a1adb57182c588c",
+      "source_capture_payload_sha256": "43d9d9b6a289ec8a1fd7df2f2fb63faf99bb8979667ba3993b1ddaef9bad2dee",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 946,
+      "source_cycle_end_revolutions": 952,
+      "loop_join_normalized_error": 0.0005259061942374802,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 7004.567872740857,
+        "mean_rpm": 5718.413206700229,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-6500rpm-exhaust-1-dry-seam-closure",
+      "rpm": 6500,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 7839.304771964416,
+      "relative_path": "audio/falling-coast-6500rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f4d1e83bfa46e8d2b1c96571158773a14ff5add1adc59d5be4ba5de3d446e7df",
+      "source_capture_payload_sha256": "1d604a64e8cf7f1745b6dbb7fb6088474d9954b565c37d0e69df68f0f4f91981",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 910,
+      "source_cycle_end_revolutions": 916,
+      "loop_join_normalized_error": 0.0018430214212092084,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 7839.304771964416,
+        "mean_rpm": 6423.465434684031,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-7400rpm-exhaust-1-dry-seam-closure",
+      "rpm": 7400,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 8597.243072731751,
+      "relative_path": "audio/falling-coast-7400rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "dd5a4999951a1f8ff2729ee1b2d8fd3abde619ca0056fda5de4b17a765d62540",
+      "source_capture_payload_sha256": "d1dc3bc582110ca7a883b5daee1e91fc1eb2e12c4ec727d68ad1a30c395a1d38",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 866,
+      "source_cycle_end_revolutions": 872,
+      "loop_join_normalized_error": 0.6361591804307634,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 8597.243072731751,
+        "mean_rpm": 7318.003912783886,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-8000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 8000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 10658.396684722444,
+      "relative_path": "audio/falling-coast-8000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5f860d951ddd39dd809c47caa8e2de8301fac8f60c6fee4d0e0c2014c9696766",
+      "source_capture_payload_sha256": "1a7521a2840c94f588ec4bb75f2e2e51f4661821b5f95e2e69a775430a05a445",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 836,
+      "source_cycle_end_revolutions": 842,
+      "loop_join_normalized_error": 0.04890350415206765,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10658.396684722444,
+        "mean_rpm": 7900.527215556557,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-8400rpm-exhaust-1-dry-seam-closure",
+      "rpm": 8400,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 11393.122169543052,
+      "relative_path": "audio/falling-coast-8400rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f1170b0ce00ee2afcaa4a2097953e30476a58cc9bddf680149bd1c47fbce97b9",
+      "source_capture_payload_sha256": "90321f524024ef3ff0cb794524c52b2361a206947810af6e261deaca72549759",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 816,
+      "source_cycle_end_revolutions": 822,
+      "loop_join_normalized_error": 0.007658900740436944,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 11393.122169543052,
+        "mean_rpm": 8301.333753009914,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-8800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 8800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 12330.328912976503,
+      "relative_path": "audio/falling-coast-8800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "494ade7b8924090561f011fa242d52c57cc7be73a062bee32367af7a6de3e1dd",
+      "source_capture_payload_sha256": "4c104485862c11db6c12a854924aa3640fd86d94f52d805d63a00c73d60abc92",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 796,
+      "source_cycle_end_revolutions": 802,
+      "loop_join_normalized_error": 0.058972259381102114,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 12330.328912976503,
+        "mean_rpm": 8732.32777348531,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-9200rpm-exhaust-1-dry-seam-closure",
+      "rpm": 9200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 12399.280255670437,
+      "relative_path": "audio/falling-coast-9200rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "cac64c0752d32ddee3fbe4cff51366e606192643d4caef2b26fba4be21e176e7",
+      "source_capture_payload_sha256": "d416e8902a36ba34da53fb6a1232fe0b58ffd92dc376e399bbd9a22868986453",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 776,
+      "source_cycle_end_revolutions": 782,
+      "loop_join_normalized_error": 1.138939651670017,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 12399.280255670437,
+        "mean_rpm": 9082.10032998917,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-coast-9400rpm-exhaust-1-dry-seam-closure",
+      "rpm": 9400,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 14743.622815617122,
+      "relative_path": "audio/falling-coast-9400rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "83c906880e97a1a64677825a011ff58f78dfd9353284a6dcab5a14f8b91027cc",
+      "source_capture_payload_sha256": "86f80d2fa5fc4abbd4fa5698b90aafb9b08cabfd6be040d390205fb729f64ff5",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 766,
+      "source_cycle_end_revolutions": 772,
+      "loop_join_normalized_error": 0.6435883203896403,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 14743.622815617122,
+        "mean_rpm": 9333.370093226167,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-600rpm-exhaust-1-dry-seam-closure",
+      "rpm": 600,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 100761.85947298059,
+      "relative_path": "audio/falling-mid-600rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "633c9baa5b0745436c50253a9f7f692489feed8cbd542c6b938857c370d01129",
+      "source_capture_payload_sha256": "b1ceaa625481fffcdbbd285ef4b6397247c3708ea5cf2e25aa6c7d118c1b956c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1206,
+      "source_cycle_end_revolutions": 1212,
+      "loop_join_normalized_error": 0.00005280727579625418,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100761.85947298059,
+        "mean_rpm": 508.0971313613883,
+        "mean_requested_throttle_01": 0.2000000000000001,
+        "mean_resolved_throttle_01": 0.9600000000000006,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 35
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 100162.9296564234,
+      "relative_path": "audio/falling-mid-800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "7d5a5738ac0acc2128ad9ae5a7dc5c1c8b2ac4834930fcc974a157b3255e4f58",
+      "source_capture_payload_sha256": "977a7427c7841b8c0c4a3d3ad7045e207f64f5dd7de24368c5958380c6b582b7",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1196,
+      "source_cycle_end_revolutions": 1202,
+      "loop_join_normalized_error": 0.34641451693180886,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100162.9296564234,
+        "mean_rpm": 703.2766662922761,
+        "mean_requested_throttle_01": 0.20000000000000007,
+        "mean_resolved_throttle_01": 0.9600000000000006,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 26
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-1000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 99485.2231054474,
+      "relative_path": "audio/falling-mid-1000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5e25302f532eb4085f84484978f5d8daf39466818dad1bfc46dd2f954a838c9d",
+      "source_capture_payload_sha256": "db9e2718f0fdfdfa0ebb276acd1da815508d0e05ad2ddf5ff7a431058fd8a6be",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1186,
+      "source_cycle_end_revolutions": 1192,
+      "loop_join_normalized_error": 0.009378498073154825,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99485.2231054474,
+        "mean_rpm": 905.5424148591889,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9600000000000005,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 20
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-1500rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1500,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 95717.16517874521,
+      "relative_path": "audio/falling-mid-1500rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "ffc4b17571734037a3394d4e4d94bb0d521004874dd059a38aa68279bbd4463f",
+      "source_capture_payload_sha256": "d0f2b864f51e91cf1d8cff02f710860cabffbc8156daeb53baf6172eebacb646",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1160,
+      "source_cycle_end_revolutions": 1166,
+      "loop_join_normalized_error": 0.0000599188858794061,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 95717.16517874521,
+        "mean_rpm": 1424.2848823295237,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9600000000000003,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-2200rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 91461.45337276583,
+      "relative_path": "audio/falling-mid-2200rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "dc85a3ecc3bbe4a533ee2a2f51eaa673d22e815060d0e9ae79fc6dab7d13e2ae",
+      "source_capture_payload_sha256": "7c38c36a01c2ee308a48bb72db3654708a84c9bbed2d32a69665f900d8c3c9db",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1126,
+      "source_cycle_end_revolutions": 1132,
+      "loop_join_normalized_error": 0.022528380588152316,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 91461.45337276583,
+        "mean_rpm": 2103.6866548682756,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9600000000000001,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-3000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 3000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 83167.6927419176,
+      "relative_path": "audio/falling-mid-3000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "32b1db34fe8da64388029ef5645d80d746bceb239cab638c344bb8a91b6ef889",
+      "source_capture_payload_sha256": "15f459a3c930428d4a4e921dbd8251b47a8e3bf032bbad8e5114f23385b291ab",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1086,
+      "source_cycle_end_revolutions": 1092,
+      "loop_join_normalized_error": 0.907125520683936,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 83167.6927419176,
+        "mean_rpm": 2906.4415370187176,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-4000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 4000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 71844.98707246062,
+      "relative_path": "audio/falling-mid-4000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "ca5ee6b4b6b92ff7955cd2e3fb68d937d0d076d76304a17fe4d1acdac9f470bc",
+      "source_capture_payload_sha256": "8d5af022fa1a785928caf32d8e61937ec23a26cde27ab0c827cb6430d72479ba",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1036,
+      "source_cycle_end_revolutions": 1042,
+      "loop_join_normalized_error": 0.005856278700547792,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 71844.98707246062,
+        "mean_rpm": 3908.86994570554,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-5000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 5000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 59827.61686023797,
+      "relative_path": "audio/falling-mid-5000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "4b8e0eea052c3a90af889b0bb548e6500cbadd7fa69b9c5c021be8b2e4b9b636",
+      "source_capture_payload_sha256": "34b3f80a7d22f007cedf1195b6fd83201079f1a767185a929a9f6247c2636d0b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 986,
+      "source_cycle_end_revolutions": 992,
+      "loop_join_normalized_error": 0.4838309488522352,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 59827.61686023797,
+        "mean_rpm": 4905.359329132537,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-5600rpm-exhaust-1-dry-seam-closure",
+      "rpm": 5600,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 52622.48739031004,
+      "relative_path": "audio/falling-mid-5600rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "7ff5da77e716cb6b40b93b1d3c3a0dd7e8173af68347a98297db191d407c8865",
+      "source_capture_payload_sha256": "4a02b6d599666ead21886ad166c72f507b9c35e482bf039d1c21c8c097aeddfb",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 956,
+      "source_cycle_end_revolutions": 962,
+      "loop_join_normalized_error": 0.38286065214835335,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 52622.48739031004,
+        "mean_rpm": 5490.701969110614,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-5800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 5800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 49347.09110140509,
+      "relative_path": "audio/falling-mid-5800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "8b672fb41e599af71d5ee9dd0195a048733270e1716fd9fed2779771f697c06c",
+      "source_capture_payload_sha256": "701b220295532e1964b4452d3c6138357e939af7cbe8decb5f98c9cdb0e6cb3d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 946,
+      "source_cycle_end_revolutions": 952,
+      "loop_join_normalized_error": 0.10302629115001669,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 49347.09110140509,
+        "mean_rpm": 5718.413206700229,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-6500rpm-exhaust-1-dry-seam-closure",
+      "rpm": 6500,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 44216.4060735557,
+      "relative_path": "audio/falling-mid-6500rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "33ca6807ac0eb1acea2e27a8379881a6a58ae78c70aedaeaab7ce5a6fcdc212a",
+      "source_capture_payload_sha256": "84956fe0ea635abc41110eaf0578b864589fa83fe887b0578610f70132a62b17",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 910,
+      "source_cycle_end_revolutions": 916,
+      "loop_join_normalized_error": 0.003481091073096794,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 44216.4060735557,
+        "mean_rpm": 6423.465434684031,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-7400rpm-exhaust-1-dry-seam-closure",
+      "rpm": 7400,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 38803.031390787444,
+      "relative_path": "audio/falling-mid-7400rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "8d998464988b9d736922f64df7914afd979eff6065a4ede9f9774fc3c55b28fd",
+      "source_capture_payload_sha256": "0463116491644b733ed04164b3a5fa1ec6e77cb580d2e503fc1f8600d55ff407",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 866,
+      "source_cycle_end_revolutions": 872,
+      "loop_join_normalized_error": 0.15421287419143018,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 38803.031390787444,
+        "mean_rpm": 7318.003912783886,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-8000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 8000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 37719.5800195905,
+      "relative_path": "audio/falling-mid-8000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "985c44e97688857e26c6d083baec1fa75602881be4670d0b34bd90d48f2aa85f",
+      "source_capture_payload_sha256": "eaf49e8fdd124a05f1e18302618b2667943e32c05ee4c378abbd511799f87048",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 836,
+      "source_cycle_end_revolutions": 842,
+      "loop_join_normalized_error": 0.5947400682072044,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 37719.5800195905,
+        "mean_rpm": 7900.527215556557,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-8400rpm-exhaust-1-dry-seam-closure",
+      "rpm": 8400,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 36968.25322428051,
+      "relative_path": "audio/falling-mid-8400rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "8641a2bd7b1f09526c385642ea9e44239f2ea4ceb3f6f3de63507564aad8091e",
+      "source_capture_payload_sha256": "62946adfd3c0c4c55648ceccbc8b47e9b2bacc9fde4f06acda9bf0e3780ffa06",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 816,
+      "source_cycle_end_revolutions": 822,
+      "loop_join_normalized_error": 0.015323404027645695,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 36968.25322428051,
+        "mean_rpm": 8301.333753009914,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-8800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 8800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 36579.36592757888,
+      "relative_path": "audio/falling-mid-8800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "9e17aeab144d6581a7bf449473e728b71bd04ec244a7b9a81b4132d9a7a1fb9d",
+      "source_capture_payload_sha256": "637cfac977a405b24bcb21f0dbf0fde2f63dbf486df6fa19b7bc55e79b86dc85",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 796,
+      "source_cycle_end_revolutions": 802,
+      "loop_join_normalized_error": 0.05468693500193244,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 36579.36592757888,
+        "mean_rpm": 8732.32777348531,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-9200rpm-exhaust-1-dry-seam-closure",
+      "rpm": 9200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 35534.18700807387,
+      "relative_path": "audio/falling-mid-9200rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "94e1acf2268c9cb30be8c3605775bd557f29b06650c16350980983b32a17cf04",
+      "source_capture_payload_sha256": "34791d896184af6e06c0dd710ae55a959f211a8123b675116ae9b2a81a033692",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 776,
+      "source_cycle_end_revolutions": 782,
+      "loop_join_normalized_error": 0.5075211668161751,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 35534.18700807387,
+        "mean_rpm": 9082.10032998917,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-mid-9400rpm-exhaust-1-dry-seam-closure",
+      "rpm": 9400,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 36193.51440871337,
+      "relative_path": "audio/falling-mid-9400rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "0668ecd9e8be6eff4bd55bc231417d3ce2ae6c60bf4d50e1dd098b8562c76aa3",
+      "source_capture_payload_sha256": "eeb0ae7aa97014395c3f0c7aacd7f93031e602d3215c3661cee2270e0201c1bf",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 766,
+      "source_cycle_end_revolutions": 772,
+      "loop_join_normalized_error": 0.1772195042026055,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 36193.51440871337,
+        "mean_rpm": 9333.370093226167,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.96,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-600rpm-exhaust-1-dry-seam-closure",
+      "rpm": 600,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101324.08255553551,
+      "relative_path": "audio/falling-power-600rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "02b00cea74e8ba19c907e0af4781b8334d14262c731ceb10add2b1fa9a01326f",
+      "source_capture_payload_sha256": "146a474fd88fe28792386adc761244be7bad5ea92d613e9d66c80c3eae80dff7",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1206,
+      "source_cycle_end_revolutions": 1212,
+      "loop_join_normalized_error": 0.007036537511480434,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101324.08255553551,
+        "mean_rpm": 508.0971313613883,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 35
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101320.94388066806,
+      "relative_path": "audio/falling-power-800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "0f1ac5bb28fffd4fc7b2fd13853fb658996569b4d32ad42751a5314a22797616",
+      "source_capture_payload_sha256": "fe9e8ce222915ab3237b828f18ac786aa872c6f5cf617f97b1709ce2c12319ec",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1196,
+      "source_cycle_end_revolutions": 1202,
+      "loop_join_normalized_error": 0.3849481628283524,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101320.94388066806,
+        "mean_rpm": 703.2766662922761,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 26
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-1000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101315.75780745162,
+      "relative_path": "audio/falling-power-1000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "03a634147e88363d58c6c1e004609f74093304db23073863ec16bca55ca88437",
+      "source_capture_payload_sha256": "9c8429cff3d9b3fcdec508462aa18d417ee7a70a39d9e0e23166529279d0b9e9",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1186,
+      "source_cycle_end_revolutions": 1192,
+      "loop_join_normalized_error": 0.0018859808781312088,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101315.75780745162,
+        "mean_rpm": 905.5424148591889,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 20
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-1500rpm-exhaust-1-dry-seam-closure",
+      "rpm": 1500,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101289.80292055347,
+      "relative_path": "audio/falling-power-1500rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "3cd4a9d53de06ac5d241660a7b22a71071ae4302fc643c570f354df6d6a1d3fd",
+      "source_capture_payload_sha256": "a4aadecd006a7f4602b4f29329a3b2d819d4e00aeb5d4f1906e07d73fc8fc18e",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1160,
+      "source_cycle_end_revolutions": 1166,
+      "loop_join_normalized_error": 0.00012935100988686538,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101289.80292055347,
+        "mean_rpm": 1424.2848823295237,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-2200rpm-exhaust-1-dry-seam-closure",
+      "rpm": 2200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101246.306374698,
+      "relative_path": "audio/falling-power-2200rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "9e5f7474577f9f530a8c8e4eee3646ffb3a900f72181835ac0f3fb79bf96bb0a",
+      "source_capture_payload_sha256": "043db9c2f23dd46c3d71d21ab05727358ad1ce7e1b9cf05fc36f247222694ec5",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1126,
+      "source_cycle_end_revolutions": 1132,
+      "loop_join_normalized_error": 0.001120027109351999,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101246.306374698,
+        "mean_rpm": 2103.6866548682756,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-3000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 3000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101305.47662217432,
+      "relative_path": "audio/falling-power-3000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c3d0eedf1af6156c37556d0d487934174f095aba2c0b3016c0a3534d0510da21",
+      "source_capture_payload_sha256": "73497cea165ef8446910ab4e67e314d76221cf7be1f0237c72b2eb1fb3ef91b5",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1086,
+      "source_cycle_end_revolutions": 1092,
+      "loop_join_normalized_error": 0.2823498254205926,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101305.47662217432,
+        "mean_rpm": 2906.4415370187176,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-4000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 4000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101037.72250492692,
+      "relative_path": "audio/falling-power-4000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5ddd021c72043cf332375ed8ea79b585908b8efee57ad33e43924c82631528e9",
+      "source_capture_payload_sha256": "e79b4a23bbb4daf9d97d34aa00f1b8611b14512e03abf39f7a7319227e81a516",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 1036,
+      "source_cycle_end_revolutions": 1042,
+      "loop_join_normalized_error": 0.0024609269397720787,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101037.72250492692,
+        "mean_rpm": 3908.86994570554,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-5000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 5000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100903.40715385733,
+      "relative_path": "audio/falling-power-5000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e2faac96b4cfa261911f2271b55281dbb1b9b3a95dfdf64fe32298d2c666adff",
+      "source_capture_payload_sha256": "76610271ed38b9988685e9f75a693e1cda41779f463cf2e8687c78d7ab279361",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 986,
+      "source_cycle_end_revolutions": 992,
+      "loop_join_normalized_error": 0.16617396866668038,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100903.40715385733,
+        "mean_rpm": 4905.359329132537,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-5600rpm-exhaust-1-dry-seam-closure",
+      "rpm": 5600,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100681.12575672503,
+      "relative_path": "audio/falling-power-5600rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "57cf578496e818f66812a02064d386f0c1f7a280addf6f4af37ee58933eec4c3",
+      "source_capture_payload_sha256": "a0bff6f163177b805aca7750485990e93f7ab9dd177686b38ed509e92327c1b8",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 956,
+      "source_cycle_end_revolutions": 962,
+      "loop_join_normalized_error": 0.2886788893780198,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100681.12575672503,
+        "mean_rpm": 5490.701969110614,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-5800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 5800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100449.30465745479,
+      "relative_path": "audio/falling-power-5800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c2c5d9d80e9210b5e82f5ff818296022bb4759d85d14b9fa687aff452dba1f23",
+      "source_capture_payload_sha256": "dd8a7db02e3c59732a3979f1463f6fa53ddce5354f3f6c1259bebf9573515f3b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 946,
+      "source_cycle_end_revolutions": 952,
+      "loop_join_normalized_error": 0.013413085857159458,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100449.30465745479,
+        "mean_rpm": 5718.413206700229,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-6500rpm-exhaust-1-dry-seam-closure",
+      "rpm": 6500,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100405.09563331063,
+      "relative_path": "audio/falling-power-6500rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "9c6872c84bfec49132b7ea6d0b240c5a88a116158e6bc288fc89f0ca59647a96",
+      "source_capture_payload_sha256": "a7da27efa3ccb2ce7f665d38eaf33ab1d492aa4e573dfbdd8210c428d2a5df15",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 910,
+      "source_cycle_end_revolutions": 916,
+      "loop_join_normalized_error": 0.0008784290631342391,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100405.09563331063,
+        "mean_rpm": 6423.465434684031,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-7400rpm-exhaust-1-dry-seam-closure",
+      "rpm": 7400,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99207.32897259353,
+      "relative_path": "audio/falling-power-7400rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "82887635de9c084615025aa286fa74eba0947e2cf7844b16176a05ad99aad9da",
+      "source_capture_payload_sha256": "87db172da6f4173afc07968e341998a05d24300af70c20d9de774a9f827f9889",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 866,
+      "source_cycle_end_revolutions": 872,
+      "loop_join_normalized_error": 0.20804526914564128,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99207.32897259353,
+        "mean_rpm": 7318.003912783886,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-8000rpm-exhaust-1-dry-seam-closure",
+      "rpm": 8000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99914.57826631944,
+      "relative_path": "audio/falling-power-8000rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c9742d39cc74be9cc1a129fca90044c4d9adf9e92d52f43979faa7b1cafa8754",
+      "source_capture_payload_sha256": "08f4a1cbdfcda056eadf2344fa0105b515ca0cfeb4f73b1e395c8695559abf04",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 836,
+      "source_cycle_end_revolutions": 842,
+      "loop_join_normalized_error": 0.5578487175575711,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99914.57826631944,
+        "mean_rpm": 7900.527215556557,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-8400rpm-exhaust-1-dry-seam-closure",
+      "rpm": 8400,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99406.29849123763,
+      "relative_path": "audio/falling-power-8400rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "7b640eb2706ca548935b2c24ec3be0d83c443d6ade270c6518fa4ce41e7bc221",
+      "source_capture_payload_sha256": "59c7744e6672fa155f93407996513a90476e378d0678f4487e010ee509206437",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 816,
+      "source_cycle_end_revolutions": 822,
+      "loop_join_normalized_error": 0.007273092415489152,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99406.29849123763,
+        "mean_rpm": 8301.333753009914,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-8800rpm-exhaust-1-dry-seam-closure",
+      "rpm": 8800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99781.9854581885,
+      "relative_path": "audio/falling-power-8800rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "760af6cf81369afb2e4df1457bf3067bdcb2031ff6b7dd8f334fd42fa0af76e7",
+      "source_capture_payload_sha256": "55ad631b86e532516ea3249d7584182378404aede5967cf6bdc8a5d7697ce985",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 796,
+      "source_cycle_end_revolutions": 802,
+      "loop_join_normalized_error": 0.007810481165676975,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99781.9854581885,
+        "mean_rpm": 8732.32777348531,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-9200rpm-exhaust-1-dry-seam-closure",
+      "rpm": 9200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 98817.72692451347,
+      "relative_path": "audio/falling-power-9200rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "4c6072751813749a45d7467ab7f31a4170cc96d09fb48d8c76c0ff04a68a0eb9",
+      "source_capture_payload_sha256": "7503e23937c7c667bb847e8debc192f9b2ce9f11efde8e9477c4a7bf7fc6927c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 776,
+      "source_cycle_end_revolutions": 782,
+      "loop_join_normalized_error": 0.05117011491416957,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 98817.72692451347,
+        "mean_rpm": 9082.10032998917,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    },
+    {
+      "id": "honda-b18c5-cleanroom-falling-power-9400rpm-exhaust-1-dry-seam-closure",
+      "rpm": 9400,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99889.69799856347,
+      "relative_path": "audio/falling-power-9400rpm.exhaust-1-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e89db1e898e5202f210152d978ba39b8575626a9b29c46e0f04a4d376d970238",
+      "source_capture_payload_sha256": "37235f93a48a411b45e03fb996c2a8302f1d555695d515bed9e51c2c3ff682ef",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 766,
+      "source_cycle_end_revolutions": 772,
+      "loop_join_normalized_error": 0.1960198193266528,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99889.69799856347,
+        "mean_rpm": 9333.370093226167,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 2
+      }
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "honda-b18c5-cleanroom",
+      "sha256": "beaf656419f9ec7da8d0370e2f575d2a079c1f264ff886be12df0733f7069af8"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "falling-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "ed015457a955567087919dd3d438c933f59d09dd40e9c8cc1d7bcfeb60b941e6",
+    "physics_rate_hz": 10000,
+    "source_delivery_rate_hz": 192000
+  }
+}

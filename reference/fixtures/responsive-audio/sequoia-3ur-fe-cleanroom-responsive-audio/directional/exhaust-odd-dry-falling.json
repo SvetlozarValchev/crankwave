@@ -1,0 +1,935 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "id": "sequoia-3ur-fe-cleanroom-directional-falling-exhaust-odd-dry-live-preview",
+  "engine": "sequoia-3ur-fe-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "exhaust.odd.dry"
+  },
+  "phase": {
+    "cycle_revolutions": 2,
+    "samples_per_cycle": 4096,
+    "cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "domain": {
+    "minimum_rpm": 525,
+    "maximum_rpm": 6200,
+    "rpm_anchors": [
+      650,
+      900,
+      1200,
+      1600,
+      2100,
+      2800,
+      3600,
+      4400,
+      5200,
+      6000,
+      6100
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs",
+    "load_lanes": [
+      {
+        "id": "coast",
+        "throttle01": 0
+      },
+      {
+        "id": "mid",
+        "throttle01": 0.2
+      },
+      {
+        "id": "power",
+        "throttle01": 1
+      }
+    ]
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_count": 3,
+    "source_cycle_origin_revolutions": 0
+  },
+  "load_cell_coalescing": {
+    "policy": "coalesce-only-identical-coordinate-and-byte-identical-source-and-closed-payload",
+    "aliases": []
+  },
+  "cells": [
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-coast-650rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 650,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 41697.083081886136,
+      "relative_path": "audio/falling-coast-650rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "6a0eac546d6ebeb1e36fdaa8f9d5bf4941a8d180838c27b435a3df4fc15a5bef",
+      "source_capture_payload_sha256": "b43b8e81f5f3d5595a738b4bf0293dcd496650c6845624af0d87780e041f6745",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 770,
+      "source_cycle_end_revolutions": 776,
+      "loop_join_normalized_error": 2.0118655481242764,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 41697.083081886136,
+        "mean_rpm": 559.567910485549,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 32
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-coast-900rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 900,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 29763.45340232713,
+      "relative_path": "audio/falling-coast-900rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "090e98c2ff1300a734147abbd1fb2add25374b6599a6d2fc186891fa595512cb",
+      "source_capture_payload_sha256": "b07e7074856519c0e9c7ca84e3fb569a3d6bf6c0da2c8b73bd02edac0cbf164c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 756,
+      "source_cycle_end_revolutions": 762,
+      "loop_join_normalized_error": 1.0955463486742287,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 29763.45340232713,
+        "mean_rpm": 836.817016684164,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 22
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-coast-1200rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 23676.3602425761,
+      "relative_path": "audio/falling-coast-1200rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "57ba840542b8f2fffe4700abf7e77ca3881fb5def2cad548ebac1a82d189c6d1",
+      "source_capture_payload_sha256": "04a4f11a1297938f64b2d4944e249c520f9afb43173b2993f893f2822f6cca10",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 742,
+      "source_cycle_end_revolutions": 748,
+      "loop_join_normalized_error": 0.23294891710864518,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 23676.3602425761,
+        "mean_rpm": 1118.055771358018,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-coast-1600rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1600,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 18789.249093651666,
+      "relative_path": "audio/falling-coast-1600rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "b3b9f39eec838fd23882ac981688e41d4dca79149d9e80d376a7a9d3d7d50407",
+      "source_capture_payload_sha256": "78578f67f801631dd8595c736d50cf784da8b3f135f922940a80b009d43f7467",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 722,
+      "source_cycle_end_revolutions": 728,
+      "loop_join_normalized_error": 0.08109887136965523,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 18789.249093651666,
+        "mean_rpm": 1513.7477764323166,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-coast-2100rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 2100,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 15222.702443694854,
+      "relative_path": "audio/falling-coast-2100rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "d00332903400a034c1dd53ca49ace089e339138da27aec319cdded4e91446520",
+      "source_capture_payload_sha256": "0c71f5db29fef59249cda60c2977230e60c91835b9ea622b7a0180f13e6fd9f0",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 696,
+      "source_cycle_end_revolutions": 702,
+      "loop_join_normalized_error": 0.12575233692874901,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 15222.702443694854,
+        "mean_rpm": 2036.2608557198048,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-coast-2800rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 2800,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 12597.478299422291,
+      "relative_path": "audio/falling-coast-2800rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e68598609556f82599ca00e0cc4ed6654cf5449d1a31a3d1e6b8c35554113b14",
+      "source_capture_payload_sha256": "cb248d3b554af4015d6c6ec59d922a52925e26d58e3a55067a8e40fc57278485",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 662,
+      "source_cycle_end_revolutions": 668,
+      "loop_join_normalized_error": 0.8615045581829993,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 12597.478299422291,
+        "mean_rpm": 2721.2834684532913,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-coast-3600rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 3600,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 10893.256686530982,
+      "relative_path": "audio/falling-coast-3600rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "32048f379e08b598861f2e04373da5fe94b714235418acd3917396f3acded4c7",
+      "source_capture_payload_sha256": "6fa9a3d68c98d53a999905e9ff53088f8eaf3bcca8ac33a64ba1b1ada2a1abaf",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 622,
+      "source_cycle_end_revolutions": 628,
+      "loop_join_normalized_error": 0.47508862860039525,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10893.256686530982,
+        "mean_rpm": 3517.0594164064714,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-coast-4400rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 4400,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 10130.849655311918,
+      "relative_path": "audio/falling-coast-4400rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "268d2ea91e49ec86b54144e1e396ac4762dad51c8d60f89a84886d4653d18931",
+      "source_capture_payload_sha256": "0e7acc429020f9f36be3c23a4437262d507f99ef8287637d82790581af8090d2",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 582,
+      "source_cycle_end_revolutions": 588,
+      "loop_join_normalized_error": 1.4870575222589837,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10130.849655311918,
+        "mean_rpm": 4310.503470303749,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-coast-5200rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 5200,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 9972.414955326616,
+      "relative_path": "audio/falling-coast-5200rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c661192940e58e635a900e8fb33693f3fe45581822fd8ee0b67fa950c59f33a8",
+      "source_capture_payload_sha256": "a74a30fbf0bd7cf07993e18a7909355215bfad42141783548606153cb82604e8",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 542,
+      "source_cycle_end_revolutions": 548,
+      "loop_join_normalized_error": 0.39588959839394255,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 9972.414955326616,
+        "mean_rpm": 5126.937873925,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-coast-6000rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 6000,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 10534.712888200509,
+      "relative_path": "audio/falling-coast-6000rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "cc07dbb4722e4f6d3252eb7ee3589d6cf81349e77cfc990868e2aada3f33f082",
+      "source_capture_payload_sha256": "85a93ef1a5c7acc88a4d8c79c075430f2bf45c633c52bb5e9ef472b34a6c933c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 502,
+      "source_cycle_end_revolutions": 508,
+      "loop_join_normalized_error": 0.944699052486212,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10534.712888200509,
+        "mean_rpm": 5913.915049959754,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-coast-6100rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 6100,
+      "lane": "coast",
+      "capture_throttle_01": 0,
+      "manifold_pressure_pa_abs": 10470.922407815458,
+      "relative_path": "audio/falling-coast-6100rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "9b38650369acf92c3a89bd5d0d26e9b832291208308c107ceba452e0e50d9378",
+      "source_capture_payload_sha256": "f49bfbf1a55a483e765329cbafbe1835022ae90b0885d6c72d98b29f4705b110",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 498,
+      "source_cycle_end_revolutions": 504,
+      "loop_join_normalized_error": 0.05417864447003156,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 10470.922407815458,
+        "mean_rpm": 5995.307580560653,
+        "mean_requested_throttle_01": 0,
+        "mean_resolved_throttle_01": 1,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-mid-650rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 650,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 99523.94994195552,
+      "relative_path": "audio/falling-mid-650rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "b8f55dc918e61370be3205239a305bbf63b29290836ad96920931bc6102a3b04",
+      "source_capture_payload_sha256": "d899d198cb97dbef3a6d2c004ec38ac9e647754972678d816d381ca160673f9d",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 770,
+      "source_cycle_end_revolutions": 776,
+      "loop_join_normalized_error": 0.718913017145291,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99523.94994195552,
+        "mean_rpm": 559.567910485549,
+        "mean_requested_throttle_01": 0.2000000000000001,
+        "mean_resolved_throttle_01": 0.9401860487511512,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 32
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-mid-900rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 900,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 97047.80519328387,
+      "relative_path": "audio/falling-mid-900rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "412218c9c3e178d2af99b8c4188e72406fd8ec1f0f808c84f637af9e2f267931",
+      "source_capture_payload_sha256": "0673f00515e481c2a81fb79c62756659865703d03b36a7805d1d2b45f9e79b0c",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 756,
+      "source_cycle_end_revolutions": 762,
+      "loop_join_normalized_error": 1.3008507482136187,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 97047.80519328387,
+        "mean_rpm": 836.817016684164,
+        "mean_requested_throttle_01": 0.20000000000000007,
+        "mean_resolved_throttle_01": 0.9401860487511512,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 22
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-mid-1200rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 93768.54975733972,
+      "relative_path": "audio/falling-mid-1200rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "27d469e826ef451d425082681438f006d065479d1f0de6256713324cc1ab0c87",
+      "source_capture_payload_sha256": "127e009566f91fbff29bcc56da3fd0e40c1a1ed1d482292cc7e0e841e4e49d07",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 742,
+      "source_cycle_end_revolutions": 748,
+      "loop_join_normalized_error": 0.04897499835788242,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 93768.54975733972,
+        "mean_rpm": 1118.055771358018,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9401860487511512,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-mid-1600rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1600,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 88010.40834189147,
+      "relative_path": "audio/falling-mid-1600rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "b948f32213b83dd928fd5993ef8c66346d89122dcea9617a28b56bc784cb8c05",
+      "source_capture_payload_sha256": "78838a0b75798737557b168c34781798b91624d2fb3e725ed27ede02f90275e1",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 722,
+      "source_cycle_end_revolutions": 728,
+      "loop_join_normalized_error": 0.3423483551924618,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 88010.40834189147,
+        "mean_rpm": 1513.7477764323166,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9401860487511512,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-mid-2100rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 2100,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 78926.71981377962,
+      "relative_path": "audio/falling-mid-2100rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "3844ec576af1cfdd8ccd1b960f3f1e1cba5739c8b00932f2ec0cabbb241aa686",
+      "source_capture_payload_sha256": "209a577225aed0ffc39975916ffd7b55fc96e311843f505ed2c6245ba7fa86d0",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 696,
+      "source_cycle_end_revolutions": 702,
+      "loop_join_normalized_error": 1.5919842895877891,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 78926.71981377962,
+        "mean_rpm": 2036.2608557198048,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9401860487511511,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-mid-2800rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 2800,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 66846.53404769205,
+      "relative_path": "audio/falling-mid-2800rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "1d848083c8e3c156abf8aef6a76167a92a3603dfd2d3212fad653773981827a3",
+      "source_capture_payload_sha256": "1620e2e4472ba9bf00f590293b988a62267ba7c4b80ac43f92ab9381391f5958",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 662,
+      "source_cycle_end_revolutions": 668,
+      "loop_join_normalized_error": 0.6479687569748841,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 66846.53404769205,
+        "mean_rpm": 2721.2834684532913,
+        "mean_requested_throttle_01": 0.19999999999999998,
+        "mean_resolved_throttle_01": 0.9401860487511512,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-mid-3600rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 3600,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 54475.601736453114,
+      "relative_path": "audio/falling-mid-3600rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "e89d617f8e92c8b6644b358f584ae5acb56cd0f6986cc9b1745df72b023264d9",
+      "source_capture_payload_sha256": "4cee191988330534ee6c103fb0e0af4a243fb9108933570bb5dc42acb100b02f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 622,
+      "source_cycle_end_revolutions": 628,
+      "loop_join_normalized_error": 1.7506054065430072,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 54475.601736453114,
+        "mean_rpm": 3517.0594164064714,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9401860487511511,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-mid-4400rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 4400,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 46211.30468762087,
+      "relative_path": "audio/falling-mid-4400rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c3dcc072346524758ae2704a54658503f162093471377560cf442661d2fc8f17",
+      "source_capture_payload_sha256": "a47e7807650514789eba335ef81aa3a632546c8aaf61e0ce0d4e1ccbd2c091da",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 582,
+      "source_cycle_end_revolutions": 588,
+      "loop_join_normalized_error": 0.12504961406984796,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 46211.30468762087,
+        "mean_rpm": 4310.503470303749,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9401860487511512,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-mid-5200rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 5200,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 41487.97708280076,
+      "relative_path": "audio/falling-mid-5200rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f1b76ff598b1151aef58ec85d75f7123d12fb85351586b09a5ef991f7bc36644",
+      "source_capture_payload_sha256": "7af7380107d88ecfabe09dba574991658800166ccd87ec2244b2856d1041e2b7",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 542,
+      "source_cycle_end_revolutions": 548,
+      "loop_join_normalized_error": 1.6149732593523187,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 41487.97708280076,
+        "mean_rpm": 5126.937873925,
+        "mean_requested_throttle_01": 0.2,
+        "mean_resolved_throttle_01": 0.9401860487511512,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-mid-6000rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 6000,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 39080.05493018703,
+      "relative_path": "audio/falling-mid-6000rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "d69e039e569da7203b7ab385069d259ef585a45495d4fae70e67682ecb96c4a4",
+      "source_capture_payload_sha256": "787bff91e21b58926f9aeccb65af06f00b210a2ee71ff97cd40c1b6f4827e318",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 502,
+      "source_cycle_end_revolutions": 508,
+      "loop_join_normalized_error": 0.2338881825166006,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 39080.05493018703,
+        "mean_rpm": 5913.915049959754,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9401860487511512,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-mid-6100rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 6100,
+      "lane": "mid",
+      "capture_throttle_01": 0.2,
+      "manifold_pressure_pa_abs": 38831.25984001735,
+      "relative_path": "audio/falling-mid-6100rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c27332a6d5b5f25a184c8c267931d070499f3e35fb16a66d898d5cfa0ab96463",
+      "source_capture_payload_sha256": "8f6935d8195b34154ac669818b2090ce2d3cc7466a668a8b53e549f9bae9987a",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 498,
+      "source_cycle_end_revolutions": 504,
+      "loop_join_normalized_error": 0.4906054919814508,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 38831.25984001735,
+        "mean_rpm": 5995.307580560653,
+        "mean_requested_throttle_01": 0.20000000000000004,
+        "mean_resolved_throttle_01": 0.9401860487511512,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-power-650rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 650,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101304.82249739514,
+      "relative_path": "audio/falling-power-650rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "d59349cb929d2fb6176e2258ba1cc481523fb0ffc664c9c0f43feef789d32f5e",
+      "source_capture_payload_sha256": "9d17ba9f2067ff48ac25e1b4bef67b40b05737d9e16a09408adbe32eabafb7fa",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 770,
+      "source_cycle_end_revolutions": 776,
+      "loop_join_normalized_error": 0.43293418484645696,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101304.82249739514,
+        "mean_rpm": 559.567910485549,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 32
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-power-900rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 900,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101275.63254925855,
+      "relative_path": "audio/falling-power-900rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "0f0a364413495d2ce9281f8ce1ca3e6510e6a0d134068d7a5da54af3d5bb2328",
+      "source_capture_payload_sha256": "b9b600952cbe1240824d1ea0d00616ba6bd646661c466c7fb157d36055c5408a",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 756,
+      "source_cycle_end_revolutions": 762,
+      "loop_join_normalized_error": 1.379512138348763,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101275.63254925855,
+        "mean_rpm": 836.817016684164,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 22
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-power-1200rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101230.88806639635,
+      "relative_path": "audio/falling-power-1200rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "c0fb45ece718c71cd6c1907c064005ef2e76d70b8ea43fbe8b979b59185aaf68",
+      "source_capture_payload_sha256": "0e3d903bea1d156d0729af3e4d6c58d859ff1ba7885ffbe908f186c02042ae0a",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 742,
+      "source_cycle_end_revolutions": 748,
+      "loop_join_normalized_error": 0.0426148338129075,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101230.88806639635,
+        "mean_rpm": 1118.055771358018,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 17
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-power-1600rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 1600,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 101198.30257890723,
+      "relative_path": "audio/falling-power-1600rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "5f9602864e4b893943628367a1a533fe92dda92f41c8e4f81d8cea6401ac0a8e",
+      "source_capture_payload_sha256": "cc16ad37492377d3e38732ba1e723a1a62d2937c4eb64ecfe0e312d4b60a02e4",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 722,
+      "source_cycle_end_revolutions": 728,
+      "loop_join_normalized_error": 0.16366268614325594,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 101198.30257890723,
+        "mean_rpm": 1513.7477764323166,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 12
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-power-2100rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 2100,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100982.8696766577,
+      "relative_path": "audio/falling-power-2100rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "0706dc8daaf8426f205ecc9b37eee9ce9b612e696080ab3ec9b3c47ee5a6a9fd",
+      "source_capture_payload_sha256": "a84d187c93ddb73b9e78ac85b681b3317041f02f8d06f9fb14b001528ba2f42f",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 696,
+      "source_cycle_end_revolutions": 702,
+      "loop_join_normalized_error": 1.490172977390632,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100982.8696766577,
+        "mean_rpm": 2036.2608557198048,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 9
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-power-2800rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 2800,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100678.57075056963,
+      "relative_path": "audio/falling-power-2800rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "51b8c790cdf13833f45941515e67db887f1265dd7a16e50f044b8c03e31db4c4",
+      "source_capture_payload_sha256": "5675f1ccd53492efa0868a5cb75e9211a14c660cb735e012b075de98fa9f847b",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 662,
+      "source_cycle_end_revolutions": 668,
+      "loop_join_normalized_error": 0.7689342772499621,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100678.57075056963,
+        "mean_rpm": 2721.2834684532913,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 6
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-power-3600rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 3600,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 100185.15155567692,
+      "relative_path": "audio/falling-power-3600rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "18a5895850dcb6bc2f75a2e9842424f8f393e3f27eeaa9d29bcfb69aa27da8f5",
+      "source_capture_payload_sha256": "35cf0b76fffe4dcce03850aa95507eda75bdd2662cff034dd5760464ac01c205",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 622,
+      "source_cycle_end_revolutions": 628,
+      "loop_join_normalized_error": 1.3358147218771466,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 100185.15155567692,
+        "mean_rpm": 3517.0594164064714,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 5
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-power-4400rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 4400,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99739.39284499004,
+      "relative_path": "audio/falling-power-4400rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "65a32afdfa14b774c4b58da26da5b4995fa246d856020627f844e75f7fafad93",
+      "source_capture_payload_sha256": "69386712d60418f7335702c8d744c1bd930064c055fe7ca8921d557f7ebb1d06",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 582,
+      "source_cycle_end_revolutions": 588,
+      "loop_join_normalized_error": 0.005714516584720072,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99739.39284499004,
+        "mean_rpm": 4310.503470303749,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-power-5200rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 5200,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99313.09725412521,
+      "relative_path": "audio/falling-power-5200rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "8856f3507c732d938d256c4308e27ae242738567a49b16fb45e1523ca792a7a0",
+      "source_capture_payload_sha256": "5715d1702215f729d476ef10e0cb4d8a95248dd7ab206071e2674e20d4711b49",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 542,
+      "source_cycle_end_revolutions": 548,
+      "loop_join_normalized_error": 1.4534139397995065,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99313.09725412521,
+        "mean_rpm": 5126.937873925,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 4
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-power-6000rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 6000,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99059.35188926263,
+      "relative_path": "audio/falling-power-6000rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "f6757b4d0273f1630f5820dec9d3c655ab6142910aa48e90a582ffc50f85550e",
+      "source_capture_payload_sha256": "0a2d35c142757be1bbf4d19822575c605447fa7bcad976e6ae193ef553e7f7ef",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 502,
+      "source_cycle_end_revolutions": 508,
+      "loop_join_normalized_error": 0.8266739061058492,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99059.35188926263,
+        "mean_rpm": 5913.915049959754,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    },
+    {
+      "id": "sequoia-3ur-fe-cleanroom-falling-power-6100rpm-exhaust-odd-dry-seam-closure",
+      "rpm": 6100,
+      "lane": "power",
+      "capture_throttle_01": 1,
+      "manifold_pressure_pa_abs": 99063.78440455369,
+      "relative_path": "audio/falling-power-6100rpm.exhaust-odd-dry.phase.f32le",
+      "byte_count": 49152,
+      "payload_sha256": "4aa4e1e5aae33b790a3c2b90deb1e8382fac84715c18ca3c6316dc27ca577809",
+      "source_capture_payload_sha256": "f219a849ec18b464e9cc20bb61a401799433f091ee22fe762b4c739e809c09d6",
+      "source_cycle_origin_revolutions": 0,
+      "source_cycle_begin_revolutions": 498,
+      "source_cycle_end_revolutions": 504,
+      "loop_join_normalized_error": 0.8124297299869833,
+      "seam_closure_algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+      "capture_fidelity": {
+        "mean_manifold_pressure_pa_abs": 99063.78440455369,
+        "mean_rpm": 5995.307580560653,
+        "mean_requested_throttle_01": 1,
+        "mean_resolved_throttle_01": 0,
+        "state_masks": [
+          3
+        ],
+        "telemetry_endpoint_count": 3
+      }
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "sequoia-3ur-fe-cleanroom",
+      "sha256": "71ce08a1cb0dc63d7eb0eea7070e8625a5fe4628379dadc9e4402440152fa5f2"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "falling-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "351261b5b0314c2323653b9f25e1e3a345523fad30774cfbe243c092440e3e1a",
+    "physics_rate_hz": 10000,
+    "source_delivery_rate_hz": 192000
+  }
+}

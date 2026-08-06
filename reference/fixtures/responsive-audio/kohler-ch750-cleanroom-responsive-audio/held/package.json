@@ -1,0 +1,291 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-held-texture",
+  "id": "kohler-ch750-cleanroom-exact-held-phase-texture-live-preview",
+  "engine": "kohler-ch750-cleanroom",
+  "fidelity": {
+    "purpose": "interactive-source-b-versus-source-a-audition-preview",
+    "physics_rate_hz": 10000,
+    "canonical_offline_bake": false
+  },
+  "representation": {
+    "kind": "cyclic-mean-plus-boundary-zero-cycle-residual-bank",
+    "timeline_included": false,
+    "runtime_coordinates": [
+      "rpm",
+      "measured-intake-manifold-pressure-pa-abs",
+      "unwrapped-crank-revolutions"
+    ],
+    "internal_runtime_state": [
+      "residual-cycle-ordinal"
+    ]
+  },
+  "domain": {
+    "minimum_rpm": 1000,
+    "maximum_rpm": 4100,
+    "rpm_anchors": [
+      1000,
+      1300,
+      1600,
+      1900,
+      2200,
+      2500,
+      2740,
+      3000,
+      3300,
+      3500,
+      3600,
+      3800,
+      4100
+    ],
+    "load_lanes": [
+      {
+        "id": "coast",
+        "throttle01": 0
+      },
+      {
+        "id": "mid",
+        "throttle01": 0.2
+      },
+      {
+        "id": "power",
+        "throttle01": 1
+      }
+    ],
+    "operating_cell_count": 26
+  },
+  "dry_bus_ids": [
+    "exhaust.dry"
+  ],
+  "route_manifests": [
+    {
+      "bus_id": "exhaust.dry",
+      "manifest_path": "exhaust-dry.json"
+    }
+  ],
+  "presentation": {
+    "audition_bus_id": "master-engine-audition",
+    "audition_dry_bus_order": [
+      "exhaust.dry"
+    ],
+    "captured_to_source_scale": 67108864,
+    "master_volume_linear": 1,
+    "routes": [
+      {
+        "dry_bus_id": "exhaust.dry",
+        "source_route_id": "exhaust",
+        "impulse_response_asset_id": "smooth-39",
+        "impulse_response_payload_sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc",
+        "impulse_response_gain_linear": 0.001,
+        "wet_mix_01": 1,
+        "transfer": {
+          "fft_size": 65536,
+          "coefficient_count": 30071,
+          "spectrum_encoding": "interleaved-complex-float64le",
+          "spectrum_path": "smooth-39-7f2cacd65eb3-kernel-complex-f64le.bin",
+          "spectrum_byte_count": 1048576,
+          "spectrum_sha256": "a1a12fc0224ecdf824e402562ed6b5fd31d915278693a8cfaaeea41a5cf957d2"
+        }
+      }
+    ]
+  },
+  "phase_alignment": {
+    "method": "shared-route-sum-circular-correlation-unwrapped-grid-v1",
+    "reference_cell_id": "3000rpm-power",
+    "unit": "phase-samples",
+    "interpolation": "unwrapped-linear",
+    "cells": [
+      {
+        "id": "1000rpm-coast",
+        "shift_to_canonical_samples": 1141.2726552460865
+      },
+      {
+        "id": "1000rpm-mid",
+        "shift_to_canonical_samples": 1143.6336774444571
+      },
+      {
+        "id": "1000rpm-power",
+        "shift_to_canonical_samples": 1148.6920756575955
+      },
+      {
+        "id": "1300rpm-coast",
+        "shift_to_canonical_samples": 917.8708073561704
+      },
+      {
+        "id": "1300rpm-mid",
+        "shift_to_canonical_samples": 895.1700700703807
+      },
+      {
+        "id": "1300rpm-power",
+        "shift_to_canonical_samples": 903.4798699354006
+      },
+      {
+        "id": "1600rpm-coast",
+        "shift_to_canonical_samples": 744.7754004411821
+      },
+      {
+        "id": "1600rpm-mid",
+        "shift_to_canonical_samples": 668.3321701462392
+      },
+      {
+        "id": "1600rpm-power",
+        "shift_to_canonical_samples": 670.769322253431
+      },
+      {
+        "id": "1900rpm-coast",
+        "shift_to_canonical_samples": 508.28182865069107
+      },
+      {
+        "id": "1900rpm-mid",
+        "shift_to_canonical_samples": 513.4855132813841
+      },
+      {
+        "id": "1900rpm-power",
+        "shift_to_canonical_samples": 468.7515768370298
+      },
+      {
+        "id": "2200rpm-coast",
+        "shift_to_canonical_samples": 259.53089617830426
+      },
+      {
+        "id": "2200rpm-power",
+        "shift_to_canonical_samples": 316.3201645493775
+      },
+      {
+        "id": "2500rpm-coast",
+        "shift_to_canonical_samples": 0.2375943062544934
+      },
+      {
+        "id": "2500rpm-power",
+        "shift_to_canonical_samples": 217.8221589678674
+      },
+      {
+        "id": "2740rpm-coast",
+        "shift_to_canonical_samples": -200.50910739802578
+      },
+      {
+        "id": "2740rpm-power",
+        "shift_to_canonical_samples": 129.17447510062283
+      },
+      {
+        "id": "3000rpm-coast",
+        "shift_to_canonical_samples": -397.57863171952033
+      },
+      {
+        "id": "3000rpm-power",
+        "shift_to_canonical_samples": 0
+      },
+      {
+        "id": "3300rpm-coast",
+        "shift_to_canonical_samples": -623.6032160325594
+      },
+      {
+        "id": "3300rpm-power",
+        "shift_to_canonical_samples": -78.34759111736113
+      },
+      {
+        "id": "3500rpm-coast",
+        "shift_to_canonical_samples": -782.880867474221
+      },
+      {
+        "id": "3600rpm-coast",
+        "shift_to_canonical_samples": -858.4587194302077
+      },
+      {
+        "id": "3800rpm-coast",
+        "shift_to_canonical_samples": -1010.254914115362
+      },
+      {
+        "id": "4100rpm-coast",
+        "shift_to_canonical_samples": -1239.63971272704
+      }
+    ]
+  },
+  "texture_selection": {
+    "algorithm": "splitmix64-shuffled-bags-v1",
+    "bank_size": 48,
+    "public_seed": "12648430",
+    "no_adjacent_repeat": true,
+    "change_phase": "720-degree-boundary"
+  },
+  "interpolation": {
+    "mean": {
+      "method": "common-delay-phase-warp",
+      "energy_target": "linear-anchor-rms"
+    },
+    "residual": {
+      "cross_cell_correlation": "independent",
+      "energy_target": "linear-anchor-power",
+      "normalization": "sqrt(Ptarget/sum(w_i^2 P_i))"
+    }
+  },
+  "provenance": {
+    "engine": {
+      "id": "kohler-ch750-cleanroom",
+      "sha256": "812fcfa3fcb1c3040f695140cfc2a73df0934a3d84a848121eb94a41f374e60e"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "capture_identity": {
+      "engine_id": "kohler-ch750-cleanroom",
+      "capture_method": "exact-held-rpm-48-cycle-20ms-exact-sum-horizon-v8",
+      "decomposition_method": "cyclic-mean-plus-boundary-zero-smoothstep-residual-bank-v1",
+      "state_capture_identities": [
+        {
+          "rpm": 1000,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        },
+        {
+          "rpm": 1300,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        },
+        {
+          "rpm": 1600,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        },
+        {
+          "rpm": 1900,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        },
+        {
+          "rpm": 2200,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        },
+        {
+          "rpm": 2500,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        },
+        {
+          "rpm": 2740,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        },
+        {
+          "rpm": 3000,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        },
+        {
+          "rpm": 3300,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        },
+        {
+          "rpm": 3500,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        },
+        {
+          "rpm": 3600,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        },
+        {
+          "rpm": 3800,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        },
+        {
+          "rpm": 4100,
+          "sha256": "fd0a263d36e6d057d041f0addc774d8ce71b28b67e247010eaf7f4c0b8773334"
+        }
+      ],
+      "sha256": "05c74b70e914f96d7160bfe675e0c811050ae8a9dd41b33dc31eb350cff8312f"
+    }
+  }
+}

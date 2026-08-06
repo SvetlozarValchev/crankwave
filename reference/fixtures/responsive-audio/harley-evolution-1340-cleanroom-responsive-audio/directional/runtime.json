@@ -1,0 +1,70 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-texture",
+  "id": "harley-evolution-1340-cleanroom-directional-transient-live-preview",
+  "engine": "harley-evolution-1340-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono"
+  },
+  "domain": {
+    "minimum_rpm": 575,
+    "maximum_rpm": 5200,
+    "rpm_anchors": [
+      650,
+      800,
+      1000,
+      1300,
+      1700,
+      2200,
+      2800,
+      3400,
+      4000,
+      4500,
+      5000
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs"
+  },
+  "dry_bus_ids": [
+    "exhaust.front.dry",
+    "exhaust.rear.dry"
+  ],
+  "route_manifests": [
+    {
+      "bus_id": "exhaust.front.dry",
+      "rising_manifest_path": "exhaust-front-dry-rising.json",
+      "falling_manifest_path": "exhaust-front-dry-falling.json"
+    },
+    {
+      "bus_id": "exhaust.rear.dry",
+      "rising_manifest_path": "exhaust-rear-dry-rising.json",
+      "falling_manifest_path": "exhaust-rear-dry-falling.json"
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "harley-evolution-1340-cleanroom",
+      "sha256": "a21033e0ebe6813a63c1212d429936f1cc17e4f6de0a2b206406e7cb6fd92647"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "live-rpm-map-crank-indexed-n-route-dry-directional-units-with-phase-aligned-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "0f8e79e9e6c7f396930cfa692bd28569878924fde65232e16b72608ccfadaeb0"
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_origin_revolutions": 0,
+    "join_gate": {
+      "maximum_seam_over_source_adjacent_derivative_rms": 3,
+      "maximum_correction_rms_over_source_rms": 0.4,
+      "observed_maximum_seam_over_source_adjacent_derivative_rms": 2.196655823661215,
+      "observed_maximum_correction_rms_over_source_rms": 0.15267858155295472,
+      "passed": true
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-state-phase-texture",
+  "id": "bmw-m52b28-motoring-ignition-off-fuel-on-live-preview",
+  "engine": "bmw-m52b28",
+  "state_selector": {
+    "id": "motoring-ignition-off-fuel-on",
+    "required_on_mask": 2,
+    "required_off_mask": 1,
+    "wildcard_mask": 28
+  },
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono"
+  },
+  "domain": {
+    "minimum_rpm": 1,
+    "maximum_rpm": 8250,
+    "rpm_anchors": [
+      100,
+      250,
+      500,
+      1000,
+      1200,
+      1500,
+      1800,
+      2200,
+      2700,
+      3300,
+      4000,
+      4800,
+      5500,
+      6100,
+      6500,
+      7000,
+      7500,
+      8000
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs"
+  },
+  "dry_bus_ids": [
+    "exhaust.reference.0.dry",
+    "exhaust.reference.1.dry"
+  ],
+  "route_manifests": [
+    {
+      "bus_id": "exhaust.reference.0.dry",
+      "manifest_path": "exhaust-reference-0-dry-falling.json"
+    },
+    {
+      "bus_id": "exhaust.reference.1.dry",
+      "manifest_path": "exhaust-reference-1-dry-falling.json"
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "bmw-m52b28",
+      "sha256": "f8719bde7dbab856ff6e131fbdb30a83ee667419bf72e2a45472b6615b7f198d"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "live-state-rpm-map-crank-indexed-n-route-dry-motoring-units-from-falling-trajectory-with-phase-aligned-seam-closure",
+    "capture_method": "ignition-off-fuel-on-controlled-high-inertia-free-engine-falling-rpm-one-eighteenth-per-second-three-cycle-dry-routes-v1",
+    "capture_identity_sha256": "b7908f644e5bbe3a79233dea21c1c1e4e501377bb56e551ac26ec3e09841baa1"
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_origin_revolutions": 0,
+    "join_gate": {
+      "maximum_seam_over_source_adjacent_derivative_rms": 3,
+      "maximum_correction_rms_over_source_rms": 0.4,
+      "observed_maximum_seam_over_source_adjacent_derivative_rms": 1.6261626170924117,
+      "observed_maximum_correction_rms_over_source_rms": 0.2028981534880417,
+      "passed": true
+    }
+  }
+}

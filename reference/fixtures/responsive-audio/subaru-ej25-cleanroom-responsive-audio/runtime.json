@@ -1,0 +1,40 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-preview",
+  "id": "subaru-ej25-cleanroom-responsive-audio",
+  "engine": "subaru-ej25-cleanroom",
+  "fidelity": {
+    "purpose": "interactive-source-b-versus-source-a-audition-preview",
+    "physics_rate_hz": 10000,
+    "canonical_offline_bake": false
+  },
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono",
+    "bus_id": "master-engine-audition"
+  },
+  "held_package_path": "held/package.json",
+  "directional_package_path": "directional/runtime.json",
+  "domain": {
+    "minimum_rpm": 700,
+    "maximum_rpm": 6700
+  },
+  "provenance": {
+    "engine": {
+      "id": "subaru-ej25-cleanroom",
+      "sha256": "2e383b32d9a6f46b9279159e5c3408c57395005253c8ff864ff2eb40346e7733"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "exact-held-non-repeating-texture-plus-n-route-directional-transients-through-authored-presentation"
+  },
+  "runtime_renderer_compatibility": {
+    "capture_source_closure_sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb",
+    "admitted_source_closure_sha256": "c3a905712ddf3ae4e506af64e3919f2324df46af13ff4e3dc1a24037b4079d23",
+    "evidence_path": "evidence/renderer-compatibility-parity-report-v1.json",
+    "evidence_byte_count": 18318,
+    "evidence_sha256": "688301b6904d76ab95586cdf4bfad0e8e04fbf11ed99d055ffc693a450e7c123"
+  }
+}

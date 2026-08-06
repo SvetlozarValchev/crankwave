@@ -1,0 +1,76 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-directional-texture",
+  "id": "honda-b18c5-cleanroom-directional-transient-live-preview",
+  "engine": "honda-b18c5-cleanroom",
+  "audio": {
+    "sample_rate_hz": 192000,
+    "encoding": "float32le",
+    "channel_layout": "mono"
+  },
+  "domain": {
+    "minimum_rpm": 500,
+    "maximum_rpm": 9500,
+    "rpm_anchors": [
+      600,
+      800,
+      1000,
+      1500,
+      2200,
+      3000,
+      4000,
+      5000,
+      5600,
+      5800,
+      6500,
+      7400,
+      8000,
+      8400,
+      8800,
+      9200,
+      9400
+    ],
+    "load_coordinate": "measured-intake-manifold-pressure-pa-abs"
+  },
+  "dry_bus_ids": [
+    "exhaust.0.dry",
+    "exhaust.1.dry"
+  ],
+  "route_manifests": [
+    {
+      "bus_id": "exhaust.0.dry",
+      "rising_manifest_path": "exhaust-0-dry-rising.json",
+      "falling_manifest_path": "exhaust-0-dry-falling.json"
+    },
+    {
+      "bus_id": "exhaust.1.dry",
+      "rising_manifest_path": "exhaust-1-dry-rising.json",
+      "falling_manifest_path": "exhaust-1-dry-falling.json"
+    }
+  ],
+  "provenance": {
+    "engine": {
+      "id": "honda-b18c5-cleanroom",
+      "sha256": "beaf656419f9ec7da8d0370e2f575d2a079c1f264ff886be12df0733f7069af8"
+    },
+    "renderer_build": {
+      "id": "engine-sim-offline-renderer-build",
+      "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
+    },
+    "representation": "live-rpm-map-crank-indexed-n-route-dry-directional-units-with-phase-aligned-seam-closure",
+    "capture_method": "prescribed-exponential-rpm-one-third-per-second-three-cycle-dry-routes-v3",
+    "capture_identity_sha256": "ed015457a955567087919dd3d438c933f59d09dd40e9c8cc1d7bcfeb60b941e6"
+  },
+  "seam_closure": {
+    "algorithm": "phase-aligned-three-cycle-template-boundary-smoothstep-1of8-v1",
+    "phase_aligned": true,
+    "blend_cycle_fraction_per_side": 0.125,
+    "source_cycle_origin_revolutions": 0,
+    "join_gate": {
+      "maximum_seam_over_source_adjacent_derivative_rms": 3,
+      "maximum_correction_rms_over_source_rms": 0.4,
+      "observed_maximum_seam_over_source_adjacent_derivative_rms": 1.5742145853494665,
+      "observed_maximum_correction_rms_over_source_rms": 0.36395279696971305,
+      "passed": true
+    }
+  }
+}
