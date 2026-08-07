@@ -35,8 +35,8 @@ int main() {
                "binary64-wasm32-binary128-v1",
            "wasm32 static-IR method ID does not identify binary128");
     expect(methods.audition_mix.id ==
-               "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-"
-               "wasm32-binary128-v3",
+               "ordered-n-route-rate-adjusted-leveler-tanh-quarter-sine-pcm24-"
+               "wave-master-wasm32-binary128-v4",
            "wasm32 audition method ID does not identify binary128 duration "
            "resolution");
 
