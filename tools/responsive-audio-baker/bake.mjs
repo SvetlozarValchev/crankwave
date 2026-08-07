@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -20,7 +20,463 @@ import {
 
 export const PROFILE_SCHEMA =
   "engine-sim-offline/responsive-audio-bake-profile-v1";
+export const AUTOMATIC_PROFILE_POLICY_ID =
+  "engine-redline-affine-v1";
+export const AUTOMATIC_PROFILE_ID =
+  "interactive-preview-redline-v1";
 export const MAXIMUM_INPUT_JSON_BYTES = 4 * 1024 * 1024;
+export const RESPONSIVE_BAKE_FAILURE_SCHEMA =
+  "engine-sim-offline/responsive-audio-bake-failure-v1";
+
+const RESPONSIVE_BAKE_EXIT_CODES = Object.freeze({
+  invalid_invocation: 64,
+  invalid_input: 65,
+  input_unavailable: 66,
+  unavailable: 69,
+  child_process_failed: 70,
+  internal_failure: 70,
+  output_conflict: 73,
+  output_failure: 73,
+  cancelled: 75,
+  deadline_exceeded: 75,
+  terminated: 75,
+});
+const MAXIMUM_CHILD_CAPTURE_BYTES = 1024 * 1024;
+const MAXIMUM_TIMER_DELAY_MS = 2_147_483_647;
+const CHILD_TERMINATION_GRACE_MS = 1_000;
+
+export class ResponsiveBakeFailure extends Error {
+  constructor(code, message, {
+    cause,
+    retryable = false,
+    signal = null,
+  } = {}) {
+    super(message, cause === undefined ? undefined : { cause });
+    if (!Object.hasOwn(RESPONSIVE_BAKE_EXIT_CODES, code)) {
+      throw new TypeError(`unknown responsive bake failure code ${code}`);
+    }
+    this.name = "ResponsiveBakeFailure";
+    this.code = code;
+    this.exitCode = RESPONSIVE_BAKE_EXIT_CODES[code];
+    this.retryable = retryable;
+    this.signal = signal;
+  }
+}
+
+function bakeFailure(code, message, options) {
+  return new ResponsiveBakeFailure(code, message, options);
+}
+
+function abortReason(signal) {
+  if (signal?.reason instanceof ResponsiveBakeFailure) return signal.reason;
+  if (signal?.reason instanceof Error) {
+    return bakeFailure("cancelled", "responsive bake was cancelled", {
+      cause: signal.reason,
+      retryable: true,
+    });
+  }
+  return bakeFailure("cancelled", "responsive bake was cancelled", {
+    retryable: true,
+  });
+}
+
+export function responsiveBakeFailureRecord(error, releaseIdentity = null) {
+  let failure = error;
+  if (!(failure instanceof ResponsiveBakeFailure)) {
+    if (error?.code === "ENOENT" || error?.code === "ENOTDIR") {
+      failure = bakeFailure("input_unavailable", error.message, { cause: error });
+    } else if (error?.code === "EEXIST") {
+      failure = bakeFailure("output_conflict", error.message, { cause: error });
+    } else if (
+      new Set(["EACCES", "EDQUOT", "ENOSPC", "EPERM", "EROFS"])
+        .has(error?.code)
+    ) {
+      failure = bakeFailure("output_failure", error.message, { cause: error });
+    } else {
+      failure = bakeFailure(
+        "internal_failure",
+        error instanceof Error ? error.message : String(error),
+        { cause: error instanceof Error ? error : undefined },
+      );
+    }
+  }
+  return Object.freeze({
+    schema: RESPONSIVE_BAKE_FAILURE_SCHEMA,
+    release_identity: releaseIdentity,
+    code: failure.code,
+    exit_code: failure.exitCode,
+    retryable: failure.retryable,
+    signal: failure.signal,
+    message: failure.message,
+  });
+}
+
+const CHILD_ENVIRONMENT_KEYS = Object.freeze([
+  "COMSPEC",
+  "PATH",
+  "PATHEXT",
+  "SYSTEMROOT",
+  "TEMP",
+  "TMP",
+  "TMPDIR",
+  "WINDIR",
+]);
+
+export function createSanitizedChildEnvironment(
+  overrides = {},
+  inherited = process.env,
+) {
+  if (
+    inherited === null || typeof inherited !== "object" ||
+    overrides === null || typeof overrides !== "object"
+  ) {
+    throw new TypeError("child environments must be objects");
+  }
+  const inheritedByCanonicalName = new Map(
+    Object.entries(inherited).map(([name, value]) => [name.toUpperCase(), value]),
+  );
+  const environment = {};
+  for (const name of CHILD_ENVIRONMENT_KEYS) {
+    const value = inheritedByCanonicalName.get(name);
+    if (typeof value === "string") environment[name] = value;
+  }
+  environment.LANG = "C";
+  environment.LC_ALL = "C";
+  environment.TZ = "UTC";
+  for (const [name, value] of Object.entries(overrides)) {
+    if (!/^ESO_[A-Z0-9_]+$/u.test(name) || typeof value !== "string") {
+      throw new TypeError(
+        `child environment override ${name} is not an ESO text variable`,
+      );
+    }
+    environment[name] = value;
+  }
+  return Object.freeze(environment);
+}
+
+function sendChildTreeSignal(child, signal) {
+  if (child.pid === undefined) return;
+  try {
+    if (process.platform !== "win32") process.kill(-child.pid, signal);
+    else child.kill(signal);
+  } catch (error) {
+    if (error?.code !== "ESRCH") throw error;
+  }
+}
+
+export function createBakeProcessSupervisor({
+  signal: externalSignal = null,
+  deadlineUnixMs = null,
+  now = Date.now,
+  terminationGraceMs = CHILD_TERMINATION_GRACE_MS,
+} = {}) {
+  if (
+    externalSignal !== null &&
+    (typeof externalSignal !== "object" ||
+      typeof externalSignal.addEventListener !== "function")
+  ) {
+    throw new TypeError("responsive bake signal must be an AbortSignal");
+  }
+  if (
+    deadlineUnixMs !== null &&
+    (!Number.isSafeInteger(deadlineUnixMs) || deadlineUnixMs < 1)
+  ) {
+    throw new TypeError("responsive bake deadline must be a positive Unix millisecond");
+  }
+  if (typeof now !== "function") {
+    throw new TypeError("responsive bake clock must be a function");
+  }
+  if (
+    !Number.isSafeInteger(terminationGraceMs) ||
+    terminationGraceMs < 0 || terminationGraceMs > 60_000
+  ) {
+    throw new TypeError("child termination grace must be in [0, 60000] ms");
+  }
+
+  const controller = new AbortController();
+  const active = new Map();
+  const terminationDrains = new Set();
+  const drainWaiters = new Set();
+  let deadlineTimer = null;
+  let disposed = false;
+
+  const notifyDrained = () => {
+    if (active.size !== 0 || terminationDrains.size !== 0) return;
+    for (const resolve of drainWaiters) resolve();
+    drainWaiters.clear();
+  };
+
+  const processGroupExists = (pid) => {
+    if (pid === undefined || process.platform === "win32") return false;
+    try {
+      process.kill(-pid, 0);
+      return true;
+    } catch (error) {
+      if (error?.code === "ESRCH") return false;
+      if (error?.code === "EPERM") return true;
+      throw error;
+    }
+  };
+
+  const terminate = (child) => {
+    const record = active.get(child);
+    if (record === undefined || record.terminating) return;
+    record.terminating = true;
+    try {
+      sendChildTreeSignal(child, "SIGTERM");
+    } catch {
+      // The close/error event remains authoritative. Escalation retries below.
+    }
+    let resolveDrain;
+    const drain = new Promise((resolve) => {
+      resolveDrain = resolve;
+    });
+    record.groupDrain = drain;
+    terminationDrains.add(drain);
+    const startedAt = Date.now();
+    let escalated = false;
+    const poll = () => {
+      let groupExists = false;
+      try {
+        groupExists = process.platform === "win32"
+          ? !record.directClosed
+          : processGroupExists(child.pid);
+      } catch {
+        groupExists = true;
+      }
+      const elapsed = Date.now() - startedAt;
+      if (!groupExists) {
+        terminationDrains.delete(drain);
+        resolveDrain();
+        notifyDrained();
+        return;
+      }
+      if (!escalated && elapsed >= terminationGraceMs) {
+        escalated = true;
+        try {
+          sendChildTreeSignal(child, "SIGKILL");
+        } catch {
+          // The next existence probe remains authoritative.
+        }
+      }
+      if (escalated && elapsed >= terminationGraceMs + 1_000) {
+        terminationDrains.delete(drain);
+        resolveDrain();
+        notifyDrained();
+        return;
+      }
+      record.escalationTimer = setTimeout(poll, 10);
+    };
+    poll();
+  };
+  const abort = (reason) => {
+    if (!controller.signal.aborted) controller.abort(reason);
+    for (const child of active.keys()) terminate(child);
+  };
+  const forwardExternalAbort = () => abort(abortReason(externalSignal));
+  if (externalSignal !== null) {
+    if (externalSignal.aborted) forwardExternalAbort();
+    else {
+      externalSignal.addEventListener("abort", forwardExternalAbort, {
+        once: true,
+      });
+    }
+  }
+
+  const armDeadline = () => {
+    if (deadlineUnixMs === null || controller.signal.aborted || disposed) return;
+    const remaining = deadlineUnixMs - now();
+    if (remaining <= 0) {
+      abort(bakeFailure(
+        "deadline_exceeded",
+        "responsive bake deadline exceeded",
+        { retryable: true },
+      ));
+      return;
+    }
+    deadlineTimer = setTimeout(
+      armDeadline,
+      Math.min(remaining, MAXIMUM_TIMER_DELAY_MS),
+    );
+    deadlineTimer.unref?.();
+  };
+  armDeadline();
+
+  const release = (child) => {
+    const record = active.get(child);
+    if (record === undefined) return;
+    record.directClosed = true;
+    if (!record.terminating && record.escalationTimer !== null) {
+      clearTimeout(record.escalationTimer);
+    }
+    active.delete(child);
+    notifyDrained();
+  };
+
+  const runChild = (executable, args, {
+    cwd = repository,
+    environment = createSanitizedChildEnvironment(),
+    stdout = "inherit",
+    stderr = "inherit",
+    acceptedExitCodes = [0],
+    maximumStdoutBytes = MAXIMUM_CHILD_CAPTURE_BYTES,
+    maximumStderrBytes = MAXIMUM_CHILD_CAPTURE_BYTES,
+  } = {}) => new Promise((resolve, reject) => {
+    if (controller.signal.aborted) {
+      reject(abortReason(controller.signal));
+      return;
+    }
+    const modes = new Set(["capture", "ignore", "inherit"]);
+    if (!modes.has(stdout) || !modes.has(stderr)) {
+      reject(new TypeError("child stdio mode must be capture, ignore, or inherit"));
+      return;
+    }
+    let child;
+    try {
+      child = spawn(executable, args, {
+        cwd,
+        env: environment,
+        detached: process.platform !== "win32",
+        stdio: [
+          "ignore",
+          stdout === "capture" ? "pipe" : stdout,
+          stderr === "capture" ? "pipe" : stderr,
+        ],
+      });
+    } catch (error) {
+      const failure = bakeFailure(
+        "child_process_failed",
+        `failed to start ${path.basename(executable)}`,
+        { cause: error },
+      );
+      abort(failure);
+      reject(failure);
+      return;
+    }
+    active.set(child, {
+      directClosed: false,
+      escalationTimer: null,
+      groupDrain: null,
+      terminating: false,
+    });
+    const stdoutChunks = [];
+    const stderrChunks = [];
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let settled = false;
+    const capture = (stream, chunks, maximumBytes, countBytes) => {
+      stream?.on("data", (chunk) => {
+        const total = countBytes(chunk.byteLength);
+        if (total <= maximumBytes) chunks.push(chunk);
+      });
+    };
+    capture(child.stdout, stdoutChunks, maximumStdoutBytes, (count) => {
+      stdoutBytes += count;
+      return stdoutBytes;
+    });
+    capture(child.stderr, stderrChunks, maximumStderrBytes, (count) => {
+      stderrBytes += count;
+      return stderrBytes;
+    });
+    if (controller.signal.aborted) terminate(child);
+
+    child.once("error", (error) => {
+      if (settled) return;
+      settled = true;
+      const failure = controller.signal.aborted
+        ? abortReason(controller.signal)
+        : bakeFailure(
+          "child_process_failed",
+          `failed to start ${path.basename(executable)}`,
+          { cause: error },
+        );
+      abort(failure);
+      release(child);
+      reject(failure);
+    });
+    child.once("close", (code, childSignal) => {
+      if (settled) return;
+      settled = true;
+      if (controller.signal.aborted) {
+        release(child);
+        reject(abortReason(controller.signal));
+        return;
+      }
+      if (stdoutBytes > maximumStdoutBytes || stderrBytes > maximumStderrBytes) {
+        const failure = bakeFailure(
+          "child_process_failed",
+          `${path.basename(executable)} emitted excessive diagnostic output`,
+        );
+        abort(failure);
+        release(child);
+        reject(failure);
+        return;
+      }
+      if (!acceptedExitCodes.includes(code)) {
+        const failure = bakeFailure(
+          "child_process_failed",
+          `${path.basename(executable)} exited with ${code ?? childSignal}`,
+          { signal: childSignal },
+        );
+        abort(failure);
+        release(child);
+        reject(failure);
+        return;
+      }
+      release(child);
+      resolve(Object.freeze({
+        code,
+        signal: childSignal,
+        stdout: Buffer.concat(stdoutChunks).toString("utf8"),
+        stderr: Buffer.concat(stderrChunks).toString("utf8"),
+      }));
+    });
+  });
+
+  return Object.freeze({
+    signal: controller.signal,
+    abort,
+    get activeChildCount() {
+      return active.size;
+    },
+    throwIfAborted() {
+      if (
+        deadlineUnixMs !== null &&
+        !controller.signal.aborted &&
+        now() >= deadlineUnixMs
+      ) {
+        abort(bakeFailure(
+          "deadline_exceeded",
+          "responsive bake deadline exceeded",
+          { retryable: true },
+        ));
+      }
+      if (controller.signal.aborted) throw abortReason(controller.signal);
+    },
+    async abortAndDrain(reason) {
+      abort(reason);
+      if (active.size === 0 && terminationDrains.size === 0) return;
+      await new Promise((resolve) => drainWaiters.add(resolve));
+    },
+    async drain() {
+      if (active.size === 0 && terminationDrains.size === 0) return;
+      await new Promise((resolve) => drainWaiters.add(resolve));
+    },
+    runChild,
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      if (deadlineTimer !== null) clearTimeout(deadlineTimer);
+      externalSignal?.removeEventListener?.("abort", forwardExternalAbort);
+      if (active.size > 0 || terminationDrains.size > 0) {
+        abort(bakeFailure(
+          "internal_failure",
+          "responsive bake process supervisor closed with active children",
+        ));
+      }
+    },
+  });
+}
 
 const CACHE_LOCK_OWNER_NAME =
   /^owner-([0-9a-f]{32})-m([0-9a-f]{64}|none)-b([0-9a-f]{32}|none)-n([0-9]+|none)-p([1-9][0-9]{0,9})-s([0-9]+|none)\.lock$/u;
@@ -83,8 +539,13 @@ function stageBakerSources(sourceRoot, snapshots, expectedSha256) {
   }
 }
 
-function fail(message, options) {
-  throw new Error(message, options);
+function fail(message, {
+  cause,
+  code = "invalid_input",
+  retryable = false,
+  signal = null,
+} = {}) {
+  throw bakeFailure(code, message, { cause, retryable, signal });
 }
 
 function sha256(bytes) {
@@ -105,7 +566,10 @@ function readBoundedRegularFile(filePath, label, maximumBytes) {
     const noFollow = fs.constants.O_NOFOLLOW ?? 0;
     descriptor = fs.openSync(filePath, fs.constants.O_RDONLY | noFollow);
   } catch (error) {
-    fail(`${label} is not readable: ${filePath}`, { cause: error });
+    fail(`${label} is not readable: ${filePath}`, {
+      cause: error,
+      code: error?.code === "ENOENT" ? "input_unavailable" : "invalid_input",
+    });
   }
   try {
     const status = fs.fstatSync(descriptor);
@@ -198,6 +662,28 @@ function defaultJobs() {
     ? os.availableParallelism()
     : os.cpus().length;
   return Math.max(1, Math.min(24, available));
+}
+
+function releaseIdentity(value, label = "release identity") {
+  const identity = string(value, label);
+  if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z][0-9A-Za-z.+-]*)?$/u
+    .test(identity)) {
+    fail(`${label} must be a portable semantic version`);
+  }
+  return identity;
+}
+
+export function releaseIdentityFromArguments(argv) {
+  const matches = [];
+  for (let index = 0; index + 1 < argv.length; ++index) {
+    if (argv[index] === "--release-identity") matches.push(argv[index + 1]);
+  }
+  if (matches.length !== 1) return null;
+  try {
+    return releaseIdentity(matches[0], "--release-identity");
+  } catch {
+    return null;
+  }
 }
 
 export function createExecutionRuntimeIdentity({
@@ -483,7 +969,33 @@ export function validateProfile(value) {
   return structuredClone(profile);
 }
 
-export function validateEngineProfileCompatibility(engine, profile) {
+const REFERENCE_PROFILE_RPM = Object.freeze({
+  anchors: Object.freeze([
+    600,
+    700,
+    900,
+    1200,
+    1600,
+    2200,
+    3000,
+    4000,
+    5000,
+    6000,
+    6500,
+  ]),
+  outerMinimumRpm: 550,
+  outerMaximumRpm: 6700,
+  heldExtendPreparationBelowRpm: 700,
+  elevatedShutdownRpm: 3000,
+});
+const REFERENCE_MINIMUM_RPM = REFERENCE_PROFILE_RPM.anchors[0];
+const REFERENCE_REDLINE_RPM = REFERENCE_PROFILE_RPM.anchors.at(-1);
+const REFERENCE_RPM_SPAN =
+  REFERENCE_REDLINE_RPM - REFERENCE_MINIMUM_RPM;
+const MINIMUM_AUTOMATIC_REDLINE_RPM = 250;
+const RPM_DECIMAL_PLACES = 6;
+
+function engineRedlineRpm(engine) {
   const engineDocument = object(engine?.engine, "engine.engine");
   const limits = object(engineDocument.limits, "engine.engine.limits");
   const redline = object(limits.redline, "engine.engine.limits.redline");
@@ -494,6 +1006,94 @@ export function validateEngineProfileCompatibility(engine, profile) {
   if (redline.unit !== "rpm") {
     fail("engine.engine.limits.redline.unit must be rpm");
   }
+  return redlineRpm;
+}
+
+function canonicalRpm(value) {
+  const factor = 10 ** RPM_DECIMAL_PLACES;
+  const rounded = Math.round(value * factor) / factor;
+  if (!Number.isFinite(rounded) || !(rounded > 0)) {
+    fail("derived responsive profile contains an invalid RPM value");
+  }
+  return rounded;
+}
+
+/**
+ * Derive a fixed-complexity responsive profile from the only operating-range
+ * boundary currently authored by the engine contract: redline.  The affine
+ * map preserves every accepted interactive-preview-v1 point exactly for a
+ * 6500 RPM engine.  Other engines retain the same relative grid density while
+ * the final anchor is always their exact declared redline.
+ */
+export function deriveResponsiveBakeProfile(engine) {
+  const redlineRpm = engineRedlineRpm(engine);
+  if (redlineRpm < MINIMUM_AUTOMATIC_REDLINE_RPM) {
+    fail(
+      `automatic responsive profile policy ${AUTOMATIC_PROFILE_POLICY_ID} ` +
+      `requires an engine redline of at least ` +
+      `${MINIMUM_AUTOMATIC_REDLINE_RPM} RPM; use --profile`,
+    );
+  }
+  const minimumRpm = Math.min(
+    REFERENCE_MINIMUM_RPM,
+    redlineRpm / 5,
+  );
+  const spanRpm = redlineRpm - minimumRpm;
+  const mapReferenceRpm = (referenceRpm) => canonicalRpm(
+    minimumRpm +
+      ((referenceRpm - REFERENCE_MINIMUM_RPM) / REFERENCE_RPM_SPAN) *
+        spanRpm,
+  );
+  const anchors = REFERENCE_PROFILE_RPM.anchors.map(mapReferenceRpm);
+  anchors[0] = canonicalRpm(minimumRpm);
+  anchors[anchors.length - 1] = redlineRpm;
+
+  return validateProfile({
+    schema: PROFILE_SCHEMA,
+    id: AUTOMATIC_PROFILE_ID,
+    rpm: {
+      anchors,
+      outer_minimum_rpm: Math.max(
+        50,
+        mapReferenceRpm(REFERENCE_PROFILE_RPM.outerMinimumRpm),
+      ),
+      outer_maximum_rpm: mapReferenceRpm(
+        REFERENCE_PROFILE_RPM.outerMaximumRpm,
+      ),
+      held_preparation_floor_seconds: 3,
+      held_extend_preparation_below_rpm: mapReferenceRpm(
+        REFERENCE_PROFILE_RPM.heldExtendPreparationBelowRpm,
+      ),
+    },
+    capture: {
+      physics_rate_hz: 10_000,
+      load_lanes: [
+        { id: "coast", throttle_01: 0 },
+        { id: "mid", throttle_01: 0.2 },
+        { id: "power", throttle_01: 1 },
+      ],
+    },
+    lifecycle: {
+      enabled: true,
+      shared_recorded_starter: true,
+      elevated_shutdown: {
+        rpm: mapReferenceRpm(
+          REFERENCE_PROFILE_RPM.elevatedShutdownRpm,
+        ),
+        keyoff_seconds: 0.16,
+      },
+    },
+  });
+}
+
+function derivedProfileSnapshot(engine) {
+  const value = deriveResponsiveBakeProfile(engine);
+  const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+  return Object.freeze({ bytes, value, sha256: sha256(bytes) });
+}
+
+export function validateEngineProfileCompatibility(engine, profile) {
+  const redlineRpm = engineRedlineRpm(engine);
   const maximumAnchorRpm = profile.rpm.anchors.at(-1);
   if (maximumAnchorRpm > redlineRpm) {
     fail(
@@ -728,15 +1328,15 @@ function usage() {
     "  node tools/responsive-audio-baker/bake.mjs --engine ENGINE.json \\",
     "    [--profile PROFILE.json] --output NEW_DIRECTORY --cache DIRECTORY \\",
     "    [--builtin-assets BUNDLE] [--module engine-sim-offline.js] \\",
-    "    [--jobs 1..32] [--plan]",
+    "    [--jobs 1..32] [--deadline-unix-ms EPOCH_MS] [--plan]",
     "",
-    "Without --profile, a responsive-audio-bake-profile.json beside ENGINE is used.",
+    "Without --profile, the versioned engine-redline-derived profile is used.",
     "The output directory must not exist. --plan validates and prints the exact",
     "derived capture plan without requiring a renderer build.",
   ].join("\n");
 }
 
-export function parseArguments(argv) {
+function parseArgumentsUnchecked(argv) {
   if (argv.length === 1 && ["--help", "-h"].includes(argv[0])) {
     return Object.freeze({ help: true });
   }
@@ -748,7 +1348,7 @@ export function parseArguments(argv) {
       plan = true;
       continue;
     }
-    if (!["--engine", "--profile", "--output", "--cache", "--builtin-assets", "--module", "--jobs", "--ir-dumper", "--cxx"].includes(name)) {
+    if (!["--engine", "--profile", "--output", "--cache", "--builtin-assets", "--module", "--jobs", "--ir-dumper", "--cxx", "--deadline-unix-ms", "--release-identity"].includes(name)) {
       fail(`unknown argument ${name}\n${usage()}`);
     }
     const value = argv[++index];
@@ -767,7 +1367,7 @@ export function parseArguments(argv) {
     enginePath,
     profilePath: values.has("--profile")
       ? absolutePath(values.get("--profile"), "--profile")
-      : path.join(path.dirname(enginePath), "responsive-audio-bake-profile.json"),
+      : null,
     outputPath: absolutePath(values.get("--output"), "--output"),
     cachePath: absolutePath(values.get("--cache"), "--cache"),
     builtinAssetsPath: values.has("--builtin-assets")
@@ -785,8 +1385,29 @@ export function parseArguments(argv) {
       ? absolutePath(values.get("--ir-dumper"), "--ir-dumper")
       : null,
     cxx: values.get("--cxx") ?? process.env.CXX ?? "c++",
+    releaseIdentity: values.has("--release-identity")
+      ? releaseIdentity(values.get("--release-identity"), "--release-identity")
+      : null,
+    deadlineUnixMs: values.has("--deadline-unix-ms")
+      ? positiveInteger(
+        Number(values.get("--deadline-unix-ms")),
+        "--deadline-unix-ms",
+      )
+      : null,
     plan,
   });
+}
+
+export function parseArguments(argv) {
+  try {
+    return parseArgumentsUnchecked(argv);
+  } catch (error) {
+    throw bakeFailure(
+      "invalid_invocation",
+      error instanceof Error ? error.message : String(error),
+      { cause: error instanceof Error ? error : undefined },
+    );
+  }
 }
 
 function discoverRendererModule() {
@@ -816,66 +1437,31 @@ function discoverBuiltinAssets(modulePath) {
   ) ?? null;
 }
 
-function run(executable, args, environment = process.env) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, {
-      cwd: repository,
-      env: environment,
-      stdio: ["ignore", "inherit", "inherit"],
-    });
-    child.once("error", reject);
-    child.once("exit", (code, signal) => {
-      if (code === 0) resolve();
-      else reject(new Error(
-        `${path.basename(executable)} exited with ${code ?? signal}`,
-      ));
-    });
+async function run(executable, args, environment, supervisor) {
+  await supervisor.runChild(executable, args, {
+    environment,
+    stdout: "capture",
+    stderr: "capture",
   });
 }
 
-function runJson(executable, args, environment = process.env) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, {
-      cwd: repository,
-      env: environment,
-      stdio: ["ignore", "pipe", "inherit"],
-    });
-    const chunks = [];
-    let byteCount = 0;
-    let settled = false;
-    child.stdout.on("data", (chunk) => {
-      byteCount += chunk.byteLength;
-      if (byteCount <= 1024 * 1024) chunks.push(chunk);
-    });
-    child.once("error", (error) => {
-      if (!settled) {
-        settled = true;
-        reject(error);
-      }
-    });
-    child.once("exit", (code, signal) => {
-      if (settled) return;
-      settled = true;
-      if (code !== 0) {
-        reject(new Error(
-          `${path.basename(executable)} exited with ${code ?? signal}`,
-        ));
-        return;
-      }
-      if (byteCount > 1024 * 1024) {
-        reject(new Error(`${path.basename(executable)} JSON output is too large`));
-        return;
-      }
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-      } catch (error) {
-        reject(new Error(
-          `${path.basename(executable)} did not emit one JSON document`,
-          { cause: error },
-        ));
-      }
-    });
+async function runJson(executable, args, environment, supervisor) {
+  const result = await supervisor.runChild(executable, args, {
+    environment,
+    stdout: "capture",
+    stderr: "capture",
   });
+  try {
+    return JSON.parse(result.stdout);
+  } catch (error) {
+    const failure = bakeFailure(
+      "child_process_failed",
+      `${path.basename(executable)} did not emit one JSON document`,
+      { cause: error },
+    );
+    supervisor.abort(failure);
+    throw failure;
+  }
 }
 
 export async function runGloballyBoundedCaptureJobs(
@@ -978,21 +1564,25 @@ async function captureResponsiveSources({
   maximumConcurrency,
   heldStagePath,
   directionalStagePath,
+  supervisor,
 }) {
-  const [heldPlan, directionalPlan] = await Promise.all([
+  const planResults = await Promise.allSettled([
     runJson(process.execPath, [
       heldStagePath,
       "--engine",
       engineId,
       "--print-capture-plan",
-    ], environment),
+    ], environment, supervisor),
     runJson(process.execPath, [
       directionalStagePath,
       "--engine",
       engineId,
       "--print-capture-plan",
-    ], environment),
+    ], environment, supervisor),
   ]);
+  const failedPlan = planResults.find(({ status }) => status === "rejected");
+  if (failedPlan !== undefined) throw failedPlan.reason;
+  const [heldPlan, directionalPlan] = planResults.map(({ value }) => value);
   const lanes = new Set(profile.capture.load_lanes.map(({ id }) => id));
   const anchors = new Set(profile.rpm.anchors);
   const jobs = capturePlanStates(
@@ -1021,7 +1611,7 @@ async function captureResponsiveSources({
         "--capture-state",
         String(rpm),
         lane,
-      ], environment),
+      ], environment, supervisor),
     });
   });
   const directions = new Set(["rising", "falling"]);
@@ -1050,7 +1640,7 @@ async function captureResponsiveSources({
         engineId,
         direction,
         lane,
-      ], environment),
+      ], environment, supervisor),
     });
   }));
   return runGloballyBoundedCaptureJobs(
@@ -1102,16 +1692,12 @@ function irDumperSourceClosure() {
   return [...result].sort(compareCodeUnits);
 }
 
-function compilerIdentity(compiler) {
-  const result = spawnSync(compiler, ["--version"], {
-    encoding: "utf8",
-    maxBuffer: 1024 * 1024,
+async function compilerIdentity(compiler, environment, supervisor) {
+  const result = await supervisor.runChild(compiler, ["--version"], {
+    environment,
+    stdout: "capture",
+    stderr: "capture",
   });
-  if (result.error !== undefined || result.status !== 0) {
-    fail(`cannot identify IR spectrum helper compiler ${compiler}`, {
-      cause: result.error,
-    });
-  }
   return sha256(Buffer.from(JSON.stringify({
     command: compiler,
     stdout: result.stdout,
@@ -1119,7 +1705,7 @@ function compilerIdentity(compiler) {
   })));
 }
 
-function assertUsableIrDumper(executable) {
+async function assertUsableIrDumper(executable, environment, supervisor) {
   let status;
   try {
     status = fs.lstatSync(executable);
@@ -1127,34 +1713,50 @@ function assertUsableIrDumper(executable) {
   } catch (error) {
     fail(`IR spectrum helper is not an executable regular file: ${executable}`, {
       cause: error,
+      code: "unavailable",
     });
   }
   if (status.isSymbolicLink() || !status.isFile()) {
-    fail(`IR spectrum helper is not an executable regular file: ${executable}`);
+    fail(`IR spectrum helper is not an executable regular file: ${executable}`, {
+      code: "unavailable",
+    });
   }
-  const probe = spawnSync(executable, [], {
-    encoding: "utf8",
-    maxBuffer: 64 * 1024,
+  const probe = await supervisor.runChild(executable, [], {
+    acceptedExitCodes: [2],
+    environment,
+    stdout: "capture",
+    stderr: "capture",
+    maximumStdoutBytes: 64 * 1024,
+    maximumStderrBytes: 64 * 1024,
   });
   if (
-    probe.error !== undefined ||
-    probe.status !== 2 ||
+    probe.code !== 2 ||
     !probe.stderr.startsWith("usage: dump-ir-spectrum ")
   ) {
     fail(`IR spectrum helper self-test failed: ${executable}`, {
-      cause: probe.error,
+      code: "unavailable",
     });
   }
 }
 
-async function ensureIrDumper(cachePath, compiler, executionRuntime) {
+async function ensureIrDumper(
+  cachePath,
+  compiler,
+  executionRuntime,
+  environment,
+  supervisor,
+) {
   const sourceFiles = irDumperSourceClosure();
   const sourceEntries = sourceFiles.map((filePath) => ({
     label: path.relative(repository, filePath).split(path.sep).join("/"),
     path: filePath,
   }));
   const sourceIdentity = hashLabeledFiles(sourceEntries);
-  const compilerSha256 = compilerIdentity(compiler);
+  const compilerSha256 = await compilerIdentity(
+    compiler,
+    environment,
+    supervisor,
+  );
   const identity = sha256(Buffer.from(JSON.stringify({
     schema: "engine-sim-offline/ir-spectrum-helper-build-v1",
     source_sha256: sourceIdentity,
@@ -1165,7 +1767,7 @@ async function ensureIrDumper(cachePath, compiler, executionRuntime) {
   const toolRoot = path.join(cachePath, "tools", identity);
   const executable = path.join(toolRoot, "dump-ir-spectrum");
   if (fs.existsSync(executable)) {
-    assertUsableIrDumper(executable);
+    await assertUsableIrDumper(executable, environment, supervisor);
     const bytes = fs.readFileSync(executable);
     return Object.freeze({
       path: executable,
@@ -1185,17 +1787,17 @@ async function ensureIrDumper(cachePath, compiler, executionRuntime) {
       ...sourceFiles.filter((filePath) => filePath.endsWith(".cpp")),
       "-o",
       candidate,
-    ]);
+    ], environment, supervisor);
     if (hashLabeledFiles(sourceEntries) !== sourceIdentity) {
       fail("IR spectrum helper sources changed while the helper was compiled");
     }
-    assertUsableIrDumper(candidate);
+    await assertUsableIrDumper(candidate, environment, supervisor);
     try {
       fs.linkSync(candidate, executable);
     } catch (error) {
       if (error?.code !== "EEXIST") throw error;
     }
-    assertUsableIrDumper(executable);
+    await assertUsableIrDumper(executable, environment, supervisor);
     const bytes = fs.readFileSync(executable);
     return Object.freeze({
       path: executable,
@@ -1210,7 +1812,9 @@ async function ensureIrDumper(cachePath, compiler, executionRuntime) {
 
 function assertNewOutput(outputPath) {
   if (fs.existsSync(outputPath)) {
-    fail(`output directory already exists: ${outputPath}`);
+    fail(`output directory already exists: ${outputPath}`, {
+      code: "output_conflict",
+    });
   }
   const parent = path.dirname(outputPath);
   fs.mkdirSync(parent, { recursive: true });
@@ -1457,8 +2061,12 @@ function snapshotRenderer(modulePath) {
   });
 }
 
-function snapshotExplicitIrDumper(irDumperPath) {
-  assertUsableIrDumper(irDumperPath);
+async function snapshotExplicitIrDumper(
+  irDumperPath,
+  environment,
+  supervisor,
+) {
+  await assertUsableIrDumper(irDumperPath, environment, supervisor);
   const snapshot = snapshotRegularFile(irDumperPath, "IR spectrum helper");
   return Object.freeze({
     ...snapshot,
@@ -1497,6 +2105,7 @@ export function createBakeCacheIdentity({
 }
 
 export function createBakeReport({
+  releaseIdentity = null,
   engineId,
   engineSha256,
   profileId,
@@ -1519,6 +2128,7 @@ export function createBakeReport({
   })).sort(compareAssetRecords);
   return {
     schema: "engine-sim-offline/responsive-audio-bake-report-v1",
+    release_identity: releaseIdentity,
     engine: { id: engineId, sha256: engineSha256 },
     profile: { id: profileId, sha256: profileSha256 },
     implementation: {
@@ -1553,18 +2163,37 @@ export function createBakeReport({
   };
 }
 
-export async function main(argv = process.argv.slice(2)) {
+export async function main(
+  argv = process.argv.slice(2),
+  { signal = null, now = Date.now } = {},
+) {
   const options = parseArguments(argv);
   if (options.help) {
     process.stdout.write(`${usage()}\n`);
     return Object.freeze({ help: true });
   }
+  const supervisor = createBakeProcessSupervisor({
+    signal,
+    deadlineUnixMs: options.deadlineUnixMs,
+    now,
+  });
+  try {
+    return await executeBake(options, supervisor);
+  } finally {
+    supervisor.dispose();
+  }
+}
+
+async function executeBake(options, supervisor) {
+  supervisor.throwIfAborted();
   const engineSnapshot = readJsonSnapshot(options.enginePath, "engine");
   const engine = engineSnapshot.value;
   if (engine.schema !== "engine-sim-offline/engine") {
     fail(`unsupported engine schema ${engine.schema}`);
   }
-  const profileSnapshot = readJsonSnapshot(options.profilePath, "profile");
+  const profileSnapshot = options.profilePath === null
+    ? derivedProfileSnapshot(engine)
+    : readJsonSnapshot(options.profilePath, "profile");
   const profile = validateEngineProfileCompatibility(
     engine,
     validateProfile(profileSnapshot.value),
@@ -1576,6 +2205,7 @@ export async function main(argv = process.argv.slice(2)) {
     fail(
       "--builtin-assets is required because no content-addressed built-in " +
       "asset bundle was found",
+      { code: "unavailable" },
     );
   }
   const builtinAssets = loadBuiltinAssetBundle(builtinAssetsPath);
@@ -1591,6 +2221,7 @@ export async function main(argv = process.argv.slice(2)) {
   const executionRuntime = createExecutionRuntimeIdentity();
   const bakerSourceSnapshots = snapshotBakerSources();
   const bakerSourceSha256 = hashLabeledBytes(bakerSourceSnapshots);
+  const childEnvironment = createSanitizedChildEnvironment();
 
   const resolvedAssetInputs = new Map();
   const collectAsset = (kind, id, digest) => {
@@ -1618,13 +2249,25 @@ export async function main(argv = process.argv.slice(2)) {
       fail(
         "--module is required because no renderer module was found in an installed " +
         "or conventional build tree",
+        { code: "unavailable" },
       );
     }
     rendererSnapshot = snapshotRenderer(modulePath);
     irDumperSnapshot = options.irDumperPath === null
-      ? await ensureIrDumper(options.cachePath, options.cxx, executionRuntime)
-      : snapshotExplicitIrDumper(options.irDumperPath);
+      ? await ensureIrDumper(
+        options.cachePath,
+        options.cxx,
+        executionRuntime,
+        childEnvironment,
+        supervisor,
+      )
+      : await snapshotExplicitIrDumper(
+        options.irDumperPath,
+        childEnvironment,
+        supervisor,
+      );
   }
+  supervisor.throwIfAborted();
   const cacheIdentity = createBakeCacheIdentity({
     engineSha256,
     profileSha256,
@@ -1691,6 +2334,7 @@ export async function main(argv = process.argv.slice(2)) {
 
   const plan = {
     schema: "engine-sim-offline/responsive-audio-bake-plan-v1",
+    release_identity: options.releaseIdentity,
     engine: engineId,
     engine_sha256: engineSha256,
     profile: profile.id,
@@ -1723,16 +2367,20 @@ export async function main(argv = process.argv.slice(2)) {
     output: options.outputPath,
   };
   if (options.plan) {
+    supervisor.throwIfAborted();
     process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
     return plan;
   }
 
   const stageOutput = path.join(
     path.dirname(options.outputPath),
-    `.${path.basename(options.outputPath)}.staging-${process.pid}`,
+    `.${path.basename(options.outputPath)}.staging-${process.pid}-` +
+      randomUUID().replaceAll("-", ""),
   );
   if (fs.existsSync(stageOutput)) {
-    fail(`staging directory already exists: ${stageOutput}`);
+    fail(`staging directory already exists: ${stageOutput}`, {
+      code: "output_conflict",
+    });
   }
   const releaseCacheLock = acquireCacheLock(cacheNamespace);
   try {
@@ -1769,12 +2417,15 @@ export async function main(argv = process.argv.slice(2)) {
     if (sha256(fs.readFileSync(stagedIrDumperPath)) !== irDumperSnapshot.sha256) {
       fail("staged IR spectrum helper differs from its acquired bytes");
     }
-    assertUsableIrDumper(stagedIrDumperPath);
+    await assertUsableIrDumper(
+      stagedIrDumperPath,
+      childEnvironment,
+      supervisor,
+    );
     writeJson(scenarioPath, scenario);
     writeJson(inventoryPath, inventory);
     fs.mkdirSync(stageOutput, { recursive: true });
-    const environment = {
-      ...process.env,
+    const environment = createSanitizedChildEnvironment({
       ESO_RESPONSIVE_BAKE_INVENTORY: inventoryPath,
       ESO_RESPONSIVE_BAKE_CACHE: cacheNamespace,
       ESO_RESPONSIVE_BAKE_OUTPUT: stageOutput,
@@ -1784,7 +2435,7 @@ export async function main(argv = process.argv.slice(2)) {
       ESO_HELD_CAPTURE_CONCURRENCY: String(options.jobs),
       ESO_RESPONSIVE_BAKE_SHARED_STARTER:
         profile.lifecycle.shared_recorded_starter ? "1" : "0",
-    };
+    });
 
     await captureResponsiveSources({
       engineId,
@@ -1793,24 +2444,26 @@ export async function main(argv = process.argv.slice(2)) {
       maximumConcurrency: options.jobs,
       heldStagePath: stagedHeldStage,
       directionalStagePath: stagedDirectionalStage,
+      supervisor,
     });
     await run(process.execPath, [
       stagedHeldStage,
       "--engine",
       engineId,
       "--held-only",
-    ], environment);
+    ], environment, supervisor);
     await run(process.execPath, [
       stagedDirectionalStage,
       "--engine",
       engineId,
       "--concurrency",
       String(options.jobs),
-    ], environment);
+    ], environment, supervisor);
     await run(
       process.execPath,
       [stagedHeldStage, "--engine", engineId],
       environment,
+      supervisor,
     );
 
     if (profile.lifecycle.enabled) {
@@ -1834,12 +2487,17 @@ export async function main(argv = process.argv.slice(2)) {
           fail("shared recorded starter changed while it was staged");
         }
       }
-      await run(process.execPath, [stagedLifecycleStage, engineId], environment);
+      await run(
+        process.execPath,
+        [stagedLifecycleStage, engineId],
+        environment,
+        supervisor,
+      );
       await run(process.execPath, [
         stagedLifecycleStage,
         engineId,
         "--capture-elevated-shutdown",
-      ], environment);
+      ], environment, supervisor);
     }
 
     const runtimePath = path.join(stageOutput, "runtime.json");
@@ -1868,6 +2526,7 @@ export async function main(argv = process.argv.slice(2)) {
     writeJson(
       path.join(stageOutput, "bake-report.json"),
       createBakeReport({
+        releaseIdentity: options.releaseIdentity,
         engineId,
         engineSha256,
         profileId: profile.id,
@@ -1885,6 +2544,7 @@ export async function main(argv = process.argv.slice(2)) {
       }),
     );
     validateRevenginePackageTree(stageOutput);
+    supervisor.throwIfAborted();
     fs.renameSync(stageOutput, options.outputPath);
     try {
       cleanupPublishedLifecycleRuns(cacheNamespace);
@@ -1895,7 +2555,23 @@ export async function main(argv = process.argv.slice(2)) {
       );
     }
   } catch (error) {
-    process.stderr.write(`responsive bake staging retained at ${stageOutput}\n`);
+    const failure = error instanceof ResponsiveBakeFailure
+      ? error
+      : bakeFailure(
+        "internal_failure",
+        error instanceof Error ? error.message : String(error),
+        { cause: error instanceof Error ? error : undefined },
+      );
+    await supervisor.abortAndDrain(failure);
+    try {
+      fs.rmSync(stageOutput, { recursive: true, force: true });
+    } catch (cleanupError) {
+      throw bakeFailure(
+        "output_failure",
+        `failed to clean incomplete responsive bake output ${stageOutput}`,
+        { cause: cleanupError },
+      );
+    }
     throw error;
   } finally {
     releaseCacheLock();
@@ -1909,10 +2585,39 @@ export async function main(argv = process.argv.slice(2)) {
   return result;
 }
 
+export async function runCommandLine(argv = process.argv.slice(2)) {
+  const releaseIdentity = releaseIdentityFromArguments(argv);
+  const controller = new AbortController();
+  const listeners = new Map();
+  for (const signal of ["SIGHUP", "SIGINT", "SIGTERM"]) {
+    const listener = () => {
+      if (controller.signal.aborted) return;
+      controller.abort(bakeFailure(
+        "terminated",
+        `responsive bake terminated by ${signal}`,
+        { retryable: true, signal },
+      ));
+    };
+    listeners.set(signal, listener);
+    process.on(signal, listener);
+  }
+  try {
+    await main(argv, { signal: controller.signal });
+    return 0;
+  } catch (error) {
+    const record = responsiveBakeFailureRecord(error, releaseIdentity);
+    process.stderr.write(`${JSON.stringify(record)}\n`);
+    return record.exit_code;
+  } finally {
+    for (const [signal, listener] of listeners) {
+      process.off(signal, listener);
+    }
+  }
+}
+
 if (process.argv[1] !== undefined &&
     import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  main().catch((error) => {
-    process.stderr.write(`responsive audio bake failed: ${error.stack ?? error}\n`);
-    process.exitCode = 1;
+  runCommandLine().then((exitCode) => {
+    process.exitCode = exitCode;
   });
 }

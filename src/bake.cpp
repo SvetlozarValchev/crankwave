@@ -264,7 +264,7 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
     std::uint64_t physics_frame = 0;
     try {
         render_detail::NativePresentationPublisher publisher{
-            sink, descriptor, std::move(plan.publication), RenderControl{}};
+            sink, descriptor, std::move(plan.publication), control};
 
         EngineSessionCompleted completion;
         while (true) {
@@ -364,10 +364,23 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
                            std::move(message), physics_frame);
         }
 
+        if (control.stop_token.stop_requested()) {
+            return failure(std::move(plan.request), FailureKind::cancelled,
+                           "bake-cancelled-before-commit",
+                           "cancellation was observed before atomic publication",
+                           physics_frame);
+        }
+
         publisher.commit(evidence, std::get<contract::RenderSuccess>(result).manifest,
                          inputs.scenario.combined_provenance,
                          inputs.scenario.source_matrix);
         return result;
+    } catch (const render_detail::NativePresentationCancellation &) {
+        determinism::detail::restore_admitted_renderer_numeric_controls();
+        return failure(std::move(plan.request), FailureKind::cancelled,
+                       "bake-cancelled-during-publication",
+                       "cancellation was observed during native publication",
+                       physics_frame);
     } catch (...) {
         determinism::detail::restore_admitted_renderer_numeric_controls();
         return exception_failure(std::move(plan.request), "native bake",

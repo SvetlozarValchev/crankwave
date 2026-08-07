@@ -5,6 +5,7 @@ import { loadResponsiveAudioRevengine } from "./revengine-package.js";
 
 const RUNNING_STATE_MASK = 0x03;
 const DEFAULT_RENDER_FRAMES = 8_192;
+const PROCESS_CALLS_PER_SECOND = 50;
 const MAXIMUM_RENDER_FRAMES = 1_048_576;
 
 export class RevengineAudioEngineError extends Error {
@@ -201,6 +202,8 @@ export class RevengineAudioEngine {
   #queue = [];
   #queuedFrames = 0;
   #renderedFrames = 0;
+  #renderMode = null;
+  #streamingInputFrames = 0;
 
   static async load(
     input,
@@ -267,12 +270,22 @@ export class RevengineAudioEngine {
     return this.#runtime.batchFrames;
   }
 
+  get processFrames() {
+    return this.sampleRate / PROCESS_CALLS_PER_SECOND;
+  }
+
+  get latencyFrames() {
+    return this.blockFrames;
+  }
+
   get format() {
     return Object.freeze({
       sampleRateHz: this.sampleRate,
       channelCount: this.channelCount,
       sampleEncoding: "float32",
       interleaving: "mono",
+      processFrames: this.processFrames,
+      latencyFrames: this.latencyFrames,
       internalBlockFrames: this.blockFrames,
     });
   }
@@ -314,6 +327,8 @@ export class RevengineAudioEngine {
     this.#queue.length = 0;
     this.#queuedFrames = 0;
     this.#renderedFrames = 0;
+    this.#renderMode = null;
+    this.#streamingInputFrames = 0;
     this.#crankRevolutions = 0;
     this.#lastRpmSlope = 0;
     this.#committedPoint = this.#operatingPoint;
@@ -345,9 +360,88 @@ export class RevengineAudioEngine {
     return this.#operatingPoint;
   }
 
+  // Streaming hosts should use process(). It accepts a dense operating-point
+  // endpoint, advances exactly frameCount physical frames, and returns the
+  // same number of output frames. The responsive presentation works in larger
+  // internal batches, so one batch of silence is queued once as explicit,
+  // uniform control latency instead of coarsening the host trajectory.
+  process(value, frameCount = this.processFrames) {
+    const requested = positiveFrameCount(frameCount);
+    const point = copyOperatingPoint(
+      value,
+      this.minimumRpm,
+      this.maximumRpm,
+    );
+    if (this.#renderMode === "offline") {
+      fail(
+        "mixed-render-modes",
+        "reset the REVENGINE engine before switching from render() to process()",
+      );
+    }
+    if (this.#renderMode === null) {
+      this.#renderMode = "streaming";
+      const latency = new Float32Array(this.blockFrames);
+      this.#queue.push({ pcm: latency, offset: 0 });
+      this.#queuedFrames = latency.length;
+    }
+    this.#operatingPoint = point;
+    const completedBefore = Math.floor(
+      this.#streamingInputFrames / this.blockFrames,
+    ) * this.blockFrames;
+    const completedAfter = Math.floor(
+      (this.#streamingInputFrames + requested) / this.blockFrames,
+    ) * this.blockFrames;
+    const rendered = this.#renderControlBlock(requested, point);
+    if (rendered.length !== completedAfter - completedBefore) {
+      fail(
+        "runtime-output-shape",
+        "REVENGINE runtime violated its fixed presentation batching",
+      );
+    }
+    this.#streamingInputFrames += requested;
+    this.#appendRendered(rendered);
+    if (this.#queuedFrames < requested) {
+      fail(
+        "runtime-output-underflow",
+        "REVENGINE presentation latency queue underflowed",
+      );
+    }
+    const output = concatenateQueued(this.#queue, requested);
+    this.#queuedFrames -= requested;
+    const expectedQueued = this.blockFrames -
+      (this.#streamingInputFrames % this.blockFrames);
+    if (this.#queuedFrames !== expectedQueued) {
+      fail(
+        "runtime-latency-invariant",
+        "REVENGINE presentation did not preserve one uniform latency batch",
+      );
+    }
+    this.#renderedFrames += requested;
+    return output;
+  }
+
   render(frameCount = DEFAULT_RENDER_FRAMES) {
     const requested = positiveFrameCount(frameCount);
-    while (this.#queuedFrames < requested) this.#renderCanonicalBlock();
+    if (this.#renderMode === "streaming") {
+      fail(
+        "mixed-render-modes",
+        "reset the REVENGINE engine before switching from process() to render()",
+      );
+    }
+    this.#renderMode = "offline";
+    while (this.#queuedFrames < requested) {
+      const rendered = this.#renderControlBlock(
+        this.blockFrames,
+        this.#operatingPoint,
+      );
+      if (rendered.length !== this.blockFrames) {
+        fail(
+          "runtime-output-shape",
+          "REVENGINE runtime did not return one complete mono PCM block",
+        );
+      }
+      this.#appendRendered(rendered);
+    }
     const output = concatenateQueued(this.#queue, requested);
     this.#queuedFrames -= requested;
     this.#renderedFrames += requested;
@@ -361,6 +455,7 @@ export class RevengineAudioEngine {
       blockFrames: this.blockFrames,
       renderedFrames: this.#renderedFrames,
       queuedFrames: this.#queuedFrames,
+      renderMode: this.#renderMode,
       operatingPoint: this.#operatingPoint,
       committedOperatingPoint: this.#committedPoint,
       loadManifoldPressurePa: this.loadManifoldPressurePa(
@@ -385,10 +480,15 @@ export class RevengineAudioEngine {
     });
   }
 
-  #renderCanonicalBlock() {
+  #appendRendered(rendered) {
+    if (rendered.length === 0) return;
+    this.#queue.push({ pcm: rendered, offset: 0 });
+    this.#queuedFrames += rendered.length;
+  }
+
+  #renderControlBlock(frameCount, endPoint) {
     const startPoint = this.#committedPoint;
-    const endPoint = this.#operatingPoint;
-    const duration = this.blockFrames / this.sampleRate;
+    const duration = frameCount / this.sampleRate;
     const rpmSlope = (endPoint.rpm - startPoint.rpm) / duration;
     const start = this.#endpoint(
       startPoint,
@@ -403,22 +503,18 @@ export class RevengineAudioEngine {
       rpmSlope,
     );
     const rendered = this.#cursor.renderBlock({
-      sourceBlock: new Float32Array(this.blockFrames),
+      sourceBlock: new Float32Array(frameCount),
       start,
       end,
     }).bakedBlock;
-    if (
-      !(rendered instanceof Float32Array) ||
-      rendered.length !== this.blockFrames
-    ) {
+    if (!(rendered instanceof Float32Array)) {
       fail(
         "runtime-output-shape",
-        "REVENGINE runtime did not return one complete mono PCM block",
+        "REVENGINE runtime did not return mono Float32 PCM",
       );
     }
-    this.#queue.push({ pcm: rendered, offset: 0 });
-    this.#queuedFrames += rendered.length;
     this.#committedPoint = endPoint;
     this.#lastRpmSlope = rpmSlope;
+    return rendered;
   }
 }

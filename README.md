@@ -246,15 +246,22 @@ ctest --test-dir build --output-on-failure
 ```
 
 The CLI build stages its catalog and shared runtime-audio package beside the
-build-tree executable. The distribution target also builds the native IR-spectrum
-helper used by the responsive baker. A normal prefix install places launchers under
-`bin`, the helper under `libexec/engine-sim-offline`, and versioned resources under
-`share/engine-sim-offline`:
+build-tree executable. A normal developer prefix install places launchers under
+`bin`, the helper under `libexec/engine-sim-offline`, and resources under the
+versioned `share/engine-sim-offline/<release>/` directory:
 
 ```bash
-cmake --build build --target engine_sim_offline_distribution
+cmake --build build
 cmake --install build --prefix artifacts/engine-sim-offline-install
 ```
+
+Such an install is explicitly classified as incomplete when it omits the external
+WASM renderer pair or comes from a dirty source closure. The
+`engine_sim_offline_distribution` release target additionally requires the pair, a
+clean renderer source identity, clean installed tools/runtime/assets inputs, and
+exact native/WASM renderer source-closure agreement. Every install publishes a
+byte-bound `release.json` and `release.json.sha256`; consumers pin the semantic
+release identity and the latter binding digest.
 
 `CMAKE_INSTALL_BINDIR`, `CMAKE_INSTALL_LIBEXECDIR`, and `CMAKE_INSTALL_DATADIR`
 may be changed to other relative GNUInstallDirs locations. Catalog discovery and the
@@ -338,14 +345,19 @@ helper automatically:
 ```bash
 artifacts/engine-sim-offline-install/bin/engine-sim-offline-responsive-bake \
   --engine /absolute/path/to/engine.json \
-  --profile artifacts/engine-sim-offline-install/share/engine-sim-offline/tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
+  --profile artifacts/engine-sim-offline-install/share/engine-sim-offline/1.0.0/tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
   --output /absolute/path/to/new-package \
   --cache /absolute/path/to/bake-cache \
   --plan
 ```
 
-When `--profile` is omitted, the engine JSON must have a sibling
-`responsive-audio-bake-profile.json`. Plan mode needs no renderer. A real bake still requires the separately built
+When `--profile` is omitted, ESO deterministically derives the versioned
+`interactive-preview-redline-v1` profile from the engine's declared redline;
+the final anchor is exactly the redline and the capture grid remains fixed at
+11 anchors. Passing `--profile` retains the exact explicit-profile behavior.
+The selection contract is specified in
+[RESPONSIVE_PROFILE_SELECTION_V1.md](docs/contracts/RESPONSIVE_PROFILE_SELECTION_V1.md).
+Plan mode needs no renderer. A real bake still requires the separately built
 Emscripten `engine-sim-offline.js`/`engine-sim-offline.wasm` pair. Point a native
 distribution configure at a completed pair to install it under the resource tree:
 
@@ -353,11 +365,19 @@ distribution configure at a completed pair to install it under the resource tree
 cmake -S . -B build-native \
   -DENGINE_SIM_OFFLINE_INSTALL_WASM_DIRECTORY=/absolute/path/to/wasm-build
 cmake --build build-native --target engine_sim_offline_distribution
-cmake --install build-native --prefix artifacts/engine-sim-offline-install
 ```
 
-Without that optional install input, pass `--module` to the launcher or set
-`ENGINE_SIM_OFFLINE_WASM_MODULE`. Native CMake does not invoke Emscripten, and the
+The release target stages the full relocatable prefix and writes
+`build-native/distribution/<config>/engine-sim-offline-<release>.tar` plus a
+one-line `.tar.sha256` sidecar. Archive member order, timestamps, ownership, and
+permissions are normalized; rebuilding the same admitted source/toolchain closure
+produces identical archive bytes. An ordinary `cmake --install` remains the separate
+development-prefix path described above.
+
+The installed launcher does not accept renderer, asset, helper, or compiler
+overrides: it pins resources from its own release prefix. Direct source-tree
+`node tools/responsive-audio-baker/bake.mjs` execution retains `--module` and the
+other development overrides. Native CMake does not invoke Emscripten, and the
 launcher is not a native child-process bake wrapper; it checks Node 20.11+, locates
 installed resources, and executes the tracked Node baker.
 

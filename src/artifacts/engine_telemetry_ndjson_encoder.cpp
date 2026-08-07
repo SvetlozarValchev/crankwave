@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <numbers>
 #include <numeric>
 #include <optional>
 #include <span>
@@ -725,9 +727,78 @@ template <class Enum, class Mapper>
             return issue;
         }
     }
+    if (!(frame.mean_intake_manifold_pressure_pa_abs > 0.0)) {
+        return error(ErrorCode::invalid_value,
+                     "block.telemetry.mean_intake_manifold_pressure_pa_abs",
+                     "intake-manifold pressure must be positive");
+    }
+    if (frame.engine.theta_cycle_rad < 0.0 ||
+        frame.engine.theta_cycle_rad >= 4.0 * std::numbers::pi) {
+        return error(ErrorCode::invalid_value, "block.telemetry.engine.theta_cycle_rad",
+                     "wrapped four-stroke angle must be in [0, 4*pi)");
+    }
+    const std::array unit_interval_fields{
+        std::pair{"requested_throttle_01", frame.engine.requested_throttle_01},
+        std::pair{"resolved_engine_throttle_01",
+                  frame.engine.resolved_engine_throttle_01},
+        std::pair{"intake_plate_position_01", frame.engine.intake_plate_position_01},
+        std::pair{"main_flow_multiplier_01", frame.engine.main_flow_multiplier_01},
+    };
+    for (const auto &[name, value] : unit_interval_fields) {
+        if (value < 0.0 || value > 1.0) {
+            return error(ErrorCode::invalid_value,
+                         "block.telemetry.engine." + std::string{name},
+                         "engine control coordinate must be in [0, 1]");
+        }
+    }
+    if (frame.engine.requested_external_resisting_torque_nm < 0.0) {
+        return error(ErrorCode::invalid_value,
+                     "block.telemetry.engine.requested_external_resisting_torque_nm",
+                     "requested external resisting torque must be nonnegative");
+    }
     if (auto issue = validate_torque_telemetry(frame.engine.torque,
                                                "block.telemetry.engine.torque")) {
         return issue;
+    }
+    const auto &torque = frame.engine.torque;
+    const std::array quantity_availability{
+        torque.instantaneous_indicated_gas.availability,
+        torque.pumping_partition.availability,
+        torque.friction_pump_and_accessory.availability,
+        torque.starter.availability,
+        torque.instantaneous_net_shaft.availability,
+        torque.cycle_mean_net_shaft.availability,
+        torque.actuator.availability,
+        torque.dyno_reaction.availability,
+        torque.cycle_work_j.availability,
+        torque.net_bmep_pa.availability,
+        torque.instantaneous_power_w.availability,
+        torque.cycle_mean_power_w.availability,
+    };
+    const bool any_torque_quantity_available =
+        std::ranges::any_of(quantity_availability, [](const auto availability) {
+            return availability == contract::Availability::available;
+        });
+    const bool torque_capture_valid =
+        (frame.engine.validity &
+         contract::capture_validity_mask(contract::CaptureValidity::torque)) != 0U;
+    if (torque_capture_valid != any_torque_quantity_available) {
+        return error(
+            ErrorCode::invalid_value, "block.telemetry.engine.torque",
+            torque_capture_valid
+                ? "engine torque validity requires at least one available torque or "
+                  "derived quantity"
+                : "engine telemetry without torque validity must keep every torque "
+                  "and derived quantity unavailable");
+    }
+    const bool held_dyno_allowed = motion_mode == EngineMotionMode::held_dyno;
+    const bool free_vehicle_allowed = motion_mode == EngineMotionMode::free_vehicle;
+    if ((frame.held_dyno.has_value() && !held_dyno_allowed) ||
+        (frame.free_vehicle.has_value() && !free_vehicle_allowed)) {
+        return error(
+            ErrorCode::invalid_value, "block.telemetry.mode_sidecars",
+            "telemetry sidecar presence is inconsistent with the declared motion "
+            "mode");
     }
     if (frame.held_dyno.has_value()) {
         const auto &dyno = *frame.held_dyno;
@@ -747,6 +818,30 @@ template <class Enum, class Mapper>
         if (auto issue = validate_enum(dyno.disposition, held_dyno_disposition_name,
                                        "block.telemetry.held_dyno.disposition")) {
             return issue;
+        }
+        if (torque.actuator.availability != contract::Availability::available) {
+            return error(ErrorCode::invalid_value,
+                         "block.telemetry.engine.torque.actuator.availability",
+                         "held-dyno telemetry requires available actuator torque");
+        }
+        if (torque.dyno_reaction.availability != contract::Availability::available) {
+            return error(ErrorCode::invalid_value,
+                         "block.telemetry.engine.torque.dyno_reaction.availability",
+                         "held-dyno telemetry requires available dyno-reaction torque");
+        }
+        if (std::bit_cast<std::uint64_t>(torque.actuator.value_nm) !=
+            std::bit_cast<std::uint64_t>(dyno.applied_actuator_torque_nm)) {
+            return error(
+                ErrorCode::invalid_value,
+                "block.telemetry.held_dyno.applied_actuator_torque_nm",
+                "held-dyno sidecar and common actuator torque must agree exactly");
+        }
+        if (std::bit_cast<std::uint64_t>(torque.dyno_reaction.value_nm) !=
+            std::bit_cast<std::uint64_t>(-dyno.applied_actuator_torque_nm)) {
+            return error(
+                ErrorCode::invalid_value,
+                "block.telemetry.engine.torque.dyno_reaction.value_nm",
+                "held-dyno sidecar and common reaction torque must agree exactly");
         }
     }
     if (frame.free_vehicle.has_value()) {
@@ -788,15 +883,6 @@ template <class Enum, class Mapper>
                               "block.telemetry.free_vehicle.road_load_disposition")) {
             return issue;
         }
-    }
-    const bool held_dyno_allowed = motion_mode == EngineMotionMode::held_dyno;
-    const bool free_vehicle_allowed = motion_mode == EngineMotionMode::free_vehicle;
-    if ((frame.held_dyno.has_value() && !held_dyno_allowed) ||
-        (frame.free_vehicle.has_value() && !free_vehicle_allowed)) {
-        return error(
-            ErrorCode::invalid_value, "block.telemetry.mode_sidecars",
-            "telemetry sidecar presence is inconsistent with the declared motion "
-            "mode");
     }
     return std::nullopt;
 }

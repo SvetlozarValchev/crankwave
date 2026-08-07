@@ -18,6 +18,16 @@ engine.setOperatingPoint({
 const mono192k = engine.render(8_192);
 ```
 
+Streaming bridges should submit one dense operating-point endpoint every 20 ms:
+
+```js
+const mono192k = engine.process({
+  rpm: 2_550,
+  throttle01: 0.42,
+  load01: 0.61,
+});
+```
+
 The required inputs are intentionally limited to:
 
 - `rpm`: externally owned engine speed inside the carrier's published range;
@@ -32,12 +42,24 @@ keeps exact authored lanes exact while allowing throttle and load to change
 independently. Manifold pressure is an internal representation detail; the harness
 shows the derived value only as a diagnostic.
 
-`render(frameCount)` always returns exactly that many finite mono `Float32` samples
-at the package sample rate. Internally it absorbs the responsive runtime's fixed
-32,768-frame presentation batches into a FIFO, so a host may request smaller blocks.
-`reset()` clears playback state and deterministically reseeds the current operating
-point. `format`, `minimumRpm`, `maximumRpm`, `operatingPoint`, and `diagnostics()`
-provide the non-simulation metadata a host needs.
+`render(frameCount)` is the constant-control offline interface. It always returns
+exactly that many finite mono `Float32` samples at the package sample rate.
+`process(operatingPoint, frameCount)` is the streaming interface: it advances the
+provided start-to-end trajectory across exactly `frameCount` physical frames and
+returns exactly the same number of frames. Its default frame count is 3,840 frames,
+or 20 ms at the required 192 kHz package rate. Bridges should read that cadence
+from `engine.processFrames` (also `format.processFrames`) and the fixed presentation
+delay from `engine.latencyFrames` (also `format.latencyFrames`) rather than copying
+those current numeric values into Web, Unity, or vehicle-physics adapters.
+
+The responsive presentation works internally in fixed 32,768-frame batches.
+Streaming playback therefore has one explicit 32,768-frame batch of zero-filled,
+uniform output latency; it does not hold or quantize the 20 ms control endpoints.
+Offline `render()` does not add that streaming latency. A caller must `reset()`
+before switching between the two interfaces. `reset()` also clears playback state
+and deterministically reseeds the current operating point. `format`, `minimumRpm`,
+`maximumRpm`, `operatingPoint`, and `diagnostics()` provide the non-simulation
+metadata a host needs.
 
 This first bridge is the already-running audio surface. The host owns engine speed;
 it does not solve vehicle or crank dynamics, and it does not infer ignition, starter,

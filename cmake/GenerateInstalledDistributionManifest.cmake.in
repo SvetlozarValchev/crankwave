@@ -1,0 +1,260 @@
+cmake_minimum_required(VERSION 3.21)
+
+set(_release_identity "@ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@")
+set(_resource_relative "@_engine_sim_offline_install_resource_directory@")
+set(_helper_relative "@_engine_sim_offline_install_helper_directory@/dump-ir-spectrum")
+set(_cli_relative "@CMAKE_INSTALL_BINDIR@/engine-sim-offline")
+set(_launcher_relative
+    "@CMAKE_INSTALL_BINDIR@/engine-sim-offline-responsive-bake")
+set(_stamp_header
+    "@PROJECT_BINARY_DIR@/generated/engine_sim_offline_generated/renderer_source_stamp_generated.hpp")
+set(_node_executable "@_engine_sim_offline_distribution_node_executable@")
+set(_wasm_closure_reader
+    "@PROJECT_SOURCE_DIR@/cmake/ReadWasmSourceClosure.mjs")
+set(_source_root "@PROJECT_SOURCE_DIR@")
+set(_git_executable "@GIT_EXECUTABLE@")
+set(_release_source_inputs
+    "@_engine_sim_offline_release_source_inputs_file@")
+set(_release_source_identity_script
+    "@PROJECT_SOURCE_DIR@/cmake/GenerateInstalledDistributionSourceIdentity.cmake")
+
+set(_physical_prefix "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}")
+cmake_path(NORMAL_PATH _physical_prefix)
+set(_resource_root "${_physical_prefix}/${_resource_relative}")
+set(_manifest_path "${_resource_root}/release.json")
+set(_binding_path "${_resource_root}/release.json.sha256")
+
+foreach(_required_file IN ITEMS
+        "${_physical_prefix}/${_cli_relative}"
+        "${_physical_prefix}/${_launcher_relative}"
+        "${_physical_prefix}/${_helper_relative}"
+        "${_resource_root}/package.json"
+        "${_resource_root}/contracts/revengine-bake-workflow.v1.json"
+        "${_resource_root}/web/runtime/release.js"
+        "${_release_source_inputs}"
+        "${_release_source_identity_script}"
+        "${_stamp_header}")
+    if(NOT EXISTS "${_required_file}" OR IS_DIRECTORY "${_required_file}")
+        message(FATAL_ERROR
+            "installed distribution manifest input is absent: ${_required_file}")
+    endif()
+endforeach()
+
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}"
+        "-DSOURCE_ROOT=${_source_root}"
+        "-DINPUT_PATHS_FILE=${_release_source_inputs}"
+        "-DGIT_EXECUTABLE=${_git_executable}"
+        -P "${_release_source_identity_script}"
+    RESULT_VARIABLE _release_source_result
+    OUTPUT_VARIABLE _release_source_json
+    ERROR_VARIABLE _release_source_stderr
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+if(NOT _release_source_result EQUAL 0 OR
+   NOT _release_source_stderr STREQUAL "")
+    message(FATAL_ERROR
+        "installed distribution source identity failed\n"
+        "exit: ${_release_source_result}\n"
+        "stderr: ${_release_source_stderr}")
+endif()
+string(JSON _InstalledSourceState GET "${_release_source_json}" state)
+string(JSON _InstalledSourceGitHead GET
+    "${_release_source_json}" git_commit)
+string(JSON _InstalledSourceClosureSha256 GET
+    "${_release_source_json}" closure_sha256)
+
+file(READ "${_stamp_header}" _stamp)
+foreach(_field IN ITEMS
+        RendererSourceState
+        RendererFullGitHead
+        RendererSourceClosureSha256
+        RendererToolchainState
+        RendererCompilerId
+        RendererCompilerVersion
+        RendererTargetTriple)
+    string(REGEX MATCH
+        "k${_field} = \"([^\"]*)\";"
+        _match "${_stamp}")
+    if(NOT _match)
+        message(FATAL_ERROR
+            "renderer source stamp does not contain k${_field}")
+    endif()
+    set(_${_field} "${CMAKE_MATCH_1}")
+endforeach()
+
+function(_json_string_or_null _output _value)
+    if("${_value}" STREQUAL "")
+        set(${_output} "null" PARENT_SCOPE)
+    elseif("${_value}" MATCHES "^[A-Za-z0-9._+:-]+$")
+        set(${_output} "\"${_value}\"" PARENT_SCOPE)
+    else()
+        message(FATAL_ERROR
+            "installed distribution identity is not canonical text: ${_value}")
+    endif()
+endfunction()
+
+function(_is_lower_hex_length _output _value)
+    set(_result FALSE)
+    if("${_value}" MATCHES "^[0-9a-f]+$")
+        string(LENGTH "${_value}" _length)
+        foreach(_admitted_length IN LISTS ARGN)
+            if(_length EQUAL _admitted_length)
+                set(_result TRUE)
+            endif()
+        endforeach()
+    endif()
+    set(${_output} "${_result}" PARENT_SCOPE)
+endfunction()
+
+_json_string_or_null(_git_commit_json "${_RendererFullGitHead}")
+_json_string_or_null(_source_closure_json
+                     "${_RendererSourceClosureSha256}")
+_json_string_or_null(_compiler_id_json "${_RendererCompilerId}")
+_json_string_or_null(_compiler_version_json
+                     "${_RendererCompilerVersion}")
+_json_string_or_null(_target_triple_json "${_RendererTargetTriple}")
+
+set(_wasm_loader_relative "${_resource_relative}/renderer/engine-sim-offline.js")
+set(_wasm_binary_relative
+    "${_resource_relative}/renderer/engine-sim-offline.wasm")
+set(_wasm_loader "${_physical_prefix}/${_wasm_loader_relative}")
+set(_wasm_binary "${_physical_prefix}/${_wasm_binary_relative}")
+set(_wasm_loader_exists FALSE)
+set(_wasm_binary_exists FALSE)
+if(EXISTS "${_wasm_loader}")
+    set(_wasm_loader_exists TRUE)
+endif()
+if(EXISTS "${_wasm_binary}")
+    set(_wasm_binary_exists TRUE)
+endif()
+if((_wasm_loader_exists AND NOT _wasm_binary_exists) OR
+   (_wasm_binary_exists AND NOT _wasm_loader_exists))
+    message(FATAL_ERROR
+        "installed renderer must contain both engine-sim-offline.js and .wasm")
+endif()
+if(_wasm_loader_exists AND _wasm_binary_exists)
+    if(IS_DIRECTORY "${_wasm_loader}" OR IS_DIRECTORY "${_wasm_binary}")
+        message(FATAL_ERROR "installed renderer inputs must be regular files")
+    endif()
+    file(SHA256 "${_wasm_loader}" _wasm_loader_sha256)
+    file(SHA256 "${_wasm_binary}" _wasm_binary_sha256)
+    set(_has_wasm TRUE)
+    set(_wasm_source_closure "")
+    set(_wasm_source_closure_valid FALSE)
+    set(_wasm_source_closure_verified FALSE)
+    if(NOT _node_executable STREQUAL "" AND
+       EXISTS "${_node_executable}" AND
+       EXISTS "${_wasm_closure_reader}")
+        execute_process(
+            COMMAND
+                "${_node_executable}" "${_wasm_closure_reader}"
+                "${_wasm_loader}"
+            RESULT_VARIABLE _wasm_identity_result
+            OUTPUT_VARIABLE _wasm_source_closure
+            ERROR_VARIABLE _wasm_identity_stderr
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            TIMEOUT 30
+        )
+        _is_lower_hex_length(_wasm_source_closure_valid
+                             "${_wasm_source_closure}" 64)
+        if(_wasm_identity_result EQUAL 0 AND
+           _wasm_source_closure_valid AND
+           _wasm_source_closure STREQUAL _RendererSourceClosureSha256)
+            set(_wasm_source_closure_verified TRUE)
+        endif()
+    endif()
+    if(NOT _wasm_source_closure_valid)
+        set(_wasm_source_closure "")
+    endif()
+    _json_string_or_null(_wasm_source_closure_json
+                         "${_wasm_source_closure}")
+    if(_wasm_source_closure_verified)
+        set(_wasm_source_closure_matches_native_json true)
+    else()
+        set(_wasm_source_closure_matches_native_json false)
+    endif()
+    set(_wasm_json
+        "{\"loader_path\":\"${_wasm_loader_relative}\",\"loader_sha256\":\"${_wasm_loader_sha256}\",\"module_path\":\"${_wasm_binary_relative}\",\"module_sha256\":\"${_wasm_binary_sha256}\",\"source_closure_sha256\":${_wasm_source_closure_json},\"source_closure_matches_native\":${_wasm_source_closure_matches_native_json}}")
+else()
+    set(_has_wasm FALSE)
+    set(_wasm_source_closure_verified FALSE)
+    set(_wasm_json "null")
+endif()
+
+_is_lower_hex_length(_git_commit_valid "${_RendererFullGitHead}" 40 64)
+_is_lower_hex_length(_source_closure_valid
+                     "${_RendererSourceClosureSha256}" 64)
+_is_lower_hex_length(_installed_source_closure_valid
+                     "${_InstalledSourceClosureSha256}" 64)
+if(_RendererSourceState STREQUAL "clean" AND
+   _InstalledSourceState STREQUAL "clean" AND
+   _InstalledSourceGitHead STREQUAL _RendererFullGitHead)
+    set(_release_source_state clean)
+elseif(_RendererSourceState STREQUAL "unavailable" OR
+       _InstalledSourceState STREQUAL "unavailable" OR
+       NOT _InstalledSourceGitHead STREQUAL _RendererFullGitHead)
+    set(_release_source_state unavailable)
+else()
+    set(_release_source_state dirty)
+endif()
+if(_has_wasm AND _wasm_source_closure_verified AND
+   _release_source_state STREQUAL "clean" AND
+   _RendererToolchainState STREQUAL "available" AND
+   _git_commit_valid AND _source_closure_valid AND
+   _installed_source_closure_valid)
+    set(_complete_json true)
+    set(_classification "immutable_release")
+else()
+    set(_complete_json false)
+    set(_classification "incomplete_development_install")
+endif()
+
+file(SHA256 "${_physical_prefix}/${_cli_relative}" _native_cli_sha256)
+file(SHA256
+    "${_resource_root}/contracts/revengine-bake-workflow.v1.json"
+    _workflow_sha256)
+
+file(GLOB_RECURSE _resource_files LIST_DIRECTORIES FALSE
+     "${_resource_root}/*")
+list(REMOVE_ITEM _resource_files "${_manifest_path}" "${_binding_path}")
+list(APPEND _distribution_files
+    "${_physical_prefix}/${_cli_relative}"
+    "${_physical_prefix}/${_launcher_relative}"
+    "${_physical_prefix}/${_helper_relative}"
+    ${_resource_files})
+list(REMOVE_DUPLICATES _distribution_files)
+list(SORT _distribution_files)
+
+set(_file_records "")
+foreach(_file IN LISTS _distribution_files)
+    if(NOT EXISTS "${_file}" OR IS_DIRECTORY "${_file}" OR IS_SYMLINK "${_file}")
+        message(FATAL_ERROR
+            "installed distribution closure contains a non-regular file: ${_file}")
+    endif()
+    file(RELATIVE_PATH _relative "${_physical_prefix}" "${_file}")
+    file(TO_CMAKE_PATH "${_relative}" _relative)
+    if(NOT _relative MATCHES "^[A-Za-z0-9._+/@-]+$" OR
+       _relative MATCHES "(^|/)\.\.(/|$)")
+        message(FATAL_ERROR
+            "installed distribution path is not portable: ${_relative}")
+    endif()
+    file(SIZE "${_file}" _bytes)
+    file(SHA256 "${_file}" _sha256)
+    if(NOT _file_records STREQUAL "")
+        string(APPEND _file_records ",")
+    endif()
+    string(APPEND _file_records
+        "{\"path\":\"${_relative}\",\"bytes\":${_bytes},\"sha256\":\"${_sha256}\"}")
+endforeach()
+
+set(_telemetry_contract_json
+    "{\"role\":\"diagnostics.engine-telemetry.v1\",\"kind\":\"telemetry\",\"path\":\"telemetry/engine-telemetry.v1.ndjson\",\"schema\":\"engine-sim-offline.engine-telemetry.ndjson.v1\",\"originating_commit\":\"c8d672b59e3046654ad5f818f31725798aef7ffa\"}")
+set(_manifest
+    "{\"schema\":\"engine-sim-offline/installed-distribution.v1\",\"release_identity\":\"${_release_identity}\",\"classification\":\"${_classification}\",\"complete\":${_complete_json},\"source\":{\"state\":\"${_release_source_state}\",\"renderer_state\":\"${_RendererSourceState}\",\"installed_inputs_state\":\"${_InstalledSourceState}\",\"git_commit\":${_git_commit_json},\"closure_sha256\":${_source_closure_json},\"installed_inputs_closure_sha256\":\"${_InstalledSourceClosureSha256}\"},\"toolchain\":{\"state\":\"${_RendererToolchainState}\",\"compiler_id\":${_compiler_id_json},\"compiler_version\":${_compiler_version_json},\"target_triple\":${_target_triple_json}},\"layout\":{\"resource_root\":\"${_resource_relative}\"},\"renderers\":{\"native\":{\"path\":\"${_cli_relative}\",\"sha256\":\"${_native_cli_sha256}\"},\"wasm\":${_wasm_json}},\"telemetry_contract\":${_telemetry_contract_json},\"revengine_bake_workflow\":{\"path\":\"${_resource_relative}/contracts/revengine-bake-workflow.v1.json\",\"sha256\":\"${_workflow_sha256}\"},\"files\":[${_file_records}]}\n")
+file(WRITE "${_manifest_path}.tmp" "${_manifest}")
+file(RENAME "${_manifest_path}.tmp" "${_manifest_path}")
+file(SHA256 "${_manifest_path}" _manifest_sha256)
+file(WRITE "${_binding_path}.tmp" "${_manifest_sha256}\n")
+file(RENAME "${_binding_path}.tmp" "${_binding_path}")

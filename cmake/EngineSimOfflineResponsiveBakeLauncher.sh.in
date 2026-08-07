@@ -2,60 +2,79 @@
 
 set -eu
 
-launcher_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+fail_json() {
+    failure_code=$1
+    failure_status=$2
+    failure_message=$3
+    printf '%s\n' \
+        "{\"schema\":\"engine-sim-offline/responsive-audio-bake-failure-v1\",\"release_identity\":\"@ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@\",\"code\":\"${failure_code}\",\"exit_code\":${failure_status},\"retryable\":false,\"signal\":null,\"message\":\"${failure_message}\"}" \
+        >&2
+    exit "${failure_status}"
+}
+
+launcher_directory=$(CDPATH= cd -- "$(dirname -- "$0")" 2>/dev/null && \
+    pwd -P) || fail_json unavailable 69 \
+        "installed launcher directory is unavailable"
 resource_root=$(CDPATH= cd -- \
-    "${launcher_directory}/@ENGINE_SIM_OFFLINE_INSTALL_RESOURCE_RELATIVE_FROM_BINDIR@" && \
-    pwd -P)
+    "${launcher_directory}/@ENGINE_SIM_OFFLINE_INSTALL_RESOURCE_RELATIVE_FROM_BINDIR@" \
+    2>/dev/null && pwd -P) || fail_json unavailable 69 \
+        "installed responsive resource root is unavailable"
 helper_path="${launcher_directory}/@ENGINE_SIM_OFFLINE_INSTALL_HELPER_RELATIVE_FROM_BINDIR@/dump-ir-spectrum"
 baker_path="${resource_root}/tools/responsive-audio-baker/bake.mjs"
 builtin_assets_path="${resource_root}/assets"
 renderer_module_path="${resource_root}/renderer/engine-sim-offline.js"
 renderer_wasm_path="${resource_root}/renderer/engine-sim-offline.wasm"
-node_command=${ENGINE_SIM_OFFLINE_NODE:-node}
+node_command=node
+
+if [ "$#" -eq 1 ] && [ "$1" = "--version" ]; then
+    printf '%s\n' \
+        "engine-sim-offline-responsive-bake @ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@"
+    exit 0
+fi
 
 if ! "${node_command}" -e '
 const [major, minor] = process.versions.node.split(".").map(Number);
 if (major < 20 || (major === 20 && minor < 11)) process.exit(1);
 ' >/dev/null 2>&1; then
-    printf '%s\n' \
-        "engine-sim-offline responsive baking requires Node.js 20.11 or newer" \
-        >&2
-    exit 69
+    fail_json unavailable 69 \
+        "installed responsive baking requires Node.js 20.11 or newer"
 fi
 
 if [ ! -f "${baker_path}" ]; then
-    printf 'installed responsive baker is absent: %s\n' "${baker_path}" >&2
-    exit 70
+    fail_json unavailable 69 "installed responsive baker is unavailable"
+fi
+if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
+    exec "${node_command}" "${baker_path}" "$1"
 fi
 if [ ! -f "${helper_path}" ]; then
-    printf 'installed IR spectrum helper is absent: %s\n' "${helper_path}" >&2
-    exit 70
+    fail_json unavailable 69 "installed IR spectrum helper is unavailable"
 fi
 if [ ! -f "${builtin_assets_path}/catalog.v1.json" ]; then
-    printf 'installed built-in asset catalog is absent: %s\n' \
-        "${builtin_assets_path}/catalog.v1.json" >&2
-    exit 70
+    fail_json unavailable 69 "installed built-in asset catalog is unavailable"
 fi
 
-if [ -z "${ENGINE_SIM_OFFLINE_BUILTIN_ASSETS:-}" ]; then
-    ENGINE_SIM_OFFLINE_BUILTIN_ASSETS=${builtin_assets_path}
-    export ENGINE_SIM_OFFLINE_BUILTIN_ASSETS
-fi
-if [ -z "${ENGINE_SIM_OFFLINE_WASM_MODULE:-}" ] && \
-   [ -f "${renderer_module_path}" ] && [ -f "${renderer_wasm_path}" ]; then
-    ENGINE_SIM_OFFLINE_WASM_MODULE=${renderer_module_path}
-    export ENGINE_SIM_OFFLINE_WASM_MODULE
-fi
-
-has_ir_dumper=false
 for argument do
-    if [ "${argument}" = "--ir-dumper" ]; then
-        has_ir_dumper=true
-        break
-    fi
+    case "${argument}" in
+        --builtin-assets|--builtin-assets=*|--module|--module=*|\
+        --ir-dumper|--ir-dumper=*|--cxx|--cxx=*|\
+        --release-identity|--release-identity=*)
+            fail_json invalid_invocation 64 \
+                "installed responsive resource overrides are forbidden"
+            ;;
+    esac
 done
 
-if [ "${has_ir_dumper}" = true ]; then
-    exec "${node_command}" "${baker_path}" "$@"
+unset ENGINE_SIM_OFFLINE_NODE
+unset ENGINE_SIM_OFFLINE_BUILTIN_ASSETS
+unset ENGINE_SIM_OFFLINE_WASM_MODULE
+unset CXX
+
+if { [ -f "${renderer_module_path}" ] && [ ! -f "${renderer_wasm_path}" ]; } || \
+   { [ ! -f "${renderer_module_path}" ] && [ -f "${renderer_wasm_path}" ]; }; then
+    fail_json unavailable 69 "installed renderer pair is incomplete"
 fi
-exec "${node_command}" "${baker_path}" "$@" --ir-dumper "${helper_path}"
+exec "${node_command}" "${baker_path}" "$@" \
+    --builtin-assets "${builtin_assets_path}" \
+    --module "${renderer_module_path}" \
+    --ir-dumper "${helper_path}" \
+    --release-identity "@ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@"

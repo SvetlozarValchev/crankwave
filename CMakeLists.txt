@@ -2,9 +2,22 @@ cmake_minimum_required(VERSION 3.21)
 
 project(
     engine_sim_offline
+    VERSION 1.0.0
     DESCRIPTION "Offline-native engine simulation and audio rendering"
     LANGUAGES C CXX
 )
+
+set(
+    ENGINE_SIM_OFFLINE_RELEASE_IDENTITY
+    "${PROJECT_VERSION}"
+    CACHE STRING
+    "Canonical semantic release identity embedded in every distribution surface"
+)
+if(NOT ENGINE_SIM_OFFLINE_RELEASE_IDENTITY MATCHES
+   "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z][0-9A-Za-z.+-]*)?$")
+    message(FATAL_ERROR
+        "ENGINE_SIM_OFFLINE_RELEASE_IDENTITY must be a portable semantic version")
+endif()
 
 if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
     message(FATAL_ERROR "In-source builds are unsupported; use cmake -S . -B build")
@@ -720,10 +733,31 @@ endif()
 
 if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     include(GNUInstallDirs)
+    find_package(Git QUIET)
+    find_program(
+        _engine_sim_offline_distribution_node_executable
+        NAMES node nodejs
+    )
+    find_program(
+        _engine_sim_offline_distribution_tar_executable
+        NAMES tar
+    )
+    set(
+        ENGINE_SIM_OFFLINE_DISTRIBUTION_OUTPUT_DIRECTORY
+        "${PROJECT_BINARY_DIR}/distribution"
+        CACHE PATH
+        "Directory receiving the immutable installed release archive"
+    )
+    cmake_path(
+        ABSOLUTE_PATH ENGINE_SIM_OFFLINE_DISTRIBUTION_OUTPUT_DIRECTORY
+        BASE_DIRECTORY "${PROJECT_BINARY_DIR}"
+        NORMALIZE
+        OUTPUT_VARIABLE _engine_sim_offline_distribution_output_directory
+    )
 
     set(
         _engine_sim_offline_install_resource_directory
-        "${CMAKE_INSTALL_DATADIR}/engine-sim-offline"
+        "${CMAKE_INSTALL_DATADIR}/engine-sim-offline/${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}"
     )
     set(
         _engine_sim_offline_install_helper_directory
@@ -733,13 +767,13 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         RELATIVE_PATH
         ENGINE_SIM_OFFLINE_INSTALL_RESOURCE_RELATIVE_FROM_BINDIR
         "${CMAKE_INSTALL_FULL_BINDIR}"
-        "${CMAKE_INSTALL_FULL_DATADIR}/engine-sim-offline"
+        "${CMAKE_INSTALL_FULL_DATADIR}/engine-sim-offline/${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}"
     )
     file(
         RELATIVE_PATH
         ENGINE_SIM_OFFLINE_INSTALL_ASSET_RELATIVE_FROM_BINDIR
         "${CMAKE_INSTALL_FULL_BINDIR}"
-        "${CMAKE_INSTALL_FULL_DATADIR}/engine-sim-offline/assets"
+        "${CMAKE_INSTALL_FULL_DATADIR}/engine-sim-offline/${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}/assets"
     )
     file(
         RELATIVE_PATH
@@ -766,6 +800,10 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         _engine_sim_offline_installed_generated_directory
         "${PROJECT_BINARY_DIR}/generated/installed-resources"
     )
+    set(
+        _engine_sim_offline_release_source_inputs_file
+        "${_engine_sim_offline_installed_generated_directory}/release-source-inputs.txt"
+    )
     file(MAKE_DIRECTORY "${_engine_sim_offline_installed_generated_directory}")
     configure_file(
         "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineInstalledLayout.hpp.in"
@@ -780,6 +818,21 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     configure_file(
         "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineInstalledResources.package.json.in"
         "${_engine_sim_offline_installed_generated_directory}/package.json"
+        @ONLY
+    )
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineInstalledRelease.js.in"
+        "${_engine_sim_offline_installed_generated_directory}/release.js"
+        @ONLY
+    )
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineRevengineBakeWorkflow.json.in"
+        "${_engine_sim_offline_installed_generated_directory}/revengine-bake-workflow.v1.json"
+        @ONLY
+    )
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/cmake/GenerateInstalledDistributionManifest.cmake.in"
+        "${_engine_sim_offline_installed_generated_directory}/generate-installed-distribution-manifest.cmake"
         @ONLY
     )
 
@@ -919,6 +972,11 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         engine_sim_offline_dump_ir_spectrum
         PRIVATE engine_sim_offline::presentation
     )
+    target_compile_definitions(
+        engine_sim_offline_dump_ir_spectrum
+        PRIVATE
+            ENGINE_SIM_OFFLINE_VERSION_LABEL="${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}"
+    )
     engine_sim_offline_enable_renderer_numeric_policy(
         engine_sim_offline_dump_ir_spectrum
     )
@@ -946,7 +1004,8 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
 
     target_compile_definitions(
         engine_sim_offline_cli_support
-        PRIVATE ENGINE_SIM_OFFLINE_VERSION_LABEL="development"
+        PRIVATE
+            ENGINE_SIM_OFFLINE_VERSION_LABEL="${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}"
     )
 
     target_link_libraries(
@@ -1034,6 +1093,29 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             "${_engine_sim_offline_installed_generated_directory}/package.json"
         DESTINATION "${_engine_sim_offline_install_resource_directory}"
     )
+    install(
+        FILES
+            "${_engine_sim_offline_installed_generated_directory}/release.js"
+        DESTINATION
+            "${_engine_sim_offline_install_resource_directory}/web/runtime"
+    )
+    install(
+        FILES
+            "${_engine_sim_offline_installed_generated_directory}/revengine-bake-workflow.v1.json"
+        DESTINATION
+            "${_engine_sim_offline_install_resource_directory}/contracts"
+    )
+    set(
+        _engine_sim_offline_installed_contract_sources
+        "${PROJECT_SOURCE_DIR}/docs/contracts/CLI_RESULT_V1.md"
+        "${PROJECT_SOURCE_DIR}/docs/contracts/INSTALLED_DISTRIBUTION_V1.md"
+        "${PROJECT_SOURCE_DIR}/docs/contracts/RESPONSIVE_PROFILE_SELECTION_V1.md"
+    )
+    install(
+        FILES ${_engine_sim_offline_installed_contract_sources}
+        DESTINATION
+            "${_engine_sim_offline_install_resource_directory}/docs/contracts"
+    )
     set(
         _engine_sim_offline_baker_install_directory
         "${_engine_sim_offline_install_resource_directory}/tools/responsive-audio-baker"
@@ -1044,17 +1126,22 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/dump-ir-spectrum.cpp"
         DESTINATION "${_engine_sim_offline_baker_install_directory}"
     )
-    install(
-        FILES
-            "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/internal/bake-contract.mjs"
-            "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/internal/directional-transients.mjs"
-            "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/internal/held-texture.mjs"
-            "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/internal/lifecycle.mjs"
-        DESTINATION "${_engine_sim_offline_baker_install_directory}/internal"
+    file(
+        GLOB _engine_sim_offline_baker_internal_sources
+        CONFIGURE_DEPENDS
+        "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/internal/*.mjs"
     )
     install(
-        FILES
-            "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/profiles/interactive-preview-v1.json"
+        FILES ${_engine_sim_offline_baker_internal_sources}
+        DESTINATION "${_engine_sim_offline_baker_install_directory}/internal"
+    )
+    file(
+        GLOB _engine_sim_offline_baker_profile_sources
+        CONFIGURE_DEPENDS
+        "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/profiles/*.json"
+    )
+    install(
+        FILES ${_engine_sim_offline_baker_profile_sources}
         DESTINATION "${_engine_sim_offline_baker_install_directory}/profiles"
     )
     install(
@@ -1095,20 +1182,64 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         DESTINATION
             "${_engine_sim_offline_install_resource_directory}/web/runtime"
     )
+    set(
+        _engine_sim_offline_release_source_inputs
+        "${_engine_sim_offline_builtin_asset_catalog_source}"
+        ${_engine_sim_offline_builtin_asset_payload_sources}
+        "${_engine_sim_offline_shared_starter_runtime}"
+        "${_engine_sim_offline_shared_starter_audio}"
+        "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/bake.mjs"
+        "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/dump-ir-spectrum.cpp"
+        ${_engine_sim_offline_baker_internal_sources}
+        ${_engine_sim_offline_baker_profile_sources}
+        "${PROJECT_SOURCE_DIR}/schemas/responsive-audio-bake-profile.schema.json"
+        ${_engine_sim_offline_baker_c_api_javascript_closure}
+        ${_engine_sim_offline_revengine_javascript_closure}
+        ${_engine_sim_offline_installed_contract_sources}
+    )
+    list(REMOVE_DUPLICATES _engine_sim_offline_release_source_inputs)
+    list(SORT _engine_sim_offline_release_source_inputs)
+    set(_engine_sim_offline_release_source_input_text "")
+    foreach(
+        _engine_sim_offline_release_source_input
+        IN LISTS _engine_sim_offline_release_source_inputs
+    )
+        file(
+            RELATIVE_PATH _engine_sim_offline_release_source_input_relative
+            "${PROJECT_SOURCE_DIR}"
+            "${_engine_sim_offline_release_source_input}"
+        )
+        file(
+            TO_CMAKE_PATH
+            "${_engine_sim_offline_release_source_input_relative}"
+            _engine_sim_offline_release_source_input_relative
+        )
+        if(NOT _engine_sim_offline_release_source_input_relative MATCHES
+           "^[A-Za-z0-9._+/@-]+$" OR
+           _engine_sim_offline_release_source_input_relative MATCHES
+           "(^|/)\\.\\.(/|$)")
+            message(FATAL_ERROR
+                "installed release source input is not portable: ${_engine_sim_offline_release_source_input_relative}")
+        endif()
+        string(APPEND _engine_sim_offline_release_source_input_text
+            "${_engine_sim_offline_release_source_input_relative}\n")
+    endforeach()
+    file(WRITE "${_engine_sim_offline_release_source_inputs_file}"
+        "${_engine_sim_offline_release_source_input_text}")
     install(
         FILES "${_engine_sim_offline_builtin_asset_catalog_source}"
-        DESTINATION "${CMAKE_INSTALL_DATADIR}/engine-sim-offline/assets"
+        DESTINATION "${_engine_sim_offline_install_resource_directory}/assets"
         RENAME catalog.v1.json
     )
     install(
         FILES "${_engine_sim_offline_shared_starter_runtime}"
         DESTINATION
-            "${CMAKE_INSTALL_DATADIR}/engine-sim-offline/assets/runtime-audio/shared-recorded-starter"
+            "${_engine_sim_offline_install_resource_directory}/assets/runtime-audio/shared-recorded-starter"
     )
     install(
         FILES "${_engine_sim_offline_shared_starter_audio}"
         DESTINATION
-            "${CMAKE_INSTALL_DATADIR}/engine-sim-offline/assets/runtime-audio/shared-recorded-starter/audio"
+            "${_engine_sim_offline_install_resource_directory}/assets/runtime-audio/shared-recorded-starter/audio"
     )
     foreach(
         _engine_sim_offline_builtin_asset_payload_spec
@@ -1131,7 +1262,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             FILES
                 "${PROJECT_SOURCE_DIR}/${_engine_sim_offline_builtin_asset_payload_relative_path}"
             DESTINATION
-                "${CMAKE_INSTALL_DATADIR}/engine-sim-offline/assets/payloads"
+                "${_engine_sim_offline_install_resource_directory}/assets/payloads"
             RENAME "${_engine_sim_offline_builtin_asset_payload_sha256}"
         )
     endforeach()
@@ -1142,6 +1273,8 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         CACHE PATH
         "Optional completed Emscripten directory containing engine-sim-offline.js and engine-sim-offline.wasm for the installed responsive baker"
     )
+    set(_engine_sim_offline_install_wasm_javascript "")
+    set(_engine_sim_offline_install_wasm_binary "")
     if(ENGINE_SIM_OFFLINE_INSTALL_WASM_DIRECTORY)
         set(
             _engine_sim_offline_install_wasm_javascript
@@ -1180,12 +1313,59 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         )
     endif()
 
+    install(
+        SCRIPT
+            "${_engine_sim_offline_installed_generated_directory}/generate-installed-distribution-manifest.cmake"
+    )
+
     add_custom_target(
         engine_sim_offline_distribution
+        COMMAND
+            "${CMAKE_COMMAND}" -E remove_directory
+            "${_engine_sim_offline_distribution_output_directory}/$<CONFIG>/stage"
+        COMMAND
+            "${CMAKE_COMMAND}" -E rm -f
+            "${_engine_sim_offline_distribution_output_directory}/$<CONFIG>/engine-sim-offline-${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}.tar"
+            "${_engine_sim_offline_distribution_output_directory}/$<CONFIG>/engine-sim-offline-${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}.tar.sha256"
+        COMMAND
+            "${CMAKE_COMMAND}"
+            "-DWASM_LOADER=${_engine_sim_offline_install_wasm_javascript}"
+            "-DWASM_MODULE=${_engine_sim_offline_install_wasm_binary}"
+            "-DNODE_EXECUTABLE=${_engine_sim_offline_distribution_node_executable}"
+            "-DWASM_CLOSURE_READER=${PROJECT_SOURCE_DIR}/cmake/ReadWasmSourceClosure.mjs"
+            "-DSOURCE_STAMP=${PROJECT_BINARY_DIR}/generated/engine_sim_offline_generated/renderer_source_stamp_generated.hpp"
+            "-DSOURCE_ROOT=${PROJECT_SOURCE_DIR}"
+            "-DGIT_EXECUTABLE=${GIT_EXECUTABLE}"
+            "-DRELEASE_SOURCE_INPUTS=${_engine_sim_offline_release_source_inputs_file}"
+            "-DRELEASE_SOURCE_IDENTITY_SCRIPT=${PROJECT_SOURCE_DIR}/cmake/GenerateInstalledDistributionSourceIdentity.cmake"
+            -P "${PROJECT_SOURCE_DIR}/cmake/RequireCompleteDistribution.cmake"
+        COMMAND
+            "${CMAKE_COMMAND}" -E make_directory
+            "${_engine_sim_offline_distribution_output_directory}/$<CONFIG>/stage"
+        COMMAND
+            "${CMAKE_COMMAND}" --install "${PROJECT_BINARY_DIR}"
+            --config "$<CONFIG>"
+            --prefix
+            "${_engine_sim_offline_distribution_output_directory}/$<CONFIG>/stage/engine-sim-offline-${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}"
+        COMMAND
+            "${CMAKE_COMMAND}"
+            "-DPREFIX_DIRECTORY=${_engine_sim_offline_distribution_output_directory}/$<CONFIG>/stage/engine-sim-offline-${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}"
+            "-DRESOURCE_RELATIVE_DIRECTORY=${_engine_sim_offline_install_resource_directory}"
+            "-DRELEASE_IDENTITY=${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}"
+            "-DOUTPUT_ARCHIVE=${_engine_sim_offline_distribution_output_directory}/$<CONFIG>/engine-sim-offline-${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}.tar"
+            "-DTAR_EXECUTABLE=${_engine_sim_offline_distribution_tar_executable}"
+            -DREQUIRE_COMPLETE=TRUE
+            -P
+            "${PROJECT_SOURCE_DIR}/cmake/CreateDeterministicDistributionArchive.cmake"
         DEPENDS
             engine_sim_offline_builtin_assets
             engine_sim_offline_cli
             engine_sim_offline_dump_ir_spectrum
+        BYPRODUCTS
+            "${_engine_sim_offline_distribution_output_directory}/$<CONFIG>/engine-sim-offline-${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}.tar"
+            "${_engine_sim_offline_distribution_output_directory}/$<CONFIG>/engine-sim-offline-${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}.tar.sha256"
+        COMMENT "Assembling the complete immutable engine-sim-offline distribution"
+        VERBATIM
     )
     if(TARGET engine_sim_offline_install_wasm_inputs)
         add_dependencies(
@@ -1204,6 +1384,14 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     set(
         ENGINE_SIM_OFFLINE_INSTALL_LIBEXECDIR_FOR_TESTS
         "${CMAKE_INSTALL_LIBEXECDIR}"
+    )
+    set(
+        ENGINE_SIM_OFFLINE_RELEASE_IDENTITY_FOR_TESTS
+        "${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY}"
+    )
+    set(
+        ENGINE_SIM_OFFLINE_DISTRIBUTION_TAR_FOR_TESTS
+        "${_engine_sim_offline_distribution_tar_executable}"
     )
 endif()
 

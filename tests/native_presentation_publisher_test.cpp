@@ -15,6 +15,7 @@
 #include <ranges>
 #include <span>
 #include <stdexcept>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -985,6 +986,37 @@ void test_extreme_volume_is_soft_limited_before_pcm24(
            "tanh-bounded audition master reached PCM24 saturation");
 }
 
+void test_cancellation_aborts_active_transaction(
+    const compile::CompiledScenario &scenario) {
+    auto session = require_session(scenario);
+    const auto descriptor = session.descriptor();
+    CapturingSink sink;
+    std::stop_source cancellation;
+    NativePresentationPublisher publisher{
+        sink,
+        descriptor,
+        make_plan(descriptor),
+        RenderControl{cancellation.get_token()},
+    };
+    expect(sink.begin_calls == 1U && sink.abort_calls == 0U,
+           "cancellation fixture did not begin an active transaction");
+
+    auto next = session.process_block();
+    if (const auto *error = std::get_if<EngineSessionError>(&next)) {
+        throw std::runtime_error{"cancellation fixture session failed: " +
+                                 session_error_text(*error)};
+    }
+    expect(!std::holds_alternative<EngineSessionCompleted>(next),
+           "cancellation fixture completed before its first block");
+    cancellation.request_stop();
+    expect_throw<std::runtime_error>(
+        [&] { publisher.process(std::get<EngineSessionBlockView>(next)); },
+        "native publisher ignored cancellation while a transaction was active");
+    expect(publisher.state() == NativePresentationPublisherState::aborted &&
+               sink.abort_calls == 1U && sink.commit_calls == 0U && sink.seals.empty(),
+           "native publisher cancellation did not abort exactly once before commit");
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -997,6 +1029,7 @@ int main(int argc, char **argv) {
             compile_short_held_scenario(std::filesystem::path{argv[1]});
         test_public_session_byte_golden(scenario);
         test_prebinding_and_transaction_failures(scenario);
+        test_cancellation_aborts_active_transaction(scenario);
         test_extreme_volume_is_soft_limited_before_pcm24(
             std::filesystem::path{argv[1]});
     } catch (const std::exception &error) {

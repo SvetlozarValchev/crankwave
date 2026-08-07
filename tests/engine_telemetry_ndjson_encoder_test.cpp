@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <iostream>
 #include <limits>
+#include <numbers>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -155,7 +156,8 @@ EngineTelemetryFrame endpoint(std::uint64_t physics_end) {
     result.mean_intake_manifold_pressure_pa_abs = 101325.25;
     result.engine.step_end_index = physics_end;
     result.engine.validity =
-        contract::capture_validity_mask(contract::CaptureValidity::mechanism);
+        contract::capture_validity_mask(contract::CaptureValidity::mechanism) |
+        contract::capture_validity_mask(contract::CaptureValidity::torque);
     result.engine.theta_rad = -0.0;
     result.engine.theta_cycle_rad = 1.25;
     result.engine.angular_speed_rad_s = 125.5;
@@ -179,6 +181,25 @@ EngineTelemetryFrame endpoint(std::uint64_t physics_end) {
     result.engine.torque.instantaneous_net_shaft.included_terms =
         contract::known_torque_term_mask();
     return result;
+}
+
+EngineTelemetryFrame held_dyno_endpoint(std::uint64_t physics_end) {
+    auto frame = endpoint(physics_end);
+    frame.held_dyno = EngineHeldDynoTelemetry{
+        1200.0, 300.0, 40.0,
+        -10.0,  -9.5,  EngineHeldDynoDisposition::absorbing_torque_limited,
+    };
+    frame.engine.torque.actuator.value_nm = -9.5;
+    frame.engine.torque.actuator.availability = contract::Availability::available;
+    frame.engine.torque.actuator.completeness = contract::Completeness::complete;
+    frame.engine.torque.actuator.unavailable_reason =
+        contract::QuantityUnavailableReason::none;
+    frame.engine.torque.dyno_reaction.value_nm = 9.5;
+    frame.engine.torque.dyno_reaction.availability = contract::Availability::available;
+    frame.engine.torque.dyno_reaction.completeness = contract::Completeness::complete;
+    frame.engine.torque.dyno_reaction.unavailable_reason =
+        contract::QuantityUnavailableReason::none;
+    return frame;
 }
 
 EngineCompletedCycleEvidence cycle() {
@@ -307,11 +328,7 @@ std::vector<std::byte> encode_held_dyno_stream() {
     };
     expect(!encoder.begin(consume).has_value(), "held-dyno header encoding failed");
 
-    auto frame = endpoint(400U);
-    frame.held_dyno = EngineHeldDynoTelemetry{
-        1200.0, 300.0, 40.0,
-        -10.0,  -9.5,  EngineHeldDynoDisposition::absorbing_torque_limited,
-    };
+    auto frame = held_dyno_endpoint(400U);
     const std::array telemetry{frame};
     const std::array<EngineCompletedCycleEvidence, 0> cycles{};
     const EngineTelemetryNdjsonBlockInput block{
@@ -337,9 +354,9 @@ void test_canonical_complete_stream() {
     const auto first = encode_complete_stream();
     const auto second = encode_complete_stream();
     const contract::Sha256Digest expected_golden_sha256{{
-        0xd6U, 0xbcU, 0x39U, 0xbaU, 0x56U, 0x6eU, 0xc9U, 0x5fU, 0x20U, 0xbbU, 0x0cU,
-        0x71U, 0x58U, 0xcaU, 0x0bU, 0xf3U, 0xc5U, 0xc1U, 0xfdU, 0x8aU, 0x77U, 0xcdU,
-        0xf4U, 0xf3U, 0x7aU, 0xbdU, 0xb5U, 0xd5U, 0x5fU, 0x0fU, 0x05U, 0x31U,
+        0x16U, 0x92U, 0x96U, 0xe0U, 0x88U, 0xa9U, 0xdeU, 0xe3U, 0xc5U, 0x13U, 0x34U,
+        0xa2U, 0x6aU, 0xbcU, 0x4fU, 0x80U, 0xbfU, 0x6dU, 0x74U, 0x51U, 0xcaU, 0xcfU,
+        0xd6U, 0xf7U, 0xb0U, 0xbfU, 0xd9U, 0xbeU, 0x29U, 0x21U, 0xb5U, 0xc9U,
     }};
     expect(first == second && contract::sha256(first) == expected_golden_sha256 &&
                contract::sha256(second) == expected_golden_sha256,
@@ -380,9 +397,9 @@ void test_held_dyno_sidecar_golden() {
     // Filled from the canonical bytes below; this is intentionally a separate
     // mode-consistent golden from the FreeVehicle carrier above.
     const contract::Sha256Digest expected_golden_sha256{{
-        0x32U, 0xdbU, 0xe1U, 0xd8U, 0x9dU, 0x9eU, 0xb7U, 0x75U, 0xa1U, 0x4eU, 0x30U,
-        0xe4U, 0x9aU, 0x9dU, 0x21U, 0xf2U, 0xe6U, 0x27U, 0x9cU, 0x76U, 0x1fU, 0xb7U,
-        0xc0U, 0x7cU, 0x49U, 0x10U, 0xfcU, 0x0dU, 0x07U, 0x5cU, 0xc6U, 0xe4U,
+        0xb3U, 0x23U, 0xe0U, 0x43U, 0x65U, 0x22U, 0xabU, 0xebU, 0xdaU, 0x17U, 0x61U,
+        0x92U, 0x42U, 0xdeU, 0xcaU, 0xafU, 0x9bU, 0xd4U, 0x9fU, 0xb8U, 0x7dU, 0x88U,
+        0x72U, 0xfeU, 0x4bU, 0xa5U, 0xf3U, 0x4cU, 0x2fU, 0x0dU, 0x07U, 0x7aU,
     }};
     expect(first == second && contract::sha256(first) == expected_golden_sha256 &&
                contract::sha256(second) == expected_golden_sha256,
@@ -545,6 +562,115 @@ void test_malformed_quantity_semantics() {
         "malformed completed-cycle torque semantics were published");
 }
 
+template <class Mutator>
+void expect_endpoint_invariant_rejected(
+    Mutator mutate, std::string_view expected_path,
+    EngineMotionMode motion_mode = EngineMotionMode::free_vehicle) {
+    auto one_block = descriptor();
+    one_block.motion_mode = motion_mode;
+    one_block.preparation_block_count = 0U;
+    one_block.total_block_count = 1U;
+    auto encoder =
+        require_encoder(make_engine_telemetry_ndjson_encoder(std::move(one_block)));
+    Collector output{17U};
+    const EngineTelemetryNdjsonChunkConsumer consume = [&](auto offset, auto bytes) {
+        return output.consume(offset, bytes);
+    };
+    expect(!encoder.begin(consume).has_value(),
+           "endpoint-invariant test header failed");
+    auto frame = motion_mode == EngineMotionMode::held_dyno ? held_dyno_endpoint(400U)
+                                                            : endpoint(400U);
+    mutate(frame);
+    const std::array telemetry{frame};
+    const std::array<EngineCompletedCycleEvidence, 0> cycles{};
+    const EngineTelemetryNdjsonBlockInput block{
+        0U, EngineSessionBlockPhase::audible, 0U, 400U, 0U, 3840U, telemetry, cycles,
+        {},
+    };
+    const auto before = output.bytes.size();
+    const auto status = encoder.write_block(block, consume);
+    expect(status.has_value() &&
+               status->code == EngineTelemetryNdjsonEncodingErrorCode::invalid_value &&
+               status->path == expected_path && output.bytes.size() == before &&
+               encoder.failed(),
+           "session endpoint invariant was not enforced by standalone encoding");
+}
+
+void test_session_endpoint_invariants() {
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) { frame.engine.theta_cycle_rad = -0.25; },
+        "block.telemetry.engine.theta_cycle_rad");
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) {
+            frame.engine.theta_cycle_rad = 4.0 * std::numbers::pi;
+        },
+        "block.telemetry.engine.theta_cycle_rad");
+
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) { frame.engine.requested_throttle_01 = -0.01; },
+        "block.telemetry.engine.requested_throttle_01");
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) {
+            frame.engine.resolved_engine_throttle_01 = 1.01;
+        },
+        "block.telemetry.engine.resolved_engine_throttle_01");
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) {
+            frame.engine.intake_plate_position_01 = -0.01;
+        },
+        "block.telemetry.engine.intake_plate_position_01");
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) {
+            frame.engine.main_flow_multiplier_01 = 1.01;
+        },
+        "block.telemetry.engine.main_flow_multiplier_01");
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) {
+            frame.engine.requested_external_resisting_torque_nm = -0.01;
+        },
+        "block.telemetry.engine.requested_external_resisting_torque_nm");
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) {
+            frame.mean_intake_manifold_pressure_pa_abs = 0.0;
+        },
+        "block.telemetry.mean_intake_manifold_pressure_pa_abs");
+
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) {
+            frame.engine.validity &=
+                ~contract::capture_validity_mask(contract::CaptureValidity::torque);
+        },
+        "block.telemetry.engine.torque");
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) { frame.engine.torque = {}; },
+        "block.telemetry.engine.torque");
+}
+
+void test_held_dyno_sidecar_invariants() {
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) { frame.engine.torque.actuator = {}; },
+        "block.telemetry.engine.torque.actuator.availability",
+        EngineMotionMode::held_dyno);
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) { frame.engine.torque.dyno_reaction = {}; },
+        "block.telemetry.engine.torque.dyno_reaction.availability",
+        EngineMotionMode::held_dyno);
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) {
+            frame.held_dyno->applied_actuator_torque_nm = -9.25;
+        },
+        "block.telemetry.held_dyno.applied_actuator_torque_nm",
+        EngineMotionMode::held_dyno);
+    expect_endpoint_invariant_rejected(
+        [](EngineTelemetryFrame &frame) {
+            frame.held_dyno->applied_actuator_torque_nm = -0.0;
+            frame.engine.torque.actuator.value_nm = -0.0;
+            frame.engine.torque.dyno_reaction.value_nm = -0.0;
+        },
+        "block.telemetry.engine.torque.dyno_reaction.value_nm",
+        EngineMotionMode::held_dyno);
+}
+
 void test_fail_closed_validation() {
     auto encoder = require_encoder(make_engine_telemetry_ndjson_encoder(descriptor()));
     Collector output{17U};
@@ -697,6 +823,8 @@ int main() {
         test_held_dyno_sidecar_golden();
         test_cycle_control_roundoff_tolerance();
         test_malformed_quantity_semantics();
+        test_session_endpoint_invariants();
+        test_held_dyno_sidecar_invariants();
         test_fail_closed_validation();
         test_sequence_and_sink_failures();
     } catch (const std::exception &error) {

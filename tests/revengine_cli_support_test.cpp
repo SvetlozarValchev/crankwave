@@ -1,5 +1,7 @@
 #include "revengine_cli_support.hpp"
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <exception>
@@ -8,8 +10,10 @@
 #include <iostream>
 #include <span>
 #include <stdexcept>
+#include <stop_token>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <variant>
 #include <vector>
 
@@ -57,6 +61,31 @@ void write_file(const std::filesystem::path &path, const std::string_view bytes)
     if (!stream) {
         throw std::runtime_error{"test file write failed"};
     }
+}
+
+void write_zero_file(const std::filesystem::path &path, const std::size_t byte_count) {
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream stream{path, std::ios::binary};
+    std::array<char, 1024U * 1024U> zeros{};
+    std::size_t written = 0;
+    while (written < byte_count) {
+        const auto count = std::min(zeros.size(), byte_count - written);
+        stream.write(zeros.data(), static_cast<std::streamsize>(count));
+        written += count;
+    }
+    if (!stream) {
+        throw std::runtime_error{"test zero-file write failed"};
+    }
+}
+
+[[nodiscard]] bool has_private_publication_file(const std::filesystem::path &parent) {
+    for (const auto &entry : std::filesystem::directory_iterator{parent}) {
+        if (entry.path().filename().string().starts_with(
+                ".engine-sim-offline-stage-")) {
+            return true;
+        }
+    }
+    return false;
 }
 
 [[nodiscard]] std::vector<std::byte> read_file(const std::filesystem::path &path) {
@@ -113,6 +142,10 @@ void test_pack_inspect_verify_and_no_overwrite() {
     make_valid_package(package);
     const auto first_path = temporary.path / "first.revengine";
     const auto second_path = temporary.path / "second.revengine";
+    const auto legacy_temporary = temporary.path / ".first.revengine.tmp";
+    const auto legacy_target = temporary.path / "legacy-temp-target";
+    write_file(legacy_target, "must-not-be-touched");
+    std::filesystem::create_symlink(legacy_target, legacy_temporary);
 
     const auto first =
         require_pack(pack_revengine_package_directory(package, first_path));
@@ -120,6 +153,10 @@ void test_pack_inspect_verify_and_no_overwrite() {
                first.container_byte_count == std::filesystem::file_size(first_path) &&
                first.container_sha256 == contract::sha256(read_file(first_path)),
            "pack summary does not bind the exact published container");
+    expect(std::filesystem::is_symlink(legacy_temporary) &&
+               contract::sha256(read_file(legacy_target)) ==
+                   digest("must-not-be-touched"),
+           "pack followed or replaced a predictable legacy temporary symlink");
 
     const auto inspected = require_load(inspect_revengine_file(first_path, false));
     expect(!inspected.fully_verified && inspected.index.entries.size() == 3 &&
@@ -144,13 +181,53 @@ void test_pack_inspect_verify_and_no_overwrite() {
     expect(overwrite_error != nullptr &&
                overwrite_error->kind == RevengineCliErrorKind::cant_create,
            "pack command overwrote an existing output");
-    expect(!std::filesystem::exists(temporary.path / ".first.revengine.tmp"),
-           "successful publication left its temporary file behind");
+    expect(!has_private_publication_file(temporary.path),
+           "successful publication left a private temporary file behind");
 
     const auto nested =
         pack_revengine_package_directory(package, package / "nested.revengine");
     expect(std::holds_alternative<RevengineCliError>(nested),
            "output inside the source package tree was admitted");
+}
+
+void test_cancellation_removes_private_publication() {
+    TemporaryDirectory temporary;
+    const auto package = temporary.path / "package";
+    std::filesystem::create_directory(package);
+    make_valid_package(package);
+    write_zero_file(package / "audio" / "cancellation-padding.pcm",
+                    64U * 1024U * 1024U);
+    const auto output = temporary.path / "cancelled.revengine";
+
+    std::stop_source cancellation;
+    std::jthread observer{[&](const std::stop_token stop) {
+        while (!stop.stop_requested()) {
+            if (has_private_publication_file(temporary.path)) {
+                static_cast<void>(cancellation.request_stop());
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::microseconds{100});
+        }
+    }};
+    const auto result =
+        pack_revengine_package_directory(package, output, cancellation.get_token());
+    observer.request_stop();
+
+    const auto *error = std::get_if<RevengineCliError>(&result);
+    expect(error != nullptr && error->kind == RevengineCliErrorKind::cancelled,
+           "pack did not report cancellation during private publication");
+    expect(!std::filesystem::exists(output), "cancelled pack exposed a public output");
+    expect(!has_private_publication_file(temporary.path),
+           "cancelled pack retained a private temporary file");
+
+    std::stop_source pre_cancelled;
+    static_cast<void>(pre_cancelled.request_stop());
+    const auto inspect =
+        inspect_revengine_file(output, true, pre_cancelled.get_token());
+    const auto *inspect_error = std::get_if<RevengineCliError>(&inspect);
+    expect(inspect_error != nullptr &&
+               inspect_error->kind == RevengineCliErrorKind::cancelled,
+           "pre-requested verify cancellation was ignored");
 }
 
 void test_package_tree_rejections() {
@@ -234,6 +311,7 @@ int main() {
         test_pack_inspect_verify_and_no_overwrite();
         test_package_tree_rejections();
         test_corrupt_and_symlink_container_rejections();
+        test_cancellation_removes_private_publication();
     } catch (const std::exception &error) {
         std::cerr << "REVENGINE CLI support test failure: " << error.what() << '\n';
         return 1;

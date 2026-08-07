@@ -394,7 +394,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         )
     endif()
 endif()
-
 add_executable(
     engine_sim_offline_renderer_source_stamp_tests
     renderer_source_stamp_test.cpp
@@ -608,6 +607,22 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND
 endif()
 
 find_package(Git QUIET)
+if(GIT_FOUND)
+    add_test(
+        NAME distribution.source_identity
+        COMMAND
+            ${CMAKE_COMMAND}
+            "-DTEST_DIRECTORY=${PROJECT_BINARY_DIR}/tests/installed-distribution-source-identity"
+            "-DGIT_EXECUTABLE=${GIT_EXECUTABLE}"
+            "-DSOURCE_IDENTITY_SCRIPT=${PROJECT_SOURCE_DIR}/cmake/GenerateInstalledDistributionSourceIdentity.cmake"
+            -P
+            "${PROJECT_SOURCE_DIR}/tests/installed_distribution_source_identity_test.cmake"
+    )
+    set_tests_properties(
+        distribution.source_identity
+        PROPERTIES LABELS "distribution"
+    )
+endif()
 if(GIT_FOUND AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
    CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$")
     add_test(
@@ -2331,6 +2346,7 @@ if(TARGET engine_sim_offline_cli_support)
         COMMAND
             ${CMAKE_COMMAND}
             -DCLI_EXECUTABLE=$<TARGET_FILE:engine_sim_offline_cli>
+            -DRELEASE_IDENTITY=${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY_FOR_TESTS}
             -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cli_process_test.cmake
     )
@@ -2383,6 +2399,7 @@ if(TARGET engine_sim_offline_cli_support)
         )
     endif()
     if(UNIX AND _engine_sim_offline_node_for_installed_test AND
+       ENGINE_SIM_OFFLINE_DISTRIBUTION_TAR_FOR_TESTS AND
        NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_BINDIR_FOR_TESTS}" AND
        NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_DATADIR_FOR_TESTS}" AND
        NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_LIBEXECDIR_FOR_TESTS}")
@@ -2397,7 +2414,9 @@ if(TARGET engine_sim_offline_cli_support)
                 -DINSTALL_LIBEXECDIR=${ENGINE_SIM_OFFLINE_INSTALL_LIBEXECDIR_FOR_TESTS}
                 -DINSTALL_CONFIG=$<CONFIG>
                 -DNODE_EXECUTABLE=${_engine_sim_offline_node_for_installed_test}
+                -DRELEASE_IDENTITY=${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY_FOR_TESTS}
                 -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}
+                -DTAR_EXECUTABLE=${ENGINE_SIM_OFFLINE_DISTRIBUTION_TAR_FOR_TESTS}
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/installed_distribution_test.cmake
         )
         set_tests_properties(

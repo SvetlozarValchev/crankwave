@@ -163,6 +163,14 @@ class NativePresentationSinkFailure final : public std::runtime_error {
     RenderSinkError sink_error_;
 };
 
+// Distinguishes a control-requested stop from a publication or sink failure.
+// bake() may translate only this type into the retryable cancellation outcome;
+// a concurrent real publication failure must retain its original classification.
+class NativePresentationCancellation final : public std::runtime_error {
+  public:
+    using std::runtime_error::runtime_error;
+};
+
 enum class NativePresentationPublisherState : std::uint8_t {
     active,
     sealed,

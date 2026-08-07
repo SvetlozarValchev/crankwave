@@ -656,7 +656,7 @@ class NativePresentationPublisher::Implementation final {
         }
         if (control_.stop_token.stop_requested()) {
             abort_once();
-            throw std::runtime_error{
+            throw NativePresentationCancellation{
                 "native publication cancelled between complete input blocks"};
         }
 
@@ -699,7 +699,7 @@ class NativePresentationPublisher::Implementation final {
         }
         if (control_.stop_token.stop_requested()) {
             abort_once();
-            throw std::runtime_error{
+            throw NativePresentationCancellation{
                 "native publication cancelled before finalization"};
         }
 
@@ -795,6 +795,11 @@ class NativePresentationPublisher::Implementation final {
             throw std::logic_error{
                 "native presentation commit requires this publisher's sealed "
                 "evidence"};
+        }
+        if (control_.stop_token.stop_requested()) {
+            abort_once();
+            throw NativePresentationCancellation{
+                "native presentation cancelled before commit"};
         }
 
         try {

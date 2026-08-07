@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -14,6 +15,7 @@ namespace {
 
 using engine_sim_offline::cli::CliCommand;
 using engine_sim_offline::cli::CliParseResult;
+using engine_sim_offline::cli::CliResultFormat;
 using engine_sim_offline::cli::CliUsageError;
 using engine_sim_offline::cli::InspectRevengineCommand;
 using engine_sim_offline::cli::PackRevengineCommand;
@@ -50,9 +52,8 @@ parse(const std::initializer_list<std::string_view> arguments) {
 }
 
 void test_exact_render_grammar() {
-    const auto canonical =
-        parse({"render", "--engine", "engine.json", "--scenario", "scenario.json",
-               "--output-directory", "result"});
+    const auto canonical = parse({"render", "--engine", "engine.json", "--scenario",
+                                  "scenario.json", "--output-directory", "result"});
     const auto &render = require_render(canonical);
     expect(render.engine_path == "engine.json", "engine value was not retained");
     expect(render.scenario_path == "scenario.json", "scenario value was not retained");
@@ -63,39 +64,47 @@ void test_exact_render_grammar() {
 
     const auto reordered =
         parse({"render", "--output-directory", "out", "--asset-root", "root",
-               "--scenario", "drive.json", "--engine", "motor.json"});
+               "--scenario", "drive.json", "--engine", "motor.json",
+               "--deadline-unix-ms", "1786057200000", "--result-format", "json"});
     const auto &other = require_render(reordered);
     expect(other.engine_path == "motor.json" && other.scenario_path == "drive.json" &&
-               other.asset_root == "root" && other.output_directory == "out",
+               other.asset_root == "root" && other.output_directory == "out" &&
+               other.deadline_unix_ms == 1786057200000ULL &&
+               other.result_format == CliResultFormat::json,
            "render flags and the developer override must be order-independent");
 }
 
 void test_exact_revengine_grammars() {
     const auto packed = parse({"pack-revengine", "--output", "engine.revengine",
-                               "--package-directory", "package"});
+                               "--result-format", "json", "--deadline-unix-ms",
+                               "1786057200001", "--package-directory", "package"});
     const auto *packed_command = std::get_if<CliCommand>(&packed);
-    expect(packed_command != nullptr,
-           "valid pack-revengine syntax was rejected");
+    expect(packed_command != nullptr, "valid pack-revengine syntax was rejected");
     const auto *pack = std::get_if<PackRevengineCommand>(packed_command);
     expect(pack != nullptr && pack->package_directory == "package" &&
-               pack->output_file == "engine.revengine",
+               pack->output_file == "engine.revengine" &&
+               pack->deadline_unix_ms == 1786057200001ULL &&
+               pack->result_format == CliResultFormat::json,
            "pack-revengine options were not retained order-independently");
 
-    const auto inspected = parse({"inspect-revengine", "--input", "a.revengine"});
+    const auto inspected =
+        parse({"inspect-revengine", "--deadline-unix-ms", "1786057200002", "--input",
+               "a.revengine", "--result-format", "json"});
     const auto *inspected_command = std::get_if<CliCommand>(&inspected);
-    expect(inspected_command != nullptr,
-           "valid inspect-revengine syntax was rejected");
-    const auto *inspect =
-        std::get_if<InspectRevengineCommand>(inspected_command);
-    expect(inspect != nullptr && inspect->input_file == "a.revengine",
+    expect(inspected_command != nullptr, "valid inspect-revengine syntax was rejected");
+    const auto *inspect = std::get_if<InspectRevengineCommand>(inspected_command);
+    expect(inspect != nullptr && inspect->input_file == "a.revengine" &&
+               inspect->deadline_unix_ms == 1786057200002ULL &&
+               inspect->result_format == CliResultFormat::json,
            "inspect-revengine input was not retained");
 
-    const auto verified = parse({"verify-revengine", "--input", "b.revengine"});
+    const auto verified = parse({"verify-revengine", "--input", "b.revengine",
+                                 "--deadline-unix-ms", "1786057200003"});
     const auto *verified_command = std::get_if<CliCommand>(&verified);
-    expect(verified_command != nullptr,
-           "valid verify-revengine syntax was rejected");
+    expect(verified_command != nullptr, "valid verify-revengine syntax was rejected");
     const auto *verify = std::get_if<VerifyRevengineCommand>(verified_command);
-    expect(verify != nullptr && verify->input_file == "b.revengine",
+    expect(verify != nullptr && verify->input_file == "b.revengine" &&
+               verify->deadline_unix_ms == 1786057200003ULL,
            "verify-revengine input was not retained");
 }
 
@@ -106,6 +115,14 @@ void test_strict_render_rejections() {
         {"render", "--engine", "e", "--scenario", "s", "--asset-root", "a"},
         {"render", "--engine", "e", "--scenario", "s", "--asset-root", "a",
          "--output-directory", "o", "extra"},
+        {"render", "--engine", "e", "--scenario", "s", "--output-directory", "o",
+         "--deadline-unix-ms", "0"},
+        {"render", "--engine", "e", "--scenario", "s", "--output-directory", "o",
+         "--deadline-unix-ms", "-1"},
+        {"render", "--engine", "e", "--scenario", "s", "--output-directory", "o",
+         "--deadline-unix-ms", "9223372036854775808"},
+        {"render", "--engine", "e", "--scenario", "s", "--output-directory", "o",
+         "--result-format", "yaml"},
         {"render", "--engine=e", "--scenario", "s", "--asset-root", "a",
          "--output-directory", "o"},
         {"render", "-e", "e", "--scenario", "s", "--asset-root", "a",
@@ -128,13 +145,18 @@ void test_strict_render_rejections() {
         {"pack-revengine", "--package-directory", "package"},
         {"pack-revengine", "--package-directory", "package", "--output",
          "one.revengine", "--output", "two.revengine"},
+        {"pack-revengine", "--package-directory", "package", "--output",
+         "one.revengine", "--deadline-unix-ms", "0"},
         {"pack-revengine", "--package-directory=package", "--output",
          "engine.revengine"},
         {"inspect-revengine"},
         {"inspect-revengine", "--input", "one", "extra"},
+        {"inspect-revengine", "--input", "one", "--deadline-unix-ms", "-1"},
         {"verify-revengine", "--output", "one"},
-        {"bake-atlas", "--engine", "e", "--atlas-bake", "a",
-         "--asset-root", "assets", "--output-directory", "out"},
+        {"verify-revengine", "--input", "one", "--deadline-unix-ms",
+         "9223372036854775808"},
+        {"bake-atlas", "--engine", "e", "--atlas-bake", "a", "--asset-root", "assets",
+         "--output-directory", "out"},
         {"unknown"},
         {"--help", "extra"},
         {"--version", "extra"},
@@ -165,6 +187,15 @@ invoke(const std::initializer_list<std::string_view> arguments) {
     return {exit_code, standard_out.str(), standard_error.str()};
 }
 
+[[nodiscard]] Invocation invoke(const std::span<const std::string_view> arguments,
+                                const std::stop_token termination_token = {}) {
+    std::ostringstream standard_out;
+    std::ostringstream standard_error;
+    const auto exit_code = engine_sim_offline::cli::run_cli(
+        arguments, standard_out, standard_error, termination_token);
+    return {exit_code, standard_out.str(), standard_error.str()};
+}
+
 void test_standalone_help_and_version() {
     const auto help = invoke({"--help"});
     expect(help.exit_code == engine_sim_offline::cli::kExitSuccess,
@@ -174,20 +205,17 @@ void test_standalone_help_and_version() {
                std::string::npos,
            "--help must document the exact current render syntax");
     expect(help.standard_out.find("[--asset-root <developer-directory>]") !=
-               std::string::npos &&
+                   std::string::npos &&
                help.standard_out.find("bundled content-addressed asset catalog") !=
                    std::string::npos,
            "--help must distinguish default assets from the developer override");
     expect(help.standard_out.find("bake-atlas") == std::string::npos,
            "--help must not advertise the withdrawn atlas baker");
-    expect(help.standard_out.find(
-               "pack-revengine --package-directory <directory>") !=
-               std::string::npos &&
-               help.standard_out.find(
-                   "inspect-revengine --input <file.revengine>") !=
+    expect(help.standard_out.find("pack-revengine --package-directory <directory>") !=
                    std::string::npos &&
-               help.standard_out.find(
-                   "verify-revengine --input <file.revengine>") !=
+               help.standard_out.find("inspect-revengine --input <file.revengine>") !=
+                   std::string::npos &&
+               help.standard_out.find("verify-revengine --input <file.revengine>") !=
                    std::string::npos,
            "--help must advertise the exact REVENGINE command grammar");
     expect(help.standard_error.empty(), "--help must not write stderr");
@@ -217,6 +245,135 @@ void test_usage_output_channels() {
            "an obsolete profile surface must return EX_USAGE");
     expect(obsolete.standard_out.empty(),
            "an obsolete profile rejection must not write stdout");
+
+    const auto machine_missing =
+        invoke({"render", "--result-format", "json", "--engine", "only-engine"});
+    expect(machine_missing.exit_code == engine_sim_offline::cli::kExitUsage,
+           "machine usage failure must return EX_USAGE");
+    expect(machine_missing.standard_error.empty(),
+           "machine usage failure must reserve stderr for process diagnostics");
+    expect(machine_missing.standard_out.find(
+               "\"schema\":\"engine-sim-offline.cli-result.v1\"") !=
+                   std::string::npos &&
+               machine_missing.standard_out.find("\"command\":\"render\"") !=
+                   std::string::npos &&
+               machine_missing.standard_out.find("\"ok\":false") != std::string::npos &&
+               machine_missing.standard_out.find("\"code\":\"usage-error\"") !=
+                   std::string::npos &&
+               machine_missing.standard_out.back() == '\n' &&
+               machine_missing.standard_out.find('\n') ==
+                   machine_missing.standard_out.size() - 1U,
+           "machine usage failure must be one stable JSON line");
+}
+
+void test_machine_failures_and_external_stop() {
+    const auto missing =
+        invoke({"render", "--engine", "/definitely/missing/engine.json", "--scenario",
+                "/definitely/missing/scenario.json", "--output-directory", "unused",
+                "--result-format", "json"});
+    expect(missing.exit_code != engine_sim_offline::cli::kExitSuccess,
+           "machine missing input must fail");
+    expect(missing.standard_error.empty(),
+           "machine input failure must not write human diagnostics");
+    expect(
+        missing.standard_out.find("\"schema\":\"engine-sim-offline.cli-result.v1\"") !=
+                std::string::npos &&
+            missing.standard_out.find("\"stage\":\"engine input\"") !=
+                std::string::npos,
+        "machine input failure lost its stable code or stage");
+
+    const std::string unicode_engine_path = "/definitely/missing/\xc3\xa9ngine.json";
+    const std::array<std::string_view, 11> unicode_arguments{
+        "render",
+        "--engine",
+        unicode_engine_path,
+        "--scenario",
+        "/definitely/missing/scenario.json",
+        "--output-directory",
+        "unused",
+        "--asset-root",
+        "/tmp",
+        "--result-format",
+        "json"};
+    const auto unicode_failure = invoke(unicode_arguments);
+    expect(unicode_failure.exit_code != engine_sim_offline::cli::kExitSuccess &&
+               unicode_failure.standard_error.empty(),
+           "Unicode machine failure did not use the machine channel");
+    expect(unicode_failure.standard_out.find(unicode_engine_path) !=
+                   std::string::npos &&
+               unicode_failure.standard_out.find("\\u00c3\\u00a9") == std::string::npos,
+           "machine JSON did not preserve valid UTF-8 path bytes");
+
+    std::stop_source termination;
+    termination.request_stop();
+    std::ostringstream standard_out;
+    std::ostringstream standard_error;
+    const std::array<std::string_view, 10> arguments{"render",
+                                                     "--engine",
+                                                     "unused-engine",
+                                                     "--scenario",
+                                                     "unused-scenario",
+                                                     "--output-directory",
+                                                     "unused-output",
+                                                     "--result-format",
+                                                     "json",
+                                                     ""};
+    const auto exit_code = engine_sim_offline::cli::run_cli(
+        std::span<const std::string_view>{arguments.data(), arguments.size() - 1U},
+        standard_out, standard_error, termination.get_token());
+    expect(exit_code == engine_sim_offline::cli::kExitTemporaryFailure,
+           "pre-requested termination must return EX_TEMPFAIL");
+    expect(standard_error.str().empty() &&
+               standard_out.str().find("\"code\":\"render-terminated\"") !=
+                   std::string::npos,
+           "pre-requested termination must produce a machine cancellation result");
+
+    const std::array<std::string_view, 7> pack_arguments{"pack-revengine",
+                                                         "--package-directory",
+                                                         "unused-package",
+                                                         "--output",
+                                                         "unused.revengine",
+                                                         "--result-format",
+                                                         "json"};
+    const auto stopped_pack = invoke(pack_arguments, termination.get_token());
+    expect(stopped_pack.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
+               stopped_pack.standard_error.empty() &&
+               stopped_pack.standard_out.find(
+                   "\"code\":\"pack-revengine-terminated\"") != std::string::npos,
+           "pre-requested pack termination lost its stable machine result");
+
+    const std::array<std::string_view, 5> verify_arguments{
+        "verify-revengine", "--input", "unused.revengine", "--result-format", "json"};
+    const auto stopped_verify = invoke(verify_arguments, termination.get_token());
+    expect(stopped_verify.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
+               stopped_verify.standard_error.empty() &&
+               stopped_verify.standard_out.find(
+                   "\"code\":\"verify-revengine-terminated\"") != std::string::npos,
+           "pre-requested verify termination lost its stable machine result");
+
+    const std::array<std::string_view, 7> expired_pack_arguments{"pack-revengine",
+                                                                 "--package-directory",
+                                                                 "unused-package",
+                                                                 "--output",
+                                                                 "unused.revengine",
+                                                                 "--deadline-unix-ms",
+                                                                 "1"};
+    const auto expired_pack = invoke(expired_pack_arguments);
+    expect(expired_pack.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
+               expired_pack.standard_out.empty() &&
+               expired_pack.standard_error.find("error:") != std::string::npos,
+           "expired pack deadline did not preserve human-mode diagnostics");
+
+    const std::array<std::string_view, 7> expired_verify_arguments{
+        "verify-revengine", "--input", "unused.revengine", "--deadline-unix-ms", "1",
+        "--result-format",  "json"};
+    const auto expired_verify = invoke(expired_verify_arguments);
+    expect(expired_verify.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
+               expired_verify.standard_error.empty() &&
+               expired_verify.standard_out.find(
+                   "\"code\":\"verify-revengine-deadline-exceeded\"") !=
+                   std::string::npos,
+           "expired verify deadline lost its stable machine result");
 }
 
 } // namespace
@@ -228,6 +385,7 @@ int main() {
         test_strict_render_rejections();
         test_standalone_help_and_version();
         test_usage_output_channels();
+        test_machine_failures_and_external_stop();
     } catch (const std::exception &error) {
         std::cerr << "CLI application test failure: " << error.what() << '\n';
         return 1;

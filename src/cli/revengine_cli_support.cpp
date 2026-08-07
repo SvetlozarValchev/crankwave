@@ -1,11 +1,24 @@
 #include "revengine_cli_support.hpp"
 
+#include "artifacts/secure_filesystem_support.hpp"
+
+#include <algorithm>
+#include <array>
+#include <cerrno>
+#include <cstdint>
 #include <fstream>
 #include <limits>
 #include <span>
+#include <stop_token>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
+
+#if defined(__linux__)
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 namespace engine_sim_offline::cli {
 namespace {
@@ -13,6 +26,11 @@ namespace {
 [[nodiscard]] RevengineCliError failure(RevengineCliErrorKind kind,
                                         std::string message) {
     return {kind, std::move(message)};
+}
+
+[[nodiscard]] RevengineCliError cancelled() {
+    return failure(RevengineCliErrorKind::cancelled,
+                   "REVENGINE operation was cancelled");
 }
 
 [[nodiscard]] std::string contextual_message(const std::string_view prefix,
@@ -63,7 +81,11 @@ struct OwnedEntry {
 using ReadFileResult = std::variant<std::vector<std::byte>, RevengineCliError>;
 
 [[nodiscard]] ReadFileResult read_regular_file(const std::filesystem::path &path,
-                                               const std::uint64_t maximum_byte_count) {
+                                               const std::uint64_t maximum_byte_count,
+                                               const std::stop_token stop_token) {
+    if (stop_token.stop_requested()) {
+        return cancelled();
+    }
     std::error_code status_error;
     const auto status = std::filesystem::symlink_status(path, status_error);
     if (status_error || !std::filesystem::exists(status)) {
@@ -96,24 +118,35 @@ using ReadFileResult = std::variant<std::vector<std::byte>, RevengineCliError>;
                        "input file cannot be opened: " + path.string());
     }
     std::vector<std::byte> bytes(static_cast<std::size_t>(file_size));
-    if (!bytes.empty()) {
-        stream.read(reinterpret_cast<char *>(bytes.data()),
-                    static_cast<std::streamsize>(bytes.size()));
-        if (stream.gcount() != static_cast<std::streamsize>(bytes.size())) {
+    constexpr std::size_t chunk_byte_count = 1024U * 1024U;
+    std::size_t offset = 0;
+    while (offset < bytes.size()) {
+        if (stop_token.stop_requested()) {
+            return cancelled();
+        }
+        const auto count = std::min(chunk_byte_count, bytes.size() - offset);
+        stream.read(reinterpret_cast<char *>(bytes.data() + offset),
+                    static_cast<std::streamsize>(count));
+        if (stream.gcount() != static_cast<std::streamsize>(count)) {
             return failure(RevengineCliErrorKind::unavailable,
                            "input file changed or could not be read completely: " +
                                path.string());
         }
+        offset += count;
     }
     if (stream.peek() != std::char_traits<char>::eof()) {
         return failure(RevengineCliErrorKind::unavailable,
                        "input file changed while it was being read: " + path.string());
     }
-    return bytes;
+    return stop_token.stop_requested() ? ReadFileResult{cancelled()}
+                                       : ReadFileResult{std::move(bytes)};
 }
 
 [[nodiscard]] std::variant<std::vector<OwnedEntry>, RevengineCliError>
-read_package_tree(const std::filesystem::path &root) {
+read_package_tree(const std::filesystem::path &root, const std::stop_token stop_token) {
+    if (stop_token.stop_requested()) {
+        return cancelled();
+    }
     std::error_code status_error;
     const auto root_status = std::filesystem::symlink_status(root, status_error);
     if (status_error || !std::filesystem::exists(root_status)) {
@@ -140,6 +173,9 @@ read_package_tree(const std::filesystem::path &root) {
     std::uint64_t total_payload_bytes = 0;
     const std::filesystem::recursive_directory_iterator end;
     while (iterator != end) {
+        if (stop_token.stop_requested()) {
+            return cancelled();
+        }
         const auto path = iterator->path();
         std::error_code entry_status_error;
         const auto status = std::filesystem::symlink_status(path, entry_status_error);
@@ -173,8 +209,8 @@ read_package_tree(const std::filesystem::path &root) {
             return failure(RevengineCliErrorKind::data_error,
                            "package tree exceeds the REVENGINE entry limit");
         }
-        auto read =
-            read_regular_file(path, artifacts::kRevengineMaximumEntryByteCountV1);
+        auto read = read_regular_file(
+            path, artifacts::kRevengineMaximumEntryByteCountV1, stop_token);
         if (const auto *error = std::get_if<RevengineCliError>(&read)) {
             return *error;
         }
@@ -193,7 +229,10 @@ read_package_tree(const std::filesystem::path &root) {
                            "package directory traversal failed");
         }
     }
-    return entries;
+    return stop_token.stop_requested()
+               ? std::variant<std::vector<OwnedEntry>, RevengineCliError>{cancelled()}
+               : std::variant<std::vector<OwnedEntry>, RevengineCliError>{
+                     std::move(entries)};
 }
 
 [[nodiscard]] std::vector<artifacts::RevenginePackEntry>
@@ -208,7 +247,11 @@ entry_views(const std::vector<OwnedEntry> &entries) {
 
 [[nodiscard]] std::variant<std::monostate, RevengineCliError>
 write_new_file(const std::filesystem::path &output,
-               const std::span<const std::byte> bytes) {
+               const std::span<const std::byte> bytes,
+               const std::stop_token stop_token) {
+    if (stop_token.stop_requested()) {
+        return cancelled();
+    }
     if (output.extension() != ".revengine") {
         return failure(RevengineCliErrorKind::cant_create,
                        "output file must use the .revengine extension");
@@ -236,47 +279,125 @@ write_new_file(const std::filesystem::path &output,
                        "output parent must be an existing non-symlink directory");
     }
 
-    const auto temporary = parent / ("." + output.filename().string() + ".tmp");
-    std::error_code temporary_status_error;
-    const auto temporary_status =
-        std::filesystem::symlink_status(temporary, temporary_status_error);
-    if (!temporary_status_error && std::filesystem::exists(temporary_status)) {
+#if defined(__linux__)
+    using artifacts::detail::FileDescriptor;
+    FileDescriptor parent_descriptor{
+        ::open(parent.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)};
+    if (!parent_descriptor.valid()) {
         return failure(RevengineCliErrorKind::cant_create,
-                       "temporary output path already exists: " + temporary.string());
-    }
-    if (temporary_status_error &&
-        temporary_status_error != std::errc::no_such_file_or_directory) {
-        return failure(RevengineCliErrorKind::cant_create,
-                       "temporary output path cannot be inspected");
+                       artifacts::detail::errno_message(
+                           "output parent cannot be securely opened", errno));
     }
 
-    {
-        std::ofstream stream{temporary, std::ios::binary | std::ios::out};
-        if (!stream) {
-            return failure(RevengineCliErrorKind::cant_create,
-                           "temporary output file cannot be created");
+    std::string temporary_name;
+    FileDescriptor temporary_descriptor;
+    for (unsigned attempt = 0; attempt < 64; ++attempt) {
+        temporary_name = artifacts::detail::random_stage_name();
+        temporary_descriptor.reset(
+            ::openat(parent_descriptor.get(), temporary_name.c_str(),
+                     O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0666));
+        if (temporary_descriptor.valid()) {
+            break;
         }
-        stream.write(reinterpret_cast<const char *>(bytes.data()),
-                     static_cast<std::streamsize>(bytes.size()));
-        stream.flush();
-        if (!stream) {
-            stream.close();
-            std::error_code cleanup_error;
-            std::filesystem::remove(temporary, cleanup_error);
-            return failure(RevengineCliErrorKind::cant_create,
-                           "REVENGINE bytes could not be written completely");
+        if (errno != EEXIST) {
+            return failure(
+                RevengineCliErrorKind::cant_create,
+                artifacts::detail::errno_message(
+                    "private REVENGINE temporary file cannot be created", errno));
         }
     }
-
-    std::error_code publish_error;
-    std::filesystem::create_hard_link(temporary, output, publish_error);
-    std::error_code cleanup_error;
-    std::filesystem::remove(temporary, cleanup_error);
-    if (publish_error) {
+    if (!temporary_descriptor.valid()) {
         return failure(RevengineCliErrorKind::cant_create,
-                       "REVENGINE output could not be published without overwrite");
+                       "private REVENGINE temporary name allocation was exhausted");
+    }
+
+    struct TemporaryCleanup {
+        int parent = -1;
+        std::string name;
+        bool active = true;
+
+        ~TemporaryCleanup() {
+            if (active) {
+                static_cast<void>(::unlinkat(parent, name.c_str(), 0));
+            }
+        }
+    } cleanup{parent_descriptor.get(), temporary_name};
+
+    constexpr std::size_t chunk_byte_count = 1024U * 1024U;
+    std::size_t offset = 0;
+    while (offset < bytes.size()) {
+        if (stop_token.stop_requested()) {
+            return cancelled();
+        }
+        const auto requested = std::min(chunk_byte_count, bytes.size() - offset);
+        const auto count =
+            ::write(temporary_descriptor.get(), bytes.data() + offset, requested);
+        if (count > 0) {
+            offset += static_cast<std::size_t>(count);
+            continue;
+        }
+        if (count == -1 && errno == EINTR) {
+            continue;
+        }
+        return failure(RevengineCliErrorKind::cant_create,
+                       artifacts::detail::errno_message(
+                           "REVENGINE bytes could not be written completely", errno));
+    }
+    while (::fsync(temporary_descriptor.get()) == -1) {
+        if (errno == EINTR) {
+            if (stop_token.stop_requested()) {
+                return cancelled();
+            }
+            continue;
+        }
+        return failure(
+            RevengineCliErrorKind::cant_create,
+            artifacts::detail::errno_message(
+                "REVENGINE temporary file could not be synchronized", errno));
+    }
+    if (stop_token.stop_requested()) {
+        return cancelled();
+    }
+
+    const auto output_name = output.filename().string();
+    if (::linkat(parent_descriptor.get(), temporary_name.c_str(),
+                 parent_descriptor.get(), output_name.c_str(), 0) == -1) {
+        const auto error_number = errno;
+        return failure(RevengineCliErrorKind::cant_create,
+                       artifacts::detail::errno_message(
+                           "REVENGINE output could not be published without overwrite",
+                           error_number));
+    }
+
+    if (::unlinkat(parent_descriptor.get(), temporary_name.c_str(), 0) == -1) {
+        const auto cleanup_error = errno;
+        static_cast<void>(::unlinkat(parent_descriptor.get(), output_name.c_str(), 0));
+        return failure(RevengineCliErrorKind::cant_create,
+                       artifacts::detail::errno_message(
+                           "published REVENGINE temporary link could not be removed",
+                           cleanup_error));
+    }
+    cleanup.active = false;
+    temporary_descriptor.reset();
+
+    while (::fsync(parent_descriptor.get()) == -1) {
+        if (errno == EINTR) {
+            continue;
+        }
+        const auto sync_error = errno;
+        static_cast<void>(::unlinkat(parent_descriptor.get(), output_name.c_str(), 0));
+        return failure(
+            RevengineCliErrorKind::cant_create,
+            artifacts::detail::errno_message(
+                "REVENGINE output directory could not be synchronized", sync_error));
     }
     return std::monostate{};
+#else
+    static_cast<void>(bytes);
+    return failure(
+        RevengineCliErrorKind::unavailable,
+        "secure no-replace REVENGINE publication is unavailable on this platform");
+#endif
 }
 
 } // namespace
@@ -294,7 +415,11 @@ std::string sha256_lower_hex(const contract::Sha256Digest &digest) {
 
 PackRevengineFileResult
 pack_revengine_package_directory(const std::filesystem::path &package_directory,
-                                 const std::filesystem::path &new_output_file) {
+                                 const std::filesystem::path &new_output_file,
+                                 const std::stop_token stop_token) {
+    if (stop_token.stop_requested()) {
+        return cancelled();
+    }
     std::error_code canonical_error;
     const auto canonical_root =
         std::filesystem::canonical(package_directory, canonical_error);
@@ -318,16 +443,22 @@ pack_revengine_package_directory(const std::filesystem::path &package_directory,
                        "REVENGINE output must be outside the package directory");
     }
 
-    auto read = read_package_tree(package_directory);
+    auto read = read_package_tree(package_directory, stop_token);
     if (const auto *error = std::get_if<RevengineCliError>(&read)) {
         return *error;
     }
     auto entries = std::get<std::vector<OwnedEntry>>(std::move(read));
+    if (stop_token.stop_requested()) {
+        return cancelled();
+    }
     const auto views = entry_views(entries);
     const auto tree_validation = artifacts::validate_revengine_package_tree(views);
     if (const auto *error =
             std::get_if<artifacts::RevenginePackageError>(&tree_validation)) {
         return package_failure(*error);
+    }
+    if (stop_token.stop_requested()) {
+        return cancelled();
     }
 
     auto packed = artifacts::pack_revengine_v1(views);
@@ -335,8 +466,14 @@ pack_revengine_package_directory(const std::filesystem::path &package_directory,
         return container_failure(*error);
     }
     auto container = std::get<std::vector<std::byte>>(std::move(packed));
+    if (stop_token.stop_requested()) {
+        return cancelled();
+    }
     const auto container_sha256 = contract::sha256(container);
-    const auto write = write_new_file(new_output_file, container);
+    if (stop_token.stop_requested()) {
+        return cancelled();
+    }
+    const auto write = write_new_file(new_output_file, container, stop_token);
     if (const auto *error = std::get_if<RevengineCliError>(&write)) {
         return *error;
     }
@@ -349,13 +486,20 @@ pack_revengine_package_directory(const std::filesystem::path &package_directory,
 }
 
 LoadRevengineFileResult inspect_revengine_file(const std::filesystem::path &input_file,
-                                               const bool verify_payloads) {
-    auto read =
-        read_regular_file(input_file, artifacts::kRevengineMaximumContainerByteCountV1);
+                                               const bool verify_payloads,
+                                               const std::stop_token stop_token) {
+    if (stop_token.stop_requested()) {
+        return cancelled();
+    }
+    auto read = read_regular_file(
+        input_file, artifacts::kRevengineMaximumContainerByteCountV1, stop_token);
     if (const auto *error = std::get_if<RevengineCliError>(&read)) {
         return *error;
     }
     auto container = std::get<std::vector<std::byte>>(std::move(read));
+    if (stop_token.stop_requested()) {
+        return cancelled();
+    }
     auto inspected = verify_payloads ? artifacts::verify_revengine(container)
                                      : artifacts::inspect_revengine(container);
     if (const auto *error =
@@ -363,8 +507,14 @@ LoadRevengineFileResult inspect_revengine_file(const std::filesystem::path &inpu
         return container_failure(*error);
     }
     auto index = std::get<artifacts::RevengineContainerIndex>(std::move(inspected));
+    if (stop_token.stop_requested()) {
+        return cancelled();
+    }
     LoadedRevengineFile result{
         std::move(index), contract::sha256(container), verify_payloads, {}};
+    if (stop_token.stop_requested()) {
+        return cancelled();
+    }
     if (!verify_payloads) {
         return result;
     }
@@ -379,6 +529,9 @@ LoadRevengineFileResult inspect_revengine_file(const std::filesystem::path &inpu
     if (const auto *error =
             std::get_if<artifacts::RevenginePackageError>(&tree_validation)) {
         return package_failure(*error);
+    }
+    if (stop_token.stop_requested()) {
+        return cancelled();
     }
     result.package =
         std::get<artifacts::RevenginePackageDescriptor>(std::move(tree_validation));

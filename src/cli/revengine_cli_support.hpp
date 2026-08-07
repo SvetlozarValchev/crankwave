@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <stop_token>
 #include <string>
 #include <variant>
 
@@ -15,6 +16,7 @@ enum class RevengineCliErrorKind : std::uint8_t {
     no_input,
     cant_create,
     unavailable,
+    cancelled,
 };
 
 struct RevengineCliError {
@@ -41,10 +43,12 @@ using LoadRevengineFileResult = std::variant<LoadedRevengineFile, RevengineCliEr
 
 [[nodiscard]] PackRevengineFileResult
 pack_revengine_package_directory(const std::filesystem::path &package_directory,
-                                 const std::filesystem::path &new_output_file);
+                                 const std::filesystem::path &new_output_file,
+                                 std::stop_token stop_token = {});
 
 [[nodiscard]] LoadRevengineFileResult
-inspect_revengine_file(const std::filesystem::path &input_file, bool verify_payloads);
+inspect_revengine_file(const std::filesystem::path &input_file, bool verify_payloads,
+                       std::stop_token stop_token = {});
 
 [[nodiscard]] std::string sha256_lower_hex(const contract::Sha256Digest &digest);
 

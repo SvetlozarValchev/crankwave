@@ -1,22 +1,32 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  AUTOMATIC_PROFILE_ID,
+  AUTOMATIC_PROFILE_POLICY_ID,
   MAXIMUM_INPUT_JSON_BYTES,
   PROFILE_SCHEMA,
+  RESPONSIVE_BAKE_FAILURE_SCHEMA,
+  ResponsiveBakeFailure,
   acquireCacheLock,
   cleanupPublishedLifecycleRuns,
   createBakeCacheIdentity,
   createBakeInventory,
+  createBakeProcessSupervisor,
   createBakeReport,
   createExecutionRuntimeIdentity,
   createRevengineDescriptor,
+  deriveResponsiveBakeProfile,
+  createSanitizedChildEnvironment,
   main,
+  releaseIdentityFromArguments,
+  responsiveBakeFailureRecord,
   runGloballyBoundedCaptureJobs,
   validateEngineProfileCompatibility,
   validateProfile,
@@ -38,8 +48,30 @@ const enginePath = path.join(
 );
 const profilePath = path.join(here, "profiles/interactive-preview-v1.json");
 
+function trackedEnginePaths(root) {
+  const paths = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const entryPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      paths.push(...trackedEnginePaths(entryPath));
+    } else if (/^engine(?:-[a-z0-9-]+)?\.json$/u.test(entry.name)) {
+      const candidate = json(entryPath);
+      if (candidate.schema === "engine-sim-offline/engine") {
+        paths.push(entryPath);
+      }
+    }
+  }
+  return paths.sort();
+}
+
 function json(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function automaticProfileSha256(profile) {
+  return createHash("sha256")
+    .update(`${JSON.stringify(profile, null, 2)}\n`)
+    .digest("hex");
 }
 
 function assembleTestBundle(root, engine) {
@@ -87,6 +119,273 @@ test("the standalone baker exposes help without requiring inputs", () => {
   assert.equal(result.stderr, "");
 });
 
+test("command failures expose a stable machine-readable envelope", () => {
+  const result = spawnSync(
+    process.execPath,
+    [path.join(here, "bake.mjs"), "--not-a-real-option"],
+    { encoding: "utf8" },
+  );
+  assert.equal(result.status, 64);
+  assert.equal(result.stdout, "");
+  const failure = JSON.parse(result.stderr);
+  assert.deepEqual(
+    Object.keys(failure),
+    [
+      "schema",
+      "release_identity",
+      "code",
+      "exit_code",
+      "retryable",
+      "signal",
+      "message",
+    ],
+  );
+  assert.equal(failure.schema, RESPONSIVE_BAKE_FAILURE_SCHEMA);
+  assert.equal(failure.release_identity, null);
+  assert.equal(failure.code, "invalid_invocation");
+  assert.equal(failure.exit_code, 64);
+  assert.equal(failure.retryable, false);
+  assert.equal(failure.signal, null);
+});
+
+test("renderer children receive only an allowlisted environment", async () => {
+  const inherited = {
+    PATH: process.env.PATH ?? "/usr/bin:/bin",
+    HOME: "/private/home",
+    AWS_ACCESS_KEY_ID: "credential",
+    AWS_SECRET_ACCESS_KEY: "secret",
+    AWS_SESSION_TOKEN: "token",
+    GOOGLE_APPLICATION_CREDENTIALS: "/private/google.json",
+    HTTP_PROXY: "http://proxy.invalid",
+    https_proxy: "http://proxy.invalid",
+    NO_PROXY: "metadata.internal",
+    NODE_OPTIONS: "--require=/private/inject.cjs",
+  };
+  const environment = createSanitizedChildEnvironment({
+    ESO_RESPONSIVE_BAKE_OUTPUT: "/tmp/controlled-output",
+  }, inherited);
+  assert.deepEqual(
+    Object.keys(environment).sort(),
+    [
+      "ESO_RESPONSIVE_BAKE_OUTPUT",
+      "LANG",
+      "LC_ALL",
+      "PATH",
+      "TZ",
+    ],
+  );
+  const supervisor = createBakeProcessSupervisor();
+  try {
+    const result = await supervisor.runChild(
+      process.execPath,
+      ["-e", "process.stdout.write(JSON.stringify(process.env))"],
+      { environment, stdout: "capture", stderr: "capture" },
+    );
+    const observed = JSON.parse(result.stdout);
+    assert.equal(observed.ESO_RESPONSIVE_BAKE_OUTPUT, "/tmp/controlled-output");
+    assert.equal(observed.LANG, "C");
+    assert.equal(observed.LC_ALL, "C");
+    assert.equal(observed.TZ, "UTC");
+    for (const forbidden of [
+      "HOME",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+      "AWS_SESSION_TOKEN",
+      "GOOGLE_APPLICATION_CREDENTIALS",
+      "HTTP_PROXY",
+      "https_proxy",
+      "NO_PROXY",
+      "NODE_OPTIONS",
+    ]) {
+      assert.equal(Object.hasOwn(observed, forbidden), false, forbidden);
+    }
+  } finally {
+    supervisor.dispose();
+  }
+});
+
+test("termination reaches the complete renderer child process group", {
+  skip: process.platform !== "linux",
+}, async () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-child-tree-"));
+  const pidFile = path.join(temporary, "pids.json");
+  const controller = new AbortController();
+  const supervisor = createBakeProcessSupervisor({
+    signal: controller.signal,
+    terminationGraceMs: 50,
+  });
+  let pids = null;
+  const processIsLive = (pid) => {
+    try {
+      const status = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
+      const commandEnd = status.lastIndexOf(")");
+      return status.slice(commandEnd + 1).trim().split(/\s+/u)[0] !== "Z";
+    } catch {
+      return false;
+    }
+  };
+  try {
+    const script = [
+      "const {spawn}=require('node:child_process');",
+      "const fs=require('node:fs');",
+      "const nested=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});",
+      "fs.writeFileSync(process.argv[1],JSON.stringify({parent:process.pid,nested:nested.pid}));",
+      "setInterval(()=>{},1000);",
+    ].join("");
+    const pending = supervisor.runChild(
+      process.execPath,
+      ["-e", script, pidFile],
+      {
+        environment: createSanitizedChildEnvironment(),
+        stdout: "ignore",
+        stderr: "capture",
+      },
+    );
+    for (let attempt = 0; attempt < 200 && !fs.existsSync(pidFile); ++attempt) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.equal(fs.existsSync(pidFile), true, "child process did not become ready");
+    pids = JSON.parse(fs.readFileSync(pidFile, "utf8"));
+    controller.abort(new ResponsiveBakeFailure(
+      "terminated",
+      "responsive bake terminated by SIGTERM",
+      { retryable: true, signal: "SIGTERM" },
+    ));
+    await assert.rejects(pending, (error) => {
+      assert.equal(error.code, "terminated");
+      return true;
+    });
+    await supervisor.drain();
+    for (let attempt = 0; attempt < 200; ++attempt) {
+      if (!processIsLive(pids.parent) && !processIsLive(pids.nested)) break;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.equal(processIsLive(pids.parent), false);
+    assert.equal(processIsLive(pids.nested), false);
+    assert.equal(supervisor.activeChildCount, 0);
+  } finally {
+    if (pids !== null) {
+      for (const pid of [pids.parent, pids.nested]) {
+        try {
+          process.kill(pid, "SIGKILL");
+        } catch (error) {
+          if (error?.code !== "ESRCH") throw error;
+        }
+      }
+    }
+    supervisor.dispose();
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
+test("a failed renderer leader cannot orphan its process group", {
+  skip: process.platform !== "linux",
+}, async () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-failed-tree-"));
+  const pidFile = path.join(temporary, "pids.json");
+  const supervisor = createBakeProcessSupervisor({ terminationGraceMs: 25 });
+  let pids = null;
+  const processIsLive = (pid) => {
+    try {
+      const status = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
+      const commandEnd = status.lastIndexOf(")");
+      return status.slice(commandEnd + 1).trim().split(/\s+/u)[0] !== "Z";
+    } catch {
+      return false;
+    }
+  };
+  try {
+    const script = [
+      "const {spawn}=require('node:child_process');",
+      "const fs=require('node:fs');",
+      "const nested=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});",
+      "fs.writeFileSync(process.argv[1],JSON.stringify({parent:process.pid,nested:nested.pid}));",
+      "setTimeout(()=>process.exit(7),10);",
+    ].join("");
+    await assert.rejects(
+      supervisor.runChild(process.execPath, ["-e", script, pidFile], {
+        environment: createSanitizedChildEnvironment(),
+        stdout: "ignore",
+        stderr: "capture",
+      }),
+      (error) => error?.code === "child_process_failed",
+    );
+    pids = JSON.parse(fs.readFileSync(pidFile, "utf8"));
+    await supervisor.drain();
+    assert.equal(processIsLive(pids.parent), false);
+    assert.equal(processIsLive(pids.nested), false);
+    assert.equal(supervisor.activeChildCount, 0);
+  } finally {
+    if (pids !== null) {
+      for (const pid of [pids.parent, pids.nested]) {
+        try {
+          process.kill(pid, "SIGKILL");
+        } catch (error) {
+          if (error?.code !== "ESRCH") throw error;
+        }
+      }
+    }
+    supervisor.dispose();
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
+test("an absolute deadline cancels work with the stable retryable code", async () => {
+  const supervisor = createBakeProcessSupervisor({
+    deadlineUnixMs: Date.now() + 25,
+    terminationGraceMs: 25,
+  });
+  try {
+    await assert.rejects(
+      supervisor.runChild(
+        process.execPath,
+        ["-e", "setInterval(()=>{},1000)"],
+        {
+          environment: createSanitizedChildEnvironment(),
+          stdout: "ignore",
+          stderr: "ignore",
+        },
+      ),
+      (error) => {
+        assert.equal(error.code, "deadline_exceeded");
+        assert.equal(error.retryable, true);
+        assert.deepEqual(responsiveBakeFailureRecord(error), {
+          schema: RESPONSIVE_BAKE_FAILURE_SCHEMA,
+          release_identity: null,
+          code: "deadline_exceeded",
+          exit_code: 75,
+          retryable: true,
+          signal: null,
+          message: "responsive bake deadline exceeded",
+        });
+        return true;
+      },
+    );
+    assert.equal(supervisor.activeChildCount, 0);
+  } finally {
+    supervisor.dispose();
+  }
+});
+
+test("deadline checks remain authoritative across synchronous work", async () => {
+  let currentTime = 10;
+  const supervisor = createBakeProcessSupervisor({
+    deadlineUnixMs: 20,
+    now: () => currentTime,
+  });
+  try {
+    supervisor.throwIfAborted();
+    currentTime = 21;
+    assert.throws(
+      () => supervisor.throwIfAborted(),
+      (error) => error?.code === "deadline_exceeded",
+    );
+    await supervisor.drain();
+  } finally {
+    supervisor.dispose();
+  }
+});
+
 test("the tracked profile validates and rejects an altered lane grid", () => {
   const profile = validateProfile(json(profilePath));
   assert.equal(profile.schema, PROFILE_SCHEMA);
@@ -114,6 +413,128 @@ test("profile validation is key-order independent and matches lifecycle semantic
   const elevatedOutsideDomain = structuredClone(profile);
   elevatedOutsideDomain.lifecycle.elevated_shutdown.rpm = 10_000;
   assert.throws(() => validateProfile(elevatedOutsideDomain), /responsive RPM domain/u);
+});
+
+test("the automatic profile preserves the accepted 6500 RPM reference", () => {
+  const engine = json(enginePath);
+  const explicit = validateProfile(json(profilePath));
+  const automatic = deriveResponsiveBakeProfile(engine);
+  assert.equal(AUTOMATIC_PROFILE_POLICY_ID, "engine-redline-affine-v1");
+  assert.equal(automatic.id, AUTOMATIC_PROFILE_ID);
+  assert.deepEqual(automatic.rpm, explicit.rpm);
+  assert.deepEqual(automatic.capture, explicit.capture);
+  assert.deepEqual(automatic.lifecycle, explicit.lifecycle);
+  assert.equal(
+    automaticProfileSha256(automatic),
+    "3ccec50bec6a04558f94de10edc17e4ddb7c2f0bddeae37e4118405b74932201",
+  );
+  assert.doesNotThrow(() =>
+    validateEngineProfileCompatibility(engine, automatic)
+  );
+});
+
+test("the automatic profile deterministically covers low and high redlines", () => {
+  const radial = deriveResponsiveBakeProfile(json(path.join(
+    repository,
+    "data/engines/radial-5-cleanroom/engine.json",
+  )));
+  assert.deepEqual(radial.rpm.anchors, [
+    600,
+    640.677966,
+    722.033898,
+    844.067797,
+    1006.779661,
+    1250.847458,
+    1576.271186,
+    1983.050847,
+    2389.830508,
+    2796.610169,
+    3000,
+  ]);
+  assert.equal(radial.lifecycle.elevated_shutdown.rpm, 1576.271186);
+  assert.equal(
+    automaticProfileSha256(radial),
+    "5ba6d677d122c8d81eceb61e24801085c0246cba40644386f19b923f12ffcbaa",
+  );
+
+  const honda = deriveResponsiveBakeProfile(json(path.join(
+    repository,
+    "data/engines/honda-b18c5-cleanroom/engine.json",
+  )));
+  assert.deepEqual(honda.rpm.anchors, [
+    600,
+    732.20339,
+    996.610169,
+    1393.220339,
+    1922.033898,
+    2715.254237,
+    3772.881356,
+    5094.915254,
+    6416.949153,
+    7738.983051,
+    8400,
+  ]);
+  assert.equal(honda.lifecycle.elevated_shutdown.rpm, 3772.881356);
+  assert.equal(
+    automaticProfileSha256(honda),
+    "e5d922f8504b5000dd06d2c6f0a15309ec48961411a738412bf030b964da3292",
+  );
+  assert.notEqual(JSON.stringify(radial), JSON.stringify(honda));
+});
+
+test("the automatic policy validates every tracked engine deterministically", () => {
+  const paths = trackedEnginePaths(path.join(repository, "data/engines"));
+  assert.equal(paths.length, 15);
+  const profilesByRedline = new Map();
+  for (const trackedPath of paths) {
+    const engine = json(trackedPath);
+    const first = deriveResponsiveBakeProfile(engine);
+    const second = deriveResponsiveBakeProfile(structuredClone(engine));
+    const redline = engine.engine.limits.redline.value;
+    assert.equal(JSON.stringify(first), JSON.stringify(second), trackedPath);
+    assert.equal(first.rpm.anchors.length, 11, trackedPath);
+    assert.equal(first.rpm.anchors.at(-1), redline, trackedPath);
+    assert.equal(first.rpm.outer_maximum_rpm > redline, true, trackedPath);
+    assert.equal(
+      first.rpm.anchors.every(
+        (rpm, index) => index === 0 || rpm > first.rpm.anchors[index - 1],
+      ),
+      true,
+      trackedPath,
+    );
+    assert.doesNotThrow(
+      () => validateEngineProfileCompatibility(engine, first),
+      trackedPath,
+    );
+    const serialized = JSON.stringify(first);
+    const prior = profilesByRedline.get(redline);
+    if (prior === undefined) profilesByRedline.set(redline, serialized);
+    else assert.equal(serialized, prior, trackedPath);
+  }
+  assert.deepEqual([...profilesByRedline.keys()].sort((a, b) => a - b), [
+    3000,
+    3600,
+    5000,
+    5900,
+    6000,
+    6500,
+    7000,
+    8400,
+  ]);
+});
+
+test("automatic selection fails closed outside its declared RPM floor", () => {
+  const engine = structuredClone(json(enginePath));
+  engine.engine.limits.redline.value = 249;
+  assert.throws(
+    () => deriveResponsiveBakeProfile(engine),
+    /requires an engine redline of at least 250 RPM; use --profile/u,
+  );
+  engine.engine.limits.redline = { value: 6500, unit: "rad\/s" };
+  assert.throws(
+    () => deriveResponsiveBakeProfile(engine),
+    /redline\.unit must be rpm/u,
+  );
 });
 
 test("an engine profile cannot capture above the declared redline", () => {
@@ -461,6 +882,7 @@ test("packaged bake reports contain portable runtime identity but no host paths"
   const digest = "a".repeat(64);
   const executionRuntime = createExecutionRuntimeIdentity();
   const report = createBakeReport({
+    releaseIdentity: "1.2.3-rc.1",
     engineId: "example-engine",
     engineSha256: digest,
     profileId: "example-profile",
@@ -488,6 +910,7 @@ test("packaged bake reports contain portable runtime identity but no host paths"
   assert.doesNotMatch(text, /\/tmp\/private/u);
   assert.doesNotMatch(text, /maximum_jobs|cache_root|output/u);
   assert.equal(report.implementation.renderer.wasm_sha256, digest);
+  assert.equal(report.release_identity, "1.2.3-rc.1");
   assert.deepEqual(report.implementation.execution_runtime, executionRuntime);
   assert.deepEqual(
     report.resolved_assets.map(({ id }) => id),
@@ -540,18 +963,21 @@ test("plan mode is renderer-free and has no filesystem side effects", async () =
     const engine = json(enginePath);
     assembleTestBundle(bundle, engine);
     fs.copyFileSync(enginePath, externalEngine);
-    fs.copyFileSync(
-      profilePath,
-      path.join(temporary, "responsive-audio-bake-profile.json"),
-    );
     const plan = await main([
       "--engine", externalEngine,
       "--output", output,
       "--cache", cache,
       "--builtin-assets", bundle,
+      "--release-identity", "1.2.3-rc.1",
       "--jobs", "4",
       "--plan",
     ]);
+    assert.equal(plan.profile, AUTOMATIC_PROFILE_ID);
+    assert.equal(plan.release_identity, "1.2.3-rc.1");
+    assert.deepEqual(plan.rpm_anchors, json(profilePath).rpm.anchors);
+    assert.equal(fs.existsSync(
+      path.join(temporary, "responsive-audio-bake-profile.json"),
+    ), false);
     assert.equal(plan.held_cell_count, 33);
     assert.equal(plan.directional_capture_count, 6);
     assert.equal(plan.maximum_jobs, 4);
@@ -561,7 +987,231 @@ test("plan mode is renderer-free and has no filesystem side effects", async () =
     assert.equal(plan.builtin_assets, bundle);
     assert.equal(fs.existsSync(cache), false);
     assert.equal(fs.existsSync(output), false);
+
+    const explicitPlan = await main([
+      "--engine", externalEngine,
+      "--profile", profilePath,
+      "--output", path.join(temporary, "explicit-output"),
+      "--cache", cache,
+      "--builtin-assets", bundle,
+      "--plan",
+    ]);
+    assert.equal(explicitPlan.profile, "interactive-preview-v1");
+    assert.deepEqual(explicitPlan.rpm_anchors, plan.rpm_anchors);
+    assert.notEqual(explicitPlan.profile_sha256, plan.profile_sha256);
+    assert.equal(fs.existsSync(cache), false);
   } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
+test("release identity extraction is bounded and validates semantic text", () => {
+  assert.equal(
+    releaseIdentityFromArguments(["--release-identity", "2.3.4+build.5"]),
+    "2.3.4+build.5",
+  );
+  assert.equal(releaseIdentityFromArguments([]), null);
+  assert.equal(
+    releaseIdentityFromArguments([
+      "--release-identity", "1.0.0",
+      "--release-identity", "2.0.0",
+    ]),
+    null,
+  );
+  assert.equal(
+    releaseIdentityFromArguments(["--release-identity", "development"]),
+    null,
+  );
+});
+
+test("an expired command deadline fails before creating cache or output", async () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-past-deadline-"));
+  const output = path.join(temporary, "output");
+  const cache = path.join(temporary, "cache");
+  try {
+    await assert.rejects(
+      main([
+        "--engine", path.join(temporary, "missing-engine.json"),
+        "--output", output,
+        "--cache", cache,
+        "--deadline-unix-ms", "1",
+      ]),
+      (error) => {
+        assert.equal(error.code, "deadline_exceeded");
+        return true;
+      },
+    );
+    assert.equal(fs.existsSync(output), false);
+    assert.equal(fs.existsSync(cache), false);
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
+test("failed renderer work removes every incomplete output staging tree", {
+  skip: process.platform === "win32",
+}, async () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-bake-cleanup-"));
+  const output = path.join(temporary, "responsive-output");
+  const cache = path.join(temporary, "cache");
+  const bundle = path.join(temporary, "builtin-assets");
+  const rendererRoot = path.join(temporary, "renderer");
+  const modulePath = path.join(rendererRoot, "engine-sim-offline.js");
+  const wasmPath = path.join(rendererRoot, "engine-sim-offline.wasm");
+  const irDumper = path.join(temporary, "dump-ir-spectrum");
+  try {
+    assembleTestBundle(bundle, json(enginePath));
+    fs.mkdirSync(rendererRoot, { recursive: true });
+    fs.writeFileSync(
+      modulePath,
+      "export default async function(){throw new Error('fixture renderer failure');}\n",
+    );
+    fs.writeFileSync(wasmPath, Buffer.from([0, 97, 115, 109]));
+    fs.writeFileSync(
+      irDumper,
+      "#!/bin/sh\n" +
+        "if [ \"$#\" -eq 0 ]; then\n" +
+        "  printf 'usage: dump-ir-spectrum fixture\\n' >&2\n" +
+        "  exit 2\n" +
+        "fi\n" +
+        "exit 1\n",
+      { mode: 0o755 },
+    );
+    fs.chmodSync(irDumper, 0o755);
+
+    await assert.rejects(
+      main([
+        "--engine", enginePath,
+        "--profile", path.join(here, "testdata/smoke-profile.json"),
+        "--output", output,
+        "--cache", cache,
+        "--builtin-assets", bundle,
+        "--module", modulePath,
+        "--ir-dumper", irDumper,
+        "--jobs", "2",
+      ]),
+      (error) => {
+        assert.equal(error.code, "child_process_failed");
+        return true;
+      },
+    );
+    assert.equal(fs.existsSync(output), false);
+    assert.deepEqual(
+      fs.readdirSync(temporary).filter((name) =>
+        name.startsWith(".responsive-output.staging-")
+      ),
+      [],
+    );
+    const ownerRegistries = [];
+    if (fs.existsSync(cache)) {
+      const pending = [cache];
+      while (pending.length > 0) {
+        const directory = pending.pop();
+        for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+          const entryPath = path.join(directory, entry.name);
+          if (entry.isDirectory()) pending.push(entryPath);
+          if (entry.name === ".active") ownerRegistries.push(entryPath);
+        }
+      }
+    }
+    for (const registry of ownerRegistries) {
+      assert.deepEqual(fs.readdirSync(registry), []);
+    }
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
+test("SIGTERM is reported and cleans an in-flight command output", {
+  skip: process.platform === "win32",
+}, async () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-bake-sigterm-"));
+  const output = path.join(temporary, "responsive-output");
+  const cache = path.join(temporary, "cache");
+  const bundle = path.join(temporary, "builtin-assets");
+  const rendererRoot = path.join(temporary, "renderer");
+  const modulePath = path.join(rendererRoot, "engine-sim-offline.js");
+  const irDumper = path.join(temporary, "dump-ir-spectrum");
+  let child = null;
+  try {
+    assembleTestBundle(bundle, json(enginePath));
+    fs.mkdirSync(rendererRoot, { recursive: true });
+    fs.writeFileSync(
+      modulePath,
+      "export default async function(){" +
+        "await new Promise(()=>setInterval(()=>{},1000));}\n",
+    );
+    fs.writeFileSync(
+      path.join(rendererRoot, "engine-sim-offline.wasm"),
+      Buffer.from([0, 97, 115, 109]),
+    );
+    fs.writeFileSync(
+      irDumper,
+      "#!/bin/sh\n" +
+        "if [ \"$#\" -eq 0 ]; then\n" +
+        "  printf 'usage: dump-ir-spectrum fixture\\n' >&2\n" +
+        "  exit 2\n" +
+        "fi\n" +
+        "exit 1\n",
+      { mode: 0o755 },
+    );
+    fs.chmodSync(irDumper, 0o755);
+
+    child = spawn(process.execPath, [
+      path.join(here, "bake.mjs"),
+      "--engine", enginePath,
+      "--profile", path.join(here, "testdata/smoke-profile.json"),
+      "--output", output,
+      "--cache", cache,
+      "--builtin-assets", bundle,
+      "--module", modulePath,
+      "--ir-dumper", irDumper,
+      "--jobs", "2",
+    ], { stdio: ["ignore", "pipe", "pipe"] });
+    const stdoutChunks = [];
+    const stderrChunks = [];
+    child.stdout.on("data", (chunk) => stdoutChunks.push(chunk));
+    child.stderr.on("data", (chunk) => stderrChunks.push(chunk));
+    for (let attempt = 0; attempt < 400; ++attempt) {
+      const staged = fs.readdirSync(temporary).some((name) =>
+        name.startsWith(".responsive-output.staging-")
+      );
+      if (staged) break;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.equal(
+      fs.readdirSync(temporary).some((name) =>
+        name.startsWith(".responsive-output.staging-")
+      ),
+      true,
+      "responsive bake did not reach its staging transaction",
+    );
+    assert.equal(child.kill("SIGTERM"), true);
+    const result = await new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("close", (code, signal) => resolve({ code, signal }));
+    });
+    assert.deepEqual(result, { code: 75, signal: null });
+    assert.equal(Buffer.concat(stdoutChunks).toString("utf8"), "");
+    const stderrLines = Buffer.concat(stderrChunks).toString("utf8")
+      .trim().split("\n");
+    const failure = JSON.parse(stderrLines.at(-1));
+    assert.equal(failure.schema, RESPONSIVE_BAKE_FAILURE_SCHEMA);
+    assert.equal(failure.code, "terminated");
+    assert.equal(failure.exit_code, 75);
+    assert.equal(failure.retryable, true);
+    assert.equal(failure.signal, "SIGTERM");
+    assert.equal(fs.existsSync(output), false);
+    assert.deepEqual(
+      fs.readdirSync(temporary).filter((name) =>
+        name.startsWith(".responsive-output.staging-")
+      ),
+      [],
+    );
+  } finally {
+    if (child?.exitCode === null && child?.signalCode === null) {
+      child.kill("SIGKILL");
+    }
     fs.rmSync(temporary, { recursive: true, force: true });
   }
 });
