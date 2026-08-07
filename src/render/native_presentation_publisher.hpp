@@ -21,20 +21,29 @@ namespace engine_sim_offline::render_detail {
 
 inline constexpr std::size_t kNativePresentationArtifactsPerRoute = 3;
 inline constexpr std::size_t kNativePresentationMasterArtifactCount = 2;
+inline constexpr std::size_t kNativePresentationDiagnosticArtifactCount = 1;
 
 [[nodiscard]] constexpr bool
 native_presentation_artifact_count_representable(std::size_t route_count) noexcept {
     return route_count <= (std::numeric_limits<std::size_t>::max() -
-                           kNativePresentationMasterArtifactCount) /
+                           kNativePresentationMasterArtifactCount -
+                           kNativePresentationDiagnosticArtifactCount) /
                               kNativePresentationArtifactsPerRoute;
 }
 
 [[nodiscard]] constexpr std::size_t
-native_presentation_artifact_count(std::size_t route_count) noexcept {
+native_presentation_audio_artifact_count(std::size_t route_count) noexcept {
     return native_presentation_artifact_count_representable(route_count)
                ? route_count * kNativePresentationArtifactsPerRoute +
                      kNativePresentationMasterArtifactCount
                : 0U;
+}
+
+[[nodiscard]] constexpr std::size_t
+native_presentation_artifact_count(std::size_t route_count) noexcept {
+    const auto audio_count = native_presentation_audio_artifact_count(route_count);
+    return audio_count == 0U ? 0U
+                             : audio_count + kNativePresentationDiagnosticArtifactCount;
 }
 
 enum class NativePresentationTailPolicy : std::uint8_t {
@@ -58,8 +67,8 @@ struct NativePresentationRouteArtifacts {
     PendingArtifact selected;
 };
 
-// Publication binding for one already-produced active exhaust-source route. This owns no
-// source conditioning, random seed, convolution kernel, or wet-selection setting.
+// Publication binding for one already-produced active exhaust-source route. This owns
+// no source conditioning, random seed, convolution kernel, or wet-selection setting.
 struct NativePresentationRoutePublicationPlan {
     contract::RouteId route_id;
     std::string route_semantic_id;
@@ -92,7 +101,9 @@ struct NativePresentationAuditionPublicationPlan {
 struct NativePresentationPublicationPlan {
     contract::OutputContract output_contract;
     NativePresentationTimeline timeline;
+    contract::Sha256Digest simulation_request_identity_v7_sha256;
     presentation::PresentationMethodIdentities methods;
+    PendingArtifact telemetry_artifact;
     std::vector<NativePresentationRoutePublicationPlan> routes;
     NativePresentationAuditionPublicationPlan audition;
 };

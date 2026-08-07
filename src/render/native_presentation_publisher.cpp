@@ -1,6 +1,7 @@
 #include "render/native_presentation_publisher.hpp"
 
 #include "contract/sha256_stream.hpp"
+#include "engine_sim_offline/artifacts/engine_telemetry_ndjson_encoder.hpp"
 #include "engine_sim_offline/artifacts/wav_encoder.hpp"
 #include "presentation/mastering.hpp"
 
@@ -93,7 +94,7 @@ published_source_frame_count(const NativePresentationPublicationPlan &plan) {
 [[nodiscard]] std::vector<PendingArtifact>
 ordered_audio_artifacts(const NativePresentationPublicationPlan &plan) {
     std::vector<PendingArtifact> result;
-    result.reserve(native_presentation_artifact_count(plan.routes.size()));
+    result.reserve(native_presentation_audio_artifact_count(plan.routes.size()));
     for (const auto &route : plan.routes) {
         result.push_back(route.artifacts.dry);
         result.push_back(route.artifacts.configured_transfer);
@@ -188,6 +189,10 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
             "native presentation methods do not exactly match the executable "
             "implementation"};
     }
+    if (plan.simulation_request_identity_v7_sha256.is_zero()) {
+        throw std::invalid_argument{
+            "native presentation telemetry requires a request identity"};
+    }
 
     static_cast<void>(processed_source_frame_count(plan));
     static_cast<void>(pre_audible_source_frame_count(plan));
@@ -281,7 +286,8 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
             native_presentation_artifact_count(plan.routes.size())) {
         throw std::invalid_argument{
             "native presentation requires three artifacts per published exhaust-source "
-            "route and exactly two master buses and artifacts"};
+            "route, exactly two master buses and audio artifacts, and one fixed "
+            "diagnostic telemetry artifact"};
     }
 
     const auto raw_bus = std::ranges::find_if(
@@ -334,6 +340,29 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
                 "native presentation artifact media differs from the accepted "
                 "publisher"};
         }
+    }
+
+    const auto telemetry_requirement =
+        std::ranges::find(plan.output_contract.required_artifacts,
+                          artifacts::kEngineTelemetryNdjsonArtifactRoleV1,
+                          &contract::ArtifactRequirement::role);
+    const auto &telemetry = plan.telemetry_artifact;
+    if (telemetry_requirement == plan.output_contract.required_artifacts.end() ||
+        telemetry_requirement->kind != contract::ArtifactKind::telemetry ||
+        telemetry_requirement->audio.has_value() ||
+        !telemetry_requirement->diagnostic ||
+        telemetry.role != artifacts::kEngineTelemetryNdjsonArtifactRoleV1 ||
+        telemetry.kind != telemetry_requirement->kind ||
+        telemetry.relative_path != artifacts::kEngineTelemetryNdjsonRelativePathV1 ||
+        telemetry.audio != telemetry_requirement->audio ||
+        telemetry.diagnostic != telemetry_requirement->diagnostic ||
+        !roles.insert(telemetry.role).second ||
+        !paths.insert(telemetry.relative_path).second ||
+        roles.size() != native_presentation_artifact_count(plan.routes.size()) ||
+        paths.size() != roles.size()) {
+        throw std::invalid_argument{
+            "native presentation telemetry plan differs from its fixed output "
+            "contract"};
     }
 }
 
@@ -449,7 +478,7 @@ bind_session_buses(const EngineSessionDescriptor &session,
         session.total_block_count != plan.timeline.total_block_count ||
         session.preparation_block_count != plan.timeline.pre_audible_block_count ||
         session.audio_buses.size() !=
-            native_presentation_artifact_count(plan.routes.size())) {
+            native_presentation_audio_artifact_count(plan.routes.size())) {
         throw std::invalid_argument{
             "native presentation session descriptor differs from its publication "
             "timeline or fixed block contract"};
@@ -542,6 +571,21 @@ make_audition_wave_encoder(const NativePresentationPublicationPlan &plan,
     return std::get<artifacts::AuditionWaveEncoder>(std::move(result));
 }
 
+[[nodiscard]] artifacts::EngineTelemetryNdjsonEncoder
+make_telemetry_encoder(const EngineSessionDescriptor &session,
+                       const NativePresentationPublicationPlan &plan) {
+    auto result = artifacts::make_engine_telemetry_ndjson_encoder(
+        session, plan.simulation_request_identity_v7_sha256,
+        artifacts::kMaximumEngineTelemetryNdjsonChunkBytes);
+    if (const auto *error =
+            std::get_if<artifacts::EngineTelemetryNdjsonEncodingError>(&result)) {
+        throw std::logic_error{
+            "cannot construct native diagnostic telemetry encoder at " + error->path +
+            ": " + error->message};
+    }
+    return std::get<artifacts::EngineTelemetryNdjsonEncoder>(std::move(result));
+}
+
 struct PublicationScratch {
     std::array<std::int32_t, kSourceFramesPerBlock> pcm24{};
 };
@@ -581,6 +625,7 @@ class NativePresentationPublisher::Implementation final {
           control_(std::move(control)),
           encoders_(make_float_wave_encoders(audio_artifacts_, plan_.routes.size())),
           audition_(make_audition_wave_encoder(plan_, audio_artifacts_)),
+          telemetry_(make_telemetry_encoder(session, plan_)),
           fade_settings_(make_fade_settings(plan_)),
           observations_(audio_artifacts_.size()), consumers_(audio_artifacts_.size()) {
         try {
@@ -617,6 +662,9 @@ class NativePresentationPublisher::Implementation final {
 
         try {
             validate_block(block);
+            require_telemetry_success(
+                telemetry_.write_block(block, telemetry_consumer_),
+                "native diagnostic telemetry block emission failed");
 
             stats_.input_frame_count +=
                 static_cast<std::uint64_t>(block.physics_frame_count());
@@ -657,6 +705,13 @@ class NativePresentationPublisher::Implementation final {
 
         try {
             require_complete_schedule();
+            require_telemetry_success(
+                telemetry_.finish(telemetry_consumer_),
+                "native diagnostic telemetry finalization failed");
+            if (telemetry_.blocks_written() != plan_.timeline.total_block_count ||
+                telemetry_.bytes_emitted() != telemetry_observation_.byte_count) {
+                throw std::logic_error{"native diagnostic telemetry length changed"};
+            }
             for (std::size_t artifact_index = 0; artifact_index < encoders_.size();
                  ++artifact_index) {
                 require_encoding_success(
@@ -679,7 +734,18 @@ class NativePresentationPublisher::Implementation final {
             }
 
             std::vector<contract::ArtifactRecord> records;
-            records.reserve(audio_artifacts_.size());
+            records.reserve(audio_artifacts_.size() + 1U);
+            records.push_back({
+                plan_.telemetry_artifact.role,
+                plan_.telemetry_artifact.kind,
+                plan_.telemetry_artifact.relative_path,
+                plan_.telemetry_artifact.audio,
+                telemetry_observation_.byte_count,
+                telemetry_observation_.hash.finish(),
+                plan_.telemetry_artifact.diagnostic,
+            });
+            require_sink_success("could not seal native diagnostic telemetry",
+                                 sink_.seal_artifact(records.back()));
             for (std::size_t artifact_index = 0;
                  artifact_index < audio_artifacts_.size(); ++artifact_index) {
                 const auto &pending = audio_artifacts_[artifact_index];
@@ -787,6 +853,8 @@ class NativePresentationPublisher::Implementation final {
             require_sink_success("could not declare native presentation artifact",
                                  sink_.declare_artifact(pending));
         }
+        require_sink_success("could not declare native diagnostic telemetry",
+                             sink_.declare_artifact(plan_.telemetry_artifact));
         for (std::size_t artifact_index = 0; artifact_index < consumers_.size();
              ++artifact_index) {
             consumers_[artifact_index] =
@@ -795,10 +863,16 @@ class NativePresentationPublisher::Implementation final {
                 return consume_artifact_bytes(artifact_index, byte_offset, bytes);
             };
         }
+        telemetry_consumer_ = [this](std::uint64_t byte_offset,
+                                     std::span<const std::byte> bytes) -> bool {
+            return consume_telemetry_bytes(byte_offset, bytes);
+        };
 
         // Declarations are complete; every native WAVE byte and all
         // publication work follow this observation boundary.
         execution_observation_.emplace(require_execution_begin());
+        require_telemetry_success(telemetry_.begin(telemetry_consumer_),
+                                  "native diagnostic telemetry header emission failed");
         for (std::size_t artifact_index = 0; artifact_index < encoders_.size();
              ++artifact_index) {
             require_encoding_success(
@@ -978,6 +1052,30 @@ class NativePresentationPublisher::Implementation final {
         return true;
     }
 
+    [[nodiscard]] bool consume_telemetry_bytes(std::uint64_t byte_offset,
+                                               std::span<const std::byte> bytes) {
+        if (state_ != NativePresentationPublisherState::active ||
+            byte_offset != telemetry_observation_.byte_count ||
+            bytes.size() > std::numeric_limits<std::uint64_t>::max() -
+                               telemetry_observation_.byte_count) {
+            return false;
+        }
+        const auto status = sink_.write_artifact_chunk({
+            plan_.telemetry_artifact.role,
+            byte_offset,
+            bytes,
+        });
+        if (status.has_value()) {
+            if (!pending_sink_error_.has_value()) {
+                pending_sink_error_ = *status;
+            }
+            return false;
+        }
+        telemetry_observation_.hash.update(bytes);
+        telemetry_observation_.byte_count += static_cast<std::uint64_t>(bytes.size());
+        return true;
+    }
+
     void require_encoding_success(const WavEncodingStatus &status,
                                   std::string_view operation) const {
         if (pending_sink_error_.has_value()) {
@@ -986,6 +1084,29 @@ class NativePresentationPublisher::Implementation final {
         if (status.has_value()) {
             throw std::runtime_error{std::string(operation) + ": " + status->message};
         }
+    }
+
+    void require_telemetry_success(
+        const artifacts::EngineTelemetryNdjsonEncodingStatus &status,
+        std::string_view operation) const {
+        if (pending_sink_error_.has_value()) {
+            throw NativePresentationSinkFailure{operation, *pending_sink_error_};
+        }
+        if (!status.has_value()) {
+            return;
+        }
+        auto message = std::string(operation);
+        if (!status->path.empty()) {
+            message += " at ";
+            message += status->path;
+        }
+        message += ": ";
+        message += status->message;
+        if (status->code ==
+            artifacts::EngineTelemetryNdjsonEncodingErrorCode::non_finite_value) {
+            throw std::domain_error{std::move(message)};
+        }
+        throw std::runtime_error{std::move(message)};
     }
 
     void require_complete_schedule() const {
@@ -1025,10 +1146,13 @@ class NativePresentationPublisher::Implementation final {
     RenderControl control_;
     std::vector<WavEncoder> encoders_;
     artifacts::AuditionWaveEncoder audition_;
+    artifacts::EngineTelemetryNdjsonEncoder telemetry_;
     presentation::MasteringSettings fade_settings_;
     PublicationScratch scratch_;
     std::vector<ArtifactObservation> observations_;
     std::vector<artifacts::WavChunkConsumer> consumers_;
+    ArtifactObservation telemetry_observation_;
+    artifacts::EngineTelemetryNdjsonChunkConsumer telemetry_consumer_;
     std::optional<execution::LinuxExecutionFactsObservation> execution_observation_;
     NativePresentationPublicationStats stats_;
     std::optional<std::vector<contract::ArtifactRecord>> sealed_artifacts_;

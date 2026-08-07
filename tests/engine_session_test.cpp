@@ -115,11 +115,32 @@ require_session(const compile::CompiledScenario &scenario,
     return std::get<EngineSession>(std::move(result));
 }
 
+void require_event_counter_invariants(const EngineSessionBlockView &block,
+                                      const std::string_view context) {
+    const auto &events = block.event_counters();
+    const auto partitioned_event_count =
+        events.spark_crossing_count + events.limiter_transition_count +
+        events.ignition_accepted_count + events.ignition_rejected_active_flame_count +
+        events.ignition_rejected_no_fuel_count +
+        events.ignition_rejected_mixture_low_count +
+        events.ignition_rejected_mixture_high_count +
+        events.flame_extinguished_intake_transfer_count +
+        events.flame_extinguished_no_geometric_progress_count;
+    gate::expect(
+        partitioned_event_count == events.total_event_record_count &&
+            events.limiter_activation_count + events.limiter_release_count ==
+                events.limiter_transition_count &&
+            events.limiter_transition_overspeed_refreshed_count <=
+                events.limiter_transition_count,
+        std::string{context} +
+            " published event counters that do not losslessly partition the block");
+}
+
 [[nodiscard]] const EngineAudioBusBlockView &
 raw_master_bus(const EngineSessionBlockView &block) {
-    const auto found = std::ranges::find(
-        block.audio_buses(), EngineAudioBusKind::engine_raw_master,
-        [](const auto &bus) { return bus.descriptor.kind; });
+    const auto found =
+        std::ranges::find(block.audio_buses(), EngineAudioBusKind::engine_raw_master,
+                          [](const auto &bus) { return bus.descriptor.kind; });
     if (found == block.audio_buses().end()) {
         throw std::runtime_error{"session block has no raw master"};
     }
@@ -170,6 +191,7 @@ require_next_block(EngineSession &session, const std::string_view context) {
         throw std::runtime_error{std::string{context} +
                                  " completed before its expected block"};
     }
+    require_event_counter_invariants(*block, context);
     return *block;
 }
 
@@ -341,6 +363,7 @@ void run(const std::filesystem::path &repository_root) {
     bool observed_cranking = false;
     bool observed_ignition = false;
     bool observed_starter_release = false;
+    std::uint64_t starter_event_record_count = 0U;
     for (std::uint64_t block_index = 0; block_index < 75U; ++block_index) {
         auto result = starter_session.process_block();
         if (const auto *error = std::get_if<EngineSessionError>(&result)) {
@@ -350,6 +373,8 @@ void run(const std::filesystem::path &repository_root) {
         const auto *block = std::get_if<EngineSessionBlockView>(&result);
         gate::expect(block != nullptr && !block->telemetry().empty(),
                      "starter session completed before its crank/catch interval");
+        require_event_counter_invariants(*block, "starter session");
+        starter_event_record_count += block->event_counters().total_event_record_count;
         const auto &engine = block->telemetry().front().engine;
         observed_cranking = observed_cranking ||
                             (engine.starter_enabled && engine.engine_speed_rpm > 100.0);
@@ -361,9 +386,11 @@ void run(const std::filesystem::path &repository_root) {
             (!engine.starter_enabled && engine.ignition_enabled &&
              engine.engine_speed_rpm > 0.0);
     }
-    gate::expect(observed_cranking && observed_ignition && observed_starter_release,
+    gate::expect(observed_cranking && observed_ignition && observed_starter_release &&
+                     starter_event_record_count > 0U,
                  "crank/catch session did not crank, energize ignition, and release "
-                 "the starter while the engine remained rotating");
+                 "the starter with observable event evidence while the engine "
+                 "remained rotating");
 
     auto rejected_open_dyno =
         create_engine_session(scenario, EngineSessionExecutionKind::open_ended);
@@ -644,6 +671,8 @@ void run(const std::filesystem::path &repository_root) {
     std::uint64_t audible_blocks = 0;
     std::uint64_t audible_frames = 0;
     std::uint64_t completed_cycle_count = 0;
+    std::uint64_t event_record_count = 0;
+    std::uint64_t spark_crossing_count = 0;
     std::optional<std::int64_t> preceding_cycle_end_ordinal;
     while (true) {
         auto result = session.process_block();
@@ -663,6 +692,9 @@ void run(const std::filesystem::path &repository_root) {
         }
 
         const auto &block = std::get<EngineSessionBlockView>(result);
+        require_event_counter_invariants(block, "finite inertial-dyno session");
+        event_record_count += block.event_counters().total_event_record_count;
+        spark_crossing_count += block.event_counters().spark_crossing_count;
         gate::expect(
             block.block_ordinal() == preparation_blocks + audible_blocks &&
                 block.first_physics_frame() ==
@@ -705,7 +737,8 @@ void run(const std::filesystem::path &repository_root) {
         }
     }
     gate::expect(preparation_blocks == 322U && audible_blocks == 750U &&
-                     audible_frames == kAudibleFrames && completed_cycle_count > 0U,
+                     audible_frames == kAudibleFrames && completed_cycle_count > 0U &&
+                     event_record_count > 0U && spark_crossing_count > 0U,
                  "session preparation/audible partition changed");
 
     // Completion is stable and does not advance any clock.

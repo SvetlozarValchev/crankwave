@@ -3,6 +3,7 @@
 #include "compile/compiled_scenario_view.hpp"
 #include "presentation/presentation_audio_session.hpp"
 #include "session/control_timeline.hpp"
+#include "session/event_counters.hpp"
 #include "session/exact_cycle_evidence.hpp"
 #include "session/session_build.hpp"
 
@@ -333,13 +334,15 @@ EngineSessionBlockView::EngineSessionBlockView(
     const std::uint64_t first_delivery_frame, const std::uint32_t delivery_frame_count,
     const std::span<const EngineAudioBusBlockView> audio_buses,
     const std::span<const EngineTelemetryFrame> telemetry,
-    const std::span<const EngineCompletedCycleEvidence> cycle_evidence) noexcept
+    const std::span<const EngineCompletedCycleEvidence> cycle_evidence,
+    const EngineEventCounters event_counters) noexcept
     : block_ordinal_(block_ordinal), phase_(phase),
       first_physics_frame_(first_physics_frame),
       physics_frame_count_(physics_frame_count),
       first_delivery_frame_(first_delivery_frame),
       delivery_frame_count_(delivery_frame_count), audio_buses_(audio_buses),
-      telemetry_(telemetry), cycle_evidence_(cycle_evidence) {}
+      telemetry_(telemetry), cycle_evidence_(cycle_evidence),
+      event_counters_(event_counters) {}
 
 std::uint64_t EngineSessionBlockView::block_ordinal() const noexcept {
     return block_ordinal_;
@@ -378,6 +381,10 @@ EngineSessionBlockView::telemetry() const noexcept {
 std::span<const EngineCompletedCycleEvidence>
 EngineSessionBlockView::cycle_evidence() const noexcept {
     return cycle_evidence_;
+}
+
+const EngineEventCounters &EngineSessionBlockView::event_counters() const noexcept {
+    return event_counters_;
 }
 
 class EngineSession::Implementation final {
@@ -619,6 +626,7 @@ class EngineSession::Implementation final {
             std::optional<EngineSessionError> telemetry_failure;
             std::optional<session::ExactCycleEvidenceError> cycle_evidence_failure;
             std::optional<presentation::PresentationAudioBlockView> audio;
+            EngineEventCounters event_counters;
             completed_cycle_evidence_.clear();
             const simulation::detail::LowOrderLiveControlProvider live_controls{
                 &control_timeline_,
@@ -639,6 +647,14 @@ class EngineSession::Implementation final {
                     if (capture.frame_count() != physics_frames_per_block_ ||
                         capture.clock().first_sample_index != expected_first_physics ||
                         capture.engine().empty()) {
+                        return false;
+                    }
+                    if (!session::reduce_event_counters(
+                            capture.event_journal().events(), event_counters)) {
+                        telemetry_failure = processing_error(
+                            "session-event-counter-reduction-failed",
+                            "capture block contains an event that cannot be "
+                            "represented losslessly by EngineEventCounters v1");
                         return false;
                     }
                     if (auto error = cycle_evidence_accumulator_.consume(
@@ -808,6 +824,7 @@ class EngineSession::Implementation final {
                 audio_bus_views_,
                 telemetry_,
                 completed_cycle_evidence_,
+                event_counters,
             };
         } catch (const std::bad_alloc &) {
             return fail({

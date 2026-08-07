@@ -66,10 +66,21 @@ void expect_sink_failure(Function &&function, const RenderSinkError &expected,
     return result;
 }
 
+[[nodiscard]] contract::Sha256Digest digest(std::uint8_t first) {
+    contract::Sha256Digest result;
+    result.bytes.front() = first;
+    return result;
+}
+
 class CapturingSink final : public RenderSink {
   public:
     bool reject_begin = false;
+    std::optional<RenderSinkError> next_declare_error;
+    std::optional<std::string> next_declare_error_role;
     std::optional<RenderSinkError> next_write_error;
+    std::optional<std::string> next_write_error_role;
+    std::optional<RenderSinkError> next_seal_error;
+    std::optional<std::string> next_seal_error_role;
 
     std::size_t begin_calls = 0;
     std::size_t commit_calls = 0;
@@ -93,6 +104,14 @@ class CapturingSink final : public RenderSink {
 
     [[nodiscard]] RenderSinkStatus
     declare_artifact(const PendingArtifact &artifact) override {
+        if (next_declare_error.has_value() &&
+            (!next_declare_error_role.has_value() ||
+             *next_declare_error_role == artifact.role)) {
+            auto error = std::move(next_declare_error);
+            next_declare_error.reset();
+            next_declare_error_role.reset();
+            return error;
+        }
         declarations.push_back(artifact);
         payloads.try_emplace(artifact.role);
         return std::nullopt;
@@ -100,9 +119,11 @@ class CapturingSink final : public RenderSink {
 
     [[nodiscard]] RenderSinkStatus
     write_artifact_chunk(const ArtifactChunk &chunk) override {
-        if (next_write_error.has_value()) {
+        if (next_write_error.has_value() && (!next_write_error_role.has_value() ||
+                                             *next_write_error_role == chunk.role)) {
             auto error = std::move(next_write_error);
             next_write_error.reset();
+            next_write_error_role.reset();
             return error;
         }
         const auto found = payloads.find(std::string{chunk.role});
@@ -120,6 +141,13 @@ class CapturingSink final : public RenderSink {
 
     [[nodiscard]] RenderSinkStatus
     seal_artifact(const contract::ArtifactRecord &record) override {
+        if (next_seal_error.has_value() && (!next_seal_error_role.has_value() ||
+                                            *next_seal_error_role == record.role)) {
+            auto error = std::move(next_seal_error);
+            next_seal_error.reset();
+            next_seal_error_role.reset();
+            return error;
+        }
         seals.push_back(record);
         return std::nullopt;
     }
@@ -187,8 +215,7 @@ struct OwnedAsset {
         require(authoring::parse_scenario_document(read_text(scenario_path)),
                 "publisher fixture scenario parse failed");
     if (audition_volume_linear.has_value()) {
-        engine_document.presentation.audition.volume_linear =
-            *audition_volume_linear;
+        engine_document.presentation.audition.volume_linear = *audition_volume_linear;
     }
 
     const auto *inertial =
@@ -392,6 +419,19 @@ make_plan(const EngineSessionDescriptor &session) {
         require_master_bus(session, EngineAudioBusKind::engine_audition_master);
     auto raw = pending("test.native-publisher.master.raw", float_audio);
     auto audition = pending("test.native-publisher.master.audition", audition_audio);
+    PendingArtifact telemetry{
+        "diagnostics.engine-telemetry.v1",
+        contract::ArtifactKind::telemetry,
+        "telemetry/engine-telemetry.v1.ndjson",
+        std::nullopt,
+        true,
+    };
+    output.required_artifacts.push_back({
+        telemetry.role,
+        telemetry.kind,
+        telemetry.audio,
+        telemetry.diagnostic,
+    });
     output.required_output_buses = {
         {
             std::string{raw_descriptor.id},
@@ -414,7 +454,9 @@ make_plan(const EngineSessionDescriptor &session) {
             session.preparation_block_count,
             NativePresentationTailPolicy::truncate_at_timeline_end,
         },
+        digest(91),
         presentation::implemented_presentation_method_identities(),
+        std::move(telemetry),
         std::move(routes),
         {
             std::move(route_ids),
@@ -438,6 +480,10 @@ struct PublicationResult {
     NativePresentationPublicationStats stats;
     std::vector<contract::ArtifactRecord> records;
     std::map<std::string, std::vector<std::byte>> payloads;
+    std::uint64_t observed_block_count = 0;
+    std::uint64_t observed_preparation_block_count = 0;
+    std::uint64_t observed_audible_block_count = 0;
+    std::uint64_t observed_cycle_count = 0;
 };
 
 [[nodiscard]] PublicationResult
@@ -461,7 +507,15 @@ publish_complete_session(const compile::CompiledScenario &scenario) {
             if (std::holds_alternative<EngineSessionCompleted>(next)) {
                 break;
             }
-            publisher.process(std::get<EngineSessionBlockView>(next));
+            const auto &block = std::get<EngineSessionBlockView>(next);
+            ++result.observed_block_count;
+            if (block.phase() == EngineSessionBlockPhase::preparation) {
+                ++result.observed_preparation_block_count;
+            } else {
+                ++result.observed_audible_block_count;
+            }
+            result.observed_cycle_count += block.cycle_evidence().size();
+            publisher.process(block);
         }
         auto evidence = publisher.finish();
         result.stats = evidence.stats();
@@ -475,8 +529,24 @@ publish_complete_session(const compile::CompiledScenario &scenario) {
     return result;
 }
 
+[[nodiscard]] std::size_t
+count_ndjson_record_type(const std::vector<std::byte> &payload,
+                         std::string_view record_type) {
+    const std::string text{reinterpret_cast<const char *>(payload.data()),
+                           payload.size()};
+    const auto needle = "{\"record_type\":\"" + std::string{record_type} + "\"";
+    std::size_t count = 0;
+    std::size_t position = 0;
+    while ((position = text.find(needle, position)) != std::string::npos) {
+        ++count;
+        position += needle.size();
+    }
+    return count;
+}
+
 void test_public_session_byte_golden(const compile::CompiledScenario &scenario) {
     const auto published = publish_complete_session(scenario);
+    const auto repeated = publish_complete_session(scenario);
     expect(published.stats ==
                NativePresentationPublicationStats{
                    7200U,
@@ -489,7 +559,7 @@ void test_public_session_byte_golden(const compile::CompiledScenario &scenario) 
                    0U,
                },
            "native publisher short-session timeline accounting changed");
-    expect(published.records.size() == 8U && published.payloads.size() == 8U,
+    expect(published.records.size() == 9U && published.payloads.size() == 9U,
            "native publisher emitted the wrong artifact set");
 
     // These hashes freeze the complete WAVE payloads produced by the short,
@@ -506,11 +576,14 @@ void test_public_session_byte_golden(const compile::CompiledScenario &scenario) 
         "a8a94537a531645a93c445ba80b0acb38fda437dc92424047023bac35fc117d6",
     };
     std::vector<std::string> actual_sha256;
-    actual_sha256.reserve(published.records.size());
+    actual_sha256.reserve(kExpectedSha256.size());
     for (const auto &record : published.records) {
-        actual_sha256.push_back(digest_hex(record.payload_sha256));
+        if (record.kind == contract::ArtifactKind::audio) {
+            actual_sha256.push_back(digest_hex(record.payload_sha256));
+        }
     }
-    if (!std::equal(actual_sha256.begin(), actual_sha256.end(),
+    if (actual_sha256.size() != kExpectedSha256.size() ||
+        !std::equal(actual_sha256.begin(), actual_sha256.end(),
                     kExpectedSha256.begin())) {
         std::string message{"native publisher WAVE golden set changed:"};
         for (const auto &actual : actual_sha256) {
@@ -518,6 +591,42 @@ void test_public_session_byte_golden(const compile::CompiledScenario &scenario) 
         }
         throw std::runtime_error{std::move(message)};
     }
+    const auto telemetry_record = std::ranges::find(
+        published.records, std::string_view{"diagnostics.engine-telemetry.v1"},
+        &contract::ArtifactRecord::role);
+    expect(telemetry_record != published.records.end(),
+           "native publisher telemetry record is absent");
+    const auto &telemetry = *telemetry_record;
+    const auto payload = published.payloads.find(telemetry.role);
+    expect(telemetry.role == "diagnostics.engine-telemetry.v1" &&
+               telemetry.kind == contract::ArtifactKind::telemetry &&
+               telemetry.relative_path == "telemetry/engine-telemetry.v1.ndjson" &&
+               !telemetry.audio.has_value() && telemetry.diagnostic &&
+               payload != published.payloads.end() && !payload->second.empty() &&
+               telemetry.byte_count == payload->second.size() &&
+               telemetry.payload_sha256 ==
+                   contract::sha256(std::span<const std::byte>{payload->second}),
+           "native publisher did not bind its required telemetry payload");
+    expect(count_ndjson_record_type(payload->second, "header") == 1U &&
+               count_ndjson_record_type(payload->second, "block") ==
+                   published.observed_block_count &&
+               count_ndjson_record_type(payload->second, "cycle") ==
+                   published.observed_cycle_count &&
+               count_ndjson_record_type(payload->second, "footer") == 1U &&
+               published.observed_preparation_block_count == 16U &&
+               published.observed_audible_block_count == 2U,
+           "native publisher telemetry record inventory differs from the session");
+    const auto repeated_telemetry_record = std::ranges::find(
+        repeated.records, std::string_view{"diagnostics.engine-telemetry.v1"},
+        &contract::ArtifactRecord::role);
+    const auto repeated_payload =
+        repeated.payloads.find("diagnostics.engine-telemetry.v1");
+    expect(repeated_telemetry_record != repeated.records.end() &&
+               repeated_payload != repeated.payloads.end() &&
+               repeated_payload->second == payload->second &&
+               repeated_telemetry_record->byte_count == telemetry.byte_count &&
+               repeated_telemetry_record->payload_sha256 == telemetry.payload_sha256,
+           "identical real sessions produced different telemetry bytes or hashes");
 }
 
 void test_prebinding_and_transaction_failures(
@@ -642,6 +751,174 @@ void test_prebinding_and_transaction_failures(
         auto session = require_session(scenario);
         const auto descriptor = session.descriptor();
         CapturingSink sink;
+        const RenderSinkError telemetry_declare_error{
+            RenderSinkErrorKind::publication_failure,
+            "injected-telemetry-declare",
+            "injected telemetry declaration failure",
+        };
+        sink.next_declare_error = telemetry_declare_error;
+        sink.next_declare_error_role = "diagnostics.engine-telemetry.v1";
+        expect_sink_failure(
+            [&] {
+                NativePresentationPublisher publisher{
+                    sink,
+                    descriptor,
+                    make_plan(descriptor),
+                };
+            },
+            telemetry_declare_error,
+            "native publisher accepted a failed telemetry declaration");
+        expect(sink.begin_calls == 1U && sink.abort_calls == 1U &&
+                   std::ranges::all_of(
+                       sink.payloads,
+                       [](const auto &entry) { return entry.second.empty(); }) &&
+                   sink.seals.empty() && sink.commit_calls == 0U,
+               "failed telemetry declaration did not abort before payloads");
+    }
+
+    {
+        auto session = require_session(scenario);
+        const auto descriptor = session.descriptor();
+        CapturingSink sink;
+        const RenderSinkError telemetry_error{
+            RenderSinkErrorKind::publication_failure,
+            "injected-telemetry-header",
+            "injected telemetry header failure",
+        };
+        sink.next_write_error = telemetry_error;
+        sink.next_write_error_role = "diagnostics.engine-telemetry.v1";
+        expect_sink_failure(
+            [&] {
+                NativePresentationPublisher publisher{
+                    sink,
+                    descriptor,
+                    make_plan(descriptor),
+                };
+            },
+            telemetry_error,
+            "native publisher accepted a failed telemetry header write");
+        expect(sink.begin_calls == 1U && sink.abort_calls == 1U && sink.seals.empty() &&
+                   sink.commit_calls == 0U,
+               "failed telemetry header did not abort the whole transaction");
+    }
+
+    {
+        auto session = require_session(scenario);
+        const auto descriptor = session.descriptor();
+        CapturingSink sink;
+        NativePresentationPublisher publisher{
+            sink,
+            descriptor,
+            make_plan(descriptor),
+        };
+        const auto telemetry_payload =
+            sink.payloads.find("diagnostics.engine-telemetry.v1");
+        expect(telemetry_payload != sink.payloads.end() &&
+                   !telemetry_payload->second.empty(),
+               "native publisher did not stream telemetry header at begin");
+        const RenderSinkError telemetry_block_error{
+            RenderSinkErrorKind::publication_failure,
+            "injected-telemetry-block",
+            "injected telemetry block failure",
+        };
+        sink.next_write_error = telemetry_block_error;
+        sink.next_write_error_role = "diagnostics.engine-telemetry.v1";
+        auto next = session.process_block();
+        if (const auto *error = std::get_if<EngineSessionError>(&next)) {
+            throw std::runtime_error{
+                "telemetry block failure fixture session failed: " +
+                session_error_text(*error)};
+        }
+        expect(!std::holds_alternative<EngineSessionCompleted>(next),
+               "telemetry block failure fixture completed before one block");
+        expect_sink_failure(
+            [&] { publisher.process(std::get<EngineSessionBlockView>(next)); },
+            telemetry_block_error,
+            "native publisher accepted a failed telemetry block write");
+        expect(publisher.state() == NativePresentationPublisherState::aborted &&
+                   sink.abort_calls == 1U && sink.seals.empty() &&
+                   sink.commit_calls == 0U,
+               "failed telemetry block did not abort before any artifact seal");
+    }
+
+    {
+        auto session = require_session(scenario);
+        const auto descriptor = session.descriptor();
+        CapturingSink sink;
+        NativePresentationPublisher publisher{
+            sink,
+            descriptor,
+            make_plan(descriptor),
+        };
+        while (true) {
+            auto next = session.process_block();
+            if (const auto *error = std::get_if<EngineSessionError>(&next)) {
+                throw std::runtime_error{
+                    "telemetry footer failure fixture session failed: " +
+                    session_error_text(*error)};
+            }
+            if (std::holds_alternative<EngineSessionCompleted>(next)) {
+                break;
+            }
+            publisher.process(std::get<EngineSessionBlockView>(next));
+        }
+        const RenderSinkError telemetry_footer_error{
+            RenderSinkErrorKind::publication_failure,
+            "injected-telemetry-footer",
+            "injected telemetry footer failure",
+        };
+        sink.next_write_error = telemetry_footer_error;
+        sink.next_write_error_role = "diagnostics.engine-telemetry.v1";
+        expect_sink_failure(
+            [&] { static_cast<void>(publisher.finish()); }, telemetry_footer_error,
+            "native publisher accepted a failed telemetry footer write");
+        expect(publisher.state() == NativePresentationPublisherState::aborted &&
+                   sink.abort_calls == 1U && sink.seals.empty() &&
+                   sink.commit_calls == 0U,
+               "failed telemetry footer did not abort before any artifact seal");
+    }
+
+    {
+        auto session = require_session(scenario);
+        const auto descriptor = session.descriptor();
+        CapturingSink sink;
+        NativePresentationPublisher publisher{
+            sink,
+            descriptor,
+            make_plan(descriptor),
+        };
+        while (true) {
+            auto next = session.process_block();
+            if (const auto *error = std::get_if<EngineSessionError>(&next)) {
+                throw std::runtime_error{
+                    "telemetry seal failure fixture session failed: " +
+                    session_error_text(*error)};
+            }
+            if (std::holds_alternative<EngineSessionCompleted>(next)) {
+                break;
+            }
+            publisher.process(std::get<EngineSessionBlockView>(next));
+        }
+        const RenderSinkError telemetry_seal_error{
+            RenderSinkErrorKind::publication_failure,
+            "injected-telemetry-seal",
+            "injected telemetry seal failure",
+        };
+        sink.next_seal_error = telemetry_seal_error;
+        sink.next_seal_error_role = "diagnostics.engine-telemetry.v1";
+        expect_sink_failure([&] { static_cast<void>(publisher.finish()); },
+                            telemetry_seal_error,
+                            "native publisher accepted a failed telemetry seal");
+        expect(publisher.state() == NativePresentationPublisherState::aborted &&
+                   sink.abort_calls == 1U && sink.seals.empty() &&
+                   sink.commit_calls == 0U,
+               "failed telemetry seal allowed an audio artifact seal or commit");
+    }
+
+    {
+        auto session = require_session(scenario);
+        const auto descriptor = session.descriptor();
+        CapturingSink sink;
         NativePresentationPublisher publisher{
             sink,
             descriptor,
@@ -653,6 +930,9 @@ void test_prebinding_and_transaction_failures(
             "injected payload failure",
         };
         sink.next_write_error = payload_error;
+        expect(!sink.declarations.empty(),
+               "payload failure fixture has no audio declaration");
+        sink.next_write_error_role = sink.declarations.front().role;
         while (true) {
             auto next = session.process_block();
             if (const auto *error = std::get_if<EngineSessionError>(&next)) {

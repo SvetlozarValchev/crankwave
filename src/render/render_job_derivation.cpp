@@ -1,5 +1,7 @@
 #include "render/render_job_derivation.hpp"
 
+#include "engine_sim_offline/artifacts/engine_telemetry_ndjson_encoder.hpp"
+
 #include <algorithm>
 #include <array>
 #include <limits>
@@ -15,14 +17,17 @@ namespace {
 constexpr std::size_t kMaximumPortableRelativePathBytes = 240;
 constexpr std::size_t kArtifactsPerRoute = 3;
 constexpr std::size_t kMasterArtifactCount = 2;
+constexpr std::size_t kFixedDiagnosticArtifactCount = 1;
 
 [[nodiscard]] std::optional<std::size_t>
 presentation_artifact_count(std::size_t route_count) noexcept {
-    if (route_count > (std::numeric_limits<std::size_t>::max() - kMasterArtifactCount) /
+    constexpr auto fixed_artifact_count =
+        kMasterArtifactCount + kFixedDiagnosticArtifactCount;
+    if (route_count > (std::numeric_limits<std::size_t>::max() - fixed_artifact_count) /
                           kArtifactsPerRoute) {
         return std::nullopt;
     }
-    return route_count * kArtifactsPerRoute + kMasterArtifactCount;
+    return route_count * kArtifactsPerRoute + fixed_artifact_count;
 }
 
 [[nodiscard]] RenderJobDerivationError error(RenderJobDerivationErrorCode code,
@@ -57,8 +62,8 @@ find_artifact(const contract::OutputContract &output, std::string_view role) {
 using PendingArtifactResult = std::variant<PendingArtifact, RenderJobDerivationError>;
 
 [[nodiscard]] PendingArtifactResult
-project_artifact(const contract::OutputContract &output, std::string_view role,
-                 std::string path) {
+project_audio_artifact(const contract::OutputContract &output, std::string_view role,
+                       std::string path) {
     const auto *required = find_artifact(output, role);
     if (required == nullptr || required->kind != contract::ArtifactKind::audio ||
         !required->audio.has_value()) {
@@ -76,6 +81,26 @@ project_artifact(const contract::OutputContract &output, std::string_view role,
         required->kind,
         std::get<std::string>(std::move(relative_path)),
         required->audio,
+        required->diagnostic,
+    };
+}
+
+[[nodiscard]] PendingArtifactResult
+project_telemetry_artifact(const contract::OutputContract &output) {
+    const auto *required =
+        find_artifact(output, artifacts::kEngineTelemetryNdjsonArtifactRoleV1);
+    if (required == nullptr || required->kind != contract::ArtifactKind::telemetry ||
+        required->audio.has_value() || !required->diagnostic) {
+        return error(RenderJobDerivationErrorCode::artifact_projection_failed,
+                     "source_matrix.required_artifacts",
+                     "the native renderer requires its fixed diagnostic telemetry "
+                     "artifact");
+    }
+    return PendingArtifact{
+        required->role,
+        required->kind,
+        std::string{artifacts::kEngineTelemetryNdjsonRelativePathV1},
+        std::nullopt,
         required->diagnostic,
     };
 }
@@ -165,12 +190,19 @@ RenderJobProjectionResult derive_render_job_projection(
         return error(RenderJobDerivationErrorCode::route_projection_failed,
                      "source_matrix",
                      "the admitted presentation job requires three artifacts per "
-                     "published exhaust-source route and two master artifacts");
+                     "published exhaust-source route, two master audio artifacts, "
+                     "and one fixed diagnostic telemetry artifact");
     }
 
     projection.routes.reserve(calibration.route_count());
     projection.route_artifacts.resize(calibration.route_count());
     std::unordered_set<std::string> projected_roles;
+    auto telemetry = project_telemetry_artifact(projection.output_contract);
+    if (auto *projection_error = std::get_if<RenderJobDerivationError>(&telemetry)) {
+        return std::move(*projection_error);
+    }
+    projection.telemetry_artifact = std::get<PendingArtifact>(std::move(telemetry));
+    projected_roles.insert(projection.telemetry_artifact.role);
     for (std::size_t route_index = 0; route_index < calibration.route_count();
          ++route_index) {
         const auto route_id = calibration.routes()[route_index].route_id();
@@ -214,9 +246,9 @@ RenderJobProjectionResult derive_render_job_projection(
                              "source_matrix.required_source_routes.artifact_roles",
                              "one audio artifact role was projected more than once");
             }
-            auto pending =
-                project_artifact(projection.output_contract, role,
-                                 "source_matrix.required_source_routes.artifact_roles");
+            auto pending = project_audio_artifact(
+                projection.output_contract, role,
+                "source_matrix.required_source_routes.artifact_roles");
             if (auto *projection_error =
                     std::get_if<RenderJobDerivationError>(&pending)) {
                 return std::move(*projection_error);
@@ -266,9 +298,9 @@ RenderJobProjectionResult derive_render_job_projection(
                      "master artifact");
     }
 
-    auto raw =
-        project_artifact(projection.output_contract, raw_bus->artifact_roles.front(),
-                         "source_matrix.required_output_buses.raw");
+    auto raw = project_audio_artifact(projection.output_contract,
+                                      raw_bus->artifact_roles.front(),
+                                      "source_matrix.required_output_buses.raw");
     if (auto *projection_error = std::get_if<RenderJobDerivationError>(&raw)) {
         return std::move(*projection_error);
     }
@@ -279,9 +311,9 @@ RenderJobProjectionResult derive_render_job_projection(
                      "raw master artifact role aliases a route artifact");
     }
 
-    auto audition = project_artifact(projection.output_contract,
-                                     audition_bus->artifact_roles.front(),
-                                     "source_matrix.required_output_buses.audition");
+    auto audition = project_audio_artifact(
+        projection.output_contract, audition_bus->artifact_roles.front(),
+        "source_matrix.required_output_buses.audition");
     if (auto *projection_error = std::get_if<RenderJobDerivationError>(&audition)) {
         return std::move(*projection_error);
     }

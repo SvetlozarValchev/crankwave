@@ -325,6 +325,7 @@ add_library(
         src/artifacts/directory_render_sink.cpp
         src/artifacts/directory_render_sink_commit.cpp
         src/artifacts/directory_render_sink_lifecycle.cpp
+        src/artifacts/engine_telemetry_ndjson_encoder.cpp
         src/artifacts/audition_wav_encoder.cpp
         src/artifacts/manifest_encoder.cpp
         src/artifacts/manifest_encoder_output.cpp
@@ -486,6 +487,13 @@ target_link_libraries(
         engine_sim_offline::simulation
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_session)
+
+# The canonical diagnostic telemetry encoder consumes the public, callback-scoped
+# EngineSessionBlockView. Keep that dependency explicit for static-library users.
+target_link_libraries(
+    engine_sim_offline_artifacts
+    PRIVATE engine_sim_offline::session
+)
 
 add_library(
     engine_sim_offline_c_api

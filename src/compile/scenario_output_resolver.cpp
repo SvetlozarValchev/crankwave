@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -135,6 +136,16 @@ contract::SourceMatrixContract ScenarioResolver::build_source_matrix() {
         "mono",
         "float32le",
     };
+
+    // This is a renderer-owned diagnostic product, not an authored telemetry
+    // selection. Every finite native render publishes the same bounded telemetry
+    // contract while authored output.telemetry_channels remains unsupported.
+    matrix.required_artifacts.push_back({
+        "diagnostics.engine-telemetry.v1",
+        contract::ArtifactKind::telemetry,
+        std::nullopt,
+        true,
+    });
 
     for (const auto route_id : request_input_.published_route_ids) {
         const auto *route = find_route(route_id);

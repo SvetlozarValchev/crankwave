@@ -37,6 +37,7 @@ using AuditionMetadataResult =
 
 struct RenderJobProjection {
     contract::OutputContract output_contract;
+    PendingArtifact telemetry_artifact;
     std::vector<NativePresentationRouteArtifacts> route_artifacts;
     PendingArtifact raw_master_artifact;
     PendingArtifact audition_master_artifact;

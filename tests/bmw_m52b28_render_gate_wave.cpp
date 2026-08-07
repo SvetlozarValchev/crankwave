@@ -1,5 +1,7 @@
 #include "bmw_m52b28_render_gate_support.hpp"
 
+#include "engine_sim_offline/artifacts/engine_telemetry_ndjson_encoder.hpp"
+
 #include <algorithm>
 #include <array>
 #include <ranges>
@@ -17,6 +19,9 @@ constexpr std::string_view kAcceptedExhaustOnlyMasterV4Pcm24Sha256 =
     "52fef731caf12b9a6353e0ed3a928039db74277193d99847b244f852edebf01f";
 constexpr std::uint64_t kAcceptedPcm24ByteCount = UINT64_C(8640000);
 constexpr std::uint64_t kAudibleFrameCount = UINT64_C(2880000);
+constexpr std::uint64_t kPreparationBlockCount = UINT64_C(322);
+constexpr std::uint64_t kAudibleBlockCount = UINT64_C(750);
+constexpr std::uint64_t kTotalBlockCount = kPreparationBlockCount + kAudibleBlockCount;
 
 [[nodiscard]] std::uint32_t read_u32le(const std::span<const std::byte> bytes,
                                        const std::size_t offset) {
@@ -120,7 +125,7 @@ struct ArtifactExpectation {
     bool diagnostic = false;
 };
 
-constexpr std::array<ArtifactExpectation, 8U> kArtifacts{{
+constexpr std::array<ArtifactExpectation, 8U> kAudioArtifacts{{
     {"exhaust.reference.0.dry", "float32le", true},
     {"exhaust.reference.0.configured_transfer", "float32le", true},
     {"exhaust.reference.0.selected", "float32le", false},
@@ -131,13 +136,31 @@ constexpr std::array<ArtifactExpectation, 8U> kArtifacts{{
     {"master.engine.audition", "pcm_s24le", false},
 }};
 
+inline constexpr std::size_t kArtifactCount = kAudioArtifacts.size() + 1U;
+
+[[nodiscard]] std::size_t
+count_ndjson_record_type(const std::vector<std::byte> &payload,
+                         std::string_view record_type) {
+    const std::string text{reinterpret_cast<const char *>(payload.data()),
+                           payload.size()};
+    const auto needle = "{\"record_type\":\"" + std::string{record_type} + "\"";
+    std::size_t count = 0;
+    std::size_t position = 0;
+    while ((position = text.find(needle, position)) != std::string::npos) {
+        ++count;
+        position += needle.size();
+    }
+    return count;
+}
+
 void expect_exact_artifacts(const contract::RenderManifestContent &content,
                             const VerifyingMemorySink &sink) {
-    expect(sink.artifacts.size() == kArtifacts.size() &&
-               sink.seals.size() == kArtifacts.size() &&
-               content.artifacts.size() == kArtifacts.size(),
-           "generic render did not publish exactly eight audio artifacts");
-    for (const auto &expected : kArtifacts) {
+    expect(sink.artifacts.size() == kArtifactCount &&
+               sink.seals.size() == kArtifactCount &&
+               content.artifacts.size() == kArtifactCount,
+           "generic render did not publish eight audio artifacts and required "
+           "telemetry");
+    for (const auto &expected : kAudioArtifacts) {
         const auto &artifact = sink.at(expected.role);
         expect(artifact.record.has_value(), "generic artifact was not sealed");
         const auto &record = *artifact.record;
@@ -161,6 +184,29 @@ void expect_exact_artifacts(const contract::RenderManifestContent &content,
                    artifact.declaration.diagnostic == record.diagnostic,
                "generic artifact declaration differed from its manifest record");
     }
+
+    const auto &telemetry = sink.at(artifacts::kEngineTelemetryNdjsonArtifactRoleV1);
+    expect(telemetry.record.has_value(), "generic diagnostic telemetry was not sealed");
+    const auto &record = *telemetry.record;
+    expect(record.role == artifacts::kEngineTelemetryNdjsonArtifactRoleV1 &&
+               record.kind == contract::ArtifactKind::telemetry &&
+               record.relative_path ==
+                   artifacts::kEngineTelemetryNdjsonRelativePathV1 &&
+               !record.audio.has_value() && record.diagnostic &&
+               telemetry.declaration.role == record.role &&
+               telemetry.declaration.kind == record.kind &&
+               telemetry.declaration.relative_path == record.relative_path &&
+               telemetry.declaration.audio == record.audio &&
+               telemetry.declaration.diagnostic == record.diagnostic &&
+               record.byte_count == telemetry.bytes.size() &&
+               record.payload_sha256 == contract::sha256(telemetry.bytes),
+           "generic telemetry declaration, bytes, or manifest record changed");
+    expect(!telemetry.bytes.empty() && telemetry.bytes.back() == std::byte{'\n'} &&
+               count_ndjson_record_type(telemetry.bytes, "header") == 1U &&
+               count_ndjson_record_type(telemetry.bytes, "block") == kTotalBlockCount &&
+               count_ndjson_record_type(telemetry.bytes, "cycle") > 0U &&
+               count_ndjson_record_type(telemetry.bytes, "footer") == 1U,
+           "generic telemetry record inventory changed");
 }
 
 void expect_exact_manifest(const contract::RenderSuccess &success,
@@ -252,8 +298,8 @@ RenderIdentityObservation
 verify_render_success(const contract::RenderSuccess &success,
                       const VerifyingMemorySink &sink,
                       const std::span<const std::byte> canonical_oracle_wave) {
-    expect(sink.begin_calls == 1U && sink.declaration_calls == kArtifacts.size() &&
-               sink.write_calls > 0U && sink.seal_calls == kArtifacts.size() &&
+    expect(sink.begin_calls == 1U && sink.declaration_calls == kArtifactCount &&
+               sink.write_calls > 0U && sink.seal_calls == kArtifactCount &&
                sink.commit_calls == 1U && sink.abort_calls == 0U,
            "successful generic render violated sink transaction cardinality");
     expect(!success.reached_target.has_value() &&

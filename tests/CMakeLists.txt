@@ -305,6 +305,26 @@ add_test(
     COMMAND engine_sim_offline_compiler_integration_tests
 )
 
+add_executable(
+    engine_sim_offline_session_event_counters_tests
+    session_event_counters_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_session_event_counters_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_session_event_counters_tests
+    PRIVATE engine_sim_offline::session
+)
+
+add_test(
+    NAME session.event_counters
+    COMMAND engine_sim_offline_session_event_counters_tests
+)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(
         engine_sim_offline_engine_session_tests
@@ -649,6 +669,24 @@ engine_sim_offline_enable_renderer_numeric_policy(
 add_test(
     NAME render.job_derivation
     COMMAND engine_sim_offline_render_job_derivation_tests
+)
+
+add_executable(
+    engine_sim_offline_engine_telemetry_ndjson_encoder_tests
+    engine_telemetry_ndjson_encoder_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_engine_telemetry_ndjson_encoder_tests
+    PRIVATE engine_sim_offline::artifacts
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_engine_telemetry_ndjson_encoder_tests
+)
+
+add_test(
+    NAME artifacts.engine_telemetry_ndjson
+    COMMAND engine_sim_offline_engine_telemetry_ndjson_encoder_tests
 )
 
 add_executable(

@@ -3,6 +3,8 @@
 #include "render/render_job_derivation.hpp"
 #include "render/render_request.hpp"
 
+#include "engine_sim_offline/request_identity.hpp"
+
 #include <utility>
 #include <vector>
 
@@ -22,6 +24,20 @@ NativeBakePlanResult derive_native_bake_plan(
         };
     }
     auto projection = std::get<RenderJobProjection>(std::move(projection_result));
+
+    auto request_identity_result = identity::encode_simulation_request_identity_v7(
+        request.resolved_inputs.engine, request.resolved_inputs.scenario, random_plan,
+        request.provenance.bundle);
+    if (const auto *error = std::get_if<identity::SimulationRequestIdentityError>(
+            &request_identity_result)) {
+        return NativeBakePlanError{
+            error->detail_code,
+            "native bake telemetry request identity could not be encoded: " +
+                error->message,
+        };
+    }
+    const auto request_identity = std::get<identity::SimulationRequestIdentityEncoding>(
+        std::move(request_identity_result));
 
     std::vector<NativePresentationRoutePublicationPlan> routes;
     routes.reserve(calibration.route_count());
@@ -46,7 +62,9 @@ NativeBakePlanResult derive_native_bake_plan(
             calibration.pre_audible_block_count(),
             NativePresentationTailPolicy::truncate_at_timeline_end,
         },
+        request_identity.sha256,
         calibration.methods(),
+        std::move(projection.telemetry_artifact),
         std::move(routes),
         {
             std::move(audition_route_ids),

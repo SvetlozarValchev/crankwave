@@ -183,8 +183,7 @@ make_presentation(ResolutionBuilder &builder, const contract::EngineSpec &engine
     if (engine.routes.size() == 3) {
         presentation.routes.push_back({
             contract::RouteId{3},
-            builder.resolved(1.0,
-                             "presentation.routes.route.three.source_gain_linear"),
+            builder.resolved(1.0, "presentation.routes.route.three.source_gain_linear"),
             contract::AudioAssetId{1},
             builder.resolved(
                 0.001, "presentation.routes.route.three.impulse_response_gain_linear"),
@@ -299,6 +298,8 @@ make_source_matrix(std::size_t route_count = 2) {
     };
     // Deliberately unrelated to signal topology order.
     matrix.required_artifacts = {
+        {"diagnostics.engine-telemetry.v1", contract::ArtifactKind::telemetry,
+         std::nullopt, true},
         {"master/engine.audition", contract::ArtifactKind::audio, audition_audio,
          false},
         {"stem/route.two.selected", contract::ArtifactKind::audio, float_audio, false},
@@ -458,6 +459,15 @@ void test_complete_projection() {
     expect(projection->output_contract ==
                contract::resolve_output_contract(fixture.request.source_matrix),
            "job output contract is not the exact source-matrix projection");
+    expect(projection->telemetry_artifact ==
+               PendingArtifact{
+                   "diagnostics.engine-telemetry.v1",
+                   contract::ArtifactKind::telemetry,
+                   "telemetry/engine-telemetry.v1.ndjson",
+                   std::nullopt,
+                   true,
+               },
+           "fixed diagnostic telemetry artifact was not projected exactly");
     expect(projection->routes.size() == 2 &&
                projection->routes[0].route_id == contract::RouteId{1} &&
                projection->routes[0].semantic_id == "route.one" &&
@@ -516,7 +526,7 @@ void test_dynamic_route_projection() {
     const auto *projection = std::get_if<RenderJobProjection>(&result);
     expect(projection != nullptr && projection->routes.size() == 3 &&
                projection->route_artifacts.size() == 3 &&
-               projection->output_contract.required_artifacts.size() == 11 &&
+               projection->output_contract.required_artifacts.size() == 12 &&
                projection->routes[2].route_id == contract::RouteId{3} &&
                projection->routes[2].semantic_id == "route.three" &&
                projection->output_contract.required_source_routes[1].kind ==

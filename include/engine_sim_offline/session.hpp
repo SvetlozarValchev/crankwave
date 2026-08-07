@@ -190,6 +190,36 @@ struct EngineCompletedCycleEvidence {
                            const EngineCompletedCycleEvidence &) = default;
 };
 
+// Fixed, bounded reduction of the callback-scoped engine event journal for one
+// native session block. This field inventory is the public v1 diagnostic surface:
+// adding another EngineEventPayload or admitted reason requires an explicit versioned
+// contract decision instead of silently dropping it here.
+//
+// limiter_transition_overspeed_refreshed_count is an overlapping subcount of
+// limiter_transition_count. Every other leaf counter partitions
+// total_event_record_count exactly. The admitted v1 rejection reasons are
+// active_flame, no_fuel, mixture_low, and mixture_high; the admitted extinction
+// reasons are intake_transfer and no_geometric_progress. The contract-level
+// unspecified sentinels are invalid evidence and fail block publication.
+struct EngineEventCounters {
+    std::uint64_t total_event_record_count = 0;
+    std::uint64_t spark_crossing_count = 0;
+    std::uint64_t limiter_transition_count = 0;
+    std::uint64_t limiter_activation_count = 0;
+    std::uint64_t limiter_release_count = 0;
+    std::uint64_t limiter_transition_overspeed_refreshed_count = 0;
+    std::uint64_t ignition_accepted_count = 0;
+    std::uint64_t ignition_rejected_active_flame_count = 0;
+    std::uint64_t ignition_rejected_no_fuel_count = 0;
+    std::uint64_t ignition_rejected_mixture_low_count = 0;
+    std::uint64_t ignition_rejected_mixture_high_count = 0;
+    std::uint64_t flame_extinguished_intake_transfer_count = 0;
+    std::uint64_t flame_extinguished_no_geometric_progress_count = 0;
+
+    friend bool operator==(const EngineEventCounters &,
+                           const EngineEventCounters &) = default;
+};
+
 enum class EngineSessionBlockPhase : std::uint8_t {
     preparation,
     audible,
@@ -219,15 +249,18 @@ class EngineSessionBlockView final {
     // A cycle spanning blocks is emitted exactly once, with the block that ends it.
     [[nodiscard]] std::span<const EngineCompletedCycleEvidence>
     cycle_evidence() const noexcept;
+    [[nodiscard]] const EngineEventCounters &event_counters() const noexcept;
 
   private:
-    EngineSessionBlockView(
-        std::uint64_t block_ordinal, EngineSessionBlockPhase phase,
-        std::uint64_t first_physics_frame, std::uint32_t physics_frame_count,
-        std::uint64_t first_delivery_frame, std::uint32_t delivery_frame_count,
-        std::span<const EngineAudioBusBlockView> audio_buses,
-        std::span<const EngineTelemetryFrame> telemetry,
-        std::span<const EngineCompletedCycleEvidence> cycle_evidence) noexcept;
+    EngineSessionBlockView(std::uint64_t block_ordinal, EngineSessionBlockPhase phase,
+                           std::uint64_t first_physics_frame,
+                           std::uint32_t physics_frame_count,
+                           std::uint64_t first_delivery_frame,
+                           std::uint32_t delivery_frame_count,
+                           std::span<const EngineAudioBusBlockView> audio_buses,
+                           std::span<const EngineTelemetryFrame> telemetry,
+                           std::span<const EngineCompletedCycleEvidence> cycle_evidence,
+                           EngineEventCounters event_counters) noexcept;
 
     std::uint64_t block_ordinal_ = 0;
     EngineSessionBlockPhase phase_ = EngineSessionBlockPhase::preparation;
@@ -238,6 +271,7 @@ class EngineSessionBlockView final {
     std::span<const EngineAudioBusBlockView> audio_buses_;
     std::span<const EngineTelemetryFrame> telemetry_;
     std::span<const EngineCompletedCycleEvidence> cycle_evidence_;
+    EngineEventCounters event_counters_;
 
     friend class EngineSession;
 };

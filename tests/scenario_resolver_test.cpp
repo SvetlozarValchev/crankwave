@@ -310,8 +310,16 @@ void test_held_speed_resolution_on_the_integer_clock() {
            "public session capacities leaked into private capture transport");
     expect(resolved.source_matrix.required_source_routes.size() == 1U &&
                resolved.source_matrix.required_output_buses.size() == 2U &&
-               resolved.source_matrix.required_artifacts.size() == 5U,
+               resolved.source_matrix.required_artifacts.size() == 6U,
            "declared bus did not produce the generic source matrix");
+    const auto telemetry =
+        std::ranges::find(resolved.source_matrix.required_artifacts,
+                          std::string_view{"diagnostics.engine-telemetry.v1"},
+                          &contract::ArtifactRequirement::role);
+    expect(telemetry != resolved.source_matrix.required_artifacts.end() &&
+               telemetry->kind == contract::ArtifactKind::telemetry &&
+               !telemetry->audio.has_value() && telemetry->diagnostic,
+           "fixed diagnostic telemetry requirement was not resolved");
     expect(!resolved.random_plan.component_seeds.empty(),
            "scenario random plan was not compiled");
     expect(resolved.request_input.selected_audio_buses.size() == 2U &&
