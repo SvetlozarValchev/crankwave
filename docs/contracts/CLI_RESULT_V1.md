@@ -1,6 +1,7 @@
 # Native CLI machine result v1
 
-`render`, `pack-revengine`, `inspect-revengine`, and `verify-revengine` accept
+`render`, `pack-revengine`, `inspect-revengine`, `verify-revengine`, and
+`inspect-ir-catalog` accept
 `--result-format json`. In that mode the command writes exactly one UTF-8 JSON
 object followed by one LF to standard output for either success or failure. It does
 not write human diagnostics to standard error. Process-launch failures that occur
@@ -15,7 +16,7 @@ Every result begins with these keys in this order:
 ```json
 {
   "schema": "engine-sim-offline.cli-result.v1",
-  "release_identity": "1.0.0",
+  "release_identity": "1.1.0",
   "command": "render",
   "ok": true,
   "code": "success",
@@ -24,7 +25,7 @@ Every result begins with these keys in this order:
 ```
 
 `release_identity` is the identity of the installed distribution. `command` is one
-of the four command spellings above. `code` is a stable symbolic outcome code and
+of the five command spellings above. `code` is a stable symbolic outcome code and
 `exit_code` is the exact process status. Success appends a command-specific
 `result` object. Failure appends `message` and may append typed diagnostic fields.
 Consumers must select behavior from `schema`, `command`, `ok`, `code`, and
@@ -34,6 +35,10 @@ Render success contains `output_directory` and `manifest`. Pack success contains
 `output_file`, `container_bytes`, `entry_count`, and `container_sha256`. Inspect and
 verify success contain the REVENGINE version, verification state, byte/count/hash
 summary, ordered entry records, and either a verified package descriptor or null.
+IR-catalog inspection success contains `catalog_sha256`, `entry_count`, and the
+validated `engine-sim-offline/ir-authoring-catalog.v1` object. Its release identity
+must equal the outer installed release identity, and every exposed selection is
+cross-checked against the installed technical asset catalog.
 Potentially wide byte counts are decimal strings. Entry counts and container
 versions are JSON integers.
 
@@ -58,11 +63,13 @@ Failure codes are drawn from these stable families:
 - `verify-revengine-cancelled`, `verify-revengine-terminated`, and
   `verify-revengine-deadline-exceeded`.
 
-All four commands accept `--deadline-unix-ms <epoch-ms>`, where the value is a
+The four rendering/container commands accept `--deadline-unix-ms <epoch-ms>`, where
+the value is a
 positive base-10 signed-64-bit-compatible Unix epoch deadline in milliseconds. An
 expired deadline or a deadline reached during work returns exit 75 with the
 command-specific `*-deadline-exceeded` code. SIGINT or SIGTERM requests cooperative
 termination and returns exit 75 with the command-specific `*-terminated` code.
+`inspect-ir-catalog` is a bounded local metadata query and does not accept a deadline.
 
 Render cancellation is propagated through the native `RenderControl` stop token
 and is observed between complete 20 ms session blocks and at publication

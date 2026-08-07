@@ -22,6 +22,7 @@ namespace {
 
 using namespace engine_sim_offline;
 using presentation::CausalOverlapSaveConvolver;
+using presentation::CausalPartitionedConvolver;
 
 constexpr std::size_t kTestBlockFrames = 3840;
 
@@ -477,6 +478,82 @@ void test_failures_are_transactional(
            "failed convolution changed the next valid block");
 }
 
+void test_extended_uniform_partitioned_convolution() {
+    constexpr std::size_t coefficient_count =
+        dsp::FixedConvolutionKernel::coefficient_count + 1U;
+    std::vector<double> coefficients(coefficient_count, 0.0);
+    constexpr std::array<std::pair<std::size_t, double>, 5> taps{{
+        {0U, 0.75},
+        {1U, -0.125},
+        {3839U, 0.0625},
+        {3840U, -0.03125},
+        {coefficient_count - 1U, 0.015625},
+    }};
+    for (const auto &[index, value] : taps) {
+        coefficients[index] = value;
+    }
+    auto kernel =
+        std::make_shared<const dsp::PartitionedConvolutionKernel>(coefficients);
+    expect(kernel->coefficient_count() == coefficient_count &&
+               kernel->partition_count() == 8U &&
+               kernel->spectra().size() ==
+                   kernel->partition_count() *
+                       dsp::PartitionedConvolutionLimits::transform_length,
+           "extended kernel did not preserve its complete partition shape");
+
+    constexpr std::size_t block_count = 10U;
+    std::vector<double> input(block_count * kTestBlockFrames);
+    std::uint32_t state = UINT32_C(0x8badf00d);
+    for (double &sample : input) {
+        state = state * UINT32_C(1664525) + UINT32_C(1013904223);
+        sample = static_cast<double>(static_cast<std::int32_t>(state)) * 0x1p-31;
+    }
+    std::vector<double> expected(input.size(), 0.0);
+    for (std::size_t frame = 0; frame < expected.size(); ++frame) {
+        for (const auto &[tap, coefficient] : taps) {
+            if (frame >= tap) {
+                expected[frame] += coefficient * input[frame - tap];
+            }
+        }
+    }
+
+    const auto render = [&](CausalPartitionedConvolver &convolver) {
+        std::vector<double> output(input.size());
+        for (std::size_t block = 0; block < block_count; ++block) {
+            convolver.process(
+                std::span<const double>{input}.subspan(block * kTestBlockFrames,
+                                                       kTestBlockFrames),
+                std::span<double>{output}.subspan(block * kTestBlockFrames,
+                                                  kTestBlockFrames));
+        }
+        return output;
+    };
+    CausalPartitionedConvolver first{kernel};
+    const auto actual = render(first);
+    const double tolerance = 65536.0 * std::numeric_limits<double>::epsilon();
+    for (std::size_t frame = 0; frame < actual.size(); ++frame) {
+        expect(std::abs(actual[frame] - expected[frame]) <= tolerance,
+               "extended partitioned convolution lost, shifted, or truncated a "
+               "causal tap");
+    }
+    CausalPartitionedConvolver repeated{kernel};
+    expect(render(repeated) == actual,
+           "extended partitioned convolution was not byte-repeatable");
+
+    expect_throw<std::invalid_argument>(
+        [&] {
+            std::vector<double> short_block(kTestBlockFrames - 1U);
+            first.process(short_block, short_block);
+        },
+        "extended convolver accepted a non-20ms block");
+    expect_throw<std::invalid_argument>(
+        [] {
+            CausalPartitionedConvolver invalid{
+                std::shared_ptr<const dsp::PartitionedConvolutionKernel>{}};
+        },
+        "extended convolver accepted a null kernel");
+}
+
 void run_tests() {
     auto plan = std::make_shared<const dsp::FixedFftPlan>();
     test_plan_tables_and_shape_validation(plan);
@@ -487,6 +564,7 @@ void run_tests() {
     test_long_history_tail(plan);
     test_alternate_partitions_and_partial_overlap(plan);
     test_failures_are_transactional(plan, kernel);
+    test_extended_uniform_partitioned_convolution();
 }
 
 } // namespace

@@ -2,26 +2,6 @@
   "schema": "engine-sim-offline/builtin-asset-catalog.v1",
   "assets": [
     {
-      "kind": "audio",
-      "id": "mild-exhaust",
-      "sha256": "f2875947eba2ed98a15f45a5d62f6ae7b607b0a56389bad5882d75748ad374b9"
-    },
-    {
-      "kind": "audio",
-      "id": "minimal-muffling-01",
-      "sha256": "0d736bb7065686ae527c8487ef7850762c0381c91125e555228cf4599e4ff68c"
-    },
-    {
-      "kind": "audio",
-      "id": "smooth-39",
-      "sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"
-    },
-    {
-      "kind": "audio",
-      "id": "smooth-46",
-      "sha256": "97408471f8b699a93b888db448367cf7abbe20e6c4891cc8af0d1946889f8b69"
-    },
-    {
       "kind": "accessory-configuration",
       "id": "warm-generic-accessories",
       "sha256": "55125069f43e48b52a5842649d899d9d250fc94808b8dbe59360e790aa0bebd4"
@@ -70,6 +50,381 @@
       "kind": "accessory-configuration",
       "id": "warm-stock-accessories",
       "sha256": "ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-engine-01",
+      "sha256": "b52354b8d9595fea1b2a438e34609bbf4895d7a368d09ec79ea1c6c6bf13ca43"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-engine-02",
+      "sha256": "b9b7e167a64ab25d0949ecec584c999c7e9f19b4fba9c9717231d815ec83c4c0"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-engine-03",
+      "sha256": "d00ffc95241afba2ded31216d924c0331838435e58d0f01a9c607ce7aa883b9a"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-engine-04",
+      "sha256": "b98d5e6fc188ddc51313b9e3f867a3f4e1511a910e792cffe3a70f63fd8cae92"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine",
+      "sha256": "7910907c1d2dbd3c4a52eb428cb89a40ab3655d1e0e62003a308bd41f42dbb74"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-01",
+      "sha256": "2db8ab43b2b33ffa3ce1443b3ec2acc129b79a0528efbc56736105ea870d94f3"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-02",
+      "sha256": "9e8d5ee37927bf1e2534fb6add0ecd1c71fd1f4944aa67ed23c6cc06946878fd"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-03",
+      "sha256": "84e7e982d51d39a0520e61c3dd568858b12ab77596c2ae6d8fbcc6723ebfff40"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-04",
+      "sha256": "9e17701c6b2d8463fa2010b7fcfcbea9e9043f2f569a0fe580e2e7ddbfaa2932"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-05",
+      "sha256": "bb52139c125bcd3a703fab9d88ea39cce1478f5fc6edfc2fddfa95c326abd9c5"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-06",
+      "sha256": "8645784ef3d879f4dbf4e7a88de3859df396bc7267c25e70cd25a351da393563"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-07",
+      "sha256": "81a8a4b583737193cdab3a5bee3154197d66d0b7743acd69756b888f42e170ed"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-08",
+      "sha256": "009277a38570804cecb15effcb3177a929f72718dbea9770930044d066e15a14"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-09",
+      "sha256": "9d888673c42799fee59ba53cd76679b6a159d2524c987040410e91849784ec2b"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-10",
+      "sha256": "e6447382260ee5dd43462d65e40dcc8a76343707d58df28c436d58e2e0a4a4e0"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-11",
+      "sha256": "b67aa191f11028dae47f14357bbb9dc571fd4896fe2636dda8eddf0da48323d0"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-12",
+      "sha256": "2fe07296ae3479cb8b04629f88d8f5b5dfe005893de60f87f67ef76c0e646405"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-13",
+      "sha256": "5ab4629e17c384b028ab2714f1d8eca275c7280ba1a78a8ad5b41eb01f792b5e"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-14-eq-adjusted",
+      "sha256": "dddbf4c01d0584c0a3660266add4b7517b32a2d688c2f890ff448b3909447553"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-15-eq-adjusted",
+      "sha256": "06975e66f7f0ac71b53709510215b1cbaecd206ac81b0bc6eecf063423342281"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-16",
+      "sha256": "c28bf85293c5b98e833aa90f28280b6667144c73c76b126a8912af9d00f40fd6"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-16-eq-adjusted",
+      "sha256": "44ce5af25a55efdf996c7e5026271f80949625b95fbdc1c4b83863b6e991b152"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-17",
+      "sha256": "67c7f03081f33d0dd4842014c4a97c166bfe6873a5cdb6d941de4e930349b61b"
+    },
+    {
+      "kind": "audio",
+      "id": "archive-test-engine-18",
+      "sha256": "af8a747634b52c60507e88f972568a0832bdbcce9d47281e09f2c276b508e1d4"
+    },
+    {
+      "kind": "audio",
+      "id": "mild-exhaust",
+      "sha256": "f2875947eba2ed98a15f45a5d62f6ae7b607b0a56389bad5882d75748ad374b9"
+    },
+    {
+      "kind": "audio",
+      "id": "minimal-muffling-01",
+      "sha256": "0d736bb7065686ae527c8487ef7850762c0381c91125e555228cf4599e4ff68c"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-01",
+      "sha256": "ba87e1783519860c1d41555d45542f332bcbf395afc2035ceab8caa0043e3b71"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-02",
+      "sha256": "c7e0b765493a4482b8df345838912dfdc1579c4cc031439bd87ab4ba7a199f32"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-03",
+      "sha256": "2e9581619c467138248001e950bbe9f38b71dd78f9184861bfecb14e93e81522"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-04",
+      "sha256": "7aa3fe4f370fcc39247f4dd446c94e93a1cb196baf4d43fa3f1b496b656c3c29"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-05",
+      "sha256": "182bacca7059b33be01d1401c01a472d0a134ef2877dc859ec92de648476b4dc"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-06",
+      "sha256": "683e8d0a7378e5d7f966e04ec7aa79157fee595fe375a40e663cca08285e66b0"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-07",
+      "sha256": "89be18e3276a220483bd2bcbba749238436a41b46b9650fa1eb74ee491574173"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-08",
+      "sha256": "3cffd2a7ff7971781b1b1be3122e967c0acfb3037196ecc11887aa9201c3d96e"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-09",
+      "sha256": "e5af9f809cbf1e0d17972a197b5db87ae832a436c0adebcae70bb342a94083b0"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-10",
+      "sha256": "0ca83c84cef3ef4188aba9dd16ff5c938d289e001e14237dc6c6e65baf36a1fa"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-11",
+      "sha256": "6239bb1cf96d55a20cab0678cc11193dd203db06270ea603ab47975e201ce9ac"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-12",
+      "sha256": "c880cf246f943b0260bb71a89f1301cec1c75eb7940ace23f8c50d09a64b798e"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-13",
+      "sha256": "d4076095208d6d22a7d6548d6be17b4ae8d4ab2da040de62279aae9ea4cb16f8"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-14",
+      "sha256": "d6215397d6e5a93b823de307eb92bfdcf915bcc07d31ef3e37dcc0d0fa1c43ad"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-15",
+      "sha256": "43da7576970e469275cdbff9f48ea4a08f1dc49fb722885d4013e0fb67e02261"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-16",
+      "sha256": "f21c70aacf68fed9dcc53e1f2ff30fb65bbb4f526cbcbea676bb0a74398bd276"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-17",
+      "sha256": "87c60963e424270f1bbb4ae04f6ecb6173aa6761b56b14167c12c325ca42ed70"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-18",
+      "sha256": "91f770aff5d5ffd4b9133fbd089a338c7445253d4c220212d6513ebd07152f4a"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-19",
+      "sha256": "1d66d16e01dad91b0c9d8a0ebab502efe3b292756efffde140ff805216521b25"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-20",
+      "sha256": "d33392e894081a7ee5fa035960561bec75c5f58b99fb4f8652696d7b2cafe1b0"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-21",
+      "sha256": "acdeb4d51609b5a676335c3319a2a3c3f8cb0e695403e8fc40adea7aceac0d4f"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-22",
+      "sha256": "d91a8dd175828a94bb5f20f4d6f3bf9dc8ecf1c0f8d824a34589d62863733ee5"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-23",
+      "sha256": "77305213dabf70509fb73692ec2cf35df4db5004baf45c453b69baf7076d411f"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-24",
+      "sha256": "42cecd5d60d29046451947792e35ffab33f3cd9bfb866943d2406f76ec93ec5f"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-25",
+      "sha256": "0a1832567c90a79227787404eea78a2d998b5605cc87be6236289a619b7ad7f4"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-26",
+      "sha256": "56cfe84e380db79235edeea7a701a3667e5550ca45436b22e2caf021eb1c37e1"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-27",
+      "sha256": "60263ceb50dea2c2546535a629f8af6964c23cfc6d05248bf8be957aa37f3bfb"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-28",
+      "sha256": "6fcd2cb9d207ac5e84164332968ca0afd0b39813a20734b861adfa88e88fab64"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-29",
+      "sha256": "bc1a4629607dad7cc75baec60c2836104b68e643663be6a643afd4e7e9109071"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-30",
+      "sha256": "859fb1ff63c8bcf5fba1d5e1ed62ff9d4fe5168df358a86df9c666fc3b80cb9f"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-31",
+      "sha256": "fb1be19a3efdaebe761f5a04f4c71fc606bdf4cf0a5f2ced8450be60fb368c54"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-32",
+      "sha256": "801e351f55194ea1ee0db4500e3309d22df0888277361e467f47466b89899d71"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-33",
+      "sha256": "fcccc3b13a0a830d51abdf80c637f50b94a7db5fbd3a0c8b604f09ba5cfe9499"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-34",
+      "sha256": "0931d6de21b6be3adcbbfb08384815e9c109daaa46ef518caf04bce5bdee1fcf"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-35",
+      "sha256": "f890b567063f9c037e75f258378c07da60c7479ccd29afc5008017e1fb480dc4"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-36",
+      "sha256": "dfb17b192732b0408979d5b45228855085e97ef341bbcc08bf23dddb121d5e16"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-37",
+      "sha256": "36ef8bd864db8e68df972d0bbfbf215d20a3ec32f26186eed0c1ee63a1c52224"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-38",
+      "sha256": "bf5a3e726f0370af077b99cf2e9d58e03e8a8bd1a51e9b5833bc00d7c12cfd04"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-39",
+      "sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-40",
+      "sha256": "55a45fdc85bc5a9b15885a52a4245a76f4f59f7e9f1a2711d626bbe5cf519ef5"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-41",
+      "sha256": "531a928726178716bab50a6675cc6df021e0ca3e5e4cff3c6714817d0e951b69"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-42",
+      "sha256": "d9d1f6034c3b646b54762cc50edff8328b571ecfed4c9bd2ae2271cef53d1d6d"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-43",
+      "sha256": "930286258ccb1846c0b8f9af5b458e61ad3617d5482cd70aa514696e71fee739"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-44",
+      "sha256": "2e75fae74ef43b6b47dca7ea1000e35950bab21471611a859650c74fd4006cbb"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-45",
+      "sha256": "9da950e21499604aa100b791cfe6a21a192c6b8da26e7e91515b024a9b682819"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-46",
+      "sha256": "97408471f8b699a93b888db448367cf7abbe20e6c4891cc8af0d1946889f8b69"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-47",
+      "sha256": "84655595e6e2225c9f4c649e79754c39b3e8e53d64d4b7dbe85d0052242d0ee0"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-48",
+      "sha256": "931d87f2c94d423f28c4e6d2f212ab2245bd17f0d5c442aec065d7624c17080b"
+    },
+    {
+      "kind": "audio",
+      "id": "smooth-49",
+      "sha256": "8e074d7fddfae55884440654621d111a2091dc386333b328ec063b7b919756cd"
     }
   ]
 }

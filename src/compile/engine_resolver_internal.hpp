@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -44,6 +45,7 @@ struct VerifiedAssets {
     std::unordered_map<std::string, std::size_t> audio_by_id;
     std::unordered_map<std::string, std::size_t> accessory_by_id;
     std::unordered_map<std::string, contract::AudioMediaContract> audio_media_by_id;
+    std::unordered_set<std::string> extended_ir_ids;
 };
 
 struct ModelContext {

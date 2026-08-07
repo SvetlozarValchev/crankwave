@@ -6,6 +6,13 @@ both. The semantic identity names the compatible product release; the manifest
 digest binds the exact native executable, optional renderer pair, JavaScript
 runtime, responsive baker, profiles, built-in assets, helpers, and contracts.
 
+Release 1.1 adds the complete IR payload library and its separate semantic
+`assets/ir-authoring-catalog.v1.json`. Authoring tools retrieve it through
+`inspect-ir-catalog --result-format json`; they do not infer its installed path.
+The command binds every exposed ID and SHA-256 to both this release identity and the
+technical renderer catalog. The full palette stays outside engine JSON, which carries
+only exact selected, route-used ID and SHA-256 declarations.
+
 Resources live under the configured
 `<datadir>/engine-sim-offline/<release_identity>/`. Executables and the frozen
 workflow use the configured relative GNUInstallDirs layout, so moving the complete

@@ -275,7 +275,7 @@ Plan mode is complete with the native install alone:
 ```bash
 /absolute/prefix/bin/engine-sim-offline-responsive-bake \
   --engine /absolute/path/to/engine.json \
-  --profile /absolute/prefix/share/engine-sim-offline/1.0.0/tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
+  --profile /absolute/prefix/share/engine-sim-offline/1.1.0/tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
   --output /absolute/path/to/new-package \
   --cache /absolute/path/to/cache \
   --plan

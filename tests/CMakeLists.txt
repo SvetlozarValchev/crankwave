@@ -1061,6 +1061,80 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_ir_library_runtime_tests
+    ir_library_runtime_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_ir_library_runtime_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_ir_library_runtime_tests
+    PRIVATE engine_sim_offline::presentation
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_ir_library_runtime_tests
+)
+
+if(EMSCRIPTEN)
+    target_compile_options(
+        engine_sim_offline_ir_library_runtime_tests
+        PRIVATE -fwasm-exceptions
+    )
+    target_link_options(
+        engine_sim_offline_ir_library_runtime_tests
+        PRIVATE
+            "SHELL:--embed-file ${PROJECT_SOURCE_DIR}/assets/builtin/ir-library/payloads@/ir-library"
+            "SHELL:-sENVIRONMENT=node"
+            "SHELL:-sINITIAL_MEMORY=134217728"
+            "SHELL:-sALLOW_MEMORY_GROWTH=0"
+            "SHELL:-sEXIT_RUNTIME=1"
+            -fwasm-exceptions
+    )
+    engine_sim_offline_configure_wasm_numeric_target(
+        engine_sim_offline_ir_library_runtime_tests
+    )
+    set(_engine_sim_offline_ir_library_runtime_directory "/ir-library")
+else()
+    set(
+        _engine_sim_offline_ir_library_runtime_directory
+        "${PROJECT_SOURCE_DIR}/assets/builtin/ir-library/payloads"
+    )
+endif()
+
+add_test(
+    NAME presentation.ir_library_runtime
+    COMMAND
+        engine_sim_offline_ir_library_runtime_tests
+        ${_engine_sim_offline_ir_library_runtime_directory}
+)
+
+add_executable(
+    engine_sim_offline_ir_method_selection_tests
+    ir_method_selection_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_ir_method_selection_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_ir_method_selection_tests
+    PRIVATE
+        engine_sim_offline::authoring
+        engine_sim_offline::compile
+        engine_sim_offline::presentation
+)
+
+add_test(
+    NAME presentation.ir_method_selection
+    COMMAND engine_sim_offline_ir_method_selection_tests ${PROJECT_SOURCE_DIR}
+)
+
+add_executable(
     engine_sim_offline_presentation_audio_session_tests
     presentation_audio_session_test.cpp
 )
@@ -2338,6 +2412,8 @@ if(TARGET engine_sim_offline_cli_support)
             engine_sim_offline_native_input_files_tests
             ${PROJECT_SOURCE_DIR}
             ${ENGINE_SIM_OFFLINE_BUILTIN_ASSET_CATALOG_FOR_TESTS}
+            ${ENGINE_SIM_OFFLINE_IR_AUTHORING_CATALOG_FOR_TESTS}
+            ${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY_FOR_TESTS}
             ${ENGINE_SIM_OFFLINE_INSTALL_ASSET_RELATIVE_FROM_BINDIR}
     )
 
@@ -2356,6 +2432,20 @@ if(TARGET engine_sim_offline_cli_support)
         NAMES node nodejs
     )
     if(_engine_sim_offline_node_for_installed_test)
+        add_test(
+            NAME tools.ir_authoring_catalog
+            COMMAND
+                ${_engine_sim_offline_node_for_installed_test}
+                --test
+                ${PROJECT_SOURCE_DIR}/tools/ir-authoring-catalog/test.mjs
+        )
+        set_tests_properties(
+            tools.ir_authoring_catalog
+            PROPERTIES
+                LABELS "javascript;tools;assets"
+                TIMEOUT 120
+        )
+
         add_test(
             NAME tools.responsive_audio_baker
             COMMAND

@@ -144,17 +144,21 @@ class CompiledPresentationConvolutionKernel final {
     [[nodiscard]] const PresentationConvolutionKernelKey &key() const noexcept;
     [[nodiscard]] const std::shared_ptr<const dsp::FixedConvolutionKernel> &
     kernel() const noexcept;
+    [[nodiscard]] const std::shared_ptr<const dsp::PartitionedConvolutionKernel> &
+    partitioned_kernel() const noexcept;
+    [[nodiscard]] const dsp::RuntimeConvolutionKernel &
+    runtime_kernel() const noexcept;
     [[nodiscard]] const PresentationDerivedPayloadIdentity &
     spectrum_complex_f64le_identity() const noexcept;
 
   private:
     CompiledPresentationConvolutionKernel(
         PresentationConvolutionKernelKey key,
-        std::shared_ptr<const dsp::FixedConvolutionKernel> kernel,
+        dsp::RuntimeConvolutionKernel kernel,
         PresentationDerivedPayloadIdentity spectrum_complex_f64le_identity);
 
     PresentationConvolutionKernelKey key_;
-    std::shared_ptr<const dsp::FixedConvolutionKernel> kernel_;
+    dsp::RuntimeConvolutionKernel kernel_;
     PresentationDerivedPayloadIdentity spectrum_complex_f64le_identity_;
 
     friend struct detail::CompiledPresentationConvolutionKernelFactory;

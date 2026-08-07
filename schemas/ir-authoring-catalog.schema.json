@@ -1,0 +1,606 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engine-sim-offline.dev/schemas/ir-authoring-catalog.schema.json",
+  "title": "Engine Sim Offline IR authoring catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "catalog_id",
+    "catalog_revision",
+    "release_identity",
+    "entry_count",
+    "selection_contract",
+    "source_collection",
+    "measurement_method",
+    "semantic_method",
+    "compatibility_summary",
+    "rights_summary",
+    "entries"
+  ],
+  "properties": {
+    "schema": {"const": "engine-sim-offline/ir-authoring-catalog.v1"},
+    "catalog_id": {"const": "engine-sim-offline-built-in-ir-library"},
+    "catalog_revision": {"const": 1},
+    "release_identity": {"const": "1.1.0"},
+    "entry_count": {"const": 73},
+    "selection_contract": {"$ref": "#/$defs/selectionContract"},
+    "source_collection": {"$ref": "#/$defs/sourceCollection"},
+    "measurement_method": {"$ref": "#/$defs/measurementMethod"},
+    "semantic_method": {"$ref": "#/$defs/semanticMethod"},
+    "compatibility_summary": {"$ref": "#/$defs/compatibilitySummary"},
+    "rights_summary": {"$ref": "#/$defs/rightsSummary"},
+    "entries": {
+      "type": "array",
+      "minItems": 73,
+      "maxItems": 73,
+      "items": {"$ref": "#/$defs/entry"}
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "nonnegative": {"type": "number", "minimum": 0},
+    "positive": {"type": "number", "exclusiveMinimum": 0},
+    "fraction": {"type": "number", "minimum": 0, "maximum": 1},
+    "selectionContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_selector",
+        "asset_kind",
+        "engine_json_declaration_rule",
+        "arbitrary_path_selection"
+      ],
+      "properties": {
+        "required_selector": {
+          "const": ["release_identity", "id", "sha256"]
+        },
+        "asset_kind": {"const": "impulse_response"},
+        "engine_json_declaration_rule": {
+          "const": "declare-only-assets-used-by-presentation-routes"
+        },
+        "arbitrary_path_selection": {"const": false}
+      }
+    },
+    "sourceCollection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "repository_tree_commit",
+        "asset_introduction_commit",
+        "repository_relative_root",
+        "import"
+      ],
+      "properties": {
+        "repository": {
+          "const": "https://github.com/SvetlozarValchev/engine-sim"
+        },
+        "repository_tree_commit": {"$ref": "#/$defs/sha1"},
+        "asset_introduction_commit": {"$ref": "#/$defs/sha1"},
+        "repository_relative_root": {"const": "assets/sound-library"},
+        "import": {"const": "exact-byte-copy-content-addressed-by-sha256"}
+      }
+    },
+    "measurementMethod": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "decoded_domain",
+        "meaningful_support",
+        "decay",
+        "spectrum",
+        "resonant_peaks",
+        "numeric_encoding",
+        "collection_thresholds"
+      ],
+      "properties": {
+        "id": {"const": "engine-sim-offline-ir-objective-analysis-v1"},
+        "decoded_domain": {
+          "const": "mono-normalized-pcm-without-level-normalization"
+        },
+        "meaningful_support": {
+          "const": "last-frame-strictly-above-100-over-32768-amplitude"
+        },
+        "decay": {
+          "const": "reverse-integrated-squared-amplitude-from-absolute-peak"
+        },
+        "spectrum": {
+          "const": "raw-meaningful-support-zero-padded-radix2-dft-power"
+        },
+        "resonant_peaks": {
+          "const": "local-maxima-of-one-twelfth-octave-mean-power"
+        },
+        "numeric_encoding": {
+          "const": "json-number-rounded-to-at-most-nine-decimal-places"
+        },
+        "collection_thresholds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "centroid_terciles_hz",
+            "high_energy_quartiles",
+            "decay_terciles_seconds",
+            "root_energy_median"
+          ],
+          "properties": {
+            "centroid_terciles_hz": {"$ref": "#/$defs/ascendingPair"},
+            "high_energy_quartiles": {"$ref": "#/$defs/ascendingPair"},
+            "decay_terciles_seconds": {"$ref": "#/$defs/ascendingPair"},
+            "root_energy_median": {"$ref": "#/$defs/positive"}
+          }
+        }
+      }
+    },
+    "ascendingPair": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {"$ref": "#/$defs/nonnegative"}
+    },
+    "semanticMethod": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "objective_proxy_warning",
+        "curated_review_method",
+        "curated_review_status",
+        "reviewed_entry_count"
+      ],
+      "properties": {
+        "id": {
+          "const": "engine-sim-offline-ir-measurement-proxy-semantics-v1"
+        },
+        "objective_proxy_warning": {
+          "const": "bright-dark-sharp-smooth-open-muffled-decay-tags-are-relative-measurement-proxies-not-listening-claims"
+        },
+        "curated_review_method": {
+          "const": "level-matched-fixed-dry-engine-probe-v1"
+        },
+        "curated_review_status": {
+          "enum": ["incomplete-human-audition-required", "complete"]
+        },
+        "reviewed_entry_count": {"type": "integer", "minimum": 0, "maximum": 73}
+      }
+    },
+    "compatibilitySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selectable", "requires-long-kernel", "requires-conversion"],
+      "properties": {
+        "selectable": {"type": "integer", "minimum": 0, "maximum": 73},
+        "requires-long-kernel": {"type": "integer", "minimum": 0, "maximum": 73},
+        "requires-conversion": {"type": "integer", "minimum": 0, "maximum": 73}
+      }
+    },
+    "rightsSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "repository_license_observed",
+        "repository_license_path",
+        "repository_license_sha256",
+        "asset_specific_rights_evidence",
+        "release_gate"
+      ],
+      "properties": {
+        "status": {"const": "NOASSERTION"},
+        "repository_license_observed": {"const": "MIT"},
+        "repository_license_path": {"const": "LICENSE"},
+        "repository_license_sha256": {
+          "const": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15"
+        },
+        "asset_specific_rights_evidence": {"type": "null"},
+        "release_gate": {
+          "const": "release-owner-must-confirm-redistribution-before-publication"
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "display_name",
+        "sha256",
+        "payload",
+        "source",
+        "media",
+        "objective",
+        "compatibility",
+        "rights",
+        "authoring"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "display_name": {"type": "string", "minLength": 3, "maxLength": 128},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "payload": {"$ref": "#/$defs/payload"},
+        "source": {"$ref": "#/$defs/source"},
+        "media": {"$ref": "#/$defs/media"},
+        "objective": {"$ref": "#/$defs/objective"},
+        "compatibility": {"$ref": "#/$defs/compatibility"},
+        "rights": {"$ref": "#/$defs/rights"},
+        "authoring": {"$ref": "#/$defs/authoring"}
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_relative_path",
+        "installed_bundle_relative_path",
+        "byte_count"
+      ],
+      "properties": {
+        "repository_relative_path": {
+          "type": "string",
+          "pattern": "^assets/builtin/ir-library/payloads/[0-9a-f]{64}\\.wav$"
+        },
+        "installed_bundle_relative_path": {
+          "type": "string",
+          "pattern": "^payloads/[0-9a-f]{64}$"
+        },
+        "byte_count": {"type": "integer", "minimum": 44}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "repository_tree_commit",
+        "repository_relative_path",
+        "source_file_sha256",
+        "source_git_blob_sha1",
+        "import"
+      ],
+      "properties": {
+        "repository": {
+          "const": "https://github.com/SvetlozarValchev/engine-sim"
+        },
+        "repository_tree_commit": {"$ref": "#/$defs/sha1"},
+        "repository_relative_path": {
+          "type": "string",
+          "pattern": "^assets/sound-library/(archive|smooth)/[A-Za-z0-9_]+\\.wav$"
+        },
+        "source_file_sha256": {"$ref": "#/$defs/sha256"},
+        "source_git_blob_sha1": {"$ref": "#/$defs/sha1"},
+        "import": {"const": "exact-byte-copy"}
+      }
+    },
+    "media": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "container",
+        "encoding",
+        "sample_rate_hz",
+        "channel_count",
+        "bits_per_sample",
+        "frame_count"
+      ],
+      "properties": {
+        "container": {"const": "riff-wave"},
+        "encoding": {"enum": ["pcm-s16-le", "pcm-s24-le"]},
+        "sample_rate_hz": {"const": 44100},
+        "channel_count": {"const": 1},
+        "bits_per_sample": {"enum": [16, 24]},
+        "frame_count": {"type": "integer", "minimum": 1}
+      }
+    },
+    "objective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "duration_seconds",
+        "meaningful_support_frame_count",
+        "meaningful_support_seconds",
+        "support_threshold_amplitude_01",
+        "peak_frame",
+        "peak_amplitude_01",
+        "rms_amplitude_01",
+        "root_energy",
+        "schroeder_tail_decay_from_peak",
+        "spectrum"
+      ],
+      "properties": {
+        "duration_seconds": {"$ref": "#/$defs/positive"},
+        "meaningful_support_frame_count": {"type": "integer", "minimum": 1},
+        "meaningful_support_seconds": {"$ref": "#/$defs/positive"},
+        "support_threshold_amplitude_01": {"$ref": "#/$defs/fraction"},
+        "peak_frame": {"type": "integer", "minimum": 0},
+        "peak_amplitude_01": {"$ref": "#/$defs/fraction"},
+        "rms_amplitude_01": {"$ref": "#/$defs/fraction"},
+        "root_energy": {"$ref": "#/$defs/positive"},
+        "schroeder_tail_decay_from_peak": {"$ref": "#/$defs/decay"},
+        "spectrum": {"$ref": "#/$defs/spectrum"}
+      }
+    },
+    "decay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minus_20_db_seconds",
+        "minus_40_db_seconds",
+        "minus_60_db_seconds"
+      ],
+      "properties": {
+        "minus_20_db_seconds": {"type": ["number", "null"], "minimum": 0},
+        "minus_40_db_seconds": {"type": ["number", "null"], "minimum": 0},
+        "minus_60_db_seconds": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "spectrum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fft_size",
+        "spectral_centroid_hz",
+        "band_energy_fraction",
+        "resonant_peaks"
+      ],
+      "properties": {
+        "fft_size": {"type": "integer", "minimum": 2},
+        "spectral_centroid_hz": {"type": "number", "minimum": 20, "maximum": 22050},
+        "band_energy_fraction": {"$ref": "#/$defs/bands"},
+        "resonant_peaks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": {"$ref": "#/$defs/resonantPeak"}
+        }
+      }
+    },
+    "bands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sub_20_120_hz",
+        "low_120_500_hz",
+        "mid_500_2000_hz",
+        "high_2000_8000_hz",
+        "air_8000_nyquist_hz"
+      ],
+      "properties": {
+        "sub_20_120_hz": {"$ref": "#/$defs/fraction"},
+        "low_120_500_hz": {"$ref": "#/$defs/fraction"},
+        "mid_500_2000_hz": {"$ref": "#/$defs/fraction"},
+        "high_2000_8000_hz": {"$ref": "#/$defs/fraction"},
+        "air_8000_nyquist_hz": {"$ref": "#/$defs/fraction"}
+      }
+    },
+    "resonantPeak": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frequency_hz", "relative_level_db"],
+      "properties": {
+        "frequency_hz": {"type": "number", "minimum": 20, "maximum": 22050},
+        "relative_level_db": {"type": "number", "minimum": -30, "maximum": 0}
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "assessed_runtime",
+        "decoder",
+        "compiled_kernel",
+        "legacy_output_preservation",
+        "reasons"
+      ],
+      "properties": {
+        "state": {
+          "enum": ["selectable", "requires-long-kernel", "requires-conversion"]
+        },
+        "assessed_runtime": {"$ref": "#/$defs/assessedRuntime"},
+        "decoder": {"$ref": "#/$defs/decoderCompatibility"},
+        "compiled_kernel": {"$ref": "#/$defs/kernelCompatibility"},
+        "legacy_output_preservation": {
+          "type": ["string", "null"],
+          "enum": ["v1-coefficient-and-fixed-spectrum-bytes-unchanged", null]
+        },
+        "reasons": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "runtime-v2-requires-pcm16-or-pcm24",
+              "runtime-v2-input-frame-capacity-exceeded",
+              "runtime-v2-compiled-kernel-capacity-exceeded"
+            ]
+          }
+        }
+      }
+    },
+    "assessedRuntime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release_identity",
+        "native_conversion_method",
+        "wasm32_conversion_method",
+        "convolution_method",
+        "end_to_end_catalog_sweep"
+      ],
+      "properties": {
+        "release_identity": {"const": "1.1.0"},
+        "native_conversion_method": {
+          "const": "hybrid-static-ir-pcm16-pcm24-44100-to-192000-binary64-v2"
+        },
+        "wasm32_conversion_method": {
+          "const": "hybrid-static-ir-pcm16-pcm24-44100-to-192000-binary64-wasm32-binary128-v2"
+        },
+        "convolution_method": {
+          "const": "hybrid-fixed-or-uniform-partitioned-causal-fft-binary64-v2"
+        },
+        "end_to_end_catalog_sweep": {"const": "passed-all-73"}
+      }
+    },
+    "decoderCompatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["admitted", "branch", "maximum_input_frames"],
+      "properties": {
+        "admitted": {"type": "boolean"},
+        "branch": {
+          "enum": [
+            "legacy-pcm16-v1-bit-identical",
+            "extended-pcm16-pcm24-v2"
+          ]
+        },
+        "maximum_input_frames": {"const": 131072}
+      }
+    },
+    "kernelCompatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "admitted",
+        "branch",
+        "converted_coefficient_count",
+        "maximum_coefficient_count"
+      ],
+      "properties": {
+        "admitted": {"type": "boolean"},
+        "branch": {
+          "enum": ["legacy-fixed-v1-bit-identical", "uniform-partitioned-v2"]
+        },
+        "converted_coefficient_count": {"type": "integer", "minimum": 1},
+        "maximum_coefficient_count": {"const": 570654}
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "provenance_status",
+        "repository_license_observed",
+        "repository_license_path",
+        "repository_license_sha256",
+        "asset_specific_rights_evidence",
+        "redistribution_status"
+      ],
+      "properties": {
+        "status": {"const": "NOASSERTION"},
+        "provenance_status": {
+          "const": "source-path-commit-and-content-hash-recorded"
+        },
+        "repository_license_observed": {"const": "MIT"},
+        "repository_license_path": {"const": "LICENSE"},
+        "repository_license_sha256": {
+          "const": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15"
+        },
+        "asset_specific_rights_evidence": {"type": "null"},
+        "redistribution_status": {
+          "const": "requires-release-owner-confirmation"
+        }
+      }
+    },
+    "authoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caption", "perceptual_tags", "recommended_controls"],
+      "properties": {
+        "caption": {"$ref": "#/$defs/caption"},
+        "perceptual_tags": {"$ref": "#/$defs/perceptualTags"},
+        "recommended_controls": {"$ref": "#/$defs/recommendedControls"}
+      }
+    },
+    "caption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "basis", "review_status"],
+      "properties": {
+        "text": {"type": "string", "minLength": 30, "maxLength": 240},
+        "basis": {
+          "enum": [
+            "objective-measurement-summary-v1",
+            "human-level-matched-audition-v1"
+          ]
+        },
+        "review_status": {"enum": ["pending-human-audition", "human-reviewed"]}
+      }
+    },
+    "perceptualTags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["objective_proxies", "curated", "status"],
+      "properties": {
+        "objective_proxies": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "bright",
+              "dark",
+              "sharp",
+              "smooth",
+              "open",
+              "muffled",
+              "damped",
+              "short-decay",
+              "reverberant",
+              "long-decay"
+            ]
+          }
+        },
+        "curated": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 64}
+        },
+        "status": {
+          "enum": [
+            "measurement-proxies-only-pending-human-audition",
+            "human-reviewed"
+          ]
+        }
+      }
+    },
+    "recommendedControls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "impulse_response_gain_linear",
+        "wet_mix_01",
+        "qualification"
+      ],
+      "properties": {
+        "impulse_response_gain_linear": {"$ref": "#/$defs/recommendedRange"},
+        "wet_mix_01": {"$ref": "#/$defs/recommendedRange"},
+        "qualification": {
+          "const": "audition-starting-range-not-a-sound-quality-guarantee"
+        }
+      }
+    },
+    "recommendedRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "initial", "maximum", "basis"],
+      "properties": {
+        "minimum": {"$ref": "#/$defs/nonnegative"},
+        "initial": {"$ref": "#/$defs/nonnegative"},
+        "maximum": {"$ref": "#/$defs/nonnegative"},
+        "basis": {
+          "enum": [
+            "catalog-relative-root-energy-level-match-seed-v1",
+            "fixed-authoring-search-range-v1"
+          ]
+        }
+      }
+    }
+  }
+}

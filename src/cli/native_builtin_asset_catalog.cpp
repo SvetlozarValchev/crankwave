@@ -40,6 +40,23 @@ struct ParsedCatalog {
     std::vector<CatalogEntry> entries;
 };
 
+struct AuthoringCatalogSelection {
+    std::string id;
+    std::string sha256;
+};
+
+struct ParsedAuthoringCatalog {
+    IrAuthoringCatalogDocument document;
+    std::vector<AuthoringCatalogSelection> selections;
+};
+
+using ParsedAuthoringCatalogResult =
+    std::variant<ParsedAuthoringCatalog, NativeInputError>;
+
+[[nodiscard]] bool catalog_contains(const ParsedCatalog &catalog,
+                                    compile::AssetKind kind, std::string_view id,
+                                    std::string_view sha256);
+
 using ParsedCatalogResult = std::variant<ParsedCatalog, NativeInputError>;
 
 [[nodiscard]] std::string bytes_to_string(const std::vector<std::byte> &bytes) {
@@ -98,6 +115,13 @@ catalog_error(const NativeInputErrorCode code, std::filesystem::path path,
               std::string message,
               const NativeInputErrorKind kind = NativeInputErrorKind::unavailable) {
     return detail::input_error(kind, code, NativeInputSubject::builtin_asset_catalog,
+                               std::move(path), std::move(message));
+}
+
+[[nodiscard]] NativeInputError authoring_catalog_error(
+    const NativeInputErrorCode code, std::filesystem::path path, std::string message,
+    const NativeInputErrorKind kind = NativeInputErrorKind::unavailable) {
+    return detail::input_error(kind, code, NativeInputSubject::ir_authoring_catalog,
                                std::move(path), std::move(message));
 }
 
@@ -185,6 +209,124 @@ parse_catalog(detail::ReadFile catalog_file,
         result.entries.push_back(std::move(entry));
     }
     return result;
+}
+
+[[nodiscard]] ParsedAuthoringCatalogResult
+parse_ir_authoring_catalog(detail::ReadFile catalog_file,
+                           const std::string_view expected_release_identity,
+                           const authoring::JsonParseLimits &parse_limits) {
+    auto json = bytes_to_string(catalog_file.bytes);
+    auto parsed = authoring::parse_json(json, parse_limits);
+    if (const auto *error = std::get_if<authoring::JsonParseError>(&parsed)) {
+        return authoring_catalog_error(
+            NativeInputErrorCode::invalid_ir_authoring_catalog,
+            std::move(catalog_file.canonical_path),
+            "IR authoring catalog JSON is invalid at byte " +
+                std::to_string(error->location.byte_offset) + ": " +
+                std::string{error->message()});
+    }
+
+    auto parsed_json = std::get<authoring::JsonDocument>(std::move(parsed));
+    const auto root = parsed_json.root();
+    const auto schema = root.find("schema").string();
+    const auto release_identity = root.find("release_identity").string();
+    const auto entries = root.find("entries");
+    if (root.kind() != authoring::JsonKind::object || !schema ||
+        *schema != "engine-sim-offline/ir-authoring-catalog.v1" || !release_identity ||
+        *release_identity != expected_release_identity ||
+        entries.kind() != authoring::JsonKind::array || entries.size() == 0U ||
+        entries.size() > kMaximumCatalogEntries) {
+        return authoring_catalog_error(
+            NativeInputErrorCode::invalid_ir_authoring_catalog,
+            std::move(catalog_file.canonical_path),
+            "IR authoring catalog schema, release identity, or bounded entries "
+            "array is invalid");
+    }
+
+    ParsedAuthoringCatalog result;
+    result.document.canonical_path = std::move(catalog_file.canonical_path);
+    result.document.sha256 = contract::sha256(catalog_file.bytes);
+    result.document.json = std::move(json);
+    result.document.release_identity = std::string{*release_identity};
+    result.document.entry_count = entries.size();
+    result.selections.reserve(entries.size());
+    for (std::size_t index = 0; index < entries.size(); ++index) {
+        const auto entry = entries.at(index);
+        const auto id = entry.find("id").string();
+        const auto sha256 = entry.find("sha256").string();
+        if (entry.kind() != authoring::JsonKind::object || !id || !sha256 ||
+            !valid_stable_id(*id) || !valid_sha256(*sha256)) {
+            return authoring_catalog_error(
+                NativeInputErrorCode::invalid_ir_authoring_catalog,
+                result.document.canonical_path,
+                "IR authoring catalog entry id or SHA-256 is invalid");
+        }
+        if (std::any_of(result.selections.begin(), result.selections.end(),
+                        [&](const AuthoringCatalogSelection &selection) {
+                            return selection.id == *id;
+                        })) {
+            return authoring_catalog_error(
+                NativeInputErrorCode::invalid_ir_authoring_catalog,
+                result.document.canonical_path,
+                "IR authoring catalog contains a duplicate stable ID");
+        }
+        result.selections.push_back({std::string{*id}, std::string{*sha256}});
+    }
+    return result;
+}
+
+[[nodiscard]] IrAuthoringCatalogResult
+load_ir_authoring_catalog_impl(const std::filesystem::path &authoring_catalog_path,
+                               const std::string_view expected_release_identity,
+                               const NativeInputLimits &limits) {
+    auto authoring_file = detail::read_exact_regular_file(
+        authoring_catalog_path, NativeInputSubject::ir_authoring_catalog, {},
+        limits.maximum_document_bytes);
+    if (auto *error = std::get_if<NativeInputError>(&authoring_file)) {
+        if (error->code == NativeInputErrorCode::path_not_found) {
+            error->kind = NativeInputErrorKind::unavailable;
+            error->code = NativeInputErrorCode::ir_authoring_catalog_not_found;
+            error->message = "IR authoring catalog is absent from the installed "
+                             "asset bundle";
+        }
+        return std::move(*error);
+    }
+    auto authoring_catalog = parse_ir_authoring_catalog(
+        std::get<detail::ReadFile>(std::move(authoring_file)),
+        expected_release_identity, limits.authoring_limits.json);
+    if (auto *error = std::get_if<NativeInputError>(&authoring_catalog)) {
+        return std::move(*error);
+    }
+    auto parsed_authoring =
+        std::get<ParsedAuthoringCatalog>(std::move(authoring_catalog));
+
+    const auto runtime_catalog_path =
+        parsed_authoring.document.canonical_path.parent_path() / "catalog.v1.json";
+    auto runtime_file = detail::read_exact_regular_file(
+        runtime_catalog_path, NativeInputSubject::builtin_asset_catalog, {},
+        limits.maximum_document_bytes);
+    if (auto *error = std::get_if<NativeInputError>(&runtime_file)) {
+        return std::move(*error);
+    }
+    auto runtime_catalog =
+        parse_catalog(std::get<detail::ReadFile>(std::move(runtime_file)),
+                      limits.authoring_limits.json);
+    if (auto *error = std::get_if<NativeInputError>(&runtime_catalog)) {
+        return std::move(*error);
+    }
+    const auto &runtime = std::get<ParsedCatalog>(runtime_catalog);
+    for (const auto &selection : parsed_authoring.selections) {
+        if (!catalog_contains(runtime, compile::AssetKind::audio, selection.id,
+                              selection.sha256)) {
+            return authoring_catalog_error(
+                NativeInputErrorCode::invalid_ir_authoring_catalog,
+                parsed_authoring.document.canonical_path,
+                "IR authoring catalog exposes a selection outside the technical "
+                "built-in asset catalog: " +
+                    selection.id);
+        }
+    }
+    return std::move(parsed_authoring.document);
 }
 
 [[nodiscard]] std::string digest_hex(const contract::Sha256Digest &digest) {
@@ -348,8 +490,7 @@ discover_impl(const std::filesystem::path &executable_path) {
         (executable_directory / "engine-sim-offline-assets" / "catalog.v1.json")
             .lexically_normal(),
         (executable_directory /
-         std::filesystem::path{
-             detail::kInstalledAssetDirectoryRelativeToExecutable} /
+         std::filesystem::path{detail::kInstalledAssetDirectoryRelativeToExecutable} /
          "catalog.v1.json")
             .lexically_normal(),
     };
@@ -469,6 +610,54 @@ load_native_engine_input_with_builtin_assets(const std::filesystem::path &engine
     } catch (...) {
         return unexpected_catalog_failure(
             engine_path, "built-in engine input loading failed unexpectedly");
+    }
+}
+
+IrAuthoringCatalogResult
+load_ir_authoring_catalog(const std::filesystem::path &authoring_catalog_path,
+                          const std::string_view expected_release_identity,
+                          NativeInputLimits limits) {
+    try {
+        return load_ir_authoring_catalog_impl(authoring_catalog_path,
+                                              expected_release_identity, limits);
+    } catch (const std::bad_alloc &) {
+        return authoring_catalog_error(
+            NativeInputErrorCode::memory_allocation_failed, authoring_catalog_path,
+            "IR authoring catalog allocation failed", NativeInputErrorKind::software);
+    } catch (...) {
+        return authoring_catalog_error(
+            NativeInputErrorCode::filesystem_failure, authoring_catalog_path,
+            "IR authoring catalog loading failed unexpectedly",
+            NativeInputErrorKind::software);
+    }
+}
+
+IrAuthoringCatalogResult load_ir_authoring_catalog_with_builtin_assets(
+    const std::string_view expected_release_identity, NativeInputLimits limits) {
+    try {
+        auto executable = current_executable_path();
+        if (auto *error = std::get_if<NativeInputError>(&executable)) {
+            return std::move(*error);
+        }
+        auto runtime_catalog =
+            discover_impl(std::get<std::filesystem::path>(std::move(executable)));
+        if (auto *error = std::get_if<NativeInputError>(&runtime_catalog)) {
+            return std::move(*error);
+        }
+        auto authoring_catalog_path =
+            std::get<std::filesystem::path>(std::move(runtime_catalog));
+        authoring_catalog_path.replace_filename("ir-authoring-catalog.v1.json");
+        return load_ir_authoring_catalog_impl(authoring_catalog_path,
+                                              expected_release_identity, limits);
+    } catch (const std::bad_alloc &) {
+        return authoring_catalog_error(NativeInputErrorCode::memory_allocation_failed,
+                                       {}, "IR authoring catalog allocation failed",
+                                       NativeInputErrorKind::software);
+    } catch (...) {
+        return authoring_catalog_error(
+            NativeInputErrorCode::filesystem_failure, {},
+            "IR authoring catalog discovery failed unexpectedly",
+            NativeInputErrorKind::software);
     }
 }
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "engine_sim_offline/authoring/diagnostic.hpp"
 #include "engine_sim_offline/authoring/atlas_bake_document.hpp"
+#include "engine_sim_offline/authoring/diagnostic.hpp"
 #include "engine_sim_offline/authoring/engine_document.hpp"
 #include "engine_sim_offline/authoring/parse.hpp"
 #include "engine_sim_offline/authoring/scenario_document.hpp"
@@ -42,6 +42,7 @@ enum class NativeInputSubject : std::uint8_t {
     atlas_bake_document,
     scenario_document,
     builtin_asset_catalog,
+    ir_authoring_catalog,
     asset_root,
     audio_asset,
     accessory_configuration_asset,
@@ -68,6 +69,8 @@ enum class NativeInputErrorCode : std::uint8_t {
     invalid_scenario_document,
     builtin_asset_catalog_not_found,
     invalid_builtin_asset_catalog,
+    ir_authoring_catalog_not_found,
+    invalid_ir_authoring_catalog,
     builtin_asset_digest_required,
     builtin_asset_not_cataloged,
     builtin_asset_payload_unavailable,
@@ -133,52 +136,71 @@ struct NativeAtlasBakeInput {
     NativeSourceDocument source;
 };
 
-using NativeEngineInputResult =
-    std::variant<NativeEngineInput, NativeInputError>;
+using NativeEngineInputResult = std::variant<NativeEngineInput, NativeInputError>;
 using NativeScenarioInputResult =
     std::variant<authoring::ScenarioDocument, NativeInputError>;
-using NativeAtlasBakeInputResult =
-    std::variant<NativeAtlasBakeInput, NativeInputError>;
+using NativeAtlasBakeInputResult = std::variant<NativeAtlasBakeInput, NativeInputError>;
 using BuiltinAssetCatalogLocationResult =
     std::variant<std::filesystem::path, NativeInputError>;
 
-[[nodiscard]] NativeEngineInputResult load_native_engine_input(
-    const std::filesystem::path &engine_path,
-    const std::filesystem::path &asset_root,
-    NativeInputLimits limits = {});
+struct IrAuthoringCatalogDocument {
+    std::filesystem::path canonical_path;
+    std::string json;
+    contract::Sha256Digest sha256;
+    std::string release_identity;
+    std::size_t entry_count = 0;
+};
+
+using IrAuthoringCatalogResult =
+    std::variant<IrAuthoringCatalogDocument, NativeInputError>;
+
+[[nodiscard]] NativeEngineInputResult
+load_native_engine_input(const std::filesystem::path &engine_path,
+                         const std::filesystem::path &asset_root,
+                         NativeInputLimits limits = {});
 
 // Resolves every declared engine asset by exact kind, stable ID, and authored
 // SHA-256 in a tracked content-addressed catalog. Authored URI values are not
 // consulted by this production-oriented path.
 [[nodiscard]] NativeEngineInputResult
-load_native_engine_input_from_builtin_catalog(
-    const std::filesystem::path &engine_path,
-    const std::filesystem::path &catalog_path,
-    NativeInputLimits limits = {});
+load_native_engine_input_from_builtin_catalog(const std::filesystem::path &engine_path,
+                                              const std::filesystem::path &catalog_path,
+                                              NativeInputLimits limits = {});
 
 // Discovers the catalog beside the current executable in a build tree or under
 // the configured install datadir in a relocatable installed prefix, then
 // resolves the engine through it.
-[[nodiscard]] NativeEngineInputResult load_native_engine_input_with_builtin_assets(
-    const std::filesystem::path &engine_path,
-    NativeInputLimits limits = {});
+[[nodiscard]] NativeEngineInputResult
+load_native_engine_input_with_builtin_assets(const std::filesystem::path &engine_path,
+                                             NativeInputLimits limits = {});
 
 // Deterministic discovery seam used by packaging and tests. The executable path
 // need not exist, but must be absolute and name a file within its containing bin
 // directory.
 [[nodiscard]] BuiltinAssetCatalogLocationResult
-discover_builtin_asset_catalog(
-    const std::filesystem::path &executable_path);
+discover_builtin_asset_catalog(const std::filesystem::path &executable_path);
 
-[[nodiscard]] NativeScenarioInputResult load_native_scenario_input(
-    const std::filesystem::path &scenario_path,
-    NativeInputLimits limits = {});
+// Discovers and validates the semantic IR authoring palette adjacent to the
+// technical built-in asset catalog. Every exposed id+sha256 pair must also be an
+// admitted audio entry in the technical catalog, and the catalog release must
+// match expected_release_identity.
+[[nodiscard]] IrAuthoringCatalogResult
+load_ir_authoring_catalog(const std::filesystem::path &authoring_catalog_path,
+                          std::string_view expected_release_identity,
+                          NativeInputLimits limits = {});
+
+[[nodiscard]] IrAuthoringCatalogResult load_ir_authoring_catalog_with_builtin_assets(
+    std::string_view expected_release_identity, NativeInputLimits limits = {});
+
+[[nodiscard]] NativeScenarioInputResult
+load_native_scenario_input(const std::filesystem::path &scenario_path,
+                           NativeInputLimits limits = {});
 
 // Loads the atlas document and every relative scenario source beneath the atlas
 // document directory in exact authored order.
-[[nodiscard]] NativeAtlasBakeInputResult load_native_atlas_bake_input(
-    const std::filesystem::path &atlas_bake_path,
-    NativeInputLimits limits = {});
+[[nodiscard]] NativeAtlasBakeInputResult
+load_native_atlas_bake_input(const std::filesystem::path &atlas_bake_path,
+                             NativeInputLimits limits = {});
 
 enum class NativeOutputErrorKind : std::uint8_t {
     cant_create,
@@ -222,7 +244,7 @@ using NativeOutputDirectoryResult =
 
 // Splits an exact final output directory into the existing canonical parent and a
 // new conservative portable leaf suitable for DirectoryRenderSink.
-[[nodiscard]] NativeOutputDirectoryResult preflight_native_output_directory(
-    const std::filesystem::path &output_directory);
+[[nodiscard]] NativeOutputDirectoryResult
+preflight_native_output_directory(const std::filesystem::path &output_directory);
 
 } // namespace engine_sim_offline::cli

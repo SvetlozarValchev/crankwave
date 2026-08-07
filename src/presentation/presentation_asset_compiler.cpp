@@ -10,6 +10,7 @@
 #include <new>
 #include <span>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 
 namespace engine_sim_offline::presentation {
@@ -17,24 +18,38 @@ namespace {
 
 [[nodiscard]] bool
 exact_supported_conversion_method(const contract::MethodIdentity &method) {
-    return method == static_ir_conversion_method_identity();
+    return method == static_ir_conversion_method_identity() ||
+           method == hybrid_static_ir_conversion_method_identity();
 }
 
 [[nodiscard]] bool
 exact_supported_convolution_method(const contract::MethodIdentity &method) {
-    return method == fixed_overlap_save_convolution_method_identity();
+    return method == fixed_overlap_save_convolution_method_identity() ||
+           method == hybrid_partitioned_convolution_method_identity();
 }
 
 [[nodiscard]] constexpr bool conversion_environment_available() noexcept {
     return numeric::target_extended_precision_format_is_admitted();
 }
 
-[[nodiscard]] bool supported_media(const contract::AudioMediaContract &media) noexcept {
+[[nodiscard]] bool supported_legacy_media(
+    const contract::AudioMediaContract &media) noexcept {
     return media.encoding == contract::AudioSampleEncoding::pcm_s16le &&
            media.channel_layout == contract::AudioChannelLayout::mono &&
            media.sample_rate ==
                contract::RationalRateHz{kConfiguredIrSampleRateHz, 1} &&
            media.frame_count > 0 && media.frame_count <= kMaximumConfiguredIrFrameCount;
+}
+
+[[nodiscard]] bool supported_extended_media(
+    const contract::AudioMediaContract &media) noexcept {
+    return (media.encoding == contract::AudioSampleEncoding::pcm_s16le ||
+            media.encoding == contract::AudioSampleEncoding::pcm_s24le) &&
+           media.channel_layout == contract::AudioChannelLayout::mono &&
+           media.sample_rate ==
+               contract::RationalRateHz{kConfiguredIrSampleRateHz, 1} &&
+           media.frame_count > 0 &&
+           media.frame_count <= kMaximumExtendedConfiguredIrFrameCount;
 }
 
 void append_f64le(std::vector<std::byte> &destination, double value) {
@@ -95,7 +110,7 @@ struct CompiledPresentationAssetFactory {
 struct CompiledPresentationConvolutionKernelFactory {
     [[nodiscard]] static CompiledPresentationConvolutionKernel
     make(PresentationConvolutionKernelKey key,
-         std::shared_ptr<const dsp::FixedConvolutionKernel> kernel,
+         dsp::RuntimeConvolutionKernel kernel,
          PresentationDerivedPayloadIdentity spectrum_complex_f64le_identity) {
         return CompiledPresentationConvolutionKernel{std::move(key), std::move(kernel),
                                                      spectrum_complex_f64le_identity};
@@ -154,7 +169,7 @@ CompiledPresentationAsset::coefficient_f64le_identity() const noexcept {
 
 CompiledPresentationConvolutionKernel::CompiledPresentationConvolutionKernel(
     PresentationConvolutionKernelKey key,
-    std::shared_ptr<const dsp::FixedConvolutionKernel> kernel,
+    dsp::RuntimeConvolutionKernel kernel,
     PresentationDerivedPayloadIdentity spectrum_complex_f64le_identity)
     : key_(std::move(key)), kernel_(std::move(kernel)),
       spectrum_complex_f64le_identity_(spectrum_complex_f64le_identity) {}
@@ -166,6 +181,24 @@ CompiledPresentationConvolutionKernel::key() const noexcept {
 
 const std::shared_ptr<const dsp::FixedConvolutionKernel> &
 CompiledPresentationConvolutionKernel::kernel() const noexcept {
+    static const std::shared_ptr<const dsp::FixedConvolutionKernel> empty;
+    const auto *fixed =
+        std::get_if<std::shared_ptr<const dsp::FixedConvolutionKernel>>(
+            &kernel_.storage());
+    return fixed == nullptr ? empty : *fixed;
+}
+
+const std::shared_ptr<const dsp::PartitionedConvolutionKernel> &
+CompiledPresentationConvolutionKernel::partitioned_kernel() const noexcept {
+    static const std::shared_ptr<const dsp::PartitionedConvolutionKernel> empty;
+    const auto *partitioned = std::get_if<
+        std::shared_ptr<const dsp::PartitionedConvolutionKernel>>(
+        &kernel_.storage());
+    return partitioned == nullptr ? empty : *partitioned;
+}
+
+const dsp::RuntimeConvolutionKernel &
+CompiledPresentationConvolutionKernel::runtime_kernel() const noexcept {
     return kernel_;
 }
 
@@ -191,11 +224,15 @@ PresentationAssetCompileResult compile_presentation_asset(
     if (payload.bytes.size() > kMaximumConfiguredIrContainerByteCount) {
         return error(PresentationAssetCompileErrorCode::payload_container_too_large);
     }
-    if (!supported_media(asset.media.value)) {
-        return error(PresentationAssetCompileErrorCode::unsupported_media_contract);
-    }
     if (!exact_supported_conversion_method(impulse_response_conversion_method)) {
         return error(PresentationAssetCompileErrorCode::unsupported_conversion_method);
+    }
+    const bool extended_method =
+        impulse_response_conversion_method ==
+        hybrid_static_ir_conversion_method_identity();
+    if (!(extended_method ? supported_extended_media(asset.media.value)
+                          : supported_legacy_media(asset.media.value))) {
+        return error(PresentationAssetCompileErrorCode::unsupported_media_contract);
     }
     if (!conversion_environment_available()) {
         return error(PresentationAssetCompileErrorCode::conversion_method_unavailable);
@@ -212,26 +249,75 @@ PresentationAssetCompileResult compile_presentation_asset(
         return error(PresentationAssetCompileErrorCode::payload_sha256_mismatch);
     }
 
-    auto decoded_result = decode_pcm16_ir_wave(payload.bytes);
-    auto *decoded = std::get_if<DecodedPcm16Ir>(&decoded_result);
-    if (decoded == nullptr) {
-        return PresentationAssetCompileError{
-            PresentationAssetCompileErrorCode::pcm16_wave_decode_failed,
-            std::get<Pcm16IrDecodeError>(decoded_result),
-        };
-    }
-    if (decoded->samples.size() != asset.media.value.frame_count) {
-        return error(PresentationAssetCompileErrorCode::media_frame_count_mismatch);
-    }
-    if (decoded->meaningful_support_frames == 0) {
-        return error(PresentationAssetCompileErrorCode::empty_meaningful_support);
-    }
-
     std::vector<double> coefficients;
+    std::size_t meaningful_support_frames = 0;
     try {
-        coefficients =
-            dsp::convert_static_ir(decoded->samples, decoded->meaningful_support_frames,
-                                   impulse_response_gain_linear.value);
+        if (!extended_method) {
+            auto decoded_result = decode_pcm16_ir_wave(payload.bytes);
+            auto *decoded = std::get_if<DecodedPcm16Ir>(&decoded_result);
+            if (decoded == nullptr) {
+                return PresentationAssetCompileError{
+                    PresentationAssetCompileErrorCode::pcm16_wave_decode_failed,
+                    std::get<Pcm16IrDecodeError>(decoded_result),
+                };
+            }
+            if (decoded->samples.size() != asset.media.value.frame_count) {
+                return error(
+                    PresentationAssetCompileErrorCode::media_frame_count_mismatch);
+            }
+            if (decoded->meaningful_support_frames == 0) {
+                return error(
+                    PresentationAssetCompileErrorCode::empty_meaningful_support);
+            }
+            meaningful_support_frames = decoded->meaningful_support_frames;
+            coefficients = dsp::convert_static_ir(
+                decoded->samples, meaningful_support_frames,
+                impulse_response_gain_linear.value);
+        } else {
+            auto decoded_result = decode_pcm_ir_wave_v2(payload.bytes);
+            auto *decoded = std::get_if<DecodedPcmIrV2>(&decoded_result);
+            if (decoded == nullptr) {
+                return PresentationAssetCompileError{
+                    PresentationAssetCompileErrorCode::pcm16_wave_decode_failed,
+                    std::get<Pcm16IrDecodeError>(decoded_result),
+                };
+            }
+            const auto expected_encoding =
+                decoded->bits_per_sample == 16U
+                    ? contract::AudioSampleEncoding::pcm_s16le
+                    : contract::AudioSampleEncoding::pcm_s24le;
+            if (decoded->samples.size() != asset.media.value.frame_count ||
+                expected_encoding != asset.media.value.encoding) {
+                return error(
+                    PresentationAssetCompileErrorCode::media_frame_count_mismatch);
+            }
+            if (decoded->meaningful_support_frames == 0) {
+                return error(
+                    PresentationAssetCompileErrorCode::empty_meaningful_support);
+            }
+            meaningful_support_frames = decoded->meaningful_support_frames;
+
+            // This is the byte-compatibility branch: every legacy-shaped PCM16
+            // input is decoded and converted by the unchanged v1 implementation.
+            if (decoded->bits_per_sample == 16U &&
+                decoded->samples.size() <= kMaximumConfiguredIrFrameCount &&
+                dsp::extended_static_ir_target_count(meaningful_support_frames) <=
+                    dsp::FixedConvolutionKernel::coefficient_count) {
+                std::vector<std::int16_t> pcm16;
+                pcm16.reserve(decoded->samples.size());
+                for (const auto sample : decoded->samples) {
+                    pcm16.push_back(static_cast<std::int16_t>(sample));
+                }
+                coefficients = dsp::convert_static_ir(
+                    pcm16, meaningful_support_frames,
+                    impulse_response_gain_linear.value);
+            } else {
+                coefficients = dsp::convert_static_ir_v2(
+                    decoded->samples, decoded->bits_per_sample,
+                    meaningful_support_frames,
+                    impulse_response_gain_linear.value);
+            }
+        }
     } catch (const std::bad_alloc &) {
         throw;
     } catch (const std::runtime_error &) {
@@ -239,8 +325,11 @@ PresentationAssetCompileResult compile_presentation_asset(
     } catch (const std::logic_error &) {
         return error(PresentationAssetCompileErrorCode::conversion_failed);
     }
-    if (coefficients.size() !=
-        dsp::static_ir_target_count(decoded->meaningful_support_frames)) {
+    const auto expected_coefficient_count =
+        extended_method
+            ? dsp::extended_static_ir_target_count(meaningful_support_frames)
+            : dsp::static_ir_target_count(meaningful_support_frames);
+    if (coefficients.size() != expected_coefficient_count) {
         return error(PresentationAssetCompileErrorCode::conversion_failed);
     }
 
@@ -248,7 +337,7 @@ PresentationAssetCompileResult compile_presentation_asset(
     return detail::CompiledPresentationAssetFactory::make(
         {payload.id, static_cast<std::uint64_t>(payload.bytes.size()), payload_sha256},
         asset.media.value, impulse_response_conversion_method,
-        impulse_response_gain_linear, decoded->meaningful_support_frames,
+        impulse_response_gain_linear, meaningful_support_frames,
         std::move(coefficients), coefficients_f64le);
 }
 
@@ -262,8 +351,14 @@ PresentationConvolutionKernelCompileResult compile_presentation_convolution_kern
         return kernel_error(PresentationConvolutionKernelCompileErrorCode::
                                 unsupported_convolution_method);
     }
+    const bool extended_method =
+        convolution_method == hybrid_partitioned_convolution_method_identity();
+    const std::size_t maximum_coefficient_count =
+        extended_method
+            ? dsp::PartitionedConvolutionLimits::maximum_coefficient_count
+            : dsp::FixedConvolutionKernel::coefficient_count;
     if (asset.coefficients().empty() ||
-        asset.coefficients().size() > dsp::FixedConvolutionKernel::coefficient_count) {
+        asset.coefficients().size() > maximum_coefficient_count) {
         return kernel_error(PresentationConvolutionKernelCompileErrorCode::
                                 unsupported_coefficient_shape);
     }
@@ -274,19 +369,29 @@ PresentationConvolutionKernelCompileResult compile_presentation_convolution_kern
                                 coefficient_identity_mismatch);
     }
 
-    std::shared_ptr<const dsp::FixedConvolutionKernel> kernel;
+    dsp::RuntimeConvolutionKernel kernel =
+        std::shared_ptr<const dsp::FixedConvolutionKernel>{};
     try {
-        if (asset.coefficients().size() ==
+        if (asset.coefficients().size() <=
             dsp::FixedConvolutionKernel::coefficient_count) {
-            kernel = std::make_shared<const dsp::FixedConvolutionKernel>(
+            if (asset.coefficients().size() ==
+                dsp::FixedConvolutionKernel::coefficient_count) {
+                kernel = std::make_shared<const dsp::FixedConvolutionKernel>(
+                    asset.coefficients());
+            } else {
+                std::vector<double> padded_coefficients(asset.coefficients().begin(),
+                                                        asset.coefficients().end());
+                padded_coefficients.resize(
+                    dsp::FixedConvolutionKernel::coefficient_count, 0.0);
+                kernel = std::make_shared<const dsp::FixedConvolutionKernel>(
+                    padded_coefficients);
+            }
+        } else if (extended_method) {
+            kernel = std::make_shared<const dsp::PartitionedConvolutionKernel>(
                 asset.coefficients());
         } else {
-            std::vector<double> padded_coefficients(asset.coefficients().begin(),
-                                                    asset.coefficients().end());
-            padded_coefficients.resize(dsp::FixedConvolutionKernel::coefficient_count,
-                                       0.0);
-            kernel = std::make_shared<const dsp::FixedConvolutionKernel>(
-                padded_coefficients);
+            return kernel_error(PresentationConvolutionKernelCompileErrorCode::
+                                    unsupported_coefficient_shape);
         }
     } catch (const std::bad_alloc &) {
         throw;
@@ -294,7 +399,17 @@ PresentationConvolutionKernelCompileResult compile_presentation_convolution_kern
         return kernel_error(
             PresentationConvolutionKernelCompileErrorCode::kernel_construction_failed);
     }
-    const auto spectrum_complex_f64le = spectrum_identity(kernel->spectrum());
+    const auto spectrum_complex_f64le = std::visit(
+        [](const auto &value) {
+            using Kernel = typename std::decay_t<decltype(value)>::element_type;
+            if constexpr (std::is_same_v<Kernel,
+                                         const dsp::FixedConvolutionKernel>) {
+                return spectrum_identity(value->spectrum());
+            } else {
+                return spectrum_identity(value->spectra());
+            }
+        },
+        kernel.storage());
     PresentationConvolutionKernelKey key{
         asset.raw_payload_identity(),
         asset.conversion_method(),

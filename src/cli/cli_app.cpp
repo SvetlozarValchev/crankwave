@@ -20,6 +20,7 @@
 #include <new>
 #include <ostream>
 #include <span>
+#include <sstream>
 #include <stop_token>
 #include <string>
 #include <string_view>
@@ -91,6 +92,8 @@ void print_help(std::ostream &stream) {
               "[--deadline-unix-ms <epoch-ms>] [--result-format <text|json>]\n"
               "  engine-sim-offline verify-revengine --input <file.revengine> "
               "[--deadline-unix-ms <epoch-ms>] [--result-format <text|json>]\n"
+              "  engine-sim-offline inspect-ir-catalog "
+              "[--result-format <text|json>]\n"
               "\n"
               "Commands:\n"
               "  render  Compile declarative engine and scenario JSON, render the\n"
@@ -98,6 +101,7 @@ void print_help(std::ostream &stream) {
               "  pack-revengine     Pack a validated responsive package tree.\n"
               "  inspect-revengine  Inspect structure and the authenticated index.\n"
               "  verify-revengine   Verify every payload and package binding.\n"
+              "  inspect-ir-catalog  Return the release-bound IR authoring palette.\n"
               "\n"
               "Render uses the bundled content-addressed asset catalog by default.\n"
               "--asset-root is an opt-in developer override for authored local URIs.\n"
@@ -190,6 +194,79 @@ void write_json_string(std::ostream &stream, const std::string_view value) {
         ++index;
     }
     stream.put('"');
+}
+
+[[nodiscard]] bool write_json_value(std::ostream &stream,
+                                    const authoring::JsonValue value) {
+    switch (value.kind()) {
+    case authoring::JsonKind::null_value:
+        stream << "null";
+        return true;
+    case authoring::JsonKind::boolean: {
+        const auto parsed = value.boolean();
+        if (!parsed) {
+            return false;
+        }
+        stream << (*parsed ? "true" : "false");
+        return true;
+    }
+    case authoring::JsonKind::number: {
+        const auto parsed = value.number();
+        if (!parsed) {
+            return false;
+        }
+        std::array<char, 128> buffer{};
+        const auto converted = std::to_chars(
+            buffer.data(), buffer.data() + buffer.size(), *parsed,
+            std::chars_format::general, std::numeric_limits<double>::max_digits10);
+        if (converted.ec != std::errc{}) {
+            return false;
+        }
+        stream.write(buffer.data(), converted.ptr - buffer.data());
+        return true;
+    }
+    case authoring::JsonKind::string: {
+        const auto parsed = value.string();
+        if (!parsed) {
+            return false;
+        }
+        write_json_string(stream, *parsed);
+        return true;
+    }
+    case authoring::JsonKind::array:
+        stream.put('[');
+        for (std::size_t index = 0; index < value.size(); ++index) {
+            if (index != 0U) {
+                stream.put(',');
+            }
+            if (!write_json_value(stream, value.at(index))) {
+                return false;
+            }
+        }
+        stream.put(']');
+        return true;
+    case authoring::JsonKind::object:
+        stream.put('{');
+        for (std::size_t index = 0; index < value.size(); ++index) {
+            const auto member = value.member_at(index);
+            if (!member) {
+                return false;
+            }
+            if (index != 0U) {
+                stream.put(',');
+            }
+            write_json_string(stream, member.key);
+            stream.put(':');
+            if (!write_json_value(stream, member.value)) {
+                return false;
+            }
+        }
+        stream.put('}');
+        return true;
+    case authoring::JsonKind::invalid:
+        return false;
+    }
+    return false;
 }
 
 void write_machine_prefix(CliOutput &output, const bool ok, const std::string_view code,
@@ -819,6 +896,40 @@ observed_stop_reason(const InvocationExecutionControl &control) noexcept {
     return kExitSuccess;
 }
 
+[[nodiscard]] int execute_inspect_ir_catalog(CliOutput &output) {
+    auto loaded =
+        load_ir_authoring_catalog_with_builtin_assets(ENGINE_SIM_OFFLINE_VERSION_LABEL);
+    if (const auto *error = std::get_if<NativeInputError>(&loaded)) {
+        return report_native_input_error(output, "IR authoring catalog", *error);
+    }
+    const auto &catalog = std::get<IrAuthoringCatalogDocument>(loaded);
+    auto parsed = authoring::parse_json(catalog.json);
+    if (std::holds_alternative<authoring::JsonParseError>(parsed)) {
+        return report_error(output, kExitSoftware, "software-error",
+                            "validated IR authoring catalog could not be encoded");
+    }
+    auto document = std::get<authoring::JsonDocument>(std::move(parsed));
+    if (output.format == CliResultFormat::json) {
+        std::ostringstream encoded_catalog;
+        if (!write_json_value(encoded_catalog, document.root())) {
+            return report_error(output, kExitSoftware, "software-error",
+                                "IR authoring catalog encoding failed");
+        }
+        write_machine_prefix(output, true, "success", kExitSuccess);
+        auto &stream = output.standard_out;
+        stream << ",\"result\":{\"catalog_sha256\":";
+        write_json_string(stream, sha256_lower_hex(catalog.sha256));
+        stream << ",\"entry_count\":" << catalog.entry_count << ",\"catalog\":";
+        stream << encoded_catalog.str() << "}}\n";
+    } else {
+        output.standard_out << "release_identity=" << catalog.release_identity << '\n'
+                            << "catalog_sha256=" << sha256_lower_hex(catalog.sha256)
+                            << '\n'
+                            << "entry_count=" << catalog.entry_count << '\n';
+    }
+    return kExitSuccess;
+}
+
 template <class Command, std::size_t Size>
 [[nodiscard]] CliParseResult
 parse_command_options(const std::span<const std::string_view> arguments,
@@ -1053,6 +1164,12 @@ CliParseResult parse_cli_arguments(const std::span<const std::string_view> argum
                                                       CommandOptionKind::result_format},
             });
     }
+    if (arguments.front() == "inspect-ir-catalog") {
+        return parse_command_options(arguments, InspectIrCatalogCommand{},
+                                     std::array{CommandOption<InspectIrCatalogCommand>{
+                                         "--result-format", nullptr, false, false,
+                                         CommandOptionKind::result_format}});
+    }
     return usage_error("unknown command '" + std::string{arguments.front()} + "'");
 }
 
@@ -1100,12 +1217,18 @@ int run_cli(const std::span<const std::string_view> arguments,
                                                 control);
                                         });
         }
-        const auto &verify = std::get<VerifyRevengineCommand>(command);
-        output.format = verify.result_format;
-        return execute_with_control(
-            verify, termination_token, [&](const InvocationExecutionControl &control) {
-                return execute_load_revengine(verify.input_file, true, output, control);
-            });
+        if (const auto *verify = std::get_if<VerifyRevengineCommand>(&command)) {
+            output.format = verify->result_format;
+            return execute_with_control(*verify, termination_token,
+                                        [&](const InvocationExecutionControl &control) {
+                                            return execute_load_revengine(
+                                                verify->input_file, true, output,
+                                                control);
+                                        });
+        }
+        const auto &catalog = std::get<InspectIrCatalogCommand>(command);
+        output.format = catalog.result_format;
+        return execute_inspect_ir_catalog(output);
     } catch (const std::bad_alloc &) {
         return report_error(output, kExitSoftware, "memory-exhausted",
                             "insufficient memory while processing the request");

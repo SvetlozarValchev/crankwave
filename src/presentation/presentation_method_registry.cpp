@@ -69,6 +69,22 @@ const PresentationMethodIdentities &implemented_presentation_method_identities()
     return identities;
 }
 
+const PresentationMethodIdentities &extended_presentation_method_identities() {
+    static const PresentationMethodIdentities identities{
+        causal_reconstruction_method_identity(),
+        route_conditioning_method_identity(),
+        make_identity(kHybridStaticIrConversionMethodId,
+                      kHybridStaticIrConversionMethodVersion,
+                      hybrid_static_ir_conversion_method_descriptor()),
+        make_identity(kHybridPartitionedConvolutionMethodId,
+                      kHybridPartitionedConvolutionMethodVersion,
+                      hybrid_partitioned_convolution_method_descriptor()),
+        route_stem_publication_method_identity(),
+        ordered_route_audition_method_identity(),
+    };
+    return identities;
+}
+
 const contract::MethodIdentity &causal_reconstruction_method_identity() {
     return implemented_presentation_method_identities().reconstruction;
 }
@@ -81,8 +97,16 @@ const contract::MethodIdentity &static_ir_conversion_method_identity() {
     return implemented_presentation_method_identities().impulse_response_conversion;
 }
 
+const contract::MethodIdentity &hybrid_static_ir_conversion_method_identity() {
+    return extended_presentation_method_identities().impulse_response_conversion;
+}
+
 const contract::MethodIdentity &fixed_overlap_save_convolution_method_identity() {
     return implemented_presentation_method_identities().convolution;
+}
+
+const contract::MethodIdentity &hybrid_partitioned_convolution_method_identity() {
+    return extended_presentation_method_identities().convolution;
 }
 
 const contract::MethodIdentity &route_stem_publication_method_identity() {
@@ -96,13 +120,17 @@ const contract::MethodIdentity &ordered_route_audition_method_identity() {
 bool exactly_matches_implemented_presentation_methods(
     const contract::PresentationMethods &methods) {
     const auto &implemented = implemented_presentation_method_identities();
-    return methods.reconstruction.value == implemented.reconstruction &&
-           methods.conditioning.value == implemented.conditioning &&
-           methods.impulse_response_conversion.value ==
-               implemented.impulse_response_conversion &&
-           methods.convolution.value == implemented.convolution &&
-           methods.publication.value == implemented.publication &&
-           methods.audition_mix.value == implemented.audition_mix;
+    const auto &extended = extended_presentation_method_identities();
+    const auto matches = [&](const PresentationMethodIdentities &authority) {
+        return methods.reconstruction.value == authority.reconstruction &&
+               methods.conditioning.value == authority.conditioning &&
+               methods.impulse_response_conversion.value ==
+                   authority.impulse_response_conversion &&
+               methods.convolution.value == authority.convolution &&
+               methods.publication.value == authority.publication &&
+               methods.audition_mix.value == authority.audition_mix;
+    };
+    return matches(implemented) || matches(extended);
 }
 
 contract::ValidationReport
@@ -113,11 +141,44 @@ admit_implemented_presentation_methods(const contract::PresentationMethods &meth
                   "presentation.methods.reconstruction.value");
     require_exact(report, methods.conditioning.value, implemented.conditioning,
                   "presentation.methods.conditioning.value");
-    require_exact(report, methods.impulse_response_conversion.value,
-                  implemented.impulse_response_conversion,
-                  "presentation.methods.impulse_response_conversion.value");
-    require_exact(report, methods.convolution.value, implemented.convolution,
-                  "presentation.methods.convolution.value");
+    const auto &extended = extended_presentation_method_identities();
+    const bool legacy_conversion =
+        methods.impulse_response_conversion.value ==
+        implemented.impulse_response_conversion;
+    const bool extended_conversion =
+        methods.impulse_response_conversion.value ==
+        extended.impulse_response_conversion;
+    const bool legacy_convolution =
+        methods.convolution.value == implemented.convolution;
+    const bool extended_convolution =
+        methods.convolution.value == extended.convolution;
+    const bool legacy_transfer = legacy_conversion && legacy_convolution;
+    const bool extended_transfer = extended_conversion && extended_convolution;
+    if (!legacy_transfer && !extended_transfer) {
+        if (!legacy_conversion && !extended_conversion) {
+            report.add(contract::ContractIssueCode::unsupported_value,
+                       "presentation.methods.impulse_response_conversion.value",
+                       "IR conversion must select an implemented legacy-v1 or "
+                       "extended-v2 authority");
+        }
+        if (!legacy_convolution && !extended_convolution) {
+            report.add(contract::ContractIssueCode::unsupported_value,
+                       "presentation.methods.convolution.value",
+                       "convolution must select an implemented legacy-v1 or "
+                       "extended-v2 authority");
+        }
+        if ((legacy_conversion || extended_conversion) &&
+            (legacy_convolution || extended_convolution)) {
+            report.add(contract::ContractIssueCode::unsupported_value,
+                       "presentation.methods.impulse_response_conversion.value",
+                       "IR conversion and convolution must belong to the same "
+                       "legacy-v1 or extended-v2 authority");
+            report.add(contract::ContractIssueCode::unsupported_value,
+                       "presentation.methods.convolution.value",
+                       "IR conversion and convolution must belong to the same "
+                       "legacy-v1 or extended-v2 authority");
+        }
+    }
     require_exact(report, methods.publication.value, implemented.publication,
                   "presentation.methods.publication.value");
     require_exact(report, methods.audition_mix.value, implemented.audition_mix,

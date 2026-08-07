@@ -227,6 +227,9 @@ and the shared native/WASM lifecycle is in
   kind, stable ID, and authored SHA-256 through the bundled catalog. The developer
   asset-root override instead resolves authored URIs relative to the engine document;
   compilation still content-verifies declared hashes.
+- Authoring systems query the release-bound, captioned IR palette with
+  `engine-sim-offline inspect-ir-catalog --result-format json`. They select an exact
+  release + ID + SHA-256 tuple and put only selected, route-used assets in engine JSON.
 - Offline and realtime execution use one block-processing implementation. Their
   lifetime is explicit; pacing and delivery remain adapter policy.
 - Unsupported fields and topologies fail with path-addressed diagnostics. They are
@@ -301,6 +304,7 @@ hashes and are compared by the native/WASM parity gate.
 ```bash
 build/engine-sim-offline --help
 build/engine-sim-offline --version
+build/engine-sim-offline inspect-ir-catalog --result-format json
 build/engine-sim-offline render \
   --engine data/engines/bmw-m52b28/engine.json \
   --scenario data/engines/bmw-m52b28/scenarios/inertial-dyno-1500-6500rpm.json \
@@ -345,7 +349,7 @@ helper automatically:
 ```bash
 artifacts/engine-sim-offline-install/bin/engine-sim-offline-responsive-bake \
   --engine /absolute/path/to/engine.json \
-  --profile artifacts/engine-sim-offline-install/share/engine-sim-offline/1.0.0/tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
+  --profile artifacts/engine-sim-offline-install/share/engine-sim-offline/1.1.0/tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
   --output /absolute/path/to/new-package \
   --cache /absolute/path/to/bake-cache \
   --plan

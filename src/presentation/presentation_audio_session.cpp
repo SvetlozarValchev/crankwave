@@ -12,6 +12,7 @@
 #include <span>
 #include <stdexcept>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace engine_sim_offline::presentation {
@@ -28,6 +29,11 @@ using PublishedBlock = std::array<float, kSourceFramesPerMethodBlock>;
 stem_offset(std::size_t route_index, PresentationAudioStemRole role) noexcept {
     return route_index * kPresentationAudioStemsPerRoute +
            static_cast<std::size_t>(role);
+}
+
+[[nodiscard]] bool
+valid_kernel(const dsp::RuntimeConvolutionKernel &kernel) noexcept {
+    return kernel.valid();
 }
 
 void validate_plan(const PresentationAudioPlan &plan) {
@@ -68,7 +74,8 @@ void validate_plan(const PresentationAudioPlan &plan) {
         const auto &configured = plan.routes[route];
         const bool exhaust =
             configured.source_route_kind == contract::SourceRouteKind::exhaust_outlet;
-        if (!configured.route_id.valid() || !exhaust || !configured.configured_ir ||
+        if (!configured.route_id.valid() || !exhaust ||
+            !valid_kernel(configured.configured_ir) ||
             !configured.conditioning_seeds.has_value() ||
             !configured.exhaust_valve_reference_mass_flow_kg_s.has_value() ||
             !std::isfinite(*configured.exhaust_valve_reference_mass_flow_kg_s) ||
@@ -158,13 +165,13 @@ exhaust_route_reference_mass_flows(const PresentationAudioPlan &plan) {
         plan.conditioning, plan.excitation_rate, plan.excitation_frames_per_block};
 }
 
-[[nodiscard]] std::vector<std::unique_ptr<CausalOverlapSaveConvolver>>
+[[nodiscard]] std::vector<std::unique_ptr<CausalConfiguredIrConvolver>>
 make_convolvers(const PresentationAudioPlan &plan) {
-    std::vector<std::unique_ptr<CausalOverlapSaveConvolver>> result;
+    std::vector<std::unique_ptr<CausalConfiguredIrConvolver>> result;
     result.reserve(plan.routes.size());
     for (const auto &route : plan.routes) {
         result.push_back(
-            std::make_unique<CausalOverlapSaveConvolver>(route.configured_ir));
+            std::make_unique<CausalConfiguredIrConvolver>(route.configured_ir));
     }
     return result;
 }
@@ -436,7 +443,7 @@ class PresentationAudioSession::Implementation final {
     PresentationAudioPlan plan_;
     std::vector<contract::RouteId> route_ids_;
     ExhaustSourceStage source_stage_;
-    std::vector<std::unique_ptr<CausalOverlapSaveConvolver>> convolvers_;
+    std::vector<std::unique_ptr<CausalConfiguredIrConvolver>> convolvers_;
     std::vector<std::size_t> audition_route_indices_;
     MasterDynamics master_dynamics_;
     AudioScratch scratch_;

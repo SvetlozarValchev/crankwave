@@ -102,7 +102,9 @@ void assemble_presentation(const ModelContext &context, ResolutionEmitter &emitt
         derived_method_identity("presentation-engine-profile-binding-v1"),
         {"engine.profile_id"});
 
-    const auto &methods = presentation::implemented_presentation_method_identities();
+    const auto &methods = context.assets.extended_ir_ids.empty()
+                              ? presentation::implemented_presentation_method_identities()
+                              : presentation::extended_presentation_method_identities();
     const auto method = [&](const contract::MethodIdentity &identity,
                             std::string path) {
         return emitter.derived(
@@ -147,10 +149,13 @@ void assemble_presentation(const ModelContext &context, ResolutionEmitter &emitt
                             derived_method_identity("content-evidence-id-v1"),
                             {base + ".semantic_id"}),
             emitter.authored(verified.content_sha256, base + ".content_sha256"),
-            emitter.derived(context.assets.audio_media_by_id.at(semantic),
-                            base + ".media",
-                            derived_method_identity("pcm16-wave-media-inspection-v1"),
-                            {base + ".content_sha256"}),
+            emitter.derived(
+                context.assets.audio_media_by_id.at(semantic), base + ".media",
+                derived_method_identity(
+                    context.assets.extended_ir_ids.contains(semantic)
+                        ? "pcm16-pcm24-wave-media-inspection-v2"
+                        : "pcm16-wave-media-inspection-v1"),
+                {base + ".content_sha256"}),
         });
     }
 

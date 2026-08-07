@@ -102,6 +102,31 @@ Bytes canonical_wave(std::span<const std::int16_t> samples,
     return bytes;
 }
 
+Bytes canonical_pcm24_wave(std::span<const std::int32_t> samples) {
+    Bytes bytes;
+    append_four_cc(bytes, {'R', 'I', 'F', 'F'});
+    append_u32(bytes, 0);
+    append_four_cc(bytes, {'W', 'A', 'V', 'E'});
+    Bytes format;
+    append_u16(format, 1);
+    append_u16(format, 1);
+    append_u32(format, kConfiguredIrSampleRateHz);
+    append_u32(format, kConfiguredIrSampleRateHz * 3U);
+    append_u16(format, 3);
+    append_u16(format, 24);
+    append_chunk(bytes, {'f', 'm', 't', ' '}, format);
+    Bytes data;
+    for (const auto sample : samples) {
+        const auto raw = static_cast<std::uint32_t>(sample) & 0x00ffffffU;
+        data.push_back(std::byte{static_cast<unsigned char>(raw & 0xffU)});
+        data.push_back(std::byte{static_cast<unsigned char>((raw >> 8U) & 0xffU)});
+        data.push_back(std::byte{static_cast<unsigned char>((raw >> 16U) & 0xffU)});
+    }
+    append_chunk(bytes, {'d', 'a', 't', 'a'}, data);
+    write_u32(bytes, 4, static_cast<std::uint32_t>(bytes.size() - 8));
+    return bytes;
+}
+
 const DecodedPcm16Ir &expect_decoded(const Pcm16IrDecodeResult &result,
                                      const char *message) {
     const auto *decoded = std::get_if<DecodedPcm16Ir>(&result);
@@ -316,11 +341,53 @@ void test_required_chunks_and_media_shape_rejections() {
                  "oversized PCM16 IR was accepted");
 }
 
+void test_v2_preserves_pcm16_and_adds_pcm24_and_long_media() {
+    constexpr std::array<std::int16_t, 8> pcm16{
+        0, 100, -100, 101, -101, 32767, -32768, 1,
+    };
+    const auto pcm16_bytes = canonical_wave(pcm16);
+    const auto legacy_result = decode_pcm16_ir_wave(pcm16_bytes);
+    const auto extended_result = decode_pcm_ir_wave_v2(pcm16_bytes);
+    const auto *legacy = std::get_if<DecodedPcm16Ir>(&legacy_result);
+    const auto *extended = std::get_if<DecodedPcmIrV2>(&extended_result);
+    expect(legacy != nullptr && extended != nullptr &&
+               extended->bits_per_sample == 16U &&
+               extended->meaningful_support_frames ==
+                   legacy->meaningful_support_frames &&
+               extended->samples == std::vector<std::int32_t>(
+                                        legacy->samples.begin(),
+                                        legacy->samples.end()),
+           "v2 PCM16 decode changed legacy integer samples or support");
+
+    constexpr std::array<std::int32_t, 9> pcm24{
+        0, 25600, -25600, 25601, -25601, 8388607, -8388608, 1, 0,
+    };
+    const auto pcm24_result = decode_pcm_ir_wave_v2(canonical_pcm24_wave(pcm24));
+    const auto *decoded_pcm24 = std::get_if<DecodedPcmIrV2>(&pcm24_result);
+    expect(decoded_pcm24 != nullptr && decoded_pcm24->bits_per_sample == 24U &&
+               decoded_pcm24->samples ==
+                   std::vector<std::int32_t>(pcm24.begin(), pcm24.end()) &&
+               decoded_pcm24->meaningful_support_frames == 7U,
+           "v2 PCM24 decode changed signed values or scaled support threshold");
+
+    std::vector<std::int16_t> long_pcm16(kMaximumConfiguredIrFrameCount + 1U, 0);
+    long_pcm16.back() = 101;
+    const auto long_bytes = canonical_wave(long_pcm16);
+    const auto legacy_long = decode_pcm16_ir_wave(long_bytes);
+    const auto extended_long = decode_pcm_ir_wave_v2(long_bytes);
+    expect(std::holds_alternative<Pcm16IrDecodeError>(legacy_long) &&
+               std::holds_alternative<DecodedPcmIrV2>(extended_long) &&
+               std::get<DecodedPcmIrV2>(extended_long)
+                       .meaningful_support_frames == long_pcm16.size(),
+           "v2 did not add long PCM16 media without widening v1");
+}
+
 void run_tests() {
     test_canonical_decode_support_and_owned_result();
     test_container_boundaries_fail_closed();
     test_ancillary_chunks_and_chunk_order_are_layout_neutral();
     test_required_chunks_and_media_shape_rejections();
+    test_v2_preserves_pcm16_and_adds_pcm24_and_long_media();
 }
 
 } // namespace

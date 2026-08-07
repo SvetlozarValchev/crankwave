@@ -162,7 +162,7 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
 
     std::vector<presentation::CompiledPresentationAsset> compiled_assets;
     std::vector<presentation::CompiledPresentationConvolutionKernel> compiled_kernels;
-    std::vector<std::shared_ptr<const dsp::FixedConvolutionKernel>> route_kernels(
+    std::vector<dsp::RuntimeConvolutionKernel> route_kernels(
         calibration.route_count());
     compiled_assets.reserve(calibration.route_count());
     compiled_kernels.reserve(calibration.route_count());
@@ -212,7 +212,7 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
                 return kernel_matches(kernel, compiled_asset, convolution_method);
             });
         if (existing != compiled_kernels.end()) {
-            route_kernels[route_index] = existing->kernel();
+            route_kernels[route_index] = existing->runtime_kernel();
         } else {
             auto kernel_result = presentation::compile_presentation_convolution_kernel(
                 compiled_asset, convolution_method);
@@ -228,7 +228,8 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
             compiled_kernels.push_back(
                 std::get<presentation::CompiledPresentationConvolutionKernel>(
                     std::move(kernel_result)));
-            route_kernels[route_index] = compiled_kernels.back().kernel();
+            route_kernels[route_index] =
+                compiled_kernels.back().runtime_kernel();
         }
         compiled_assets.push_back(std::move(compiled_asset));
     }

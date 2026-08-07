@@ -6,8 +6,7 @@
 
 namespace engine_sim_offline::cli {
 
-std::string_view
-native_input_error_code_label(NativeInputErrorCode code) noexcept {
+std::string_view native_input_error_code_label(NativeInputErrorCode code) noexcept {
     switch (code) {
     case NativeInputErrorCode::empty_path:
         return "empty-path";
@@ -49,6 +48,10 @@ native_input_error_code_label(NativeInputErrorCode code) noexcept {
         return "builtin-asset-catalog-not-found";
     case NativeInputErrorCode::invalid_builtin_asset_catalog:
         return "invalid-builtin-asset-catalog";
+    case NativeInputErrorCode::ir_authoring_catalog_not_found:
+        return "ir-authoring-catalog-not-found";
+    case NativeInputErrorCode::invalid_ir_authoring_catalog:
+        return "invalid-ir-authoring-catalog";
     case NativeInputErrorCode::builtin_asset_digest_required:
         return "builtin-asset-digest-required";
     case NativeInputErrorCode::builtin_asset_not_cataloged:
@@ -67,8 +70,7 @@ native_input_error_code_label(NativeInputErrorCode code) noexcept {
     return "unknown-input-error";
 }
 
-std::string_view
-native_output_error_code_label(NativeOutputErrorCode code) noexcept {
+std::string_view native_output_error_code_label(NativeOutputErrorCode code) noexcept {
     switch (code) {
     case NativeOutputErrorCode::empty_path:
         return "empty-path";
@@ -99,54 +101,50 @@ std::vector<compile::AssetPayloadView> NativeEngineInput::asset_views() const {
     return result;
 }
 
-NativeEngineInputResult load_native_engine_input(
-    const std::filesystem::path &engine_path,
-    const std::filesystem::path &asset_root, NativeInputLimits limits) {
+NativeEngineInputResult
+load_native_engine_input(const std::filesystem::path &engine_path,
+                         const std::filesystem::path &asset_root,
+                         NativeInputLimits limits) {
     try {
         return detail::load_engine_impl(engine_path, asset_root, limits);
     } catch (const std::bad_alloc &) {
-        return detail::input_error(
-            NativeInputErrorKind::software,
-            NativeInputErrorCode::memory_allocation_failed,
-            NativeInputSubject::engine_document, engine_path,
-            "native engine input allocation failed");
+        return detail::input_error(NativeInputErrorKind::software,
+                                   NativeInputErrorCode::memory_allocation_failed,
+                                   NativeInputSubject::engine_document, engine_path,
+                                   "native engine input allocation failed");
     } catch (const std::filesystem::filesystem_error &) {
-        return detail::input_error(
-            NativeInputErrorKind::software,
-            NativeInputErrorCode::filesystem_failure,
-            NativeInputSubject::engine_document, engine_path,
-            "native engine input filesystem operation failed");
+        return detail::input_error(NativeInputErrorKind::software,
+                                   NativeInputErrorCode::filesystem_failure,
+                                   NativeInputSubject::engine_document, engine_path,
+                                   "native engine input filesystem operation failed");
     } catch (...) {
-        return detail::input_error(
-            NativeInputErrorKind::software,
-            NativeInputErrorCode::filesystem_failure,
-            NativeInputSubject::engine_document, engine_path,
-            "native engine input loading failed unexpectedly");
+        return detail::input_error(NativeInputErrorKind::software,
+                                   NativeInputErrorCode::filesystem_failure,
+                                   NativeInputSubject::engine_document, engine_path,
+                                   "native engine input loading failed unexpectedly");
     }
 }
 
-NativeScenarioInputResult load_native_scenario_input(
-    const std::filesystem::path &scenario_path, NativeInputLimits limits) {
+NativeScenarioInputResult
+load_native_scenario_input(const std::filesystem::path &scenario_path,
+                           NativeInputLimits limits) {
     try {
         return detail::load_scenario_impl(scenario_path, limits);
     } catch (const std::bad_alloc &) {
-        return detail::input_error(
-            NativeInputErrorKind::software,
-            NativeInputErrorCode::memory_allocation_failed,
-            NativeInputSubject::scenario_document, scenario_path,
-            "native scenario input allocation failed");
+        return detail::input_error(NativeInputErrorKind::software,
+                                   NativeInputErrorCode::memory_allocation_failed,
+                                   NativeInputSubject::scenario_document, scenario_path,
+                                   "native scenario input allocation failed");
     } catch (const std::filesystem::filesystem_error &) {
-        return detail::input_error(
-            NativeInputErrorKind::software,
-            NativeInputErrorCode::filesystem_failure,
-            NativeInputSubject::scenario_document, scenario_path,
-            "native scenario input filesystem operation failed");
+        return detail::input_error(NativeInputErrorKind::software,
+                                   NativeInputErrorCode::filesystem_failure,
+                                   NativeInputSubject::scenario_document, scenario_path,
+                                   "native scenario input filesystem operation failed");
     } catch (...) {
-        return detail::input_error(
-            NativeInputErrorKind::software,
-            NativeInputErrorCode::filesystem_failure,
-            NativeInputSubject::scenario_document, scenario_path,
-            "native scenario input loading failed unexpectedly");
+        return detail::input_error(NativeInputErrorKind::software,
+                                   NativeInputErrorCode::filesystem_failure,
+                                   NativeInputSubject::scenario_document, scenario_path,
+                                   "native scenario input loading failed unexpectedly");
     }
 }
 

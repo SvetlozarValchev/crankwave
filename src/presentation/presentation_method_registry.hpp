@@ -25,9 +25,23 @@ inline constexpr std::string_view kStaticIrConversionMethodId =
 #endif
 inline constexpr std::uint32_t kStaticIrConversionMethodVersion = 1;
 
+#if defined(__wasm32__)
+inline constexpr std::string_view kHybridStaticIrConversionMethodId =
+    "hybrid-static-ir-pcm16-pcm24-44100-to-192000-binary64-"
+    "wasm32-binary128-v2";
+#else
+inline constexpr std::string_view kHybridStaticIrConversionMethodId =
+    "hybrid-static-ir-pcm16-pcm24-44100-to-192000-binary64-v2";
+#endif
+inline constexpr std::uint32_t kHybridStaticIrConversionMethodVersion = 2;
+
 inline constexpr std::string_view kFixedOverlapSaveConvolutionMethodId =
     "fixed-causal-overlap-save-radix2-dit-fft-65536-binary64-v1";
 inline constexpr std::uint32_t kFixedOverlapSaveConvolutionMethodVersion = 1;
+
+inline constexpr std::string_view kHybridPartitionedConvolutionMethodId =
+    "hybrid-fixed-or-uniform-partitioned-causal-fft-binary64-v2";
+inline constexpr std::uint32_t kHybridPartitionedConvolutionMethodVersion = 2;
 
 inline constexpr std::string_view kRouteStemPublicationMethodId =
     "exhaust-route-wet-selection-float32-wave-publication-10000-or-20000-to-"
@@ -60,7 +74,11 @@ struct PresentationMethodIdentities {
 [[nodiscard]] std::string_view route_conditioning_method_descriptor() noexcept;
 [[nodiscard]] std::string_view static_ir_conversion_method_descriptor() noexcept;
 [[nodiscard]] std::string_view
+hybrid_static_ir_conversion_method_descriptor() noexcept;
+[[nodiscard]] std::string_view
 fixed_overlap_save_convolution_method_descriptor() noexcept;
+[[nodiscard]] std::string_view
+hybrid_partitioned_convolution_method_descriptor() noexcept;
 [[nodiscard]] std::string_view route_stem_publication_method_descriptor() noexcept;
 [[nodiscard]] std::string_view ordered_route_audition_method_descriptor() noexcept;
 
@@ -68,12 +86,19 @@ fixed_overlap_save_convolution_method_descriptor() noexcept;
 [[nodiscard]] const contract::MethodIdentity &route_conditioning_method_identity();
 [[nodiscard]] const contract::MethodIdentity &static_ir_conversion_method_identity();
 [[nodiscard]] const contract::MethodIdentity &
+hybrid_static_ir_conversion_method_identity();
+[[nodiscard]] const contract::MethodIdentity &
 fixed_overlap_save_convolution_method_identity();
+[[nodiscard]] const contract::MethodIdentity &
+hybrid_partitioned_convolution_method_identity();
 [[nodiscard]] const contract::MethodIdentity &route_stem_publication_method_identity();
 [[nodiscard]] const contract::MethodIdentity &ordered_route_audition_method_identity();
 
 [[nodiscard]] const PresentationMethodIdentities &
 implemented_presentation_method_identities();
+
+[[nodiscard]] const PresentationMethodIdentities &
+extended_presentation_method_identities();
 
 [[nodiscard]] bool exactly_matches_implemented_presentation_methods(
     const contract::PresentationMethods &methods);

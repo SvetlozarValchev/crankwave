@@ -121,20 +121,35 @@ void verify_engine_assets(const authoring::EnginePackageDocument &document,
                 continue;
             }
         }
-        const auto decoded = presentation::decode_pcm16_ir_wave(payload->bytes);
-        const auto *wave = std::get_if<presentation::DecodedPcm16Ir>(&decoded);
+        const auto decoded = presentation::decode_pcm_ir_wave_v2(payload->bytes);
+        const auto *wave = std::get_if<presentation::DecodedPcmIrV2>(&decoded);
         if (wave == nullptr || wave->samples.empty() ||
             wave->meaningful_support_frames == 0U) {
             add(report, authoring::DiagnosticCode::invalid_value, path + "/uri",
-                "impulse response must be an admitted nonempty PCM16 mono "
+                "impulse response must be admitted nonempty mono PCM16 or PCM24 "
                 "44.1-kHz WAVE payload");
             continue;
+        }
+        const auto encoding =
+            wave->bits_per_sample == 16U
+                ? contract::AudioSampleEncoding::pcm_s16le
+                : contract::AudioSampleEncoding::pcm_s24le;
+        const auto target_count =
+            (static_cast<std::uint64_t>(wave->meaningful_support_frames) *
+                 192000U +
+             22050U) /
+            44100U;
+        if (wave->bits_per_sample != 16U ||
+            wave->samples.size() >
+                presentation::kMaximumConfiguredIrFrameCount ||
+            target_count > 30071U) {
+            output.extended_ir_ids.insert(definition.id.value);
         }
         output.audio_by_id.emplace(definition.id.value, output.values.size());
         output.audio_media_by_id.emplace(
             definition.id.value,
             contract::AudioMediaContract{
-                contract::AudioSampleEncoding::pcm_s16le,
+                encoding,
                 contract::AudioChannelLayout::mono,
                 {presentation::kConfiguredIrSampleRateHz, 1U},
                 static_cast<std::uint64_t>(wave->samples.size()),

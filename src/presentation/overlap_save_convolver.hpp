@@ -4,8 +4,10 @@
 
 #include <complex>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <span>
+#include <variant>
 #include <vector>
 
 namespace engine_sim_offline::presentation {
@@ -49,6 +51,60 @@ class CausalOverlapSaveConvolver {
     std::vector<double> next_history_scratch_;
     std::vector<double> output_scratch_;
     std::vector<std::complex<double>> transform_scratch_;
+};
+
+// Additive uniform-partitioned path for IRs outside the v1 fixed-kernel shape.
+// It consumes the exact 3,840-frame presentation quantum and preserves the
+// complete causal tail between calls.
+class CausalPartitionedConvolver {
+  public:
+    static constexpr std::size_t block_frame_count =
+        dsp::PartitionedConvolutionLimits::partition_frame_count;
+    static constexpr std::size_t transform_length =
+        dsp::PartitionedConvolutionLimits::transform_length;
+
+    explicit CausalPartitionedConvolver(
+        std::shared_ptr<const dsp::PartitionedConvolutionKernel> kernel);
+
+    CausalPartitionedConvolver(const CausalPartitionedConvolver &) = delete;
+    CausalPartitionedConvolver &
+    operator=(const CausalPartitionedConvolver &) = delete;
+    CausalPartitionedConvolver(CausalPartitionedConvolver &&) = delete;
+    CausalPartitionedConvolver &operator=(CausalPartitionedConvolver &&) = delete;
+
+    void process(std::span<const double> input, std::span<double> output);
+
+  private:
+    const std::shared_ptr<const dsp::PartitionedConvolutionKernel> kernel_;
+    std::vector<std::complex<double>> input_spectra_;
+    std::vector<std::complex<double>> input_scratch_;
+    std::vector<std::complex<double>> output_spectrum_scratch_;
+    std::vector<double> overlap_;
+    std::vector<double> next_overlap_scratch_;
+    std::vector<double> output_scratch_;
+    std::uint64_t processed_block_count_ = 0;
+};
+
+// Runtime discriminator used by the presentation session. Legacy routes still
+// construct CausalOverlapSaveConvolver directly; extended routes cannot alter
+// that class's arithmetic or state shape.
+class CausalConfiguredIrConvolver {
+  public:
+    explicit CausalConfiguredIrConvolver(dsp::RuntimeConvolutionKernel kernel);
+
+    CausalConfiguredIrConvolver(const CausalConfiguredIrConvolver &) = delete;
+    CausalConfiguredIrConvolver &
+    operator=(const CausalConfiguredIrConvolver &) = delete;
+    CausalConfiguredIrConvolver(CausalConfiguredIrConvolver &&) = delete;
+    CausalConfiguredIrConvolver &operator=(CausalConfiguredIrConvolver &&) = delete;
+
+    void process(std::span<const double> input, std::span<double> output);
+
+  private:
+    using Implementation =
+        std::variant<std::unique_ptr<CausalOverlapSaveConvolver>,
+                     std::unique_ptr<CausalPartitionedConvolver>>;
+    Implementation implementation_;
 };
 
 } // namespace engine_sim_offline::presentation

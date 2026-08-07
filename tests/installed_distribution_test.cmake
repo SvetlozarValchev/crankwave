@@ -65,11 +65,14 @@ foreach(required_file IN ITEMS
         "${resource_root}/docs/contracts/CLI_RESULT_V1.md"
         "${resource_root}/docs/contracts/INSTALLED_DISTRIBUTION_V1.md"
         "${resource_root}/docs/contracts/RESPONSIVE_PROFILE_SELECTION_V1.md"
+        "${resource_root}/docs/contracts/IR_AUTHORING_CATALOG_V1.md"
         "${resource_root}/assets/catalog.v1.json"
+        "${resource_root}/assets/ir-authoring-catalog.v1.json"
         "${baker_root}/bake.mjs"
         "${baker_root}/dump-ir-spectrum.cpp"
         "${baker_root}/profiles/interactive-preview-v1.json"
-        "${resource_root}/schemas/responsive-audio-bake-profile.schema.json")
+        "${resource_root}/schemas/responsive-audio-bake-profile.schema.json"
+        "${resource_root}/schemas/ir-authoring-catalog.schema.json")
     if(NOT EXISTS "${required_file}" OR IS_DIRECTORY "${required_file}")
         message(FATAL_ERROR "installed distribution file is absent: ${required_file}")
     endif()
@@ -170,6 +173,62 @@ if(NOT cli_version_result EQUAL 0 OR
         "exit: ${cli_version_result}\n"
         "stdout: ${cli_version_stdout}\nstderr: ${cli_version_stderr}")
 endif()
+
+execute_process(
+    COMMAND "${cli}" inspect-ir-catalog --result-format json
+    RESULT_VARIABLE ir_catalog_result
+    OUTPUT_VARIABLE ir_catalog_stdout
+    ERROR_VARIABLE ir_catalog_stderr
+)
+if(NOT ir_catalog_result EQUAL 0 OR NOT ir_catalog_stderr STREQUAL "")
+    message(FATAL_ERROR
+        "installed IR authoring catalog query failed\n"
+        "exit: ${ir_catalog_result}\nstdout: ${ir_catalog_stdout}\n"
+        "stderr: ${ir_catalog_stderr}")
+endif()
+string(JSON ir_result_schema GET "${ir_catalog_stdout}" schema)
+string(JSON ir_result_release GET "${ir_catalog_stdout}" release_identity)
+string(JSON ir_result_command GET "${ir_catalog_stdout}" command)
+string(JSON ir_result_ok GET "${ir_catalog_stdout}" ok)
+string(JSON ir_result_count GET "${ir_catalog_stdout}" result entry_count)
+string(JSON ir_result_sha GET "${ir_catalog_stdout}" result catalog_sha256)
+string(JSON ir_catalog_schema GET "${ir_catalog_stdout}" result catalog schema)
+string(JSON ir_catalog_release GET
+    "${ir_catalog_stdout}" result catalog release_identity)
+string(JSON ir_catalog_entry_count LENGTH
+    "${ir_catalog_stdout}" result catalog entries)
+file(SHA256 "${resource_root}/assets/ir-authoring-catalog.v1.json"
+    installed_ir_catalog_sha)
+if(NOT ir_result_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
+   NOT ir_result_release STREQUAL RELEASE_IDENTITY OR
+   NOT ir_result_command STREQUAL "inspect-ir-catalog" OR
+   NOT ir_result_ok OR
+   NOT ir_result_count EQUAL 73 OR
+   NOT ir_result_sha STREQUAL installed_ir_catalog_sha OR
+   NOT ir_catalog_schema STREQUAL
+       "engine-sim-offline/ir-authoring-catalog.v1" OR
+   NOT ir_catalog_release STREQUAL RELEASE_IDENTITY OR
+   NOT ir_catalog_entry_count EQUAL 73)
+    message(FATAL_ERROR
+        "installed IR authoring query or release binding differs")
+endif()
+
+math(EXPR ir_catalog_last "${ir_catalog_entry_count} - 1")
+foreach(ir_catalog_index RANGE 0 ${ir_catalog_last})
+    string(JSON ir_payload_sha GET "${ir_catalog_stdout}"
+        result catalog entries ${ir_catalog_index} sha256)
+    set(ir_payload
+        "${resource_root}/assets/payloads/${ir_payload_sha}")
+    if(NOT EXISTS "${ir_payload}" OR IS_DIRECTORY "${ir_payload}")
+        message(FATAL_ERROR
+            "installed IR catalog payload is absent: ${ir_payload_sha}")
+    endif()
+    file(SHA256 "${ir_payload}" ir_payload_actual_sha)
+    if(NOT ir_payload_actual_sha STREQUAL ir_payload_sha)
+        message(FATAL_ERROR
+            "installed IR catalog payload hash differs: ${ir_payload_sha}")
+    endif()
+endforeach()
 
 execute_process(
     COMMAND "${launcher}" --version

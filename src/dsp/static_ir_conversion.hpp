@@ -24,6 +24,14 @@ struct StaticIrConversionLimits {
         source_rate_hz;
 };
 
+struct ExtendedStaticIrConversionLimits {
+    static constexpr std::size_t maximum_source_frame_count = 131072;
+    static constexpr std::size_t maximum_target_coefficient_count =
+        (maximum_source_frame_count * StaticIrConversionLimits::target_rate_hz +
+         StaticIrConversionLimits::source_rate_hz / 2) /
+        StaticIrConversionLimits::source_rate_hz;
+};
+
 // Returns the positive, half-up-rounded coefficient count for the fixed
 // 44.1 kHz-to-192 kHz conversion. The source count is bounded by the frozen
 // source-frame envelope above.
@@ -43,5 +51,18 @@ static_ir_target_count(std::size_t meaningful_support_frame_count);
 convert_static_ir(std::span<const std::int16_t> decoded_pcm16,
                   std::size_t meaningful_support_frame_count,
                   double configured_gain);
+
+// Additive v2 conversion for long PCM16 and PCM24 inputs. Samples retain their
+// exact decoded integer values and bits_per_sample is exactly 16 or 24. The
+// interpolation topology is the v1 topology over a wider bounded source extent;
+// the integer normalization divisor is 32767 or 8388607 respectively.
+[[nodiscard]] std::size_t
+extended_static_ir_target_count(std::size_t meaningful_support_frame_count);
+
+[[nodiscard]] std::vector<double>
+convert_static_ir_v2(std::span<const std::int32_t> decoded_pcm,
+                     std::uint16_t bits_per_sample,
+                     std::size_t meaningful_support_frame_count,
+                     double configured_gain);
 
 } // namespace engine_sim_offline::dsp

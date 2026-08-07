@@ -12,6 +12,10 @@ namespace engine_sim_offline::presentation {
 inline constexpr std::uint32_t kConfiguredIrSampleRateHz = 44100;
 inline constexpr std::int32_t kMeaningfulSupportThreshold = 100;
 inline constexpr std::size_t kMaximumConfiguredIrFrameCount = 33705;
+// The additive v2 media envelope is deliberately wider than every approved
+// engine-sim sound-library IR.  The v1 decoder above keeps its original bound;
+// callers only enter this envelope through the explicitly identified v2 method.
+inline constexpr std::size_t kMaximumExtendedConfiguredIrFrameCount = 131072;
 
 enum class Pcm16IrDecodeErrorCode : std::uint8_t {
     truncated_riff_header,
@@ -54,6 +58,20 @@ struct DecodedPcm16Ir {
 
 using Pcm16IrDecodeResult = std::variant<DecodedPcm16Ir, Pcm16IrDecodeError>;
 
+struct DecodedPcmIrV2 {
+    // Exact signed integer sample values. PCM16 occupies the signed 16-bit
+    // range and PCM24 occupies the signed 24-bit range; no quantization occurs
+    // while decoding.
+    std::vector<std::int32_t> samples;
+    std::uint16_t bits_per_sample = 0;
+    std::size_t meaningful_support_frames = 0;
+
+    friend bool operator==(const DecodedPcmIrV2 &,
+                           const DecodedPcmIrV2 &) = default;
+};
+
+using PcmIrV2DecodeResult = std::variant<DecodedPcmIrV2, Pcm16IrDecodeError>;
+
 // Returns zero when no sample crosses the strict threshold. INT16_MIN is handled
 // without signed overflow.
 [[nodiscard]] std::size_t
@@ -67,5 +85,13 @@ meaningful_pcm16_support(std::span<const std::int16_t> samples) noexcept;
 // by the later isolated integration boundary, not by this byte decoder.
 [[nodiscard]] Pcm16IrDecodeResult
 decode_pcm16_ir_wave(std::span<const std::byte> wave_bytes);
+
+// Decoder for the versioned extended configured-IR path. Container rules stay
+// identical to v1, while the admitted data shape is mono PCM16 or PCM24 at
+// 44.1 kHz and up to kMaximumExtendedConfiguredIrFrameCount frames. Meaningful
+// support uses the v1 threshold scaled exactly into the source integer domain
+// (100 for PCM16, 25,600 for PCM24).
+[[nodiscard]] PcmIrV2DecodeResult
+decode_pcm_ir_wave_v2(std::span<const std::byte> wave_bytes);
 
 } // namespace engine_sim_offline::presentation

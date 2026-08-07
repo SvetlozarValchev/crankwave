@@ -450,6 +450,27 @@ void test_long_kernel_shape_rejection() {
             asset, fixed_overlap_save_convolution_method_identity()),
         PresentationConvolutionKernelCompileErrorCode::unsupported_coefficient_shape,
         "converted IR longer than the fixed kernel capacity was accepted");
+
+    fixture.method = hybrid_static_ir_conversion_method_identity();
+    const auto extended_asset_result = compile_presentation_asset(
+        fixture.asset, payload_view(fixture), fixture.method, fixture.gain);
+    const auto &extended_asset = expect_compiled(
+        extended_asset_result, "v2 rejected a long but bounded PCM16 IR");
+    expect(std::ranges::equal(asset.coefficients(),
+                              extended_asset.coefficients()) &&
+               asset.coefficient_f64le_identity() ==
+                   extended_asset.coefficient_f64le_identity(),
+           "v2 changed the existing PCM16 interpolation arithmetic");
+    const auto extended_kernel_result = compile_presentation_convolution_kernel(
+        extended_asset, hybrid_partitioned_convolution_method_identity());
+    const auto &extended_kernel = expect_compiled_kernel(
+        extended_kernel_result,
+        "v2 rejected a converted IR beyond the fixed-kernel capacity");
+    expect(extended_kernel.kernel() == nullptr &&
+               extended_kernel.partitioned_kernel() != nullptr &&
+               extended_kernel.partitioned_kernel()->coefficient_count() ==
+                   extended_asset.coefficients().size(),
+           "v2 did not select the complete partitioned kernel representation");
 }
 
 void test_convolution_method_rejection() {
@@ -526,6 +547,25 @@ void test_canonical_bmw_asset(const std::string &path) {
                digest_hex(kernel.spectrum_complex_f64le_identity().payload_sha256) ==
                    "a1a12fc0224ecdf824e402562ed6b5fd31d915278693a8cfaaeea41a5cf957d2",
            "canonical BMW configured-IR kernel identity changed");
+
+    const auto hybrid_result = compile_presentation_asset(
+        asset, {payload.id, payload.bytes},
+        hybrid_static_ir_conversion_method_identity(), gain);
+    const auto &hybrid = expect_compiled(
+        hybrid_result, "hybrid-v2 rejected the canonical legacy BMW IR");
+    const auto hybrid_kernel_result = compile_presentation_convolution_kernel(
+        hybrid, hybrid_partitioned_convolution_method_identity());
+    const auto &hybrid_kernel = expect_compiled_kernel(
+        hybrid_kernel_result,
+        "hybrid-v2 rejected the canonical legacy BMW fixed kernel");
+    expect(std::ranges::equal(hybrid.coefficients(), compiled.coefficients()) &&
+               hybrid.coefficient_f64le_identity() ==
+                   compiled.coefficient_f64le_identity() &&
+               hybrid_kernel.kernel() != nullptr &&
+               hybrid_kernel.partitioned_kernel() == nullptr &&
+               hybrid_kernel.spectrum_complex_f64le_identity() ==
+                   kernel.spectrum_complex_f64le_identity(),
+           "hybrid-v2 changed canonical smooth-39 coefficient or spectrum bytes");
 }
 
 void run_tests(const std::string &configured_ir_path) {

@@ -71,9 +71,14 @@ struct VerifyRevengineCommand : MachineResultOptions {
                            const VerifyRevengineCommand &) = default;
 };
 
-using CliCommand =
-    std::variant<HelpCommand, VersionCommand, RenderCommand, PackRevengineCommand,
-                 InspectRevengineCommand, VerifyRevengineCommand>;
+struct InspectIrCatalogCommand : MachineResultOptions {
+    friend bool operator==(const InspectIrCatalogCommand &,
+                           const InspectIrCatalogCommand &) = default;
+};
+
+using CliCommand = std::variant<HelpCommand, VersionCommand, RenderCommand,
+                                PackRevengineCommand, InspectRevengineCommand,
+                                VerifyRevengineCommand, InspectIrCatalogCommand>;
 
 struct CliUsageError {
     std::string message;

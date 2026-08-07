@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 
 project(
     engine_sim_offline
-    VERSION 1.0.0
+    VERSION 1.1.0
     DESCRIPTION "Offline-native engine simulation and audio rendering"
     LANGUAGES C CXX
 )
@@ -841,6 +841,20 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         "${PROJECT_SOURCE_DIR}/assets/builtin/catalog.v1.json"
     )
     set(
+        _engine_sim_offline_ir_authoring_catalog_source
+        "${PROJECT_SOURCE_DIR}/assets/builtin/ir-authoring-catalog.v1.json"
+    )
+    set(
+        _engine_sim_offline_ir_library_payload_directory
+        "${PROJECT_SOURCE_DIR}/assets/builtin/ir-library/payloads"
+    )
+    file(
+        GLOB _engine_sim_offline_ir_library_payload_sources
+        CONFIGURE_DEPENDS
+        "${_engine_sim_offline_ir_library_payload_directory}/*.wav"
+    )
+    list(SORT _engine_sim_offline_ir_library_payload_sources)
+    set(
         _engine_sim_offline_builtin_asset_bundle
         "${PROJECT_BINARY_DIR}/generated/engine-sim-offline-assets"
     )
@@ -864,8 +878,6 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         _engine_sim_offline_builtin_asset_payload_specs
         "f2875947eba2ed98a15f45a5d62f6ae7b607b0a56389bad5882d75748ad374b9|reference/fixtures/engine-sim-ir-library/presentation/mild_exhaust.wav"
         "0d736bb7065686ae527c8487ef7850762c0381c91125e555228cf4599e4ff68c|reference/fixtures/engine-sim-ir-library/presentation/minimal_muffling_01.wav"
-        "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc|reference/fixtures/engine-sim-ir-library/presentation/smooth_39.wav"
-        "97408471f8b699a93b888db448367cf7abbe20e6c4891cc8af0d1946889f8b69|reference/fixtures/raspy-muscle-620-cleanroom/presentation/smooth_46.wav"
         "55125069f43e48b52a5842649d899d9d250fc94808b8dbe59360e790aa0bebd4|data/profiles/raspy-muscle-620-cleanroom/accessory-configurations/raspy-muscle-620-cleanroom-warm-generic-accessories-v1.json"
         "58feca2e7b011a72a910be8a76dde71bdf53d3beedce5cdd54dbee583135f224|data/profiles/sequoia-3ur-fe-cleanroom/accessory-configurations/sequoia-3ur-fe-cleanroom-warm-generic-accessories-v1.json"
         "654ea801670c9e850a0406a0fb7afbc2b507fb6fd1cd70a2d8fbbfbab6dc6d00|data/engines/kohler-ch750-cleanroom/accessory-configuration.json"
@@ -912,6 +924,30 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
                 "${_engine_sim_offline_builtin_asset_bundle}/payloads/${_engine_sim_offline_builtin_asset_payload_sha256}"
         )
     endforeach()
+    foreach(
+        _engine_sim_offline_ir_library_payload_source
+        IN LISTS _engine_sim_offline_ir_library_payload_sources
+    )
+        get_filename_component(
+            _engine_sim_offline_ir_library_payload_name
+            "${_engine_sim_offline_ir_library_payload_source}"
+            NAME_WE
+        )
+        string(LENGTH "${_engine_sim_offline_ir_library_payload_name}"
+            _engine_sim_offline_ir_library_payload_name_length)
+        if(NOT _engine_sim_offline_ir_library_payload_name_length EQUAL 64 OR
+           NOT _engine_sim_offline_ir_library_payload_name MATCHES "^[0-9a-f]+$")
+            message(FATAL_ERROR
+                "IR library payload filename must be <sha256>.wav: ${_engine_sim_offline_ir_library_payload_source}")
+        endif()
+        list(
+            APPEND _engine_sim_offline_builtin_asset_payload_commands
+            COMMAND
+                "${CMAKE_COMMAND}" -E copy_if_different
+                "${_engine_sim_offline_ir_library_payload_source}"
+                "${_engine_sim_offline_builtin_asset_bundle}/payloads/${_engine_sim_offline_ir_library_payload_name}"
+        )
+    endforeach()
     set(
         _engine_sim_offline_builtin_asset_bundle_stamp
         "${_engine_sim_offline_builtin_asset_bundle}/.assembled"
@@ -931,6 +967,10 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             "${CMAKE_COMMAND}" -E copy_if_different
             "${_engine_sim_offline_builtin_asset_catalog_source}"
             "${_engine_sim_offline_builtin_asset_bundle}/catalog.v1.json"
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy_if_different
+            "${_engine_sim_offline_ir_authoring_catalog_source}"
+            "${_engine_sim_offline_builtin_asset_bundle}/ir-authoring-catalog.v1.json"
         ${_engine_sim_offline_builtin_asset_payload_commands}
         COMMAND
             "${CMAKE_COMMAND}" -E copy_if_different
@@ -945,7 +985,9 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             "${_engine_sim_offline_builtin_asset_bundle_stamp}"
         DEPENDS
             "${_engine_sim_offline_builtin_asset_catalog_source}"
+            "${_engine_sim_offline_ir_authoring_catalog_source}"
             ${_engine_sim_offline_builtin_asset_payload_sources}
+            ${_engine_sim_offline_ir_library_payload_sources}
             "${_engine_sim_offline_shared_starter_runtime}"
             "${_engine_sim_offline_shared_starter_audio}"
         COMMENT "Assembling the built-in engine asset bundle"
@@ -958,6 +1000,10 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     set(
         ENGINE_SIM_OFFLINE_BUILTIN_ASSET_CATALOG_FOR_TESTS
         "${_engine_sim_offline_builtin_asset_bundle}/catalog.v1.json"
+    )
+    set(
+        ENGINE_SIM_OFFLINE_IR_AUTHORING_CATALOG_FOR_TESTS
+        "${_engine_sim_offline_builtin_asset_bundle}/ir-authoring-catalog.v1.json"
     )
 
     add_executable(
@@ -1110,6 +1156,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         "${PROJECT_SOURCE_DIR}/docs/contracts/CLI_RESULT_V1.md"
         "${PROJECT_SOURCE_DIR}/docs/contracts/INSTALLED_DISTRIBUTION_V1.md"
         "${PROJECT_SOURCE_DIR}/docs/contracts/RESPONSIVE_PROFILE_SELECTION_V1.md"
+        "${PROJECT_SOURCE_DIR}/docs/contracts/IR_AUTHORING_CATALOG_V1.md"
     )
     install(
         FILES ${_engine_sim_offline_installed_contract_sources}
@@ -1147,6 +1194,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     install(
         FILES
             "${PROJECT_SOURCE_DIR}/schemas/responsive-audio-bake-profile.schema.json"
+            "${PROJECT_SOURCE_DIR}/schemas/ir-authoring-catalog.schema.json"
         DESTINATION
             "${_engine_sim_offline_install_resource_directory}/schemas"
     )
@@ -1185,7 +1233,9 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     set(
         _engine_sim_offline_release_source_inputs
         "${_engine_sim_offline_builtin_asset_catalog_source}"
+        "${_engine_sim_offline_ir_authoring_catalog_source}"
         ${_engine_sim_offline_builtin_asset_payload_sources}
+        ${_engine_sim_offline_ir_library_payload_sources}
         "${_engine_sim_offline_shared_starter_runtime}"
         "${_engine_sim_offline_shared_starter_audio}"
         "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/bake.mjs"
@@ -1193,6 +1243,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         ${_engine_sim_offline_baker_internal_sources}
         ${_engine_sim_offline_baker_profile_sources}
         "${PROJECT_SOURCE_DIR}/schemas/responsive-audio-bake-profile.schema.json"
+        "${PROJECT_SOURCE_DIR}/schemas/ir-authoring-catalog.schema.json"
         ${_engine_sim_offline_baker_c_api_javascript_closure}
         ${_engine_sim_offline_revengine_javascript_closure}
         ${_engine_sim_offline_installed_contract_sources}
@@ -1232,6 +1283,11 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         RENAME catalog.v1.json
     )
     install(
+        FILES "${_engine_sim_offline_ir_authoring_catalog_source}"
+        DESTINATION "${_engine_sim_offline_install_resource_directory}/assets"
+        RENAME ir-authoring-catalog.v1.json
+    )
+    install(
         FILES "${_engine_sim_offline_shared_starter_runtime}"
         DESTINATION
             "${_engine_sim_offline_install_resource_directory}/assets/runtime-audio/shared-recorded-starter"
@@ -1264,6 +1320,22 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             DESTINATION
                 "${_engine_sim_offline_install_resource_directory}/assets/payloads"
             RENAME "${_engine_sim_offline_builtin_asset_payload_sha256}"
+        )
+    endforeach()
+    foreach(
+        _engine_sim_offline_ir_library_payload_source
+        IN LISTS _engine_sim_offline_ir_library_payload_sources
+    )
+        get_filename_component(
+            _engine_sim_offline_ir_library_payload_name
+            "${_engine_sim_offline_ir_library_payload_source}"
+            NAME_WE
+        )
+        install(
+            FILES "${_engine_sim_offline_ir_library_payload_source}"
+            DESTINATION
+                "${_engine_sim_offline_install_resource_directory}/assets/payloads"
+            RENAME "${_engine_sim_offline_ir_library_payload_name}"
         )
     endforeach()
 

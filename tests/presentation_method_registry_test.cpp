@@ -301,11 +301,61 @@ void test_exact_admission_and_all_field_mutations() {
     }
 }
 
+void test_extended_transfer_authority_is_coherent_and_explicit() {
+    const auto &legacy =
+        presentation::implemented_presentation_method_identities();
+    const auto &extended =
+        presentation::extended_presentation_method_identities();
+    expect(extended.reconstruction == legacy.reconstruction &&
+               extended.conditioning == legacy.conditioning &&
+               extended.publication == legacy.publication &&
+               extended.audition_mix == legacy.audition_mix &&
+               extended.impulse_response_conversion.id ==
+                   "hybrid-static-ir-pcm16-pcm24-44100-to-192000-binary64-v2" &&
+               extended.impulse_response_conversion.version == 2U &&
+               extended.convolution.id ==
+                   "hybrid-fixed-or-uniform-partitioned-causal-fft-binary64-v2" &&
+               extended.convolution.version == 2U,
+           "extended presentation authority changed its additive boundary");
+    expect(extended.impulse_response_conversion.configuration_sha256 ==
+                   descriptor_digest(
+                       presentation::hybrid_static_ir_conversion_method_descriptor()) &&
+               extended.convolution.configuration_sha256 ==
+                   descriptor_digest(presentation::
+                                         hybrid_partitioned_convolution_method_descriptor()),
+           "extended presentation identities do not bind their descriptors");
+    expect_canonical_lf(
+        presentation::hybrid_static_ir_conversion_method_descriptor(),
+        "hybrid IR conversion descriptor is not canonical LF text");
+    expect_canonical_lf(
+        presentation::hybrid_partitioned_convolution_method_descriptor(),
+        "hybrid convolution descriptor is not canonical LF text");
+
+    contract::PresentationMethods methods{
+        {extended.reconstruction, "registry-test.reconstruction"},
+        {extended.conditioning, "registry-test.conditioning"},
+        {extended.impulse_response_conversion, "registry-test.ir-conversion"},
+        {extended.convolution, "registry-test.convolution"},
+        {extended.publication, "registry-test.publication"},
+        {extended.audition_mix, "registry-test.audition"},
+    };
+    expect(presentation::exactly_matches_implemented_presentation_methods(methods) &&
+               presentation::admit_implemented_presentation_methods(methods).ok(),
+           "coherent extended presentation authority was rejected");
+    methods.convolution.value = legacy.convolution;
+    const auto mixed_report =
+        presentation::admit_implemented_presentation_methods(methods);
+    expect(!presentation::exactly_matches_implemented_presentation_methods(methods) &&
+               mixed_report.issues.size() == 2U,
+           "mixed v1/v2 transfer authority was not rejected coherently");
+}
+
 void run_tests() {
     test_all_exact_method_identities();
     test_singleton_shape_and_stability();
     test_registry_has_no_duplicates_or_product_coupling();
     test_exact_admission_and_all_field_mutations();
+    test_extended_transfer_authority_is_coherent_and_explicit();
 }
 
 } // namespace

@@ -14,6 +14,9 @@ namespace {
 #define ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_EXECUTION                        \
     "wasm32-ieee754-binary128-radix2-113-significand-bits-min-exponent-"      \
     "minus16381-max-exponent-16384-storage-16-bytes-nearest-ties-to-even"
+#define ENGINE_SIM_OFFLINE_HYBRID_STATIC_IR_METHOD_ID_LITERAL                  \
+    "hybrid-static-ir-pcm16-pcm24-44100-to-192000-binary64-wasm32-"           \
+    "binary128-v2"
 #else
 #define ENGINE_SIM_OFFLINE_STATIC_IR_METHOD_ID_LITERAL                         \
     "static-ir-blackman-sinc-24tap-4096phase-44100-to-192000-binary64-v1"
@@ -22,6 +25,8 @@ namespace {
 #define ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_EXECUTION                        \
     "x87-radix2-64-significand-bits-min-exponent-minus16381-max-exponent-"     \
     "16384-storage-16-bytes-nearest-ties-to-even-masked-exceptions"
+#define ENGINE_SIM_OFFLINE_HYBRID_STATIC_IR_METHOD_ID_LITERAL                  \
+    "hybrid-static-ir-pcm16-pcm24-44100-to-192000-binary64-v2"
 #endif
 
 constexpr std::string_view kStaticIrConversionMethodDescriptor =
@@ -206,9 +211,78 @@ constexpr std::string_view kFixedOverlapSaveConvolutionMethodDescriptor =
     "external_numeric_authority=renderer-build-source-standard-library-math-"
     "runtime-and-thread-numeric-environment-identities\n";
 
+constexpr std::string_view kHybridStaticIrConversionMethodDescriptor =
+    "engine-sim-offline.presentation-method-configuration.v1\n"
+    "method=" ENGINE_SIM_OFFLINE_HYBRID_STATIC_IR_METHOD_ID_LITERAL "\n"
+    "version=2\n"
+    "operation=deterministic-static-ir-pcm16-or-pcm24-to-binary64\n"
+    "container=strict-complete-riff-wave-with-one-16-byte-pcm-fmt-and-one-data-"
+    "chunk-using-the-v1-chunk-and-boundary-rules\n"
+    "media=mono-44100-hz-integer-pcm-little-endian-16-or-24-bits\n"
+    "input_frame_count=1..131072\n"
+    "meaningful_support=one-plus-last-index-with-absolute-integer-value-strictly-"
+    "greater-than-100-for-pcm16-or-25600-for-pcm24\n"
+    "target_rate_hz=192000/1\n"
+    "target_count=(support_count*192000+22050)/44100-using-u64-integer-division\n"
+    "legacy_branch=pcm16-and-input-frame-count-at-most-33705-and-target-count-at-"
+    "most-30071\n"
+    "legacy_execution=exact-unchanged-static-ir-blackman-sinc-24tap-4096phase-"
+    "44100-to-192000-binary64-v1-decoder-converter-and-arithmetic\n"
+    "extended_branch=all-other-admitted-pcm16-or-pcm24-inputs\n"
+    "extended_interpolation=exact-v1-24tap-4096phase-clock-table-pass-order-"
+    "fallback-and-extended-accumulator-arithmetic-over-the-wider-source-envelope\n"
+    "extended_pcm16_divisor=32767\n"
+    "extended_pcm24_divisor=8388607\n"
+    "configured_gain=caller-supplied-finite-nonnegative-binary64-negative-zero-"
+    "rejected\n"
+    "output=complete-finite-binary64-coefficients-in-causal-tap-order-with-no-"
+    "truncation\n"
+    "branch_selection=derived-from-decoded-media-shape-and-meaningful-support-"
+    "only-no-authored-switch\n"
+    "external_numeric_authority=renderer-build-source-standard-library-math-"
+    "runtime-and-thread-numeric-environment-identities\n";
+
+constexpr std::string_view kHybridPartitionedConvolutionMethodDescriptor =
+    "engine-sim-offline.presentation-method-configuration.v1\n"
+    "method=hybrid-fixed-or-uniform-partitioned-causal-fft-binary64-v2\n"
+    "version=2\n"
+    "operation=continuous-causal-real-binary64-convolution\n"
+    "kernel_input=1..570654-finite-binary64-coefficients-in-causal-tap-order\n"
+    "legacy_branch=kernel-count-at-most-30071\n"
+    "legacy_execution=exact-unchanged-fixed-causal-overlap-save-radix2-dit-fft-"
+    "65536-binary64-v1-kernel-padding-and-stream-processor\n"
+    "extended_branch=kernel-count-30072..570654\n"
+    "partition_frame_count=3840\n"
+    "partition_count=ceil(kernel-count/3840)\n"
+    "partition_population=kernel-taps-in-order-into-partitions-in-order-last-"
+    "partition-right-zero-padded\n"
+    "fft_length=8192\n"
+    "fft_topology=iterative-radix2-dit-with-13-bit-reversal-and-roots-cos-sin-of-"
+    "minus-2pi-index-over-8192-using-the-v1-loop-and-butterfly-order\n"
+    "stream_input=exactly-3840-finite-binary64-frames-per-20ms-block\n"
+    "input_spectrum_history=one-8192-bin-spectrum-per-kernel-partition-in-a-"
+    "causal-circular-block-history-initialized-to-positive-zero\n"
+    "frequency_accumulation=partition-ascending-then-bin-ascending-complex-"
+    "binary64-multiply-add-with-current-input-for-partition-zero\n"
+    "inverse_output=first-3840-real-frames-plus-prior-overlap-in-frame-order\n"
+    "next_overlap=real-frames-3840..7678-in-order\n"
+    "state_commit=only-after-complete-finite-output-and-overlap-validation\n"
+    "tail=no-implicit-zero-extension-no-tail-flush-one-output-frame-per-input-"
+    "frame\n"
+    "branch_selection=derived-from-complete-converted-coefficient-count-only-no-"
+    "authored-switch\n"
+    "binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-no-"
+    "daz\n"
+    "external_numeric_authority=renderer-build-source-standard-library-math-"
+    "runtime-and-thread-numeric-environment-identities\n";
+
 static_assert(detail::canonical_lf_descriptor(kStaticIrConversionMethodDescriptor));
 static_assert(
     detail::canonical_lf_descriptor(kFixedOverlapSaveConvolutionMethodDescriptor));
+static_assert(
+    detail::canonical_lf_descriptor(kHybridStaticIrConversionMethodDescriptor));
+static_assert(detail::canonical_lf_descriptor(
+    kHybridPartitionedConvolutionMethodDescriptor));
 
 } // namespace
 
@@ -216,8 +290,16 @@ std::string_view static_ir_conversion_method_descriptor() noexcept {
     return kStaticIrConversionMethodDescriptor;
 }
 
+std::string_view hybrid_static_ir_conversion_method_descriptor() noexcept {
+    return kHybridStaticIrConversionMethodDescriptor;
+}
+
 std::string_view fixed_overlap_save_convolution_method_descriptor() noexcept {
     return kFixedOverlapSaveConvolutionMethodDescriptor;
+}
+
+std::string_view hybrid_partitioned_convolution_method_descriptor() noexcept {
+    return kHybridPartitionedConvolutionMethodDescriptor;
 }
 
 } // namespace engine_sim_offline::presentation
@@ -226,3 +308,4 @@ std::string_view fixed_overlap_save_convolution_method_descriptor() noexcept {
 #undef ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_LABEL
 #undef ENGINE_SIM_OFFLINE_STATIC_IR_METHOD_ID_LITERAL
 #undef ENGINE_SIM_OFFLINE_STATIC_IR_OUTPUT_EXTENDED_LABEL
+#undef ENGINE_SIM_OFFLINE_HYBRID_STATIC_IR_METHOD_ID_LITERAL

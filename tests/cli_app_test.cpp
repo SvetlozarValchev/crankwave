@@ -17,6 +17,7 @@ using engine_sim_offline::cli::CliCommand;
 using engine_sim_offline::cli::CliParseResult;
 using engine_sim_offline::cli::CliResultFormat;
 using engine_sim_offline::cli::CliUsageError;
+using engine_sim_offline::cli::InspectIrCatalogCommand;
 using engine_sim_offline::cli::InspectRevengineCommand;
 using engine_sim_offline::cli::PackRevengineCommand;
 using engine_sim_offline::cli::RenderCommand;
@@ -108,6 +109,22 @@ void test_exact_revengine_grammars() {
            "verify-revengine input was not retained");
 }
 
+void test_ir_authoring_catalog_grammar() {
+    const auto default_output = parse({"inspect-ir-catalog"});
+    const auto *default_command = std::get_if<CliCommand>(&default_output);
+    expect(default_command != nullptr &&
+               std::holds_alternative<InspectIrCatalogCommand>(*default_command),
+           "IR authoring catalog command was rejected");
+
+    const auto machine = parse({"inspect-ir-catalog", "--result-format", "json"});
+    const auto *machine_command = std::get_if<CliCommand>(&machine);
+    const auto *catalog = machine_command == nullptr
+                              ? nullptr
+                              : std::get_if<InspectIrCatalogCommand>(machine_command);
+    expect(catalog != nullptr && catalog->result_format == CliResultFormat::json,
+           "IR authoring catalog machine format was not retained");
+}
+
 void test_strict_render_rejections() {
     const std::vector<std::vector<std::string_view>> invalid{
         {},
@@ -155,6 +172,9 @@ void test_strict_render_rejections() {
         {"verify-revengine", "--output", "one"},
         {"verify-revengine", "--input", "one", "--deadline-unix-ms",
          "9223372036854775808"},
+        {"inspect-ir-catalog", "extra"},
+        {"inspect-ir-catalog", "--result-format", "yaml"},
+        {"inspect-ir-catalog", "--result-format", "json", "--result-format", "json"},
         {"bake-atlas", "--engine", "e", "--atlas-bake", "a", "--asset-root", "assets",
          "--output-directory", "out"},
         {"unknown"},
@@ -218,6 +238,8 @@ void test_standalone_help_and_version() {
                help.standard_out.find("verify-revengine --input <file.revengine>") !=
                    std::string::npos,
            "--help must advertise the exact REVENGINE command grammar");
+    expect(help.standard_out.find("inspect-ir-catalog") != std::string::npos,
+           "--help must advertise the installed IR authoring query");
     expect(help.standard_error.empty(), "--help must not write stderr");
 
     const auto version = invoke({"--version"});
@@ -382,6 +404,7 @@ int main() {
     try {
         test_exact_render_grammar();
         test_exact_revengine_grammars();
+        test_ir_authoring_catalog_grammar();
         test_strict_render_rejections();
         test_standalone_help_and_version();
         test_usage_output_channels();

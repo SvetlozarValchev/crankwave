@@ -74,6 +74,55 @@ void validate_source(std::span<const std::int16_t> decoded_pcm16,
     }
 }
 
+void validate_source_v2(std::span<const std::int32_t> decoded_pcm,
+                        std::uint16_t bits_per_sample,
+                        std::size_t meaningful_support_frame_count,
+                        double configured_gain) {
+    if (decoded_pcm.empty()) {
+        throw std::invalid_argument{"extended static IR source must not be empty"};
+    }
+    if (decoded_pcm.size() >
+        ExtendedStaticIrConversionLimits::maximum_source_frame_count) {
+        throw std::length_error{
+            "extended static IR source exceeds the source-frame envelope"};
+    }
+    if (bits_per_sample != 16U && bits_per_sample != 24U) {
+        throw std::invalid_argument{
+            "extended static IR source must be PCM16 or PCM24"};
+    }
+    if (meaningful_support_frame_count == 0 ||
+        meaningful_support_frame_count > decoded_pcm.size()) {
+        throw std::invalid_argument{
+            "extended static IR meaningful support must be inside the source"};
+    }
+    if (!std::isfinite(configured_gain) || configured_gain < 0.0) {
+        throw std::invalid_argument{
+            "extended static IR configured gain must be nonnegative and finite"};
+    }
+
+    const std::int64_t maximum = bits_per_sample == 16U ? 32767 : 8388607;
+    const std::int64_t minimum = bits_per_sample == 16U ? -32768 : -8388608;
+    const std::int64_t threshold =
+        static_cast<std::int64_t>(kMeaningfulMagnitudeThreshold)
+        << (bits_per_sample - 16U);
+    std::size_t detected_support = 0;
+    for (std::size_t index = 0; index < decoded_pcm.size(); ++index) {
+        const std::int64_t value = decoded_pcm[index];
+        if (value < minimum || value > maximum) {
+            throw std::invalid_argument{
+                "extended static IR sample exceeds its PCM integer domain"};
+        }
+        const std::int64_t magnitude = value < 0 ? -value : value;
+        if (magnitude > threshold) {
+            detected_support = index + 1;
+        }
+    }
+    if (detected_support != meaningful_support_frame_count) {
+        throw std::invalid_argument{
+            "extended static IR meaningful support does not match decoded PCM"};
+    }
+}
+
 [[nodiscard]] double sinc(double value) {
     require_finite(value, "static IR sinc input was non-finite");
     if (std::abs(value) < 1e-12) {
@@ -286,6 +335,115 @@ std::vector<double> convert_static_ir(std::span<const std::int16_t> decoded_pcm1
         coefficients[target] = static_cast<double>(scaled);
         require_finite(coefficients[target],
                        "static IR coefficient was non-finite");
+    }
+    return coefficients;
+}
+
+std::size_t
+extended_static_ir_target_count(std::size_t meaningful_support_frame_count) {
+    if (meaningful_support_frame_count == 0 ||
+        meaningful_support_frame_count >
+            ExtendedStaticIrConversionLimits::maximum_source_frame_count) {
+        throw std::invalid_argument{
+            "extended static IR support is outside the source-frame envelope"};
+    }
+    const std::uint64_t numerator =
+        static_cast<std::uint64_t>(meaningful_support_frame_count) *
+        Limits::target_rate_hz;
+    return static_cast<std::size_t>((numerator + Limits::source_rate_hz / 2) /
+                                    Limits::source_rate_hz);
+}
+
+std::vector<double>
+convert_static_ir_v2(std::span<const std::int32_t> decoded_pcm,
+                     std::uint16_t bits_per_sample,
+                     std::size_t meaningful_support_frame_count,
+                     double configured_gain) {
+    require_extended_precision_environment();
+    validate_source_v2(decoded_pcm, bits_per_sample,
+                       meaningful_support_frame_count, configured_gain);
+
+    const std::size_t target_count =
+        extended_static_ir_target_count(meaningful_support_frame_count);
+    const StaticIrWeightTable table;
+    std::vector<long double> source_weight_sums(meaningful_support_frame_count,
+                                                0.0L);
+
+    RationalSourcePosition position;
+    for (std::size_t target = 0; target < target_count; ++target) {
+        const InterpolatedPhase phase = interpolated_phase(position);
+        for (std::size_t tap = 0; tap < Limits::tap_count; ++tap) {
+            std::size_t source = 0;
+            if (!source_index_for_tap(position, tap, meaningful_support_frame_count,
+                                      source)) {
+                continue;
+            }
+            const double weight = interpolated_weight(table, phase, tap);
+            source_weight_sums[source] =
+                source_weight_sums[source] + static_cast<long double>(weight);
+            require_finite(source_weight_sums[source],
+                           "extended static IR source weight sum was non-finite");
+        }
+        position.advance();
+    }
+
+    std::vector<long double> target_accumulators(target_count, 0.0L);
+    for (std::size_t source = 0; source < meaningful_support_frame_count; ++source) {
+        if (source_weight_sums[source] <= kMinimumRetainedWeight) {
+            const std::size_t target = nearest_target_index(source);
+            if (target >= target_count) {
+                throw std::logic_error{
+                    "extended static IR fallback target escaped the output kernel"};
+            }
+            target_accumulators[target] =
+                target_accumulators[target] +
+                static_cast<long double>(decoded_pcm[source]);
+            require_finite(target_accumulators[target],
+                           "extended static IR fallback was non-finite");
+        }
+    }
+
+    position = {};
+    for (std::size_t target = 0; target < target_count; ++target) {
+        const InterpolatedPhase phase = interpolated_phase(position);
+        for (std::size_t tap = 0; tap < Limits::tap_count; ++tap) {
+            std::size_t source = 0;
+            if (!source_index_for_tap(position, tap, meaningful_support_frame_count,
+                                      source) ||
+                source_weight_sums[source] <= kMinimumRetainedWeight) {
+                continue;
+            }
+            const double weight = interpolated_weight(table, phase, tap);
+            const long double contribution =
+                static_cast<long double>(decoded_pcm[source]) *
+                static_cast<long double>(weight) / source_weight_sums[source];
+            require_finite(contribution,
+                           "extended static IR contribution was non-finite");
+            target_accumulators[target] =
+                target_accumulators[target] + contribution;
+            require_finite(target_accumulators[target],
+                           "extended static IR accumulation was non-finite");
+        }
+        position.advance();
+    }
+
+    const double positive_maximum =
+        bits_per_sample == 16U ? kPcm16PositiveMaximum : 8388607.0;
+    const double coefficient_scale = configured_gain / positive_maximum;
+    require_finite(coefficient_scale,
+                   "extended static IR coefficient scale was non-finite");
+    const long double extended_coefficient_scale =
+        static_cast<long double>(coefficient_scale);
+
+    std::vector<double> coefficients(target_count);
+    for (std::size_t target = 0; target < target_count; ++target) {
+        const long double scaled =
+            target_accumulators[target] * extended_coefficient_scale;
+        require_finite(scaled,
+                       "extended static IR coefficient was non-finite");
+        coefficients[target] = static_cast<double>(scaled);
+        require_finite(coefficients[target],
+                       "extended static IR output was non-finite");
     }
     return coefficients;
 }
