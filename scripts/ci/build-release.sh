@@ -89,7 +89,7 @@ cmake --build "${native_build}" --parallel "${parallel_jobs}"
 ctest \
     --test-dir "${native_build}" \
     --output-on-failure \
-    --parallel "${parallel_jobs}"
+    --parallel 1
 
 native_bundle="${build_root}/native.bundle"
 wasm_bundle="${build_root}/wasm.bundle"

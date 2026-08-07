@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.21)
+
 foreach(required IN ITEMS
         BUILD_DIRECTORY
         INSTALL_PREFIX

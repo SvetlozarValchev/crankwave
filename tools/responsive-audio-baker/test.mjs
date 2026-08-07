@@ -826,7 +826,7 @@ test("cache locks reject live owners and reap only same-scope dead owners", {
     const [ownerName] = fs.readdirSync(registry);
     assert.match(
       ownerName,
-      /^owner-[0-9a-f]{32}-m[0-9a-f]{64}-b[0-9a-f]{32}-n[0-9]+-p[0-9]+-s[0-9]+\.lock$/u,
+      /^owner-[0-9a-f]{32}-m(?:[0-9a-f]{64}|none)-b(?:[0-9a-f]{32}|none)-n(?:[0-9]+|none)-p[0-9]+-s(?:[0-9]+|none)\.lock$/u,
     );
     assert.throws(
       () => acquireCacheLock(temporary),
@@ -840,10 +840,24 @@ test("cache locks reject live owners and reap only same-scope dead owners", {
       "-p2147483647-s1.lock",
     );
     fs.writeFileSync(path.join(registry, staleOwnerName), "");
-    const recoveredRelease = acquireCacheLock(temporary);
-    assert.equal(fs.readdirSync(registry).length, 1);
-    recoveredRelease();
-    assert.deepEqual(fs.readdirSync(registry), []);
+    const hasCompleteRecoveryScope =
+      !ownerName.includes("-mnone-") &&
+      !ownerName.includes("-bnone-") &&
+      !ownerName.includes("-nnone-") &&
+      !ownerName.includes("-snone.lock");
+    if (hasCompleteRecoveryScope) {
+      const recoveredRelease = acquireCacheLock(temporary);
+      assert.equal(fs.readdirSync(registry).length, 1);
+      recoveredRelease();
+      assert.deepEqual(fs.readdirSync(registry), []);
+    } else {
+      assert.throws(
+        () => acquireCacheLock(temporary),
+        /already active or has an unrecoverable owner/u,
+      );
+      assert.deepEqual(fs.readdirSync(registry), [staleOwnerName]);
+      fs.unlinkSync(path.join(registry, staleOwnerName));
+    }
 
     const malformed = path.join(
       registry,
