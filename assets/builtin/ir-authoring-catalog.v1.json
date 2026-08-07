@@ -58,12 +58,12 @@
     "requires-conversion": 0
   },
   "rights_summary": {
-    "status": "NOASSERTION",
+    "status": "MIT",
     "repository_license_observed": "MIT",
     "repository_license_path": "LICENSE",
     "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
     "asset_specific_rights_evidence": null,
-    "release_gate": "release-owner-must-confirm-redistribution-before-publication"
+    "release_gate": "none"
   },
   "entries": [
     {
@@ -163,13 +163,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -298,13 +298,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -436,13 +436,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -574,13 +574,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -710,13 +710,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -849,13 +849,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -984,13 +984,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -1119,13 +1119,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -1256,13 +1256,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -1393,13 +1393,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -1532,13 +1532,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -1669,13 +1669,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -1805,13 +1805,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -1941,13 +1941,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -2078,13 +2078,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -2213,13 +2213,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -2346,13 +2346,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -2485,13 +2485,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -2622,13 +2622,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -2759,13 +2759,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -2898,13 +2898,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -3037,13 +3037,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -3173,13 +3173,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -3309,13 +3309,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -3446,13 +3446,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -3585,13 +3585,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -3724,13 +3724,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -3863,13 +3863,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -4002,13 +4002,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -4141,13 +4141,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -4280,13 +4280,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -4417,13 +4417,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -4553,13 +4553,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -4691,13 +4691,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -4827,13 +4827,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -4964,13 +4964,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -5101,13 +5101,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -5238,13 +5238,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -5374,13 +5374,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -5507,13 +5507,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -5646,13 +5646,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -5782,13 +5782,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -5918,13 +5918,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -6054,13 +6054,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -6191,13 +6191,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -6327,13 +6327,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -6463,13 +6463,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -6600,13 +6600,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -6737,13 +6737,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -6874,13 +6874,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -7011,13 +7011,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -7150,13 +7150,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -7286,13 +7286,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -7419,13 +7419,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -7556,13 +7556,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -7689,13 +7689,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -7825,13 +7825,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -7962,13 +7962,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -8095,13 +8095,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -8234,13 +8234,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -8367,13 +8367,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -8505,13 +8505,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -8642,13 +8642,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -8781,13 +8781,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -8920,13 +8920,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -9056,13 +9056,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -9195,13 +9195,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -9331,13 +9331,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -9470,13 +9470,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -9609,13 +9609,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -9745,13 +9745,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -9883,13 +9883,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {
@@ -10021,13 +10021,13 @@
         "reasons": []
       },
       "rights": {
-        "status": "NOASSERTION",
+        "status": "MIT",
         "provenance_status": "source-path-commit-and-content-hash-recorded",
         "repository_license_observed": "MIT",
         "repository_license_path": "LICENSE",
         "repository_license_sha256": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
         "asset_specific_rights_evidence": null,
-        "redistribution_status": "requires-release-owner-confirmation"
+        "redistribution_status": "permitted-with-license-notice"
       },
       "authoring": {
         "caption": {

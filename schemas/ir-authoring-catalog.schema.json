@@ -194,16 +194,14 @@
         "release_gate"
       ],
       "properties": {
-        "status": {"const": "NOASSERTION"},
+        "status": {"const": "MIT"},
         "repository_license_observed": {"const": "MIT"},
         "repository_license_path": {"const": "LICENSE"},
         "repository_license_sha256": {
           "const": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15"
         },
         "asset_specific_rights_evidence": {"type": "null"},
-        "release_gate": {
-          "const": "release-owner-must-confirm-redistribution-before-publication"
-        }
+        "release_gate": {"const": "none"}
       }
     },
     "entry": {
@@ -494,7 +492,7 @@
         "redistribution_status"
       ],
       "properties": {
-        "status": {"const": "NOASSERTION"},
+        "status": {"const": "MIT"},
         "provenance_status": {
           "const": "source-path-commit-and-content-hash-recorded"
         },
@@ -504,9 +502,7 @@
           "const": "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15"
         },
         "asset_specific_rights_evidence": {"type": "null"},
-        "redistribution_status": {
-          "const": "requires-release-owner-confirmation"
-        }
+        "redistribution_status": {"const": "permitted-with-license-notice"}
       }
     },
     "authoring": {

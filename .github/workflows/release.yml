@@ -1,0 +1,259 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  BUILDER_IMAGE: emscripten/emsdk@sha256:3a0d11e50f072dc2c4bc92e3b05ab1340fb7d4dd152f80b8af35fc1c6f15e644
+  IMAGE_NAME: ghcr.io/svetlozarvalchev/engine-sim-offline
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Reproducible build ${{ matrix.replica }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [a, b]
+    steps:
+      - name: Check out exact tag and LFS payloads
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          lfs: true
+          persist-credentials: false
+
+      - name: Validate tag and release identity
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -e 'const s=require("node:fs").readFileSync("CMakeLists.txt","utf8");const m=s.match(/project\(\s*engine_sim_offline\s+VERSION\s+([^\s)]+)/s);if(!m)process.exit(1);process.stdout.write(m[1])')
+          test "${GITHUB_REF_NAME}" = "v${version}"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify LFS materialization
+        run: git lfs fsck
+
+      - name: Pull pinned build environment
+        run: docker pull "${BUILDER_IMAGE}"
+
+      - name: Build and verify complete distribution
+        env:
+          ESO_VERSION: ${{ steps.release.outputs.version }}
+          REPLICA: ${{ matrix.replica }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --network none \
+            --user "$(id -u):$(id -g)" \
+            --pids-limit 4096 \
+            -e ESO_VERSION \
+            -e ESO_BUILD_ROOT=".work/github-release-${REPLICA}" \
+            -e ESO_JOBS=4 \
+            -e GITHUB_SHA \
+            -v "${GITHUB_WORKSPACE}:/src" \
+            -w /src \
+            "${BUILDER_IMAGE}" \
+            ./scripts/ci/build-release.sh
+          source_dir=".work/github-release-${REPLICA}/native/distribution/Release"
+          mkdir -p "release-${REPLICA}"
+          cp "${source_dir}/engine-sim-offline-${ESO_VERSION}.tar" "release-${REPLICA}/"
+          cp "${source_dir}/engine-sim-offline-${ESO_VERSION}.tar.sha256" "release-${REPLICA}/"
+
+      - name: Upload release candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: distribution-${{ matrix.replica }}
+          path: release-${{ matrix.replica }}/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  publish:
+    name: Publish GitHub Release and GHCR
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    steps:
+      - name: Check out packaging definition
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download candidate A
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: distribution-a
+          path: candidates/a
+
+      - name: Download candidate B
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: distribution-b
+          path: candidates/b
+
+      - name: Compare and stage reproducible release
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=${GITHUB_REF_NAME#v}
+          archive="engine-sim-offline-${version}.tar"
+          sidecar="${archive}.sha256"
+          cmp "candidates/a/${archive}" "candidates/b/${archive}"
+          cmp "candidates/a/${sidecar}" "candidates/b/${sidecar}"
+          mkdir -p release/extracted release/oci-context
+          cp "candidates/a/${archive}" "release/${archive}"
+          cp "candidates/a/${sidecar}" "release/${sidecar}"
+          expected=$(tr -d '\n' < "release/${sidecar}")
+          actual=$(sha256sum "release/${archive}" | cut -d ' ' -f 1)
+          test "${expected}" = "${actual}"
+          tar -xf "release/${archive}" -C release/extracted
+          prefix="release/extracted/engine-sim-offline-${version}"
+          node scripts/ci/verify-release.mjs \
+            --archive "release/${archive}" \
+            --sidecar "release/${sidecar}" \
+            --prefix "${prefix}" \
+            --release "${version}" \
+            --revision "${GITHUB_SHA}"
+          resource="${prefix}/share/engine-sim-offline/${version}"
+          release_json_sha=$(sha256sum "${resource}/release.json" | cut -d ' ' -f 1)
+          test "$(cat "${resource}/release.json.sha256")" = "${release_json_sha}"
+          cp "${resource}/release.json" "release/engine-sim-offline-${version}.release.json"
+          cp "${resource}/release.json.sha256" "release/engine-sim-offline-${version}.release.json.sha256"
+          cp "release/${archive}" "release/oci-context/${archive}"
+          cp "release/${sidecar}" "release/oci-context/${sidecar}"
+          created=$(git show -s --format=%cI "${GITHUB_SHA}")
+          {
+            echo "version=${version}"
+            echo "archive=${archive}"
+            echo "archive_sha=${actual}"
+            echo "release_json_sha=${release_json_sha}"
+            echo "created=${created}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Prepare draft GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ESO_VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if state=$(gh release view "${GITHUB_REF_NAME}" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [[ "${state}" != "true" ]]; then
+              echo "published release already exists: ${GITHUB_REF_NAME}" >&2
+              exit 73
+            fi
+            gh release delete "${GITHUB_REF_NAME}" --yes
+          fi
+          gh release create "${GITHUB_REF_NAME}" \
+            "release/engine-sim-offline-${ESO_VERSION}.tar" \
+            "release/engine-sim-offline-${ESO_VERSION}.tar.sha256" \
+            "release/engine-sim-offline-${ESO_VERSION}.release.json" \
+            "release/engine-sim-offline-${ESO_VERSION}.release.json.sha256" \
+            --verify-tag \
+            --draft \
+            --title "engine-sim-offline ${ESO_VERSION}" \
+            --generate-notes
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Build and push release-derived image
+        id: image
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: release/oci-context
+          file: packaging/oci/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.release.outputs.version }}-linux-amd64
+            ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          build-args: |
+            ESO_VERSION=${{ steps.release.outputs.version }}
+            ESO_GIT_SHA=${{ github.sha }}
+            ESO_ARCHIVE_SHA256=${{ steps.release.outputs.archive_sha }}
+            ESO_RELEASE_JSON_SHA256=${{ steps.release.outputs.release_json_sha }}
+            OCI_CREATED=${{ steps.release.outputs.created }}
+            OCI_SOURCE=https://github.com/${{ github.repository }}
+
+      - name: Smoke exact pushed image and create binding
+        env:
+          ESO_VERSION: ${{ steps.release.outputs.version }}
+          ESO_ARCHIVE_SHA256: ${{ steps.release.outputs.archive_sha }}
+          ESO_RELEASE_JSON_SHA256: ${{ steps.release.outputs.release_json_sha }}
+          ESO_IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="${IMAGE_NAME}@${ESO_IMAGE_DIGEST}"
+          docker pull --platform linux/amd64 "${image}"
+          test "$(docker run --rm --platform linux/amd64 "${image}" --version)" = "engine-sim-offline ${ESO_VERSION}"
+          test "$(docker run --rm --platform linux/amd64 \
+            --entrypoint /opt/engine-sim-offline/bin/engine-sim-offline-responsive-bake \
+            "${image}" --version)" = "engine-sim-offline-responsive-bake ${ESO_VERSION}"
+          docker run --rm --platform linux/amd64 "${image}" inspect-ir-catalog --result-format json > release/image-catalog.json
+          node -e 'const r=JSON.parse(require("node:fs").readFileSync("release/image-catalog.json"));if(!r.ok||r.result?.entry_count!==73||r.result?.catalog?.rights_summary?.status!=="MIT")process.exit(1)'
+          docker run --rm --platform linux/amd64 \
+            --volume "${GITHUB_WORKSPACE}/data/engines/bmw-m52tub28-cleanroom/engine.json:/work/engine.json:ro" \
+            --entrypoint /opt/engine-sim-offline/bin/engine-sim-offline-responsive-bake \
+            "${image}" \
+            --engine /work/engine.json \
+            --output /work/planned-package \
+            --cache /cache \
+            --plan > release/image-bake-plan.json
+          node -e 'const r=JSON.parse(require("node:fs").readFileSync("release/image-bake-plan.json"));if(r.schema!=="engine-sim-offline/responsive-audio-bake-plan-v1"||r.release_identity!==process.env.ESO_VERSION)process.exit(1)'
+          node --input-type=module <<'NODE' > "release/engine-sim-offline-${ESO_VERSION}.binding.json"
+          import fs from "node:fs";
+          const binding = {
+            schema: "engine-sim-offline/github-release-binding.v1",
+            release_identity: process.env.ESO_VERSION,
+            source_repository: process.env.GITHUB_REPOSITORY,
+            source_git_commit: process.env.GITHUB_SHA,
+            distribution_asset: `engine-sim-offline-${process.env.ESO_VERSION}.tar`,
+            distribution_sha256: process.env.ESO_ARCHIVE_SHA256,
+            release_json_sha256: process.env.ESO_RELEASE_JSON_SHA256,
+            oci_reference: `${process.env.IMAGE_NAME}@${process.env.ESO_IMAGE_DIGEST}`,
+            oci_platform: "linux/amd64",
+          };
+          fs.writeFileSync(1, `${JSON.stringify(binding, null, 2)}\n`);
+          NODE
+
+      - name: Bind image digest and publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ESO_VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh release view "${GITHUB_REF_NAME}" --json isDraft --jq .isDraft)" = "true"
+          gh release upload "${GITHUB_REF_NAME}" \
+            "release/engine-sim-offline-${ESO_VERSION}.binding.json"
+          gh release edit "${GITHUB_REF_NAME}" --draft=false --verify-tag

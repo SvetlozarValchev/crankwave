@@ -18,6 +18,11 @@ Resources live under the configured
 workflow use the configured relative GNUInstallDirs layout, so moving the complete
 prefix does not change any recorded bytes or hashes.
 
+The same resource root contains `licenses/ENGINE-SIM-OFFLINE.txt`, which states the
+proprietary ESO project terms, and `licenses/THIRD-PARTY-NOTICES.md`, which preserves
+the upstream licenses and attributions for redistributed material. Both are ordinary
+manifest-bound release members and contribute to the installed-input closure.
+
 `release.json` uses schema
 `engine-sim-offline/installed-distribution.v1`. Its `files` array is sorted by
 portable distribution-relative path and records the exact byte count and lowercase

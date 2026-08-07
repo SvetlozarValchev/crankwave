@@ -95,6 +95,9 @@ Compatibility is release-specific. A consumer may select only entries whose stat
 explain the complete approved source palette, but must not be emitted into an engine
 for that release.
 
-Rights and provenance fields are evidence and policy inputs. Catalog membership does
-not itself grant rights. A publishing adapter must apply its rights policy to the
-entry's explicit status rather than infer permission from the source path or caption.
+Rights and provenance fields are evidence and policy inputs. The bundled library's
+explicit `MIT` status is based on the upstream repository license recorded by path,
+commit and SHA-256. Redistribution is permitted with that license notice, which the
+installed ESO distribution carries in `licenses/THIRD-PARTY-NOTICES.md`. Consumers
+must apply the explicit rights status and notice requirement rather than infer terms
+from a filename, source path or caption.

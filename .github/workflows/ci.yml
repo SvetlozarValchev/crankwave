@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUILDER_IMAGE: emscripten/emsdk@sha256:3a0d11e50f072dc2c4bc92e3b05ab1340fb7d4dd152f80b8af35fc1c6f15e644
+
+jobs:
+  release-gate:
+    name: Native, WASM, distribution
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out exact source and LFS payloads
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          lfs: true
+          persist-credentials: false
+
+      - name: Resolve release identity
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -e 'const s=require("node:fs").readFileSync("CMakeLists.txt","utf8");const m=s.match(/project\(\s*engine_sim_offline\s+VERSION\s+([^\s)]+)/s);if(!m)process.exit(1);process.stdout.write(m[1])')
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify LFS materialization
+        run: git lfs fsck
+
+      - name: Pull pinned build environment
+        run: docker pull "${BUILDER_IMAGE}"
+
+      - name: Run complete release gate
+        env:
+          ESO_VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --network none \
+            --user "$(id -u):$(id -g)" \
+            --pids-limit 4096 \
+            -e ESO_VERSION \
+            -e ESO_BUILD_ROOT=.work/github-ci \
+            -e ESO_JOBS=4 \
+            -e GITHUB_SHA \
+            -v "${GITHUB_WORKSPACE}:/src" \
+            -w /src \
+            "${BUILDER_IMAGE}" \
+            ./scripts/ci/build-release.sh

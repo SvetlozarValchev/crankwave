@@ -664,13 +664,13 @@ function buildCatalog({ sourceRoot = null, importPayloads = false }) {
       objective,
       compatibility: compatibility(wave, objective),
       rights: {
-        status: "NOASSERTION",
+        status: "MIT",
         provenance_status: "source-path-commit-and-content-hash-recorded",
         repository_license_observed: "MIT",
         repository_license_path: "LICENSE",
         repository_license_sha256: SOURCE_LICENSE_SHA256,
         asset_specific_rights_evidence: null,
-        redistribution_status: "requires-release-owner-confirmation",
+        redistribution_status: "permitted-with-license-notice",
       },
     };
   });
@@ -734,12 +734,12 @@ function buildCatalog({ sourceRoot = null, importPayloads = false }) {
     },
     compatibility_summary: states,
     rights_summary: {
-      status: "NOASSERTION",
+      status: "MIT",
       repository_license_observed: "MIT",
       repository_license_path: "LICENSE",
       repository_license_sha256: SOURCE_LICENSE_SHA256,
       asset_specific_rights_evidence: null,
-      release_gate: "release-owner-must-confirm-redistribution-before-publication",
+      release_gate: "none",
     },
     entries,
   };

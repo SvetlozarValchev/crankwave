@@ -452,3 +452,10 @@ pressure-derived intake route is absent from both authoring and presentation.
 Historical model, manifest, provenance, and listening records remain under `docs/` and
 `reference/`. They document how the accepted implementation was established; they do
 not define the new product API or retain old executable modes.
+
+## License
+
+Engine Sim Offline is proprietary software. Copyright (c) 2026 Svetlozar Valchev.
+All rights are reserved; see [LICENSE](LICENSE). Third-party materials retain their
+own licenses and notices, including the MIT-licensed upstream engine-sim material
+listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

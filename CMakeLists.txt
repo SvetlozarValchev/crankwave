@@ -1140,6 +1140,16 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         DESTINATION "${_engine_sim_offline_install_resource_directory}"
     )
     install(
+        FILES "${PROJECT_SOURCE_DIR}/LICENSE"
+        DESTINATION "${_engine_sim_offline_install_resource_directory}/licenses"
+        RENAME ENGINE-SIM-OFFLINE.txt
+    )
+    install(
+        FILES "${PROJECT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"
+        DESTINATION "${_engine_sim_offline_install_resource_directory}/licenses"
+        RENAME THIRD-PARTY-NOTICES.md
+    )
+    install(
         FILES
             "${_engine_sim_offline_installed_generated_directory}/release.js"
         DESTINATION
@@ -1234,6 +1244,8 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         _engine_sim_offline_release_source_inputs
         "${_engine_sim_offline_builtin_asset_catalog_source}"
         "${_engine_sim_offline_ir_authoring_catalog_source}"
+        "${PROJECT_SOURCE_DIR}/LICENSE"
+        "${PROJECT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"
         ${_engine_sim_offline_builtin_asset_payload_sources}
         ${_engine_sim_offline_ir_library_payload_sources}
         "${_engine_sim_offline_shared_starter_runtime}"

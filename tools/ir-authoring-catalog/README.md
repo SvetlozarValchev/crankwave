@@ -108,6 +108,14 @@ the locator and admits only the exact ID and SHA-256 from the release-bound runt
 catalog. A developer who opts into `--asset-root` must materialize the exact WAV at
 the relative locator.
 
+## Rights
+
+The upstream repository's recorded `LICENSE` is MIT and covers redistribution of the
+imported exact-byte library subject to preservation of its copyright and permission
+notice. Every entry records that license path and SHA-256 and has
+`redistribution_status: permitted-with-license-notice`. ESO's installed distribution
+ships the required notice separately from ESO's proprietary project license.
+
 ## Runtime compatibility
 
 Release 1.1.0 admits every catalog entry. Twenty-four PCM16 responses stay on the

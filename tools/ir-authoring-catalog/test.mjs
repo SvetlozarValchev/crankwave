@@ -220,13 +220,14 @@ for (const entry of catalog.entries) {
   assert(gain.minimum <= gain.initial && gain.initial <= gain.maximum);
   const wet = entry.authoring.recommended_controls.wet_mix_01;
   assert(wet.minimum <= wet.initial && wet.initial <= wet.maximum && wet.maximum <= 1);
-  assert.equal(entry.rights.status, "NOASSERTION");
+  assert.equal(entry.rights.status, "MIT");
   assert.equal(entry.rights.repository_license_path, "LICENSE");
   assert.equal(
     entry.rights.repository_license_sha256,
     "9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15",
   );
   assert.equal(entry.rights.asset_specific_rights_evidence, null);
+  assert.equal(entry.rights.redistribution_status, "permitted-with-license-notice");
   compatibilityCounts[entry.compatibility.state] += 1;
   runtimeBranches[entry.compatibility.compiled_kernel.branch] += 1;
   assert.equal(entry.compatibility.state, "selectable");

@@ -59,6 +59,8 @@ foreach(required_file IN ITEMS
         "${launcher}"
         "${helper}"
         "${resource_root}/package.json"
+        "${resource_root}/licenses/ENGINE-SIM-OFFLINE.txt"
+        "${resource_root}/licenses/THIRD-PARTY-NOTICES.md"
         "${resource_root}/release.json"
         "${resource_root}/release.json.sha256"
         "${resource_root}/contracts/revengine-bake-workflow.v1.json"
