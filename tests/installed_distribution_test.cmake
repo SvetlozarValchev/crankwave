@@ -99,6 +99,17 @@ set(expected_runtime_entries
     c-api-client.js
     c-api-errors.js
     c-api-session.js
+    directional-phase-cell.js
+    dry-directional-phase-runtime.js
+    held-phase-texture-runtime.js
+    held-texture-presentation-runtime.js
+    renderer-runtime-compatibility.js
+    responsive-audio-lifecycle-runtime.js
+    revengine-audio-engine.js
+    revengine-package.js
+    shared-recorded-starter-runtime.js
+    state-phase-texture-runtime.js
+    steady-transient-envelope.js
     wasm-heap.js)
 if(NOT "${runtime_entries}" STREQUAL "${expected_runtime_entries}")
     message(FATAL_ERROR
@@ -280,8 +291,8 @@ if(EXISTS "${installed_renderer_javascript}" AND
     execute_process(
         COMMAND
             "${NODE_EXECUTABLE}" --input-type=module --eval
-            "const {readFile}=await import('node:fs/promises'); const {webcrypto}=await import('node:crypto'); const {pathToFileURL}=await import('node:url'); const module=await import(pathToFileURL(process.argv[1]).href); const loaded=await module.loadResponsiveAudioRevengine(await readFile(process.argv[2]),{crypto:webcrypto}); if(!loaded.runtime.heldPackage||!loaded.runtime.directionalPackage||!loaded.runtime.lifecyclePackage||!loaded.runtime.sharedRecordedStarterPackage) process.exit(2);"
-            "${SOURCE_ROOT}/web/runtime/revengine-package.js"
+            "const {readFile}=await import('node:fs/promises'); const {webcrypto}=await import('node:crypto'); const {pathToFileURL}=await import('node:url'); const module=await import(pathToFileURL(process.argv[1]).href); const engine=await module.RevengineAudioEngine.load(await readFile(process.argv[2]),{crypto:webcrypto}); const pcm=engine.render(8192); let power=0; for(const sample of pcm){if(!Number.isFinite(sample)) process.exit(2); power+=sample*sample;} if(pcm.length!==8192||!(power>0)||engine.channelCount!==1) process.exit(2);"
+            "${runtime_root}/revengine-audio-engine.js"
             "${real_carrier}"
         RESULT_VARIABLE real_javascript_result
         OUTPUT_VARIABLE real_javascript_stdout
@@ -292,7 +303,7 @@ if(EXISTS "${installed_renderer_javascript}" AND
        NOT real_javascript_stdout STREQUAL "" OR
        NOT real_javascript_stderr STREQUAL "")
         message(FATAL_ERROR
-            "installed REVENGINE JavaScript load smoke failed\n"
+            "installed REVENGINE audio-bridge smoke failed\n"
             "exit: ${real_javascript_result}\n"
             "stdout: ${real_javascript_stdout}\n"
             "stderr: ${real_javascript_stderr}")

@@ -1,7 +1,10 @@
-import { ESO_CANONICAL_SAMPLE_RATE } from "./c-api-abi.js";
-
 export const DEVICE_RESAMPLER_ID =
   "engine-sim-offline/windowed-sinc-129-phase2048-v1";
+
+// This resampler is also part of the standalone REVENGINE consumer surface.
+// Keep its rate contract independent of the simulation C API: a REVENGINE
+// player must not need to load or understand the renderer ABI.
+const MAXIMUM_SUPPORTED_SAMPLE_RATE = 192_000;
 
 const TAP_COUNT = 129;
 const MINIMUM_OFFSET = -64;
@@ -14,10 +17,10 @@ function finiteRate(value, name) {
     typeof value !== "number" ||
     !Number.isSafeInteger(value) ||
     value < 8_000 ||
-    value > ESO_CANONICAL_SAMPLE_RATE
+    value > MAXIMUM_SUPPORTED_SAMPLE_RATE
   ) {
     throw new RangeError(
-      `${name} must be an integer in [8000, ${ESO_CANONICAL_SAMPLE_RATE}] Hz`,
+      `${name} must be an integer in [8000, ${MAXIMUM_SUPPORTED_SAMPLE_RATE}] Hz`,
     );
   }
   return value;
@@ -80,7 +83,7 @@ export class DeviceRateResampler {
   #finished = false;
 
   constructor({
-    inputSampleRate = ESO_CANONICAL_SAMPLE_RATE,
+    inputSampleRate = MAXIMUM_SUPPORTED_SAMPLE_RATE,
     outputSampleRate,
     channelCount,
   }) {

@@ -368,6 +368,23 @@ resource layout, and cache contract are documented in
 [RESPONSIVE_AUDIO_BAKER.md](docs/RESPONSIVE_AUDIO_BAKER.md), and the carrier format is
 specified in [REVENGINE_CONTAINER_V1.md](docs/contracts/REVENGINE_CONTAINER_V1.md).
 
+### Audition a REVENGINE as an external consumer
+
+The standalone audio harness proves the other side of the boundary: it accepts one
+local `.revengine` file and supplies only RPM, normalized throttle, and normalized
+load. It does not load engine JSON, scenario JSON, the C API, or a simulation WASM
+module:
+
+```bash
+node scripts/serve-revengine-harness.mjs
+```
+
+Open `http://127.0.0.1:4173/`, choose the carrier, press **Play**, and move the three
+operating-point controls. The browser verifies the complete carrier before a Worker
+renders its packaged mono PCM. The public `RevengineAudioEngine` facade is also usable
+directly by another bridge or host. Its API and control semantics are documented in
+[REVENGINE_AUDIO_BRIDGE.md](docs/REVENGINE_AUDIO_BRIDGE.md).
+
 ## Preserved reference
 
 The accepted migration floor is:

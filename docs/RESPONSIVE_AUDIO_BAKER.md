@@ -199,17 +199,31 @@ share/engine-sim-offline/
     c-api-client.js
     c-api-errors.js
     c-api-session.js
+    directional-phase-cell.js
+    dry-directional-phase-runtime.js
+    held-phase-texture-runtime.js
+    held-texture-presentation-runtime.js
+    renderer-runtime-compatibility.js
+    responsive-audio-lifecycle-runtime.js
+    revengine-audio-engine.js
+    revengine-package.js
+    shared-recorded-starter-runtime.js
+    state-phase-texture-runtime.js
+    steady-transient-envelope.js
     wasm-heap.js
   renderer/                         # optional
     engine-sim-offline.js
     engine-sim-offline.wasm
 ```
 
-The five files under `web/runtime` are the exact transitive JavaScript dependency
-closure of the baker stages; unrelated browser runtime modules are deliberately not
-installed. The IR-helper source remains a resource because its bytes participate in
-the baker cache identity, while normal installed execution selects the prebuilt
-helper and does not compile repository sources.
+The C-API files under `web/runtime` are the exact transitive JavaScript dependency
+closure used by the baker stages. The remaining files are the simulator-free
+`RevengineAudioEngine` consumer closure, so an installed distribution can verify and
+play its own carrier without repository sources. Workbench UI, Worker orchestration,
+and unrelated browser modules are deliberately not installed. The IR-helper source
+remains a resource because its bytes participate in the baker cache identity, while
+normal installed execution selects the prebuilt helper and does not compile repository
+sources.
 
 Relative custom `CMAKE_INSTALL_BINDIR`, `CMAKE_INSTALL_LIBEXECDIR`, and
 `CMAKE_INSTALL_DATADIR` values are supported. The launcher and native catalog

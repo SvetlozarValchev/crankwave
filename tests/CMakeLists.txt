@@ -2329,6 +2329,20 @@ if(TARGET engine_sim_offline_cli_support)
                 LABELS "javascript;runtime"
                 TIMEOUT 120
         )
+
+        add_test(
+            NAME runtime.revengine_audio_engine
+            COMMAND
+                ${_engine_sim_offline_node_for_installed_test}
+                --test
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/revengine-audio-engine.test.mjs
+        )
+        set_tests_properties(
+            runtime.revengine_audio_engine
+            PROPERTIES
+                LABELS "javascript;runtime"
+                TIMEOUT 120
+        )
     endif()
     if(UNIX AND _engine_sim_offline_node_for_installed_test AND
        NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_BINDIR_FOR_TESTS}" AND

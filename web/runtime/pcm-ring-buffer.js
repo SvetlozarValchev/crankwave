@@ -1,8 +1,17 @@
-import { RingState } from "./c-api-abi.js";
-
 export const PCM_RING_HEADER_BYTES = 64;
 export const PCM_RING_MINIMUM_CAPACITY_FRAMES = 2_048;
 export const PCM_RING_MAXIMUM_CAPACITY_FRAMES = 262_144;
+
+// Shared by renderers and standalone package consumers.  These are transport
+// states, not simulator ABI values; the numeric values deliberately remain
+// wire-compatible with the existing AudioWorklet protocol.
+export const PcmRingProducerState = Object.freeze({
+  idle: 0,
+  streaming: 1,
+  paused: 2,
+  ended: 3,
+  failed: 4,
+});
 
 export const PcmRingHeader = Object.freeze({
   writeFrame: 0,
@@ -80,7 +89,7 @@ export function createPcmRingBuffer({
   capacityFrames,
   channelCount,
   generation = 1,
-  producerState = RingState.idle,
+  producerState = PcmRingProducerState.idle,
 }) {
   if (typeof SharedArrayBuffer === "undefined") {
     throw new Error(
@@ -232,7 +241,7 @@ export class PcmRingProducer {
     return writableFrames;
   }
 
-  reset(generation, producerState = RingState.idle) {
+  reset(generation, producerState = PcmRingProducerState.idle) {
     integerInRange(generation, 1, 0x7fff_ffff, "generation");
     Atomics.store(this.#header, PcmRingHeader.writeFrame, 0);
     Atomics.store(this.#header, PcmRingHeader.readFrame, 0);

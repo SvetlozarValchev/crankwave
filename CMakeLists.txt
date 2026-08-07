@@ -1068,6 +1068,25 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         DESTINATION
             "${_engine_sim_offline_install_resource_directory}/web/runtime"
     )
+    set(
+        _engine_sim_offline_revengine_javascript_closure
+        "${PROJECT_SOURCE_DIR}/web/runtime/directional-phase-cell.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/dry-directional-phase-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/held-phase-texture-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/held-texture-presentation-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/renderer-runtime-compatibility.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/responsive-audio-lifecycle-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/revengine-audio-engine.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/revengine-package.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/shared-recorded-starter-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/state-phase-texture-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/steady-transient-envelope.js"
+    )
+    install(
+        FILES ${_engine_sim_offline_revengine_javascript_closure}
+        DESTINATION
+            "${_engine_sim_offline_install_resource_directory}/web/runtime"
+    )
     install(
         FILES "${_engine_sim_offline_builtin_asset_catalog_source}"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/engine-sim-offline/assets"
