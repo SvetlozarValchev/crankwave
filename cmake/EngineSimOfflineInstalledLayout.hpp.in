@@ -1,0 +1,10 @@
+#pragma once
+
+#include <string_view>
+
+namespace engine_sim_offline::cli::detail {
+
+inline constexpr std::string_view kInstalledAssetDirectoryRelativeToExecutable =
+    R"eso(@ENGINE_SIM_OFFLINE_INSTALL_ASSET_RELATIVE_FROM_BINDIR@)eso";
+
+} // namespace engine_sim_offline::cli::detail

@@ -15,7 +15,10 @@ namespace {
 using engine_sim_offline::cli::CliCommand;
 using engine_sim_offline::cli::CliParseResult;
 using engine_sim_offline::cli::CliUsageError;
+using engine_sim_offline::cli::InspectRevengineCommand;
+using engine_sim_offline::cli::PackRevengineCommand;
 using engine_sim_offline::cli::RenderCommand;
+using engine_sim_offline::cli::VerifyRevengineCommand;
 
 static_assert(engine_sim_offline::cli::kExitSuccess == 0);
 static_assert(engine_sim_offline::cli::kExitUsage == 64);
@@ -49,11 +52,12 @@ parse(const std::initializer_list<std::string_view> arguments) {
 void test_exact_render_grammar() {
     const auto canonical =
         parse({"render", "--engine", "engine.json", "--scenario", "scenario.json",
-               "--asset-root", "assets", "--output-directory", "result"});
+               "--output-directory", "result"});
     const auto &render = require_render(canonical);
     expect(render.engine_path == "engine.json", "engine value was not retained");
     expect(render.scenario_path == "scenario.json", "scenario value was not retained");
-    expect(render.asset_root == "assets", "asset-root value was not retained");
+    expect(render.asset_root.empty(),
+           "omitted asset-root did not select built-in resolution");
     expect(render.output_directory == "result",
            "output-directory value was not retained");
 
@@ -63,7 +67,36 @@ void test_exact_render_grammar() {
     const auto &other = require_render(reordered);
     expect(other.engine_path == "motor.json" && other.scenario_path == "drive.json" &&
                other.asset_root == "root" && other.output_directory == "out",
-           "render flags must be order-independent");
+           "render flags and the developer override must be order-independent");
+}
+
+void test_exact_revengine_grammars() {
+    const auto packed = parse({"pack-revengine", "--output", "engine.revengine",
+                               "--package-directory", "package"});
+    const auto *packed_command = std::get_if<CliCommand>(&packed);
+    expect(packed_command != nullptr,
+           "valid pack-revengine syntax was rejected");
+    const auto *pack = std::get_if<PackRevengineCommand>(packed_command);
+    expect(pack != nullptr && pack->package_directory == "package" &&
+               pack->output_file == "engine.revengine",
+           "pack-revengine options were not retained order-independently");
+
+    const auto inspected = parse({"inspect-revengine", "--input", "a.revengine"});
+    const auto *inspected_command = std::get_if<CliCommand>(&inspected);
+    expect(inspected_command != nullptr,
+           "valid inspect-revengine syntax was rejected");
+    const auto *inspect =
+        std::get_if<InspectRevengineCommand>(inspected_command);
+    expect(inspect != nullptr && inspect->input_file == "a.revengine",
+           "inspect-revengine input was not retained");
+
+    const auto verified = parse({"verify-revengine", "--input", "b.revengine"});
+    const auto *verified_command = std::get_if<CliCommand>(&verified);
+    expect(verified_command != nullptr,
+           "valid verify-revengine syntax was rejected");
+    const auto *verify = std::get_if<VerifyRevengineCommand>(verified_command);
+    expect(verify != nullptr && verify->input_file == "b.revengine",
+           "verify-revengine input was not retained");
 }
 
 void test_strict_render_rejections() {
@@ -83,12 +116,23 @@ void test_strict_render_rejections() {
          "o"},
         {"render", "--engine", "first", "--engine", "second", "--scenario", "s",
          "--asset-root", "a", "--output-directory", "o"},
+        {"render", "--engine", "e", "--scenario", "s", "--asset-root", "first",
+         "--asset-root", "second", "--output-directory", "o"},
         {"render", "--engine", "", "--scenario", "s", "--asset-root", "a",
          "--output-directory", "o"},
         {"render", "--engine", "--scenario", "s", "--asset-root", "a",
          "--output-directory", "o"},
         {"render", "--help", "--engine", "e", "--scenario", "s", "--asset-root", "a",
          "--output-directory", "o"},
+        {"pack-revengine"},
+        {"pack-revengine", "--package-directory", "package"},
+        {"pack-revengine", "--package-directory", "package", "--output",
+         "one.revengine", "--output", "two.revengine"},
+        {"pack-revengine", "--package-directory=package", "--output",
+         "engine.revengine"},
+        {"inspect-revengine"},
+        {"inspect-revengine", "--input", "one", "extra"},
+        {"verify-revengine", "--output", "one"},
         {"bake-atlas", "--engine", "e", "--atlas-bake", "a",
          "--asset-root", "assets", "--output-directory", "out"},
         {"unknown"},
@@ -129,8 +173,23 @@ void test_standalone_help_and_version() {
                "render --engine <engine.json> --scenario <scenario.json>") !=
                std::string::npos,
            "--help must document the exact current render syntax");
+    expect(help.standard_out.find("[--asset-root <developer-directory>]") !=
+               std::string::npos &&
+               help.standard_out.find("bundled content-addressed asset catalog") !=
+                   std::string::npos,
+           "--help must distinguish default assets from the developer override");
     expect(help.standard_out.find("bake-atlas") == std::string::npos,
            "--help must not advertise the withdrawn atlas baker");
+    expect(help.standard_out.find(
+               "pack-revengine --package-directory <directory>") !=
+               std::string::npos &&
+               help.standard_out.find(
+                   "inspect-revengine --input <file.revengine>") !=
+                   std::string::npos &&
+               help.standard_out.find(
+                   "verify-revengine --input <file.revengine>") !=
+                   std::string::npos,
+           "--help must advertise the exact REVENGINE command grammar");
     expect(help.standard_error.empty(), "--help must not write stderr");
 
     const auto version = invoke({"--version"});
@@ -165,6 +224,7 @@ void test_usage_output_channels() {
 int main() {
     try {
         test_exact_render_grammar();
+        test_exact_revengine_grammars();
         test_strict_render_rejections();
         test_standalone_help_and_version();
         test_usage_output_channels();

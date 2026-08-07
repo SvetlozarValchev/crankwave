@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engine-sim-offline.dev/schemas/responsive-audio-bake-profile.schema.json",
+  "title": "Engine Sim Offline responsive-audio bake profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "rpm", "capture", "lifecycle"],
+  "properties": {
+    "schema": {"const": "engine-sim-offline/responsive-audio-bake-profile-v1"},
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "rpm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "anchors",
+        "outer_minimum_rpm",
+        "outer_maximum_rpm",
+        "held_preparation_floor_seconds",
+        "held_extend_preparation_below_rpm"
+      ],
+      "properties": {
+        "anchors": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {"type": "number", "exclusiveMinimum": 0}
+        },
+        "outer_minimum_rpm": {"type": "number", "exclusiveMinimum": 0},
+        "outer_maximum_rpm": {"type": "number", "exclusiveMinimum": 0},
+        "held_preparation_floor_seconds": {
+          "type": "number",
+          "minimum": 3,
+          "multipleOf": 0.02
+        },
+        "held_extend_preparation_below_rpm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["physics_rate_hz", "load_lanes"],
+      "properties": {
+        "physics_rate_hz": {"const": 10000},
+        "load_lanes": {
+          "const": [
+            {"id": "coast", "throttle_01": 0},
+            {"id": "mid", "throttle_01": 0.2},
+            {"id": "power", "throttle_01": 1}
+          ]
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "shared_recorded_starter", "elevated_shutdown"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {"enabled": {"const": false}},
+            "required": ["enabled"]
+          },
+          "then": {
+            "properties": {"shared_recorded_starter": {"const": false}}
+          }
+        }
+      ],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "shared_recorded_starter": {"type": "boolean"},
+        "elevated_shutdown": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rpm", "keyoff_seconds"],
+          "properties": {
+            "rpm": {"type": "number", "exclusiveMinimum": 0},
+            "keyoff_seconds": {"type": "number", "exclusiveMinimum": 0}
+          }
+        }
+      }
+    }
+  }
+}

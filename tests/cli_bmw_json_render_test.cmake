@@ -46,7 +46,6 @@ execute_process(
         render
         --engine "${engine_json}"
         --scenario "${scenario_json}"
-        --asset-root "${source_root}"
         --output-directory "${publication_directory}"
     RESULT_VARIABLE result
     OUTPUT_VARIABLE standard_out

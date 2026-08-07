@@ -329,6 +329,8 @@ add_library(
         src/artifacts/manifest_encoder.cpp
         src/artifacts/manifest_encoder_output.cpp
         src/artifacts/manifest_encoder_presentation.cpp
+        src/artifacts/revengine_container.cpp
+        src/artifacts/revengine_package.cpp
         src/artifacts/secure_filesystem_support.cpp
         src/artifacts/simulation_manifest_encoder.cpp
         src/artifacts/telemetry_encoder.cpp
@@ -356,6 +358,7 @@ target_link_libraries(
         engine_sim_offline::contract
         engine_sim_offline::build_options
     PRIVATE
+        engine_sim_offline::authoring
         engine_sim_offline::request_identity
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_artifacts)
@@ -708,15 +711,221 @@ if(ENGINE_SIM_OFFLINE_BUILD_TESTS)
 endif()
 
 if(ENGINE_SIM_OFFLINE_BUILD_CLI)
+    include(GNUInstallDirs)
+
+    set(
+        _engine_sim_offline_install_resource_directory
+        "${CMAKE_INSTALL_DATADIR}/engine-sim-offline"
+    )
+    set(
+        _engine_sim_offline_install_helper_directory
+        "${CMAKE_INSTALL_LIBEXECDIR}/engine-sim-offline"
+    )
+    file(
+        RELATIVE_PATH
+        ENGINE_SIM_OFFLINE_INSTALL_RESOURCE_RELATIVE_FROM_BINDIR
+        "${CMAKE_INSTALL_FULL_BINDIR}"
+        "${CMAKE_INSTALL_FULL_DATADIR}/engine-sim-offline"
+    )
+    file(
+        RELATIVE_PATH
+        ENGINE_SIM_OFFLINE_INSTALL_ASSET_RELATIVE_FROM_BINDIR
+        "${CMAKE_INSTALL_FULL_BINDIR}"
+        "${CMAKE_INSTALL_FULL_DATADIR}/engine-sim-offline/assets"
+    )
+    file(
+        RELATIVE_PATH
+        ENGINE_SIM_OFFLINE_INSTALL_HELPER_RELATIVE_FROM_BINDIR
+        "${CMAKE_INSTALL_FULL_BINDIR}"
+        "${CMAKE_INSTALL_FULL_LIBEXECDIR}/engine-sim-offline"
+    )
+    file(
+        TO_CMAKE_PATH
+        "${ENGINE_SIM_OFFLINE_INSTALL_RESOURCE_RELATIVE_FROM_BINDIR}"
+        ENGINE_SIM_OFFLINE_INSTALL_RESOURCE_RELATIVE_FROM_BINDIR
+    )
+    file(
+        TO_CMAKE_PATH
+        "${ENGINE_SIM_OFFLINE_INSTALL_ASSET_RELATIVE_FROM_BINDIR}"
+        ENGINE_SIM_OFFLINE_INSTALL_ASSET_RELATIVE_FROM_BINDIR
+    )
+    file(
+        TO_CMAKE_PATH
+        "${ENGINE_SIM_OFFLINE_INSTALL_HELPER_RELATIVE_FROM_BINDIR}"
+        ENGINE_SIM_OFFLINE_INSTALL_HELPER_RELATIVE_FROM_BINDIR
+    )
+    set(
+        _engine_sim_offline_installed_generated_directory
+        "${PROJECT_BINARY_DIR}/generated/installed-resources"
+    )
+    file(MAKE_DIRECTORY "${_engine_sim_offline_installed_generated_directory}")
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineInstalledLayout.hpp.in"
+        "${_engine_sim_offline_installed_generated_directory}/engine_sim_offline_installed_layout.hpp"
+        @ONLY
+    )
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineResponsiveBakeLauncher.sh.in"
+        "${_engine_sim_offline_installed_generated_directory}/engine-sim-offline-responsive-bake"
+        @ONLY
+    )
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineInstalledResources.package.json.in"
+        "${_engine_sim_offline_installed_generated_directory}/package.json"
+        @ONLY
+    )
+
+    set(
+        _engine_sim_offline_builtin_asset_catalog_source
+        "${PROJECT_SOURCE_DIR}/assets/builtin/catalog.v1.json"
+    )
+    set(
+        _engine_sim_offline_builtin_asset_bundle
+        "${PROJECT_BINARY_DIR}/generated/engine-sim-offline-assets"
+    )
+    set(
+        _engine_sim_offline_shared_starter_source
+        "${PROJECT_SOURCE_DIR}/reference/fixtures/responsive-audio/shared-recorded-starter"
+    )
+    set(
+        _engine_sim_offline_shared_starter_bundle
+        "${_engine_sim_offline_builtin_asset_bundle}/runtime-audio/shared-recorded-starter"
+    )
+    set(
+        _engine_sim_offline_shared_starter_runtime
+        "${_engine_sim_offline_shared_starter_source}/runtime.json"
+    )
+    set(
+        _engine_sim_offline_shared_starter_audio
+        "${_engine_sim_offline_shared_starter_source}/audio/recorded-starter.cropped.192000hz.mono.f32le"
+    )
+    set(
+        _engine_sim_offline_builtin_asset_payload_specs
+        "f2875947eba2ed98a15f45a5d62f6ae7b607b0a56389bad5882d75748ad374b9|reference/fixtures/engine-sim-ir-library/presentation/mild_exhaust.wav"
+        "0d736bb7065686ae527c8487ef7850762c0381c91125e555228cf4599e4ff68c|reference/fixtures/engine-sim-ir-library/presentation/minimal_muffling_01.wav"
+        "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc|reference/fixtures/engine-sim-ir-library/presentation/smooth_39.wav"
+        "97408471f8b699a93b888db448367cf7abbe20e6c4891cc8af0d1946889f8b69|reference/fixtures/raspy-muscle-620-cleanroom/presentation/smooth_46.wav"
+        "55125069f43e48b52a5842649d899d9d250fc94808b8dbe59360e790aa0bebd4|data/profiles/raspy-muscle-620-cleanroom/accessory-configurations/raspy-muscle-620-cleanroom-warm-generic-accessories-v1.json"
+        "58feca2e7b011a72a910be8a76dde71bdf53d3beedce5cdd54dbee583135f224|data/profiles/sequoia-3ur-fe-cleanroom/accessory-configurations/sequoia-3ur-fe-cleanroom-warm-generic-accessories-v1.json"
+        "654ea801670c9e850a0406a0fb7afbc2b507fb6fd1cd70a2d8fbbfbab6dc6d00|data/engines/kohler-ch750-cleanroom/accessory-configuration.json"
+        "915fafba878580a6ba9a316f65b552ac1da031ef7c7054267107d642ea0e6e79|data/engines/radial-5-cleanroom/accessory-configuration.json"
+        "a1bcdbf0edd62a92ceddecd537f475b17cf2c6503fd65c3d2cf1b5d0d6315ede|data/profiles/bmw-m52tub28-cleanroom/accessory-configurations/bmw-m52tub28-cleanroom-warm-generic-accessories-v1.json"
+        "ba86093015b191eea91f93549bd538466c3c62470e3f8a1e82d03156ab75c2d4|data/engines/shovelhead-bank-local-heads/accessory-configuration.json"
+        "ca8dcf90b501d0f621efdd0137412af629b9710eca41cfb9de63667d4a98adcb|data/profiles/harley-evolution-1340-cleanroom/accessory-configurations/harley-evolution-1340-cleanroom-warm-generic-accessories-v1.json"
+        "e90f6127213f989e6d75a99eab5bfc15e02d730be7fec7a219007ddd19033f4e|data/engines/subaru-ej25-cleanroom/accessory-configuration.json"
+        "f6a52933a69429ee00e48ff47de613c9effb3509215219ab7b1bdae5e8be9c9b|data/profiles/honda-b18c5-cleanroom/accessory-configurations/honda-b18c5-cleanroom-warm-generic-accessories-v1.json"
+        "ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97|data/profiles/bmw-m52b28/accessory-configurations/bmw-m52b28-warm-stock-accessories-v1.json"
+    )
+    set(_engine_sim_offline_builtin_asset_payload_commands)
+    set(_engine_sim_offline_builtin_asset_payload_sources)
+    foreach(
+        _engine_sim_offline_builtin_asset_payload_spec
+        IN LISTS _engine_sim_offline_builtin_asset_payload_specs
+    )
+        string(
+            REPLACE "|" ";"
+            _engine_sim_offline_builtin_asset_payload_parts
+            "${_engine_sim_offline_builtin_asset_payload_spec}"
+        )
+        list(
+            GET _engine_sim_offline_builtin_asset_payload_parts 0
+            _engine_sim_offline_builtin_asset_payload_sha256
+        )
+        list(
+            GET _engine_sim_offline_builtin_asset_payload_parts 1
+            _engine_sim_offline_builtin_asset_payload_relative_path
+        )
+        set(
+            _engine_sim_offline_builtin_asset_payload_source
+            "${PROJECT_SOURCE_DIR}/${_engine_sim_offline_builtin_asset_payload_relative_path}"
+        )
+        list(
+            APPEND _engine_sim_offline_builtin_asset_payload_sources
+            "${_engine_sim_offline_builtin_asset_payload_source}"
+        )
+        list(
+            APPEND _engine_sim_offline_builtin_asset_payload_commands
+            COMMAND
+                "${CMAKE_COMMAND}" -E copy_if_different
+                "${_engine_sim_offline_builtin_asset_payload_source}"
+                "${_engine_sim_offline_builtin_asset_bundle}/payloads/${_engine_sim_offline_builtin_asset_payload_sha256}"
+        )
+    endforeach()
+    set(
+        _engine_sim_offline_builtin_asset_bundle_stamp
+        "${_engine_sim_offline_builtin_asset_bundle}/.assembled"
+    )
+    add_custom_command(
+        OUTPUT "${_engine_sim_offline_builtin_asset_bundle_stamp}"
+        COMMAND
+            "${CMAKE_COMMAND}" -E remove_directory
+            "${_engine_sim_offline_builtin_asset_bundle}"
+        COMMAND
+            "${CMAKE_COMMAND}" -E make_directory
+            "${_engine_sim_offline_builtin_asset_bundle}/payloads"
+        COMMAND
+            "${CMAKE_COMMAND}" -E make_directory
+            "${_engine_sim_offline_shared_starter_bundle}/audio"
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy_if_different
+            "${_engine_sim_offline_builtin_asset_catalog_source}"
+            "${_engine_sim_offline_builtin_asset_bundle}/catalog.v1.json"
+        ${_engine_sim_offline_builtin_asset_payload_commands}
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy_if_different
+            "${_engine_sim_offline_shared_starter_runtime}"
+            "${_engine_sim_offline_shared_starter_bundle}/runtime.json"
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy_if_different
+            "${_engine_sim_offline_shared_starter_audio}"
+            "${_engine_sim_offline_shared_starter_bundle}/audio/recorded-starter.cropped.192000hz.mono.f32le"
+        COMMAND
+            "${CMAKE_COMMAND}" -E touch
+            "${_engine_sim_offline_builtin_asset_bundle_stamp}"
+        DEPENDS
+            "${_engine_sim_offline_builtin_asset_catalog_source}"
+            ${_engine_sim_offline_builtin_asset_payload_sources}
+            "${_engine_sim_offline_shared_starter_runtime}"
+            "${_engine_sim_offline_shared_starter_audio}"
+        COMMENT "Assembling the built-in engine asset bundle"
+        VERBATIM
+    )
+    add_custom_target(
+        engine_sim_offline_builtin_assets
+        DEPENDS "${_engine_sim_offline_builtin_asset_bundle_stamp}"
+    )
+    set(
+        ENGINE_SIM_OFFLINE_BUILTIN_ASSET_CATALOG_FOR_TESTS
+        "${_engine_sim_offline_builtin_asset_bundle}/catalog.v1.json"
+    )
+
+    add_executable(
+        engine_sim_offline_dump_ir_spectrum
+        tools/responsive-audio-baker/dump-ir-spectrum.cpp
+    )
+    set_target_properties(
+        engine_sim_offline_dump_ir_spectrum
+        PROPERTIES OUTPUT_NAME dump-ir-spectrum
+    )
+    target_link_libraries(
+        engine_sim_offline_dump_ir_spectrum
+        PRIVATE engine_sim_offline::presentation
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_dump_ir_spectrum
+    )
+
     add_library(
         engine_sim_offline_cli_support
         STATIC
             src/cli/cli_app.cpp
             src/cli/native_asset_root.cpp
+            src/cli/native_builtin_asset_catalog.cpp
             src/cli/native_engine_input.cpp
             src/cli/native_input_files.cpp
             src/cli/native_input_filesystem.cpp
             src/cli/native_output_directory.cpp
+            src/cli/revengine_cli_support.cpp
     )
 
     target_include_directories(
@@ -724,6 +933,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         PRIVATE
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/cli>
+            $<BUILD_INTERFACE:${_engine_sim_offline_installed_generated_directory}>
     )
 
     target_compile_definitions(
@@ -774,6 +984,200 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     engine_sim_offline_finalize_renderer_numeric_policy(
         engine_sim_offline_cli
     )
+    add_dependencies(
+        engine_sim_offline_cli
+        engine_sim_offline_builtin_assets
+        engine_sim_offline_dump_ir_spectrum
+    )
+    set_property(
+        TARGET engine_sim_offline_cli
+        APPEND PROPERTY LINK_DEPENDS
+        "${_engine_sim_offline_builtin_asset_bundle_stamp}"
+    )
+    add_custom_command(
+        TARGET engine_sim_offline_cli
+        POST_BUILD
+        COMMAND
+            "${CMAKE_COMMAND}" -E remove_directory
+            "$<TARGET_FILE_DIR:engine_sim_offline_cli>/engine-sim-offline-assets"
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy_directory
+            "${_engine_sim_offline_builtin_asset_bundle}"
+            "$<TARGET_FILE_DIR:engine_sim_offline_cli>/engine-sim-offline-assets"
+        COMMENT "Bundling the built-in engine asset bundle beside the CLI"
+        VERBATIM
+    )
+
+    install(
+        TARGETS engine_sim_offline_cli
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    )
+    install(
+        TARGETS engine_sim_offline_dump_ir_spectrum
+        RUNTIME DESTINATION "${_engine_sim_offline_install_helper_directory}"
+    )
+    install(
+        PROGRAMS
+            "${_engine_sim_offline_installed_generated_directory}/engine-sim-offline-responsive-bake"
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    )
+    install(
+        FILES
+            "${_engine_sim_offline_installed_generated_directory}/package.json"
+        DESTINATION "${_engine_sim_offline_install_resource_directory}"
+    )
+    set(
+        _engine_sim_offline_baker_install_directory
+        "${_engine_sim_offline_install_resource_directory}/tools/responsive-audio-baker"
+    )
+    install(
+        FILES
+            "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/bake.mjs"
+            "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/dump-ir-spectrum.cpp"
+        DESTINATION "${_engine_sim_offline_baker_install_directory}"
+    )
+    install(
+        FILES
+            "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/internal/bake-contract.mjs"
+            "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/internal/directional-transients.mjs"
+            "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/internal/held-texture.mjs"
+            "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/internal/lifecycle.mjs"
+        DESTINATION "${_engine_sim_offline_baker_install_directory}/internal"
+    )
+    install(
+        FILES
+            "${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/profiles/interactive-preview-v1.json"
+        DESTINATION "${_engine_sim_offline_baker_install_directory}/profiles"
+    )
+    install(
+        FILES
+            "${PROJECT_SOURCE_DIR}/schemas/responsive-audio-bake-profile.schema.json"
+        DESTINATION
+            "${_engine_sim_offline_install_resource_directory}/schemas"
+    )
+    set(
+        _engine_sim_offline_baker_c_api_javascript_closure
+        "${PROJECT_SOURCE_DIR}/web/runtime/c-api-abi.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/c-api-client.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/c-api-errors.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/c-api-session.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/wasm-heap.js"
+    )
+    install(
+        FILES ${_engine_sim_offline_baker_c_api_javascript_closure}
+        DESTINATION
+            "${_engine_sim_offline_install_resource_directory}/web/runtime"
+    )
+    install(
+        FILES "${_engine_sim_offline_builtin_asset_catalog_source}"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/engine-sim-offline/assets"
+        RENAME catalog.v1.json
+    )
+    install(
+        FILES "${_engine_sim_offline_shared_starter_runtime}"
+        DESTINATION
+            "${CMAKE_INSTALL_DATADIR}/engine-sim-offline/assets/runtime-audio/shared-recorded-starter"
+    )
+    install(
+        FILES "${_engine_sim_offline_shared_starter_audio}"
+        DESTINATION
+            "${CMAKE_INSTALL_DATADIR}/engine-sim-offline/assets/runtime-audio/shared-recorded-starter/audio"
+    )
+    foreach(
+        _engine_sim_offline_builtin_asset_payload_spec
+        IN LISTS _engine_sim_offline_builtin_asset_payload_specs
+    )
+        string(
+            REPLACE "|" ";"
+            _engine_sim_offline_builtin_asset_payload_parts
+            "${_engine_sim_offline_builtin_asset_payload_spec}"
+        )
+        list(
+            GET _engine_sim_offline_builtin_asset_payload_parts 0
+            _engine_sim_offline_builtin_asset_payload_sha256
+        )
+        list(
+            GET _engine_sim_offline_builtin_asset_payload_parts 1
+            _engine_sim_offline_builtin_asset_payload_relative_path
+        )
+        install(
+            FILES
+                "${PROJECT_SOURCE_DIR}/${_engine_sim_offline_builtin_asset_payload_relative_path}"
+            DESTINATION
+                "${CMAKE_INSTALL_DATADIR}/engine-sim-offline/assets/payloads"
+            RENAME "${_engine_sim_offline_builtin_asset_payload_sha256}"
+        )
+    endforeach()
+
+    set(
+        ENGINE_SIM_OFFLINE_INSTALL_WASM_DIRECTORY
+        ""
+        CACHE PATH
+        "Optional completed Emscripten directory containing engine-sim-offline.js and engine-sim-offline.wasm for the installed responsive baker"
+    )
+    if(ENGINE_SIM_OFFLINE_INSTALL_WASM_DIRECTORY)
+        set(
+            _engine_sim_offline_install_wasm_javascript
+            "${ENGINE_SIM_OFFLINE_INSTALL_WASM_DIRECTORY}/engine-sim-offline.js"
+        )
+        set(
+            _engine_sim_offline_install_wasm_binary
+            "${ENGINE_SIM_OFFLINE_INSTALL_WASM_DIRECTORY}/engine-sim-offline.wasm"
+        )
+        foreach(
+            _engine_sim_offline_install_wasm_input
+            IN ITEMS
+                "${_engine_sim_offline_install_wasm_javascript}"
+                "${_engine_sim_offline_install_wasm_binary}"
+        )
+            if(NOT EXISTS "${_engine_sim_offline_install_wasm_input}" OR
+               IS_DIRECTORY "${_engine_sim_offline_install_wasm_input}")
+                message(
+                    FATAL_ERROR
+                    "ENGINE_SIM_OFFLINE_INSTALL_WASM_DIRECTORY must contain the completed engine-sim-offline.js/.wasm pair: ${_engine_sim_offline_install_wasm_input}"
+                )
+            endif()
+        endforeach()
+        add_custom_target(
+            engine_sim_offline_install_wasm_inputs
+            SOURCES
+                "${_engine_sim_offline_install_wasm_javascript}"
+                "${_engine_sim_offline_install_wasm_binary}"
+        )
+        install(
+            FILES
+                "${_engine_sim_offline_install_wasm_javascript}"
+                "${_engine_sim_offline_install_wasm_binary}"
+            DESTINATION
+                "${_engine_sim_offline_install_resource_directory}/renderer"
+        )
+    endif()
+
+    add_custom_target(
+        engine_sim_offline_distribution
+        DEPENDS
+            engine_sim_offline_builtin_assets
+            engine_sim_offline_cli
+            engine_sim_offline_dump_ir_spectrum
+    )
+    if(TARGET engine_sim_offline_install_wasm_inputs)
+        add_dependencies(
+            engine_sim_offline_distribution
+            engine_sim_offline_install_wasm_inputs
+        )
+    endif()
+    set(
+        ENGINE_SIM_OFFLINE_INSTALL_BINDIR_FOR_TESTS
+        "${CMAKE_INSTALL_BINDIR}"
+    )
+    set(
+        ENGINE_SIM_OFFLINE_INSTALL_DATADIR_FOR_TESTS
+        "${CMAKE_INSTALL_DATADIR}"
+    )
+    set(
+        ENGINE_SIM_OFFLINE_INSTALL_LIBEXECDIR_FOR_TESTS
+        "${CMAKE_INSTALL_LIBEXECDIR}"
+    )
 endif()
 
 set(
@@ -812,6 +1216,7 @@ if(TARGET engine_sim_offline_cli_support)
         _engine_sim_offline_numeric_policy_targets
         engine_sim_offline_cli_support
         engine_sim_offline_cli
+        engine_sim_offline_dump_ir_spectrum
     )
 endif()
 foreach(_target IN LISTS _engine_sim_offline_numeric_policy_targets)

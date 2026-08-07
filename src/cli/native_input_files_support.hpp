@@ -76,6 +76,19 @@ open_asset_root(const std::filesystem::path &asset_root);
     const std::filesystem::path &engine_path,
     const std::filesystem::path &asset_root, const NativeInputLimits &limits);
 
+// Reads and parses the engine document and enforces its aggregate declared-asset
+// limits without resolving any asset locator. Resolution adapters then append exact
+// payload bytes either from authored URIs or from the built-in content catalog.
+[[nodiscard]] NativeEngineInputResult load_engine_document_impl(
+    const std::filesystem::path &engine_path,
+    const NativeInputLimits &limits);
+
+[[nodiscard]] std::optional<NativeInputError> append_confined_engine_asset(
+    NativeEngineInput &input, const std::filesystem::path &locator_document,
+    const OpenedAssetRoot &asset_root, compile::AssetKind kind,
+    NativeInputSubject subject, std::string_view id, std::string_view uri,
+    const NativeInputLimits &limits, std::uintmax_t &total_bytes);
+
 [[nodiscard]] NativeScenarioInputResult load_scenario_impl(
     const std::filesystem::path &scenario_path,
     const NativeInputLimits &limits);

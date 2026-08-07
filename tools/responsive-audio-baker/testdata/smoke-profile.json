@@ -1,0 +1,27 @@
+{
+  "schema": "engine-sim-offline/responsive-audio-bake-profile-v1",
+  "id": "smoke-test-v1",
+  "rpm": {
+    "anchors": [700, 3000],
+    "outer_minimum_rpm": 650,
+    "outer_maximum_rpm": 3150,
+    "held_preparation_floor_seconds": 3,
+    "held_extend_preparation_below_rpm": 700
+  },
+  "capture": {
+    "physics_rate_hz": 10000,
+    "load_lanes": [
+      {"id": "coast", "throttle_01": 0},
+      {"id": "mid", "throttle_01": 0.2},
+      {"id": "power", "throttle_01": 1}
+    ]
+  },
+  "lifecycle": {
+    "enabled": true,
+    "shared_recorded_starter": true,
+    "elevated_shutdown": {
+      "rpm": 2000,
+      "keyoff_seconds": 0.16
+    }
+  }
+}

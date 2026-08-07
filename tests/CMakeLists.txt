@@ -673,6 +673,21 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_revengine_container_tests
+    revengine_container_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_revengine_container_tests
+    PRIVATE engine_sim_offline::artifacts
+)
+
+add_test(
+    NAME artifacts.revengine_container
+    COMMAND engine_sim_offline_revengine_container_tests
+)
+
+add_executable(
     engine_sim_offline_simulation_manifest_encoder_tests
     simulation_manifest_encoder_test.cpp
 )
@@ -2190,6 +2205,32 @@ endif()
 
 if(TARGET engine_sim_offline_cli_support)
     add_executable(
+        engine_sim_offline_revengine_cli_support_tests
+        revengine_cli_support_test.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_revengine_cli_support_tests
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/src/cli
+    )
+
+    target_link_libraries(
+        engine_sim_offline_revengine_cli_support_tests
+        PRIVATE
+            engine_sim_offline_cli_support
+            engine_sim_offline::artifacts
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_revengine_cli_support_tests
+    )
+
+    add_test(
+        NAME cli.revengine_support
+        COMMAND engine_sim_offline_revengine_cli_support_tests
+    )
+
+    add_executable(
         engine_sim_offline_cli_app_tests
         cli_app_test.cpp
     )
@@ -2233,12 +2274,18 @@ if(TARGET engine_sim_offline_cli_support)
     engine_sim_offline_enable_renderer_numeric_policy(
         engine_sim_offline_native_input_files_tests
     )
+    add_dependencies(
+        engine_sim_offline_native_input_files_tests
+        engine_sim_offline_builtin_assets
+    )
 
     add_test(
         NAME cli.native_input_files
         COMMAND
             engine_sim_offline_native_input_files_tests
             ${PROJECT_SOURCE_DIR}
+            ${ENGINE_SIM_OFFLINE_BUILTIN_ASSET_CATALOG_FOR_TESTS}
+            ${ENGINE_SIM_OFFLINE_INSTALL_ASSET_RELATIVE_FROM_BINDIR}
     )
 
     add_test(
@@ -2249,6 +2296,66 @@ if(TARGET engine_sim_offline_cli_support)
             -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cli_process_test.cmake
     )
+
+    find_program(
+        _engine_sim_offline_node_for_installed_test
+        NAMES node nodejs
+    )
+    if(_engine_sim_offline_node_for_installed_test)
+        add_test(
+            NAME tools.responsive_audio_baker
+            COMMAND
+                ${_engine_sim_offline_node_for_installed_test}
+                --test
+                ${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/test.mjs
+        )
+        set_tests_properties(
+            tools.responsive_audio_baker
+            PROPERTIES
+                LABELS "javascript;tools"
+                TIMEOUT 120
+        )
+
+        add_test(
+            NAME runtime.revengine_package
+            COMMAND
+                ${_engine_sim_offline_node_for_installed_test}
+                --test
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/revengine-package.test.mjs
+        )
+        set_tests_properties(
+            runtime.revengine_package
+            PROPERTIES
+                LABELS "javascript;runtime"
+                TIMEOUT 120
+        )
+    endif()
+    if(UNIX AND _engine_sim_offline_node_for_installed_test AND
+       NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_BINDIR_FOR_TESTS}" AND
+       NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_DATADIR_FOR_TESTS}" AND
+       NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_LIBEXECDIR_FOR_TESTS}")
+        add_test(
+            NAME distribution.installed_prefix
+            COMMAND
+                ${CMAKE_COMMAND}
+                -DBUILD_DIRECTORY=${PROJECT_BINARY_DIR}
+                -DINSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/installed-distribution-$<CONFIG>
+                -DINSTALL_BINDIR=${ENGINE_SIM_OFFLINE_INSTALL_BINDIR_FOR_TESTS}
+                -DINSTALL_DATADIR=${ENGINE_SIM_OFFLINE_INSTALL_DATADIR_FOR_TESTS}
+                -DINSTALL_LIBEXECDIR=${ENGINE_SIM_OFFLINE_INSTALL_LIBEXECDIR_FOR_TESTS}
+                -DINSTALL_CONFIG=$<CONFIG>
+                -DNODE_EXECUTABLE=${_engine_sim_offline_node_for_installed_test}
+                -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/installed_distribution_test.cmake
+        )
+        set_tests_properties(
+            distribution.installed_prefix
+            PROPERTIES
+                LABELS "distribution"
+                RUN_SERIAL TRUE
+                TIMEOUT 240
+        )
+    endif()
 
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         add_test(

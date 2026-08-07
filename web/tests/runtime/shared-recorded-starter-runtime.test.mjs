@@ -205,7 +205,7 @@ test("recorded starter cursor reports licensed availability and mixes A/B equall
   );
 });
 
-test("responsive packages may reference only one direct sibling manifest", () => {
+test("responsive packages may reference one direct child or sibling manifest", () => {
   const responsive = new URL(
     "https://fixtures.invalid/packages/bmw-m52tub28-cleanroom-responsive-audio/runtime.json",
   );
@@ -216,9 +216,15 @@ test("responsive packages may reference only one direct sibling manifest", () =>
     ).href,
     MANIFEST_URL.href,
   );
+  assert.equal(
+    resolveSharedRecordedStarterManifestUrl(
+      new URL("https://fixtures.invalid/package/runtime.json"),
+      "shared-recorded-starter/runtime.json",
+    ).href,
+    "https://fixtures.invalid/package/shared-recorded-starter/runtime.json",
+  );
 
   for (const rejected of [
-    "shared-recorded-starter/runtime.json",
     "../../shared-recorded-starter/runtime.json",
     "../nested/shared-recorded-starter/runtime.json",
     "../shared_recorded_starter/runtime.json",
@@ -232,7 +238,7 @@ test("responsive packages may reference only one direct sibling manifest", () =>
   ]) {
     assert.throws(
       () => resolveSharedRecordedStarterManifestUrl(responsive, rejected),
-      /direct sibling package/u,
+      /direct child or sibling package/u,
       rejected,
     );
   }

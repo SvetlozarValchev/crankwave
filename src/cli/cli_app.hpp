@@ -34,7 +34,32 @@ struct RenderCommand {
     friend bool operator==(const RenderCommand &, const RenderCommand &) = default;
 };
 
-using CliCommand = std::variant<HelpCommand, VersionCommand, RenderCommand>;
+struct PackRevengineCommand {
+    std::string package_directory;
+    std::string output_file;
+
+    friend bool operator==(const PackRevengineCommand &,
+                           const PackRevengineCommand &) = default;
+};
+
+struct InspectRevengineCommand {
+    std::string input_file;
+
+    friend bool operator==(const InspectRevengineCommand &,
+                           const InspectRevengineCommand &) = default;
+};
+
+struct VerifyRevengineCommand {
+    std::string input_file;
+
+    friend bool operator==(const VerifyRevengineCommand &,
+                           const VerifyRevengineCommand &) = default;
+};
+
+using CliCommand =
+    std::variant<HelpCommand, VersionCommand, RenderCommand,
+                 PackRevengineCommand, InspectRevengineCommand,
+                 VerifyRevengineCommand>;
 
 struct CliUsageError {
     std::string message;
@@ -47,8 +72,9 @@ using CliParseResult = std::variant<CliCommand, CliUsageError>;
 [[nodiscard]] std::string_view version_label() noexcept;
 
 // Parses the current command grammar. The program name is not part of arguments.
-// Command option order is arbitrary, but every current option occurs exactly once
-// and uses a separate, non-empty value token.
+// Command option order is arbitrary. Required options occur exactly once; optional
+// options occur at most once. Every supplied option uses a separate, non-empty
+// value token.
 [[nodiscard]] CliParseResult
 parse_cli_arguments(std::span<const std::string_view> arguments);
 

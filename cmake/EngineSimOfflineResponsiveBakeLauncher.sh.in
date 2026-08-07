@@ -1,0 +1,61 @@
+#!/bin/sh
+
+set -eu
+
+launcher_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+resource_root=$(CDPATH= cd -- \
+    "${launcher_directory}/@ENGINE_SIM_OFFLINE_INSTALL_RESOURCE_RELATIVE_FROM_BINDIR@" && \
+    pwd -P)
+helper_path="${launcher_directory}/@ENGINE_SIM_OFFLINE_INSTALL_HELPER_RELATIVE_FROM_BINDIR@/dump-ir-spectrum"
+baker_path="${resource_root}/tools/responsive-audio-baker/bake.mjs"
+builtin_assets_path="${resource_root}/assets"
+renderer_module_path="${resource_root}/renderer/engine-sim-offline.js"
+renderer_wasm_path="${resource_root}/renderer/engine-sim-offline.wasm"
+node_command=${ENGINE_SIM_OFFLINE_NODE:-node}
+
+if ! "${node_command}" -e '
+const [major, minor] = process.versions.node.split(".").map(Number);
+if (major < 20 || (major === 20 && minor < 11)) process.exit(1);
+' >/dev/null 2>&1; then
+    printf '%s\n' \
+        "engine-sim-offline responsive baking requires Node.js 20.11 or newer" \
+        >&2
+    exit 69
+fi
+
+if [ ! -f "${baker_path}" ]; then
+    printf 'installed responsive baker is absent: %s\n' "${baker_path}" >&2
+    exit 70
+fi
+if [ ! -f "${helper_path}" ]; then
+    printf 'installed IR spectrum helper is absent: %s\n' "${helper_path}" >&2
+    exit 70
+fi
+if [ ! -f "${builtin_assets_path}/catalog.v1.json" ]; then
+    printf 'installed built-in asset catalog is absent: %s\n' \
+        "${builtin_assets_path}/catalog.v1.json" >&2
+    exit 70
+fi
+
+if [ -z "${ENGINE_SIM_OFFLINE_BUILTIN_ASSETS:-}" ]; then
+    ENGINE_SIM_OFFLINE_BUILTIN_ASSETS=${builtin_assets_path}
+    export ENGINE_SIM_OFFLINE_BUILTIN_ASSETS
+fi
+if [ -z "${ENGINE_SIM_OFFLINE_WASM_MODULE:-}" ] && \
+   [ -f "${renderer_module_path}" ] && [ -f "${renderer_wasm_path}" ]; then
+    ENGINE_SIM_OFFLINE_WASM_MODULE=${renderer_module_path}
+    export ENGINE_SIM_OFFLINE_WASM_MODULE
+fi
+
+has_ir_dumper=false
+for argument do
+    if [ "${argument}" = "--ir-dumper" ]; then
+        has_ir_dumper=true
+        break
+    fi
+done
+
+if [ "${has_ir_dumper}" = true ]; then
+    exec "${node_command}" "${baker_path}" "$@"
+fi
+exec "${node_command}" "${baker_path}" "$@" --ir-dumper "${helper_path}"

@@ -7,7 +7,16 @@
 namespace engine_sim_offline::cli::detail {
 namespace {
 
-std::optional<NativeInputError> append_asset(
+std::string bytes_to_string(const std::vector<std::byte> &bytes) {
+    if (bytes.empty()) {
+        return {};
+    }
+    return {reinterpret_cast<const char *>(bytes.data()), bytes.size()};
+}
+
+} // namespace
+
+std::optional<NativeInputError> append_confined_engine_asset(
     NativeEngineInput &input, const std::filesystem::path &engine_document,
     const OpenedAssetRoot &asset_root, compile::AssetKind kind,
     NativeInputSubject subject, std::string_view id, std::string_view uri,
@@ -43,18 +52,8 @@ std::optional<NativeInputError> append_asset(
     return std::nullopt;
 }
 
-std::string bytes_to_string(const std::vector<std::byte> &bytes) {
-    if (bytes.empty()) {
-        return {};
-    }
-    return {reinterpret_cast<const char *>(bytes.data()), bytes.size()};
-}
-
-} // namespace
-
-NativeEngineInputResult load_engine_impl(
-    const std::filesystem::path &engine_path,
-    const std::filesystem::path &asset_root, const NativeInputLimits &limits) {
+NativeEngineInputResult load_engine_document_impl(
+    const std::filesystem::path &engine_path, const NativeInputLimits &limits) {
     auto engine_file = read_exact_regular_file(
         engine_path, NativeInputSubject::engine_document, {},
         limits.maximum_document_bytes);
@@ -73,12 +72,6 @@ NativeEngineInputResult load_engine_impl(
             NativeInputSubject::engine_document, read_engine.canonical_path,
             "engine document is invalid", {}, std::move(*diagnostics));
     }
-
-    auto root_result = open_asset_root(asset_root);
-    if (auto *error = std::get_if<NativeInputError>(&root_result)) {
-        return std::move(*error);
-    }
-    auto root = std::get<OpenedAssetRoot>(std::move(root_result));
 
     const auto engine_sha256 = contract::sha256(read_engine.bytes);
     NativeEngineInput result{
@@ -104,10 +97,27 @@ NativeEngineInputResult load_engine_impl(
             "engine document declares too many assets");
     }
     result.assets.reserve(asset_count);
+    return result;
+}
+
+NativeEngineInputResult load_engine_impl(
+    const std::filesystem::path &engine_path,
+    const std::filesystem::path &asset_root, const NativeInputLimits &limits) {
+    auto document_result = load_engine_document_impl(engine_path, limits);
+    if (auto *error = std::get_if<NativeInputError>(&document_result)) {
+        return std::move(*error);
+    }
+    auto result = std::get<NativeEngineInput>(std::move(document_result));
+
+    auto root_result = open_asset_root(asset_root);
+    if (auto *error = std::get_if<NativeInputError>(&root_result)) {
+        return std::move(*error);
+    }
+    auto root = std::get<OpenedAssetRoot>(std::move(root_result));
 
     std::uintmax_t total_bytes = 0;
     for (const auto &asset : result.document.presentation.assets) {
-        auto error = append_asset(
+        auto error = append_confined_engine_asset(
             result, result.source.canonical_path, root, compile::AssetKind::audio,
             NativeInputSubject::audio_asset, asset.id.value, asset.uri, limits,
             total_bytes);
@@ -117,7 +127,7 @@ NativeEngineInputResult load_engine_impl(
     }
     for (const auto &asset :
          result.document.engine.accessory_configurations) {
-        auto error = append_asset(
+        auto error = append_confined_engine_asset(
             result, result.source.canonical_path, root,
             compile::AssetKind::accessory_configuration,
             NativeInputSubject::accessory_configuration_asset, asset.id.value,

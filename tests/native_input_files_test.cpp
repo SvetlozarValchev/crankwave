@@ -1,6 +1,7 @@
 #include "native_input_files.hpp"
 #include "native_input_files_support.hpp"
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -21,6 +22,8 @@ constexpr std::string_view kOriginalIrUri =
 constexpr std::string_view kOriginalAccessoryUri =
     "../../profiles/bmw-m52b28/accessory-configurations/"
     "bmw-m52b28-warm-stock-accessories-v1.json";
+constexpr std::string_view kSmooth39Sha256 =
+    "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -309,6 +312,168 @@ void test_resource_limits(const std::filesystem::path &source_root) {
         "total asset byte limit was not enforced");
 }
 
+void test_builtin_catalog_covers_tracked_engines(
+    const std::filesystem::path &source_root,
+    const std::filesystem::path &catalog_path) {
+    constexpr std::array engine_directories{
+        std::string_view{"bmw-m52b28"},
+        std::string_view{"bmw-m52tub28-cleanroom"},
+        std::string_view{"harley-evolution-1340-cleanroom"},
+        std::string_view{"honda-b18c5-cleanroom"},
+        std::string_view{"kohler-ch750-cleanroom"},
+        std::string_view{"radial-5-cleanroom"},
+        std::string_view{"raspy-muscle-620-cleanroom"},
+        std::string_view{"sequoia-3ur-fe-cleanroom"},
+        std::string_view{"shovelhead-bank-local-heads"},
+        std::string_view{"subaru-ej25-cleanroom"},
+    };
+    for (const auto directory : engine_directories) {
+        const auto engine_path =
+            source_root / "data/engines" / directory / "engine.json";
+        auto loaded = load_native_engine_input_from_builtin_catalog(
+            engine_path, catalog_path);
+        expect(std::holds_alternative<NativeEngineInput>(loaded),
+               "tracked engine is outside built-in catalog coverage: " +
+                   std::string{directory});
+        auto input = std::get<NativeEngineInput>(std::move(loaded));
+        expect(!input.assets.empty(),
+               "tracked engine resolved no built-in assets: " +
+                   std::string{directory});
+        const auto views = input.asset_views();
+        const auto compiled = compile::compile_engine(input.document, views);
+        expect(std::holds_alternative<compile::CompiledEngine>(compiled),
+               "tracked catalog-backed engine did not compile: " +
+                   std::string{directory});
+    }
+}
+
+void test_builtin_catalog_strict_parser(
+    const std::filesystem::path &source_root) {
+    const auto engine_path =
+        source_root / "data/engines/bmw-m52b28/engine.json";
+    IsolatedDirectory isolated;
+    const auto catalog_path = isolated.path() / "catalog.v1.json";
+
+    constexpr std::array invalid_catalogs{
+        std::string_view{
+            R"({"schema":"wrong","assets":[]})"},
+        std::string_view{
+            R"({"schema":"engine-sim-offline/builtin-asset-catalog.v1","assets":[],"extra":true})"},
+        std::string_view{
+            R"({"schema":"engine-sim-offline/builtin-asset-catalog.v1","assets":[{"kind":"audio","id":"smooth-39","sha256":"75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"},{"kind":"audio","id":"smooth-39","sha256":"75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"}]})"},
+    };
+    for (const auto catalog : invalid_catalogs) {
+        write_text(catalog_path, catalog);
+        const auto loaded = load_native_engine_input_from_builtin_catalog(
+            engine_path, catalog_path);
+        const auto &error = require_input_error(
+            loaded, NativeInputErrorCode::invalid_builtin_asset_catalog,
+            "malformed built-in catalog was admitted");
+        expect(error.kind == NativeInputErrorKind::unavailable &&
+                   error.subject ==
+                       NativeInputSubject::builtin_asset_catalog,
+               "invalid catalog lost its installed-data error class");
+    }
+}
+
+void test_builtin_catalog_engine_binding(
+    const std::filesystem::path &source_root,
+    const std::filesystem::path &catalog_path) {
+    const auto canonical_engine =
+        source_root / "data/engines/bmw-m52b28/engine.json";
+    {
+        IsolatedDirectory isolated;
+        auto engine_text = read_text(canonical_engine);
+        replace_once(engine_text,
+                     "\"sha256\": \"" + std::string{kSmooth39Sha256} +
+                         "\"",
+                     "\"sha256\": null");
+        const auto engine_path = isolated.path() / "engine.json";
+        write_text(engine_path, engine_text);
+        const auto loaded = load_native_engine_input_from_builtin_catalog(
+            engine_path, catalog_path);
+        const auto &error = require_input_error(
+            loaded, NativeInputErrorCode::builtin_asset_digest_required,
+            "digest-free engine asset was admitted by the built-in catalog");
+        expect(error.kind == NativeInputErrorKind::data_error &&
+                   error.subject == NativeInputSubject::audio_asset &&
+                   error.asset_id == "smooth-39",
+               "missing engine digest lost its typed asset identity");
+    }
+    {
+        IsolatedDirectory isolated;
+        auto engine_text = read_text(canonical_engine);
+        replace_once(engine_text, kSmooth39Sha256,
+                     std::string(64U, '0'));
+        const auto engine_path = isolated.path() / "engine.json";
+        write_text(engine_path, engine_text);
+        const auto loaded = load_native_engine_input_from_builtin_catalog(
+            engine_path, catalog_path);
+        const auto &error = require_input_error(
+            loaded, NativeInputErrorCode::builtin_asset_not_cataloged,
+            "unknown content identity was admitted by the built-in catalog");
+        expect(error.kind == NativeInputErrorKind::unavailable &&
+                   error.asset_id == "smooth-39",
+               "catalog coverage failure lost its typed asset identity");
+    }
+    {
+        IsolatedDirectory isolated;
+        const auto bundle = isolated.path() / "engine-sim-offline-assets";
+        std::filesystem::create_directories(bundle / "payloads");
+        std::filesystem::copy_file(catalog_path,
+                                   bundle / "catalog.v1.json");
+        write_text(bundle / "payloads" / kSmooth39Sha256,
+                   "corrupt-payload");
+        const auto loaded = load_native_engine_input_from_builtin_catalog(
+            canonical_engine, bundle / "catalog.v1.json");
+        const auto &error = require_input_error(
+            loaded,
+            NativeInputErrorCode::builtin_asset_payload_hash_mismatch,
+            "corrupt content-addressed payload was admitted");
+        expect(error.kind == NativeInputErrorKind::unavailable &&
+                   error.asset_id == "smooth-39",
+               "payload corruption lost its typed asset identity");
+    }
+}
+
+void test_builtin_catalog_discovery(
+    const std::filesystem::path &installed_asset_relative_path) {
+    {
+        IsolatedDirectory isolated;
+        const auto executable = isolated.path() / "build/bin/engine-sim-offline";
+        const auto catalog = isolated.path() /
+                             "build/bin/engine-sim-offline-assets/"
+                             "catalog.v1.json";
+        write_text(catalog, "{}");
+        const auto discovered = discover_builtin_asset_catalog(executable);
+        expect(std::holds_alternative<std::filesystem::path>(discovered) &&
+                   std::get<std::filesystem::path>(discovered) == catalog,
+               "build-tree catalog layout was not discovered");
+    }
+    {
+        IsolatedDirectory isolated;
+        const auto executable = isolated.path() / "prefix/bin/engine-sim-offline";
+        const auto catalog =
+            (executable.parent_path() / installed_asset_relative_path /
+             "catalog.v1.json")
+                .lexically_normal();
+        write_text(catalog, "{}");
+        const auto discovered = discover_builtin_asset_catalog(executable);
+        expect(std::holds_alternative<std::filesystem::path>(discovered) &&
+                   std::get<std::filesystem::path>(discovered) == catalog,
+               "installed-prefix catalog layout was not discovered");
+    }
+    {
+        IsolatedDirectory isolated;
+        const auto discovered = discover_builtin_asset_catalog(
+            isolated.path() / "bin/engine-sim-offline");
+        require_input_error(
+            discovered,
+            NativeInputErrorCode::builtin_asset_catalog_not_found,
+            "missing built-in catalog did not fail discovery");
+    }
+}
+
 void test_scenario_diagnostics(const std::filesystem::path &source_root) {
     const auto canonical_scenario =
         source_root /
@@ -369,10 +534,19 @@ void test_output_preflight() {
 
 int main(int argc, char **argv) {
     try {
-        if (argc != 2) {
-            throw std::runtime_error("expected repository root argument");
+        if (argc != 4) {
+            throw std::runtime_error(
+                "expected repository root, built-in catalog, and configured "
+                "install asset path arguments");
         }
         const auto source_root = std::filesystem::canonical(argv[1]);
+        const auto catalog_path = std::filesystem::canonical(argv[2]);
+        const std::filesystem::path installed_asset_relative_path{argv[3]};
+        if (installed_asset_relative_path.empty() ||
+            installed_asset_relative_path.is_absolute()) {
+            throw std::runtime_error(
+                "configured install asset path must be relative");
+        }
         test_success_and_owned_views(source_root);
         test_missing_and_nonregular_assets(source_root);
         test_root_escape_and_symlink(source_root);
@@ -380,6 +554,11 @@ int main(int argc, char **argv) {
         test_opened_root_descriptor_is_authority(source_root);
 #endif
         test_resource_limits(source_root);
+        test_builtin_catalog_covers_tracked_engines(source_root,
+                                                    catalog_path);
+        test_builtin_catalog_strict_parser(source_root);
+        test_builtin_catalog_engine_binding(source_root, catalog_path);
+        test_builtin_catalog_discovery(installed_asset_relative_path);
         test_scenario_diagnostics(source_root);
         test_output_preflight();
     } catch (const std::exception &error) {

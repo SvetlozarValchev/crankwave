@@ -45,6 +45,18 @@ native_input_error_code_label(NativeInputErrorCode code) noexcept {
         return "invalid-atlas-bake-document";
     case NativeInputErrorCode::invalid_scenario_document:
         return "invalid-scenario-document";
+    case NativeInputErrorCode::builtin_asset_catalog_not_found:
+        return "builtin-asset-catalog-not-found";
+    case NativeInputErrorCode::invalid_builtin_asset_catalog:
+        return "invalid-builtin-asset-catalog";
+    case NativeInputErrorCode::builtin_asset_digest_required:
+        return "builtin-asset-digest-required";
+    case NativeInputErrorCode::builtin_asset_not_cataloged:
+        return "builtin-asset-not-cataloged";
+    case NativeInputErrorCode::builtin_asset_payload_unavailable:
+        return "builtin-asset-payload-unavailable";
+    case NativeInputErrorCode::builtin_asset_payload_hash_mismatch:
+        return "builtin-asset-payload-hash-mismatch";
     case NativeInputErrorCode::memory_allocation_failed:
         return "memory-allocation-failed";
     case NativeInputErrorCode::filesystem_failure:

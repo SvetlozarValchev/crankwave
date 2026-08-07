@@ -1,6 +1,7 @@
 #include "cli_app.hpp"
 
 #include "native_input_files.hpp"
+#include "revengine_cli_support.hpp"
 
 #include "engine_sim_offline/artifacts/directory_render_sink.hpp"
 #include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
@@ -30,6 +31,7 @@ constexpr std::string_view kProgramName = "engine-sim-offline";
 template <class Command> struct CommandOption {
     std::string_view spelling;
     std::string Command::*value;
+    bool required = true;
     bool seen = false;
 };
 
@@ -43,15 +45,25 @@ void print_help(std::ostream &stream) {
               "  engine-sim-offline --version\n"
               "  engine-sim-offline render --engine <engine.json> "
               "--scenario <scenario.json> \\\n"
-              "      --asset-root <directory> "
-              "--output-directory <new-directory>\n"
+              "      --output-directory <new-directory> "
+              "[--asset-root <developer-directory>]\n"
+              "  engine-sim-offline pack-revengine "
+              "--package-directory <directory> \\\n"
+              "      --output <new.revengine>\n"
+              "  engine-sim-offline inspect-revengine --input <file.revengine>\n"
+              "  engine-sim-offline verify-revengine --input <file.revengine>\n"
               "\n"
               "Commands:\n"
               "  render  Compile declarative engine and scenario JSON, render the\n"
               "          admitted simulation, and atomically publish its artifacts.\n"
+              "  pack-revengine     Pack a validated responsive package tree.\n"
+              "  inspect-revengine  Inspect structure and the authenticated index.\n"
+              "  verify-revengine   Verify every payload and package binding.\n"
               "\n"
-              "Command options may appear in any order and each is required exactly "
-              "once.\n";
+              "Render uses the bundled content-addressed asset catalog by default.\n"
+              "--asset-root is an opt-in developer override for authored local URIs.\n"
+              "Command options may appear in any order; required options occur "
+              "exactly once.\n";
 }
 
 void print_usage_hint(std::ostream &stream) {
@@ -69,6 +81,27 @@ void print_usage_hint(std::ostream &stream) {
     const auto result = report_error(stream, kExitUsage, message);
     print_usage_hint(stream);
     return result;
+}
+
+[[nodiscard]] int
+revengine_cli_exit_code(const RevengineCliErrorKind kind) noexcept {
+    switch (kind) {
+    case RevengineCliErrorKind::data_error:
+        return kExitDataError;
+    case RevengineCliErrorKind::no_input:
+        return kExitNoInput;
+    case RevengineCliErrorKind::cant_create:
+        return kExitCantCreate;
+    case RevengineCliErrorKind::unavailable:
+        return kExitUnavailable;
+    }
+    return kExitSoftware;
+}
+
+[[nodiscard]] int report_revengine_error(std::ostream &stream,
+                                         const RevengineCliError &error) {
+    return report_error(stream, revengine_cli_exit_code(error.kind),
+                        error.message);
 }
 
 [[nodiscard]] std::string_view
@@ -225,9 +258,15 @@ render_failure_exit_code(const contract::FailureContext &context) noexcept {
 [[nodiscard]] int execute_render(const RenderCommand &command,
                                  std::ostream &standard_out,
                                  std::ostream &standard_error) {
-    auto engine_input_result =
-        load_native_engine_input(std::filesystem::path{command.engine_path},
-                                 std::filesystem::path{command.asset_root});
+    auto engine_input_result = command.asset_root.empty()
+                                   ? load_native_engine_input_with_builtin_assets(
+                                         std::filesystem::path{
+                                             command.engine_path})
+                                   : load_native_engine_input(
+                                         std::filesystem::path{
+                                             command.engine_path},
+                                         std::filesystem::path{
+                                             command.asset_root});
     if (const auto *error = std::get_if<NativeInputError>(&engine_input_result)) {
         return report_native_input_error(standard_error, "engine input", *error);
     }
@@ -284,6 +323,64 @@ render_failure_exit_code(const contract::FailureContext &context) noexcept {
     return kExitSuccess;
 }
 
+[[nodiscard]] int execute_pack_revengine(const PackRevengineCommand &command,
+                                         std::ostream &standard_out,
+                                         std::ostream &standard_error) {
+    auto result = pack_revengine_package_directory(
+        std::filesystem::path{command.package_directory},
+        std::filesystem::path{command.output_file});
+    if (const auto *error = std::get_if<RevengineCliError>(&result)) {
+        return report_revengine_error(standard_error, *error);
+    }
+    const auto &packed = std::get<PackedRevengineFile>(result);
+    standard_out << "output_file=" << packed.output_path.string() << '\n'
+                 << "container_bytes=" << packed.container_byte_count << '\n'
+                 << "entry_count=" << packed.entry_count << '\n'
+                 << "container_sha256="
+                 << sha256_lower_hex(packed.container_sha256) << '\n';
+    return kExitSuccess;
+}
+
+[[nodiscard]] int execute_load_revengine(const std::string &input_file,
+                                         const bool verify_payloads,
+                                         std::ostream &standard_out,
+                                         std::ostream &standard_error) {
+    auto result = inspect_revengine_file(std::filesystem::path{input_file},
+                                         verify_payloads);
+    if (const auto *error = std::get_if<RevengineCliError>(&result)) {
+        return report_revengine_error(standard_error, *error);
+    }
+    const auto &loaded = std::get<LoadedRevengineFile>(result);
+    standard_out << "revengine_version=" << loaded.index.version << '\n'
+                 << "verified=" << (loaded.fully_verified ? "true" : "false")
+                 << '\n'
+                 << "container_bytes=" << loaded.index.container_byte_count << '\n'
+                 << "index_bytes=" << loaded.index.index_byte_count << '\n'
+                 << "payload_bytes=" << loaded.index.payload_byte_count << '\n'
+                 << "entry_count=" << loaded.index.entries.size() << '\n'
+                 << "container_sha256="
+                 << sha256_lower_hex(loaded.container_sha256) << '\n'
+                 << "index_sha256="
+                 << sha256_lower_hex(loaded.index.index_sha256) << '\n'
+                 << "payload_sha256="
+                 << sha256_lower_hex(loaded.index.payload_sha256) << '\n';
+    for (const auto &entry : loaded.index.entries) {
+        standard_out << "entry=" << entry.path << '\t'
+                     << entry.payload_byte_count << '\t'
+                     << sha256_lower_hex(entry.payload_sha256) << '\n';
+    }
+    if (const auto *package =
+            std::get_if<artifacts::RevenginePackageDescriptor>(&loaded.package)) {
+        standard_out << "engine_id=" << package->engine_id << '\n'
+                     << "runtime_kind=" << package->runtime.kind << '\n'
+                     << "runtime_manifest_path="
+                     << package->runtime.manifest_path << '\n'
+                     << "runtime_manifest_sha256="
+                     << sha256_lower_hex(package->runtime.manifest_sha256) << '\n';
+    }
+    return kExitSuccess;
+}
+
 template <class Command, std::size_t Size>
 [[nodiscard]] CliParseResult parse_command_options(
     const std::span<const std::string_view> arguments, Command command,
@@ -323,7 +420,7 @@ template <class Command, std::size_t Size>
     }
 
     for (const auto &option : options) {
-        if (!option.seen) {
+        if (option.required && !option.seen) {
             return usage_error("missing required option '" +
                                std::string{option.spelling} + "'");
         }
@@ -363,10 +460,34 @@ CliParseResult parse_cli_arguments(const std::span<const std::string_view> argum
                 CommandOption<RenderCommand>{"--scenario",
                                              &RenderCommand::scenario_path},
                 CommandOption<RenderCommand>{"--asset-root",
-                                             &RenderCommand::asset_root},
+                                             &RenderCommand::asset_root,
+                                             false},
                 CommandOption<RenderCommand>{
                     "--output-directory", &RenderCommand::output_directory},
             });
+    }
+    if (arguments.front() == "pack-revengine") {
+        return parse_command_options(
+            arguments, PackRevengineCommand{},
+            std::array{
+                CommandOption<PackRevengineCommand>{
+                    "--package-directory",
+                    &PackRevengineCommand::package_directory},
+                CommandOption<PackRevengineCommand>{
+                    "--output", &PackRevengineCommand::output_file},
+            });
+    }
+    if (arguments.front() == "inspect-revengine") {
+        return parse_command_options(
+            arguments, InspectRevengineCommand{},
+            std::array{CommandOption<InspectRevengineCommand>{
+                "--input", &InspectRevengineCommand::input_file}});
+    }
+    if (arguments.front() == "verify-revengine") {
+        return parse_command_options(
+            arguments, VerifyRevengineCommand{},
+            std::array{CommandOption<VerifyRevengineCommand>{
+                "--input", &VerifyRevengineCommand::input_file}});
     }
     return usage_error("unknown command '" + std::string{arguments.front()} +
                        "'");
@@ -388,8 +509,20 @@ int run_cli(const std::span<const std::string_view> arguments,
             standard_out << kProgramName << ' ' << version_label() << '\n';
             return kExitSuccess;
         }
-        return execute_render(std::get<RenderCommand>(command), standard_out,
-                              standard_error);
+        if (const auto *render = std::get_if<RenderCommand>(&command)) {
+            return execute_render(*render, standard_out, standard_error);
+        }
+        if (const auto *pack = std::get_if<PackRevengineCommand>(&command)) {
+            return execute_pack_revengine(*pack, standard_out, standard_error);
+        }
+        if (const auto *inspect =
+                std::get_if<InspectRevengineCommand>(&command)) {
+            return execute_load_revengine(inspect->input_file, false,
+                                          standard_out, standard_error);
+        }
+        const auto &verify = std::get<VerifyRevengineCommand>(command);
+        return execute_load_revengine(verify.input_file, true, standard_out,
+                                      standard_error);
     } catch (const std::bad_alloc &) {
         return report_error(standard_error, kExitSoftware,
                             "insufficient memory while processing the request");

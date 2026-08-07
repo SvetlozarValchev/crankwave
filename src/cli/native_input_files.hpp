@@ -41,6 +41,7 @@ enum class NativeInputSubject : std::uint8_t {
     engine_document,
     atlas_bake_document,
     scenario_document,
+    builtin_asset_catalog,
     asset_root,
     audio_asset,
     accessory_configuration_asset,
@@ -65,6 +66,12 @@ enum class NativeInputErrorCode : std::uint8_t {
     invalid_engine_document,
     invalid_atlas_bake_document,
     invalid_scenario_document,
+    builtin_asset_catalog_not_found,
+    invalid_builtin_asset_catalog,
+    builtin_asset_digest_required,
+    builtin_asset_not_cataloged,
+    builtin_asset_payload_unavailable,
+    builtin_asset_payload_hash_mismatch,
     memory_allocation_failed,
     filesystem_failure,
     platform_unavailable,
@@ -132,11 +139,36 @@ using NativeScenarioInputResult =
     std::variant<authoring::ScenarioDocument, NativeInputError>;
 using NativeAtlasBakeInputResult =
     std::variant<NativeAtlasBakeInput, NativeInputError>;
+using BuiltinAssetCatalogLocationResult =
+    std::variant<std::filesystem::path, NativeInputError>;
 
 [[nodiscard]] NativeEngineInputResult load_native_engine_input(
     const std::filesystem::path &engine_path,
     const std::filesystem::path &asset_root,
     NativeInputLimits limits = {});
+
+// Resolves every declared engine asset by exact kind, stable ID, and authored
+// SHA-256 in a tracked content-addressed catalog. Authored URI values are not
+// consulted by this production-oriented path.
+[[nodiscard]] NativeEngineInputResult
+load_native_engine_input_from_builtin_catalog(
+    const std::filesystem::path &engine_path,
+    const std::filesystem::path &catalog_path,
+    NativeInputLimits limits = {});
+
+// Discovers the catalog beside the current executable in a build tree or under
+// the configured install datadir in a relocatable installed prefix, then
+// resolves the engine through it.
+[[nodiscard]] NativeEngineInputResult load_native_engine_input_with_builtin_assets(
+    const std::filesystem::path &engine_path,
+    NativeInputLimits limits = {});
+
+// Deterministic discovery seam used by packaging and tests. The executable path
+// need not exist, but must be absolute and name a file within its containing bin
+// directory.
+[[nodiscard]] BuiltinAssetCatalogLocationResult
+discover_builtin_asset_catalog(
+    const std::filesystem::path &executable_path);
 
 [[nodiscard]] NativeScenarioInputResult load_native_scenario_input(
     const std::filesystem::path &scenario_path,

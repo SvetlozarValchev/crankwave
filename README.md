@@ -170,8 +170,9 @@ development PC.
 
 The BMW JSON migration fixture reproduces every
 sound-bearing PCM byte of the user-approved inertial dyno. The native CLI resolves
-engine-relative assets inside an explicit asset root and atomically publishes a new
-output directory.
+catalog-admitted assets from its bundled content-addressed library by default and
+atomically publishes a new output directory. An explicit asset root remains available
+only as a developer override for authored local URIs.
 
 The current production flow is:
 
@@ -222,8 +223,10 @@ and the shared native/WASM lifecycle is in
 - Session creation owns whether that finite recipe is executed to completion or used
   to initialize an admitted open-ended FreeEngine, HeldDyno, or FreeVehicle bench. The
   choice is mandatory and never implemented by looping a finite clip.
-- Referenced assets such as impulse responses are resolved relative to the engine
-  document and content-verified.
+- Production CLI renders resolve referenced assets such as impulse responses by exact
+  kind, stable ID, and authored SHA-256 through the bundled catalog. The developer
+  asset-root override instead resolves authored URIs relative to the engine document;
+  compilation still content-verifies declared hashes.
 - Offline and realtime execution use one block-processing implementation. Their
   lifetime is explicit; pacing and delivery remain adapter policy.
 - Unsupported fields and topologies fail with path-addressed diagnostics. They are
@@ -233,13 +236,30 @@ and the shared native/WASM lifecycle is in
 
 ## Build
 
-A C++20 compiler and CMake 3.21 or newer are required.
+A C++20 compiler and CMake 3.21 or newer are required. The responsive-audio
+baker additionally requires Node.js 20.11 or newer.
 
 ```bash
 cmake -S . -B build -DENGINE_SIM_OFFLINE_BUILD_TESTS=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+
+The CLI build stages its catalog and shared runtime-audio package beside the
+build-tree executable. The distribution target also builds the native IR-spectrum
+helper used by the responsive baker. A normal prefix install places launchers under
+`bin`, the helper under `libexec/engine-sim-offline`, and versioned resources under
+`share/engine-sim-offline`:
+
+```bash
+cmake --build build --target engine_sim_offline_distribution
+cmake --install build --prefix artifacts/engine-sim-offline-install
+```
+
+`CMAKE_INSTALL_BINDIR`, `CMAKE_INSTALL_LIBEXECDIR`, and `CMAKE_INSTALL_DATADIR`
+may be changed to other relative GNUInstallDirs locations. Catalog discovery and the
+installed baker launcher encode only paths relative to the installed bindir, so the
+complete prefix remains relocatable.
 
 The reproducible native/WASM parity gate uses a pinned Emscripten container:
 
@@ -277,13 +297,76 @@ build/engine-sim-offline --version
 build/engine-sim-offline render \
   --engine data/engines/bmw-m52b28/engine.json \
   --scenario data/engines/bmw-m52b28/scenarios/inertial-dyno-1500-6500rpm.json \
-  --asset-root . \
   --output-directory artifacts/bmw-json-dyno
 ```
 
-The render command has one current syntax: all four named arguments are required
-exactly once, their order is arbitrary, and the output directory must not already
-exist. There are no profile selectors or legacy input aliases.
+The three named render arguments above are required exactly once and may appear in any
+order. `--asset-root <directory>` is an optional, explicit developer override; when it
+is absent, the executable discovers and enforces the bundled catalog. The output
+directory must not already exist. There are no profile selectors or legacy input
+aliases. The catalog format, discovery rules, and integrity boundary are specified in
+[BUILTIN_ASSET_CATALOG_V1.md](docs/contracts/BUILTIN_ASSET_CATALOG_V1.md). Catalog
+membership is a technical runtime allowlist, not a licensing or provenance assertion.
+
+Responsive-audio baking and REVENGINE containerization are two distinct stages. The
+Node baker performs the actual simulation and audio
+capture and publishes a validated package directory, including its `runtime.json`
+and `revengine.json`. The native `pack-revengine` command does not simulate or bake;
+it validates that finished tree and deterministically encodes its exact files into
+an uncompressed, hash-indexed carrier:
+
+```bash
+node tools/responsive-audio-baker/bake.mjs \
+  --engine data/engines/bmw-m52tub28-cleanroom/engine.json \
+  --profile tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
+  --output .work/responsive-bakes/m52tu-package \
+  --cache .work/responsive-bake-cache \
+  --builtin-assets build/generated/engine-sim-offline-assets \
+  --module .work/browser-workbench/build/workbench/web/engine-sim-offline.js
+
+build/engine-sim-offline pack-revengine \
+  --package-directory .work/responsive-bakes/m52tu-package \
+  --output artifacts/m52tu.revengine
+
+build/engine-sim-offline verify-revengine \
+  --input artifacts/m52tu.revengine
+```
+
+The installed Node launcher supplies the installed asset bundle and compiled IR
+helper automatically:
+
+```bash
+artifacts/engine-sim-offline-install/bin/engine-sim-offline-responsive-bake \
+  --engine /absolute/path/to/engine.json \
+  --profile artifacts/engine-sim-offline-install/share/engine-sim-offline/tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
+  --output /absolute/path/to/new-package \
+  --cache /absolute/path/to/bake-cache \
+  --plan
+```
+
+When `--profile` is omitted, the engine JSON must have a sibling
+`responsive-audio-bake-profile.json`. Plan mode needs no renderer. A real bake still requires the separately built
+Emscripten `engine-sim-offline.js`/`engine-sim-offline.wasm` pair. Point a native
+distribution configure at a completed pair to install it under the resource tree:
+
+```bash
+cmake -S . -B build-native \
+  -DENGINE_SIM_OFFLINE_INSTALL_WASM_DIRECTORY=/absolute/path/to/wasm-build
+cmake --build build-native --target engine_sim_offline_distribution
+cmake --install build-native --prefix artifacts/engine-sim-offline-install
+```
+
+Without that optional install input, pass `--module` to the launcher or set
+`ENGINE_SIM_OFFLINE_WASM_MODULE`. Native CMake does not invoke Emscripten, and the
+launcher is not a native child-process bake wrapper; it checks Node 20.11+, locates
+installed resources, and executes the tracked Node baker.
+
+`inspect-revengine` authenticates and reports the carrier structure and index;
+`verify-revengine` additionally hashes every payload and validates the package
+descriptor's runtime-manifest binding. The baker's detailed prerequisites, installed
+resource layout, and cache contract are documented in
+[RESPONSIVE_AUDIO_BAKER.md](docs/RESPONSIVE_AUDIO_BAKER.md), and the carrier format is
+specified in [REVENGINE_CONTAINER_V1.md](docs/contracts/REVENGINE_CONTAINER_V1.md).
 
 ## Preserved reference
 

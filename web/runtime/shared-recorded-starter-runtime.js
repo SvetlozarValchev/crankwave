@@ -15,6 +15,8 @@ const RIGHTS_NOTICE =
   "Commissioned original recording licensed to SvetlozarValchev; " +
   "modification and redistribution are authorized.";
 const LICENSEE = "SvetlozarValchev";
+const CHILD_MANIFEST_PATH =
+  /^([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)\/runtime\.json$/u;
 const SIBLING_MANIFEST_PATH =
   /^\.\.\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)\/runtime\.json$/u;
 
@@ -122,20 +124,25 @@ export function resolveSharedRecordedStarterManifestUrl(
     packagePathValue,
     "shared_recorded_starter_package_path",
   );
-  const match = SIBLING_MANIFEST_PATH.exec(packagePath);
-  if (match === null) {
+  const childMatch = CHILD_MANIFEST_PATH.exec(packagePath);
+  const siblingMatch = SIBLING_MANIFEST_PATH.exec(packagePath);
+  if (childMatch === null && siblingMatch === null) {
     fail(
-      "shared_recorded_starter_package_path must identify one direct sibling package",
+      "shared_recorded_starter_package_path must identify one direct child or sibling package",
     );
   }
-  const packagesRootUrl = new URL("../", responsiveManifestUrl);
-  const expectedUrl = new URL(`${match[1]}/runtime.json`, packagesRootUrl);
+  const expectedUrl = childMatch === null
+    ? new URL(
+      `${siblingMatch[1]}/runtime.json`,
+      new URL("../", responsiveManifestUrl),
+    )
+    : new URL(`${childMatch[1]}/runtime.json`, responsiveManifestUrl);
   const resolvedUrl = new URL(packagePath, responsiveManifestUrl);
   if (
     resolvedUrl.href !== expectedUrl.href ||
     resolvedUrl.origin !== responsiveManifestUrl.origin
   ) {
-    fail("shared recorded starter URL escaped its responsive package sibling root");
+    fail("shared recorded starter URL escaped its responsive package root");
   }
   return resolvedUrl;
 }
