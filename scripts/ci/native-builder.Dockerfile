@@ -6,8 +6,7 @@ FROM ${BUILDER_BASE_IMAGE}
 
 ARG CMAKE_DEBIAN_VERSION=3.25.1-1
 ARG BINUTILS_DEBIAN_VERSION=2.40-2
-ARG CLANG_DEBIAN_VERSION=1:14.0-55.7~deb12u1
-ARG CLANG_14_DEBIAN_VERSION=1:14.0.6-12
+ARG CLANG_19_DEBIAN_VERSION=1:19.1.7-3~deb12u1
 ARG GIT_LFS_DEBIAN_VERSION=3.3.0-1+deb12u1
 ARG NINJA_DEBIAN_VERSION=1.11.1-2~deb12u1
 
@@ -15,8 +14,7 @@ RUN set -eu; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
         "binutils=${BINUTILS_DEBIAN_VERSION}" \
-        "clang=${CLANG_DEBIAN_VERSION}" \
-        "clang-14=${CLANG_14_DEBIAN_VERSION}" \
+        "clang-19=${CLANG_19_DEBIAN_VERSION}" \
         "cmake=${CMAKE_DEBIAN_VERSION}" \
         "git-lfs=${GIT_LFS_DEBIAN_VERSION}" \
         "ninja-build=${NINJA_DEBIAN_VERSION}"; \
@@ -29,5 +27,5 @@ COPY --from=ci_node /usr/local/ /usr/local/
 ENV LANG=C \
     LC_ALL=C \
     TZ=UTC \
-    CC=/usr/bin/clang \
-    CXX=/usr/bin/clang++
+    CC=/usr/bin/clang-19 \
+    CXX=/usr/bin/clang++-19
