@@ -55,6 +55,12 @@ jobs:
             web/tests/runtime/revengine-package.test.mjs \
             web/tests/runtime/shared-recorded-starter-runtime.test.mjs
 
+      - name: Verify development-only WASM parity oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/verify-wasm-parity.sh
+
       - name: Assemble pinned native build environment
         shell: bash
         run: |

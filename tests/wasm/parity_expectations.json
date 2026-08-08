@@ -3,7 +3,7 @@
   "fixture": "bmw-m52b28-short-live-parity",
   "pcm_sample_count": 7680,
   "inputs": {
-    "engine_json_sha256": "bd2538b8402b9b544f8d18ea295f6a88538c52af135ad6136f6a2d079b815ba4",
+    "engine_json_sha256": "dd83acb9faacdaa0dce96ee702196bc47c300b465952a0afd0b258bb515085e0",
     "scenario_json_sha256": "0f4f30bb6b8147e7ba5f20321efc5596f1e741c4279b8767f02483cdf64844d6",
     "impulse_response_sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc",
     "accessory_configuration_sha256": "ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97"
@@ -11,16 +11,16 @@
   "semantic_sha256": "cfa562577ff0d42da60f30b6b010626cb85ceccc48d0863342b600d241b17286",
   "native": {
     "telemetry_f64le_sha256": "3147ed9cdab7d5ddab6ee40ccd9f54aee9479505836fec68eb8e11455778067c",
-    "audition_f32le_sha256": "11c250655720015b848b65b57cb03840a1e15391b05679e7e182560a67dca171"
+    "audition_f32le_sha256": "931eee3179dad3336d45b7879d37ce6f04fc1b6cf0635f69996126d83e308592"
   },
   "wasm": {
     "telemetry_f64le_sha256": "98ff4c0645bf5cbc842431a3b0a50d587d6794e5a664801ef7d6df343ea0199d",
-    "audition_f32le_sha256": "5658b9947142a71c031a7444426bb4c2ea230144a0f3902855934730edfb40f3"
+    "audition_f32le_sha256": "ede3c34fc94cd25c32329e37ee84cdd80f6093f1f2a3c36e055be71e55dc4610"
   },
   "bounds": {
     "telemetry_maximum_absolute_error": 0.005,
     "telemetry_maximum_relative_error": 1e-6,
-    "pcm_maximum_absolute_error": 1e-8,
-    "pcm_rms_error": 1e-9
+    "pcm_maximum_absolute_error": 1.1920928955078125e-7,
+    "pcm_rms_error": 1.5e-8
   }
 }

@@ -19,6 +19,19 @@ impulse_response="${repository_dir}/reference/fixtures/bmw-m52b28-p18/presentati
 accessory_configuration="${repository_dir}/data/profiles/bmw-m52b28/accessory-configurations/bmw-m52b28-warm-stock-accessories-v1.json"
 expectations="${repository_dir}/tests/wasm/parity_expectations.json"
 
+if [[ "${ESO_WASM_PARITY_IN_EMSDK:-0}" != "1" ]]; then
+    docker run --rm \
+        --user "$(id -u):$(id -g)" \
+        -e HOME=/src/.work/wasm-parity/home \
+        -e TMPDIR=/src/.work/wasm-parity/tmp/wasm \
+        -e ESO_WASM_PARITY_IN_EMSDK=1 \
+        -v "${repository_dir}:/src" \
+        -w /src \
+        "${emsdk_image}" \
+        ./scripts/verify-wasm-parity.sh
+    exit 0
+fi
+
 node --test "${repository_dir}/tests/wasm/c-api-v9-layout.test.mjs"
 
 cmake -E remove_directory "${work_dir}"
@@ -50,33 +63,24 @@ cmake \
     "${accessory_configuration}" \
     "${native_bundle}"
 
-docker run --rm \
-    --user "$(id -u):$(id -g)" \
-    -e HOME=/src/.work/wasm-parity/home \
-    -e TMPDIR=/src/.work/wasm-parity/tmp/wasm \
-    -v "${repository_dir}:/src" \
-    -w /src \
-    "${emsdk_image}" \
-    sh -lc '
-        emcmake cmake \
-            -S . \
-            -B .work/wasm-parity/wasm \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DENGINE_SIM_OFFLINE_BUILD_TESTS=ON \
-            -DENGINE_SIM_OFFLINE_BUILD_CLI=OFF \
-            -DENGINE_SIM_OFFLINE_BUILD_WASM=ON &&
-        cmake \
-            --build .work/wasm-parity/wasm \
-            --target \
-                engine_sim_offline_wasm \
-                engine_sim_offline_wasm_parity_module \
-                engine_sim_offline_wasm_numeric_contract_tests \
-            --parallel 4 &&
-        ctest \
-            --test-dir .work/wasm-parity/wasm \
-            --output-on-failure \
-            -R "^wasm.numeric_contract$"
-    '
+emcmake cmake \
+    -S "${repository_dir}" \
+    -B "${wasm_build_dir}" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DENGINE_SIM_OFFLINE_BUILD_TESTS=ON \
+    -DENGINE_SIM_OFFLINE_BUILD_CLI=OFF \
+    -DENGINE_SIM_OFFLINE_BUILD_WASM=ON
+cmake \
+    --build "${wasm_build_dir}" \
+    --target \
+        engine_sim_offline_wasm \
+        engine_sim_offline_wasm_parity_module \
+        engine_sim_offline_wasm_numeric_contract_tests \
+    --parallel 4
+ctest \
+    --test-dir "${wasm_build_dir}" \
+    --output-on-failure \
+    -R '^wasm.numeric_contract$'
 
 cmake -E copy_if_different \
     "${wasm_build_dir}/engine-sim-offline.js" \
