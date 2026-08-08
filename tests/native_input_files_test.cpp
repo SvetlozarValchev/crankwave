@@ -429,6 +429,8 @@ void test_builtin_catalog_discovery(
         const auto executable = isolated.path() / "build/bin/engine-sim-offline";
         const auto catalog = isolated.path() / "build/bin/engine-sim-offline-assets/"
                                                "catalog.v1.json";
+        write_text(executable.parent_path() / "CMakeCache.txt", "");
+        std::filesystem::create_directories(executable.parent_path() / "CMakeFiles");
         write_text(catalog, "{}");
         const auto discovered = discover_builtin_asset_catalog(executable);
         expect(std::holds_alternative<std::filesystem::path>(discovered) &&
@@ -483,6 +485,18 @@ void test_builtin_catalog_discovery(
                    std::get<std::filesystem::path>(discovered) == installed_catalog,
                "installed release with a missing catalog fell back to adjacent "
                "development assets");
+    }
+    {
+        IsolatedDirectory isolated;
+        const auto executable = isolated.path() / "prefix/bin/engine-sim-offline";
+        const auto adjacent_catalog = executable.parent_path() /
+                                      "engine-sim-offline-assets" /
+                                      "catalog.v1.json";
+        write_text(adjacent_catalog, "{\"poisoned\":true}");
+        const auto discovered = discover_builtin_asset_catalog(executable);
+        require_input_error(
+            discovered, NativeInputErrorCode::builtin_asset_catalog_not_found,
+            "adjacent development assets were admitted without a build-tree marker");
     }
     {
         IsolatedDirectory isolated;

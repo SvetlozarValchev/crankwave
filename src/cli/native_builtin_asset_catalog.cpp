@@ -494,47 +494,74 @@ discover_impl(const std::filesystem::path &executable_path) {
          std::filesystem::path{detail::kInstalledAssetDirectoryRelativeToExecutable} /
          "catalog.v1.json")
             .lexically_normal();
-    const auto installed_release_manifest =
-        installed_catalog.parent_path().parent_path() / "release.json";
-    {
+    const auto installed_resource_root =
+        installed_catalog.parent_path().parent_path();
+    const std::array installed_release_markers{
+        installed_resource_root,
+        installed_resource_root / "release.json",
+        installed_resource_root / "release.json.sha256",
+    };
+    for (const auto &marker : installed_release_markers) {
         std::error_code error;
-        const auto status =
-            std::filesystem::symlink_status(installed_release_manifest, error);
+        const auto status = std::filesystem::symlink_status(marker, error);
         if (!error && status.type() != std::filesystem::file_type::not_found) {
             return installed_catalog;
         }
         if (error && !detail::not_found(error)) {
             return catalog_error(
                 NativeInputErrorCode::filesystem_failure,
-                installed_release_manifest,
+                marker,
                 "built-in asset catalog discovery could not inspect the "
                 "installed release marker",
                 NativeInputErrorKind::software);
         }
     }
 
-    const std::array candidates{
-        installed_catalog,
-        (executable_directory / "engine-sim-offline-assets" / "catalog.v1.json")
-            .lexically_normal(),
+    const std::array build_tree_markers{
+        executable_directory / "CMakeCache.txt",
+        executable_directory / "CMakeFiles",
     };
-    for (const auto &candidate : candidates) {
+    for (const auto &marker : build_tree_markers) {
         std::error_code error;
-        const auto status = std::filesystem::symlink_status(candidate, error);
-        if (!error && status.type() != std::filesystem::file_type::not_found) {
-            return candidate;
+        const auto status = std::filesystem::symlink_status(marker, error);
+        if (detail::not_found(error) ||
+            (!error && status.type() == std::filesystem::file_type::not_found)) {
+            return catalog_error(
+                NativeInputErrorCode::builtin_asset_catalog_not_found,
+                executable_directory,
+                "built-in asset catalog was not found in the installed release");
         }
         if (error && !detail::not_found(error)) {
-            return catalog_error(NativeInputErrorCode::filesystem_failure, candidate,
-                                 "built-in asset catalog discovery could not inspect a "
-                                 "candidate path",
-                                 NativeInputErrorKind::software);
+            return catalog_error(
+                NativeInputErrorCode::filesystem_failure,
+                marker,
+                "built-in asset catalog discovery could not inspect the build-tree "
+                "marker",
+                NativeInputErrorKind::software);
+        }
+    }
+
+    const auto adjacent_catalog =
+        (executable_directory / "engine-sim-offline-assets" / "catalog.v1.json")
+            .lexically_normal();
+    {
+        std::error_code error;
+        const auto status = std::filesystem::symlink_status(adjacent_catalog, error);
+        if (!error && status.type() != std::filesystem::file_type::not_found) {
+            return adjacent_catalog;
+        }
+        if (error && !detail::not_found(error)) {
+            return catalog_error(
+                NativeInputErrorCode::filesystem_failure,
+                adjacent_catalog,
+                "built-in asset catalog discovery could not inspect the build-tree "
+                "catalog path",
+                NativeInputErrorKind::software);
         }
     }
     return catalog_error(
         NativeInputErrorCode::builtin_asset_catalog_not_found, executable_directory,
-        "built-in asset catalog was not found beside the executable or in "
-        "the configured installed data directory");
+        "built-in asset catalog was not found in the configured build-tree layout");
 }
 
 [[nodiscard]] BuiltinAssetCatalogLocationResult current_executable_path() {

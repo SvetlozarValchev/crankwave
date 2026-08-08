@@ -32,10 +32,19 @@ function(engine_sim_offline_define_renderer_numeric_policy)
     )
     string(JOIN " " _policy_flag_text ${_policy_flags})
     set(_policy_admitted 0)
+    set(_compiler_frontend_admitted 0)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        # CMake 3.21-3.25 leave FRONTEND_VARIANT empty for GCC. Compiler ID is
+        # already unambiguous here; the frontend distinction matters only for
+        # Clang versus clang-cl.
+        set(_compiler_frontend_admitted 1)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
+           CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+        set(_compiler_frontend_admitted 1)
+    endif()
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND
        CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$" AND
-       CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$" AND
-       CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+       _compiler_frontend_admitted)
         set(_policy_admitted 1)
     endif()
 
