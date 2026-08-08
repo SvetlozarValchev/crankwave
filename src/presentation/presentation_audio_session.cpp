@@ -31,12 +31,25 @@ stem_offset(std::size_t route_index, PresentationAudioStemRole role) noexcept {
            static_cast<std::size_t>(role);
 }
 
+[[nodiscard]] constexpr bool
+dry_only(const PresentationAudioPlan &plan) noexcept {
+    return plan.processing_projection ==
+           PresentationAudioProcessingProjection::source_route_dry_only;
+}
+
 [[nodiscard]] bool
 valid_kernel(const dsp::RuntimeConvolutionKernel &kernel) noexcept {
     return kernel.valid();
 }
 
 void validate_plan(const PresentationAudioPlan &plan) {
+    if (plan.processing_projection !=
+            PresentationAudioProcessingProjection::complete &&
+        plan.processing_projection !=
+            PresentationAudioProcessingProjection::source_route_dry_only) {
+        throw std::invalid_argument{
+            "presentation audio processing projection is unknown"};
+    }
     if (plan.routes.empty()) {
         throw std::invalid_argument{"presentation audio requires at least one route"};
     }
@@ -75,7 +88,7 @@ void validate_plan(const PresentationAudioPlan &plan) {
         const bool exhaust =
             configured.source_route_kind == contract::SourceRouteKind::exhaust_outlet;
         if (!configured.route_id.valid() || !exhaust ||
-            !valid_kernel(configured.configured_ir) ||
+            (!dry_only(plan) && !valid_kernel(configured.configured_ir)) ||
             !configured.conditioning_seeds.has_value() ||
             !configured.exhaust_valve_reference_mass_flow_kg_s.has_value() ||
             !std::isfinite(*configured.exhaust_valve_reference_mass_flow_kg_s) ||
@@ -97,7 +110,12 @@ void validate_plan(const PresentationAudioPlan &plan) {
             }
         }
     }
-    if (plan.audition_route_ids.size() != plan.routes.size()) {
+    if (dry_only(plan) && !plan.audition_route_ids.empty()) {
+        throw std::invalid_argument{
+            "dry-only presentation projection cannot select audition routes"};
+    }
+    if (!dry_only(plan) &&
+        plan.audition_route_ids.size() != plan.routes.size()) {
         throw std::invalid_argument{
             "presentation audio audition must select every active exhaust route"};
     }
@@ -168,6 +186,9 @@ exhaust_route_reference_mass_flows(const PresentationAudioPlan &plan) {
 [[nodiscard]] std::vector<std::unique_ptr<CausalConfiguredIrConvolver>>
 make_convolvers(const PresentationAudioPlan &plan) {
     std::vector<std::unique_ptr<CausalConfiguredIrConvolver>> result;
+    if (dry_only(plan)) {
+        return result;
+    }
     result.reserve(plan.routes.size());
     for (const auto &route : plan.routes) {
         result.push_back(
@@ -202,12 +223,29 @@ all_route_ids(const PresentationAudioPlan &plan) {
 }
 
 struct AudioScratch {
-    AudioScratch(std::size_t route_count, std::size_t exhaust_route_count)
+    AudioScratch(std::size_t route_count, std::size_t exhaust_route_count,
+                 const PresentationAudioProcessingProjection projection)
         : conditioned_exhaust(kSourceFramesPerMethodBlock * exhaust_route_count),
-          dry(route_count), configured_ir(route_count), selected(route_count),
-          stems(stem_count(route_count)), stem_views(stem_count(route_count)) {
-        for (std::size_t stem = 0; stem < stems.size(); ++stem) {
-            stem_views[stem] = std::span<const float>{stems[stem]};
+          dry(route_count),
+          configured_ir(projection == PresentationAudioProcessingProjection::complete
+                            ? route_count
+                            : 0U),
+          selected(projection == PresentationAudioProcessingProjection::complete
+                       ? route_count
+                       : 0U),
+          stems(projection == PresentationAudioProcessingProjection::complete
+                    ? stem_count(route_count)
+                    : route_count),
+          stem_views(stem_count(route_count)) {
+        if (projection == PresentationAudioProcessingProjection::complete) {
+            for (std::size_t stem = 0; stem < stems.size(); ++stem) {
+                stem_views[stem] = std::span<const float>{stems[stem]};
+            }
+        } else {
+            for (std::size_t route = 0; route < route_count; ++route) {
+                stem_views[stem_offset(route, PresentationAudioStemRole::dry)] =
+                    std::span<const float>{stems[route]};
+            }
         }
     }
 
@@ -291,8 +329,13 @@ class PresentationAudioSession::Implementation final {
           source_stage_(make_source_stage(plan_)),
           convolvers_(make_convolvers(plan_)),
           audition_route_indices_(make_audition_route_indices(plan_)),
-          master_dynamics_(plan_.audition_volume_linear),
-          scratch_(plan_.routes.size(), source_stage_.route_count()) {}
+          master_dynamics_(dry_only(plan_)
+                               ? std::optional<MasterDynamics>{}
+                               : std::optional<MasterDynamics>{
+                                     std::in_place,
+                                     plan_.audition_volume_linear}),
+          scratch_(plan_.routes.size(), source_stage_.route_count(),
+                   plan_.processing_projection) {}
 
     [[nodiscard]] PresentationAudioBlockView
     process(ExhaustExcitationBlockView exhaust) {
@@ -317,6 +360,10 @@ class PresentationAudioSession::Implementation final {
                                                  route];
                 }
 
+                if (dry_only(plan_)) {
+                    continue;
+                }
+
                 convolvers_[route]->process(scratch_.dry[route],
                                             scratch_.configured_ir[route]);
                 const double wet_mix = plan_.routes[route].wet_mix_01;
@@ -328,15 +375,21 @@ class PresentationAudioSession::Implementation final {
                 }
             }
 
-            publish_stems();
-            mix_masters();
+            if (dry_only(plan_)) {
+                publish_dry_stems();
+            } else {
+                publish_stems();
+                mix_masters();
+            }
             return {
                 extent,
                 route_ids_,
                 plan_.audition_route_ids,
                 scratch_.stem_views,
-                scratch_.raw_master,
-                scratch_.audition_master,
+                dry_only(plan_) ? std::span<const float>{}
+                                : std::span<const float>{scratch_.raw_master},
+                dry_only(plan_) ? std::span<const float>{}
+                                : std::span<const float>{scratch_.audition_master},
             };
         } catch (...) {
             if (source_stage_advanced || source_stage_.terminal_failed()) {
@@ -368,6 +421,17 @@ class PresentationAudioSession::Implementation final {
     }
 
   private:
+    void publish_dry_stems() {
+        for (std::size_t route = 0; route < plan_.routes.size(); ++route) {
+            auto &published = scratch_.stems[route];
+            for (std::size_t frame = 0; frame < kSourceFramesPerMethodBlock; ++frame) {
+                published[frame] = dsp::publish_calibrated_float32(
+                    scratch_.dry[route][frame],
+                    plan_.publication_calibration_gain_linear);
+            }
+        }
+    }
+
     void publish_stems() {
         for (std::size_t route = 0; route < plan_.routes.size(); ++route) {
             const auto dry = stem_offset(route, PresentationAudioStemRole::dry);
@@ -430,7 +494,7 @@ class PresentationAudioSession::Implementation final {
                         "presentation audio leveler sum was non-finite"};
                 }
             }
-            const float audition = master_dynamics_.process(leveler_mix);
+            const float audition = master_dynamics_->process(leveler_mix);
             if (!std::isfinite(audition)) {
                 throw std::domain_error{
                     "presentation audio master dynamics produced non-finite output"};
@@ -445,7 +509,7 @@ class PresentationAudioSession::Implementation final {
     ExhaustSourceStage source_stage_;
     std::vector<std::unique_ptr<CausalConfiguredIrConvolver>> convolvers_;
     std::vector<std::size_t> audition_route_indices_;
-    MasterDynamics master_dynamics_;
+    std::optional<MasterDynamics> master_dynamics_;
     AudioScratch scratch_;
     bool terminal_failed_ = false;
 };

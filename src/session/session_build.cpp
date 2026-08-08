@@ -96,7 +96,9 @@ find_payload(const compile::detail::ResolvedEnginePackage &engine,
 
 SessionBuildResult
 build_session_components(const compile::CompiledScenario &compiled_scenario,
-                         const EngineSessionExecutionKind execution_kind) {
+                         const EngineSessionExecutionKind execution_kind,
+                         const std::span<const std::string_view>
+                             projected_dry_bus_ids) {
     const auto inputs =
         compile::detail::CompiledScenarioViewAccess::inputs(compiled_scenario);
     const auto &engine_package = inputs.engine;
@@ -160,14 +162,80 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
     auto calibration = std::get<presentation::AdmittedPresentationCalibration>(
         std::move(calibration_result));
 
+    std::vector<std::string> dry_projection;
+    dry_projection.reserve(projected_dry_bus_ids.size());
+    if (!projected_dry_bus_ids.empty() &&
+        execution_kind != EngineSessionExecutionKind::finite_scenario) {
+        return build_error(
+            EngineSessionErrorCode::unsupported_configuration,
+            "session-dry-projection-requires-finite-execution",
+            "source-route dry projection is admitted only for a finite session");
+    }
+    for (std::size_t selected_index = 0U;
+         selected_index < projected_dry_bus_ids.size(); ++selected_index) {
+        const auto selected_id = projected_dry_bus_ids[selected_index];
+        if (selected_id.empty() ||
+            std::ranges::find(projected_dry_bus_ids.begin(),
+                              projected_dry_bus_ids.begin() +
+                                  static_cast<std::ptrdiff_t>(selected_index),
+                              selected_id) !=
+                projected_dry_bus_ids.begin() +
+                    static_cast<std::ptrdiff_t>(selected_index)) {
+            return build_error(
+                EngineSessionErrorCode::unsupported_configuration,
+                "session-dry-projection-selection-invalid",
+                "projected dry-bus identities must be nonempty and unique");
+        }
+
+        std::size_t dry_match_count = 0U;
+        for (const auto &route : calibration.routes()) {
+            const auto engine_route = std::ranges::find(
+                engine.routes, route.route_id(), &contract::RouteSpec::id);
+            if (engine_route == engine.routes.end()) {
+                return build_error(
+                    EngineSessionErrorCode::invalid_compiled_scenario,
+                    "session-dry-projection-route-binding-lost",
+                    "a calibrated presentation route is absent from the engine");
+            }
+            const auto requirement = std::ranges::find(
+                scenario_contracts.source_matrix.required_source_routes,
+                engine_route->semantic_id.value,
+                &contract::SourceRouteRequirement::semantic_id);
+            if (requirement ==
+                    scenario_contracts.source_matrix.required_source_routes.end() ||
+                requirement->kind != engine_route->kind.value ||
+                requirement->artifact_roles.size() != 3U) {
+                return build_error(
+                    EngineSessionErrorCode::invalid_compiled_scenario,
+                    "session-dry-projection-source-policy-lost",
+                    "a calibrated presentation route lacks its three public signal "
+                    "roles");
+            }
+            dry_match_count += requirement->artifact_roles.front() == selected_id
+                                   ? 1U
+                                   : 0U;
+        }
+        if (dry_match_count != 1U) {
+            return build_error(
+                EngineSessionErrorCode::unsupported_configuration,
+                "session-dry-projection-requires-source-route-dry-buses",
+                "every projected bus must identify exactly one source-route dry "
+                "signal");
+        }
+        dry_projection.emplace_back(selected_id);
+    }
+
     std::vector<presentation::CompiledPresentationAsset> compiled_assets;
     std::vector<presentation::CompiledPresentationConvolutionKernel> compiled_kernels;
     std::vector<dsp::RuntimeConvolutionKernel> route_kernels(
         calibration.route_count());
-    compiled_assets.reserve(calibration.route_count());
-    compiled_kernels.reserve(calibration.route_count());
+    if (dry_projection.empty()) {
+        compiled_assets.reserve(calibration.route_count());
+        compiled_kernels.reserve(calibration.route_count());
+    }
 
-    for (std::size_t route_index = 0; route_index < calibration.route_count();
+    for (std::size_t route_index = 0;
+         dry_projection.empty() && route_index < calibration.route_count();
          ++route_index) {
         const auto &route = calibration.routes()[route_index];
         if (!route.impulse_response_asset_id().has_value()) {
@@ -235,6 +303,11 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
     }
 
     presentation::PresentationAudioPlan audio_plan;
+    audio_plan.processing_projection =
+        dry_projection.empty()
+            ? presentation::PresentationAudioProcessingProjection::complete
+            : presentation::PresentationAudioProcessingProjection::
+                  source_route_dry_only;
     audio_plan.conditioning = calibration.conditioning();
     audio_plan.excitation_rate = calibration.capture_rate();
     audio_plan.excitation_frames_per_block =
@@ -242,9 +315,12 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
     audio_plan.publication_calibration_gain_linear =
         calibration.publication_calibration_gain_linear().value;
     audio_plan.audition_volume_linear = calibration.mastering().volume_linear();
-    audio_plan.audition_route_ids.reserve(calibration.audition_route_ids().size());
-    for (const auto selected_id : calibration.audition_route_ids()) {
-        audio_plan.audition_route_ids.push_back(selected_id);
+    if (dry_projection.empty()) {
+        audio_plan.audition_route_ids.reserve(
+            calibration.audition_route_ids().size());
+        for (const auto selected_id : calibration.audition_route_ids()) {
+            audio_plan.audition_route_ids.push_back(selected_id);
+        }
     }
     audio_plan.routes.reserve(calibration.route_count());
     for (std::size_t route_index = 0; route_index < calibration.route_count();
@@ -342,7 +418,7 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
     return BuiltSessionComponents{
         compiled_scenario,      execution_kind,          request_identity,
         std::move(random_plan), std::move(calibration),  std::move(simulation),
-        std::move(excitation),  std::move(presentation),
+        std::move(excitation),  std::move(presentation), std::move(dry_projection),
     };
 }
 

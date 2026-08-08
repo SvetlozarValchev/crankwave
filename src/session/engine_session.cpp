@@ -5,6 +5,7 @@
 #include "session/control_timeline.hpp"
 #include "session/event_counters.hpp"
 #include "session/exact_cycle_evidence.hpp"
+#include "session/projected_engine_session.hpp"
 #include "session/session_build.hpp"
 
 #include <algorithm>
@@ -398,6 +399,8 @@ class EngineSession::Implementation final {
           simulation_(std::move(components.simulation)),
           excitation_(std::move(components.excitation)),
           presentation_(std::move(components.presentation)),
+          projected_dry_bus_ids_(
+              std::move(components.projected_dry_bus_ids)),
           capacities_(compiled_scenario_.session_capacities()),
           physics_rate_(calibration_.capture_rate()),
           delivery_rate_(
@@ -846,6 +849,63 @@ class EngineSession::Implementation final {
     void build_audio_bus_descriptors(
         const compile::detail::CompiledScenarioInputsView &inputs) {
         const auto route_count = calibration_.route_count();
+        if (!projected_dry_bus_ids_.empty()) {
+            const auto bus_count = projected_dry_bus_ids_.size();
+            audio_bus_ids_.reserve(bus_count);
+            for (const auto &id : projected_dry_bus_ids_) {
+                audio_bus_ids_.push_back(id);
+            }
+            audio_bus_descriptors_.reserve(bus_count);
+            projected_dry_route_indices_.reserve(bus_count);
+            for (std::size_t selected = 0U; selected < bus_count; ++selected) {
+                bool found = false;
+                for (std::size_t route = 0U; route < route_count; ++route) {
+                    const auto route_id = calibration_.routes()[route].route_id();
+                    const auto engine_route = std::ranges::find(
+                        inputs.engine.engine.routes, route_id,
+                        &contract::RouteSpec::id);
+                    if (engine_route == inputs.engine.engine.routes.end()) {
+                        throw std::logic_error{
+                            "presentation route is absent from the compiled engine"};
+                    }
+                    const auto requirement = std::ranges::find(
+                        inputs.scenario.source_matrix.required_source_routes,
+                        engine_route->semantic_id.value,
+                        &contract::SourceRouteRequirement::semantic_id);
+                    if (requirement ==
+                            inputs.scenario.source_matrix.required_source_routes.end() ||
+                        requirement->kind != engine_route->kind.value ||
+                        requirement->artifact_roles.size() != 3U) {
+                        throw std::logic_error{
+                            "presentation route lacks three ordered public signal "
+                            "roles"};
+                    }
+                    if (requirement->artifact_roles.front() !=
+                        projected_dry_bus_ids_[selected]) {
+                        continue;
+                    }
+                    if (found) {
+                        throw std::logic_error{
+                            "projected dry bus is not uniquely bound"};
+                    }
+                    found = true;
+                    projected_dry_route_indices_.push_back(route);
+                    audio_bus_descriptors_.push_back(
+                        {audio_bus_ids_[selected],
+                         EngineAudioBusKind::source_route_dry,
+                         engine_route->kind.value, route_id,
+                         source_route_signal_disposition(
+                             requirement->disposition)});
+                }
+                if (!found) {
+                    throw std::logic_error{
+                        "projected dry bus is absent from the compiled source policy"};
+                }
+            }
+            audio_bus_views_.resize(bus_count);
+            return;
+        }
+
         const auto bus_count = route_count * 3U + 2U;
         audio_bus_ids_.reserve(bus_count);
 
@@ -928,6 +988,17 @@ class EngineSession::Implementation final {
     }
 
     void bind_audio_bus_views(const presentation::PresentationAudioBlockView &audio) {
+        if (!projected_dry_bus_ids_.empty()) {
+            for (std::size_t bus = 0U; bus < audio_bus_views_.size(); ++bus) {
+                audio_bus_views_[bus] = {
+                    audio_bus_descriptors_[bus],
+                    audio.route_stem(projected_dry_route_indices_[bus],
+                                     presentation::PresentationAudioStemRole::dry),
+                };
+            }
+            return;
+        }
+
         std::size_t bus = 0;
         for (std::size_t route = 0; route < audio.route_count(); ++route) {
             using Role = presentation::PresentationAudioStemRole;
@@ -1025,6 +1096,7 @@ class EngineSession::Implementation final {
     simulation::LowOrderCaptureSession simulation_;
     excitation::CapturedSourceExcitationSession excitation_;
     std::unique_ptr<presentation::PresentationAudioSession> presentation_;
+    std::vector<std::string> projected_dry_bus_ids_;
     compile::CompiledSessionCapacities capacities_;
     contract::RationalRateHz physics_rate_ = kEngineSessionPhysicsRateHz;
     contract::RationalRateHz delivery_rate_ = kEngineSessionDeliveryRateHz;
@@ -1038,6 +1110,7 @@ class EngineSession::Implementation final {
     std::vector<std::string> audio_bus_ids_;
     std::vector<EngineAudioBusDescriptor> audio_bus_descriptors_;
     std::vector<EngineAudioBusBlockView> audio_bus_views_;
+    std::vector<std::size_t> projected_dry_route_indices_;
     std::vector<EngineForwardGearDescriptor> forward_gear_descriptors_;
     std::array<EngineTelemetryFrame, 1> telemetry_{};
     std::vector<EngineCompletedCycleEvidence> completed_cycle_evidence_;
@@ -1099,11 +1172,10 @@ class EngineSessionFactory final {
     }
 };
 
-} // namespace session_detail
-
-EngineSessionCreateResult
-create_engine_session(const compile::CompiledScenario &scenario,
-                      const EngineSessionExecutionKind execution_kind) {
+[[nodiscard]] EngineSessionCreateResult create_engine_session_impl(
+    const compile::CompiledScenario &scenario,
+    const EngineSessionExecutionKind execution_kind,
+    const std::span<const std::string_view> projected_dry_bus_ids) {
     try {
         if (execution_kind != EngineSessionExecutionKind::finite_scenario &&
             execution_kind != EngineSessionExecutionKind::open_ended) {
@@ -1114,12 +1186,13 @@ create_engine_session(const compile::CompiledScenario &scenario,
                 std::nullopt,
             };
         }
-        auto built = session_detail::build_session_components(scenario, execution_kind);
+        auto built = build_session_components(scenario, execution_kind,
+                                              projected_dry_bus_ids);
         if (auto *error = std::get_if<EngineSessionError>(&built)) {
             return std::move(*error);
         }
-        return session_detail::EngineSessionFactory::make(
-            std::get<session_detail::BuiltSessionComponents>(std::move(built)));
+        return EngineSessionFactory::make(
+            std::get<BuiltSessionComponents>(std::move(built)));
     } catch (const std::bad_alloc &) {
         return EngineSessionError{
             EngineSessionErrorCode::resource_exhausted,
@@ -1142,6 +1215,30 @@ create_engine_session(const compile::CompiledScenario &scenario,
             std::nullopt,
         };
     }
+}
+
+EngineSessionCreateResult create_dry_projected_engine_session(
+    const compile::CompiledScenario &scenario,
+    const std::span<const std::string_view> selected_dry_bus_ids) {
+    if (selected_dry_bus_ids.empty()) {
+        return EngineSessionError{
+            EngineSessionErrorCode::unsupported_configuration,
+            "session-dry-projection-selection-empty",
+            "source-route dry projection requires at least one selected bus",
+            std::nullopt,
+        };
+    }
+    return create_engine_session_impl(
+        scenario, EngineSessionExecutionKind::finite_scenario,
+        selected_dry_bus_ids);
+}
+
+} // namespace session_detail
+
+EngineSessionCreateResult
+create_engine_session(const compile::CompiledScenario &scenario,
+                      const EngineSessionExecutionKind execution_kind) {
+    return session_detail::create_engine_session_impl(scenario, execution_kind, {});
 }
 
 } // namespace engine_sim_offline

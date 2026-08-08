@@ -26,6 +26,15 @@ enum class PresentationAudioStemRole : std::uint8_t {
     selected = 2,
 };
 
+// Internal execution projection. The complete value is the sole behavior used by
+// public EngineSession construction. source_route_dry_only exists only for finite
+// responsive texture capture and does not publish omitted stems or masters at the
+// EngineSession boundary.
+enum class PresentationAudioProcessingProjection : std::uint8_t {
+    complete,
+    source_route_dry_only,
+};
+
 // All state required to render one route, without any artifact, filesystem, or
 // delivery-format policy.
 struct PresentationAudioRoutePlan {
@@ -42,6 +51,8 @@ struct PresentationAudioRoutePlan {
 // `audition_route_ids` owns the exact serial Float32 reduction order. The latter
 // must be a permutation of every active exhaust source route.
 struct PresentationAudioPlan {
+    PresentationAudioProcessingProjection processing_projection =
+        PresentationAudioProcessingProjection::complete;
     RouteConditioningCalibration conditioning;
     std::vector<PresentationAudioRoutePlan> routes;
     double publication_calibration_gain_linear = 0.0;

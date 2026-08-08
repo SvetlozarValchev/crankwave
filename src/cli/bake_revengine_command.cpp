@@ -307,17 +307,30 @@ compile_trusted_scenario(const compile::CompiledEngine &engine,
 
 using CaptureResult = std::variant<responsive::FiniteResponsiveCapture, Error>;
 
+enum class CapturePresentationMode : std::uint8_t {
+    complete,
+    source_route_dry_projection,
+};
+
 [[nodiscard]] CaptureResult
 capture_trusted_scenario(const compile::CompiledEngine &engine,
                          const authoring::ScenarioDocument &document,
                          const std::span<const std::string_view> buses,
+                         const CapturePresentationMode presentation_mode,
                          std::string stage, const std::stop_token stop_token) {
     auto scenario = compile_trusted_scenario(engine, document, stage, stop_token);
     if (auto *failure = std::get_if<Error>(&scenario)) {
         return std::move(*failure);
     }
-    auto captured = responsive::capture_finite_responsive_session(
-        std::get<compile::CompiledScenario>(scenario), buses, stop_token);
+    auto captured =
+        presentation_mode ==
+                CapturePresentationMode::source_route_dry_projection
+            ? responsive::capture_finite_responsive_dry_routes(
+                  std::get<compile::CompiledScenario>(scenario), buses,
+                  stop_token)
+            : responsive::capture_finite_responsive_session(
+                  std::get<compile::CompiledScenario>(scenario), buses,
+                  stop_token);
     if (auto *failure =
             std::get_if<responsive::FiniteResponsiveCaptureError>(&captured)) {
         return capture_error(stage, *failure);
@@ -425,7 +438,7 @@ cook_lifecycle(const responsive::ResponsiveBakeProfile &profile,
                                   const std::string_view label)
         -> std::variant<responsive::LifecycleCaptureEvidence, Error> {
         auto captured = capture_trusted_scenario(
-            engine, spec.scenario, buses,
+            engine, spec.scenario, buses, CapturePresentationMode::complete,
             "lifecycle " + std::string{label} + " capture", stop_token);
         if (auto *failure = std::get_if<Error>(&captured)) {
             return std::move(*failure);
@@ -845,6 +858,8 @@ BakeRevengineResult bake_revengine_native(const BakeRevengineRequest &request,
             -> std::variant<responsive::HeldCookedCell, Error> {
             auto captured =
                 capture_trusted_scenario(engine, spec.scenario, dry_bus_views,
+                                         CapturePresentationMode::
+                                             source_route_dry_projection,
                                          "held capture " + spec.id, worker_stop);
             if (auto *failure = std::get_if<Error>(&captured)) {
                 return std::move(*failure);
@@ -890,6 +905,7 @@ BakeRevengineResult bake_revengine_native(const BakeRevengineRequest &request,
                 -> std::variant<responsive::DirectionalCookedCapture, Error> {
                 auto captured = capture_trusted_scenario(
                     engine, spec.scenario, dry_bus_views,
+                    CapturePresentationMode::source_route_dry_projection,
                     "directional capture " + spec.id, worker_stop);
                 if (auto *failure = std::get_if<Error>(&captured)) {
                     return std::move(*failure);

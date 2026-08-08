@@ -145,6 +145,17 @@ using FiniteResponsiveCaptureResult =
     std::span<const std::string_view> selected_bus_ids,
     std::stop_token cancellation = {});
 
+// Held/directional cooking may opt into the internal presentation projection only
+// when every selected identity is a source-route dry bus. The result is otherwise
+// identical to capture_finite_responsive_session(), while omitted transfer/master
+// buses are neither processed nor exposed. Non-held modes and any non-dry selection
+// fail as invalid requests.
+[[nodiscard]] FiniteResponsiveCaptureResult
+capture_finite_responsive_dry_routes(
+    const compile::CompiledScenario &scenario,
+    std::span<const std::string_view> selected_bus_ids,
+    std::stop_token cancellation = {});
+
 // Revalidates an owning capture at an adapter/serialization boundary. The capture
 // function applies the same validator before publishing success.
 [[nodiscard]] std::optional<FiniteResponsiveCaptureError>

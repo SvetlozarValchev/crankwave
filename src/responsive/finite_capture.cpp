@@ -1,5 +1,8 @@
 #include "engine_sim_offline/responsive/finite_capture.hpp"
 
+#include "compile/compiled_scenario_view.hpp"
+#include "session/projected_engine_session.hpp"
+
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -578,7 +581,8 @@ validate_event_counters(const EngineEventCounters &counters) {
 [[nodiscard]] FiniteResponsiveCaptureResult capture_impl(
     const compile::CompiledScenario &scenario,
     const std::span<const std::string_view> selected_bus_ids,
-    const std::stop_token cancellation) {
+    const std::stop_token cancellation,
+    const bool dry_route_projection) {
     if (selected_bus_ids.empty()) {
         return error(FiniteResponsiveCaptureErrorCode::invalid_request,
                      "responsive-capture-empty-bus-selection",
@@ -602,9 +606,36 @@ validate_event_counters(const EngineEventCounters &counters) {
                      "capture was cancelled before session creation");
     }
 
-    auto created = create_engine_session(
-        scenario, EngineSessionExecutionKind::finite_scenario);
+    if (dry_route_projection) {
+        const auto inputs =
+            compile::detail::CompiledScenarioViewAccess::inputs(scenario);
+        if (!std::holds_alternative<contract::HeldSpeed>(
+                inputs.scenario.scenario.mode) &&
+            !std::holds_alternative<contract::HeldDyno>(
+                inputs.scenario.scenario.mode)) {
+            return error(
+                FiniteResponsiveCaptureErrorCode::invalid_request,
+                "responsive-dry-projection-requires-held-capture",
+                "dry presentation projection is admitted only for held or "
+                "directional finite responsive capture");
+        }
+    }
+
+    auto created =
+        dry_route_projection
+            ? session_detail::create_dry_projected_engine_session(
+                  scenario, selected_bus_ids)
+            : create_engine_session(scenario,
+                                    EngineSessionExecutionKind::finite_scenario);
     if (auto *session_error = std::get_if<EngineSessionError>(&created)) {
+        if (dry_route_projection &&
+            session_error->detail_code.starts_with("session-dry-projection-")) {
+            auto detail_code = session_error->detail_code;
+            auto message = session_error->message;
+            return error(FiniteResponsiveCaptureErrorCode::invalid_request,
+                         std::move(detail_code), std::move(message),
+                         std::move(*session_error));
+        }
         return error(FiniteResponsiveCaptureErrorCode::session_failed,
                      "responsive-capture-session-create-failed",
                      "finite source session creation failed",
@@ -1041,7 +1072,29 @@ FiniteResponsiveCaptureResult capture_finite_responsive_session(
     const std::span<const std::string_view> selected_bus_ids,
     const std::stop_token cancellation) {
     try {
-        return capture_impl(scenario, selected_bus_ids, cancellation);
+        return capture_impl(scenario, selected_bus_ids, cancellation, false);
+    } catch (const std::bad_alloc &) {
+        return error(FiniteResponsiveCaptureErrorCode::resource_exhausted,
+                     "responsive-capture-allocation-failed",
+                     "finite responsive capture exhausted memory");
+    } catch (const std::exception &caught) {
+        return error(FiniteResponsiveCaptureErrorCode::internal_error,
+                     "responsive-capture-exception",
+                     "finite responsive capture threw: " +
+                         std::string{caught.what()});
+    } catch (...) {
+        return error(FiniteResponsiveCaptureErrorCode::internal_error,
+                     "responsive-capture-unknown-exception",
+                     "finite responsive capture threw a non-standard exception");
+    }
+}
+
+FiniteResponsiveCaptureResult capture_finite_responsive_dry_routes(
+    const compile::CompiledScenario &scenario,
+    const std::span<const std::string_view> selected_bus_ids,
+    const std::stop_token cancellation) {
+    try {
+        return capture_impl(scenario, selected_bus_ids, cancellation, true);
     } catch (const std::bad_alloc &) {
         return error(FiniteResponsiveCaptureErrorCode::resource_exhausted,
                      "responsive-capture-allocation-failed",
