@@ -490,11 +490,11 @@ discover_impl(const std::filesystem::path &executable_path) {
 
     const auto executable_directory = executable_path.parent_path();
     const std::array candidates{
-        (executable_directory / "engine-sim-offline-assets" / "catalog.v1.json")
-            .lexically_normal(),
         (executable_directory /
          std::filesystem::path{detail::kInstalledAssetDirectoryRelativeToExecutable} /
          "catalog.v1.json")
+            .lexically_normal(),
+        (executable_directory / "engine-sim-offline-assets" / "catalog.v1.json")
             .lexically_normal(),
     };
     for (const auto &candidate : candidates) {

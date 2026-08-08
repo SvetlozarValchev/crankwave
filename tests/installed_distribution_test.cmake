@@ -637,6 +637,12 @@ endif()
 
 if(release_complete)
 find_program(bash_executable NAMES bash REQUIRED)
+# A release must prefer its manifest-bound installed asset catalog even when
+# caller debris mimics the build-tree sibling layout.
+set(adjacent_poison_root "${bin_directory}/engine-sim-offline-assets")
+file(MAKE_DIRECTORY "${adjacent_poison_root}")
+file(WRITE "${adjacent_poison_root}/catalog.v1.json"
+    "{\"poisoned_unmanifested_catalog\":true}\n")
 set(signal_output "${work_root}/terminated.revengine")
 set(signal_stdout_path "${work_root}/termination.stdout")
 set(signal_stderr_path "${work_root}/termination.stderr")
@@ -780,6 +786,30 @@ if(NOT inspect_release STREQUAL RELEASE_IDENTITY OR
     message(FATAL_ERROR "installed native inspect/verify result identity differs")
 endif()
 
+if(DEFINED NODE_EXECUTABLE AND NOT NODE_EXECUTABLE STREQUAL "" AND
+   EXISTS "${NODE_EXECUTABLE}" AND
+   EXISTS "${SOURCE_ROOT}/tests/installed_revengine_playback_test.mjs")
+    execute_process(
+        COMMAND
+            "${NODE_EXECUTABLE}"
+            "${SOURCE_ROOT}/tests/installed_revengine_playback_test.mjs"
+            "${runtime_root}/revengine-audio-engine.js"
+            "${first_carrier}"
+        RESULT_VARIABLE playback_result
+        OUTPUT_VARIABLE playback_stdout
+        ERROR_VARIABLE playback_stderr
+        TIMEOUT 30
+    )
+    if(NOT playback_result EQUAL 0 OR
+       NOT playback_stdout STREQUAL "" OR
+       NOT playback_stderr STREQUAL "")
+        message(FATAL_ERROR
+            "relocated installed playback failed\n"
+            "exit: ${playback_result}\nstdout: ${playback_stdout}\n"
+            "stderr: ${playback_stderr}")
+    endif()
+endif()
+
 set(tampered_carrier "${work_root}/tampered.revengine")
 file(COPY_FILE "${first_carrier}" "${tampered_carrier}")
 file(APPEND "${tampered_carrier}" "tamper")
@@ -805,6 +835,7 @@ if(NOT tampered_verify_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
    tampered_verify_ok)
     message(FATAL_ERROR "tampered native carrier failure envelope differs")
 endif()
+file(REMOVE_RECURSE "${adjacent_poison_root}")
 else()
     # A dirty development binary deliberately refuses to mint a carrier because its
     # backend identity is not publishable. The complete clean-tree release gate above

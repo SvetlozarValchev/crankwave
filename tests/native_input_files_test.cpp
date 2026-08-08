@@ -449,6 +449,23 @@ void test_builtin_catalog_discovery(
     }
     {
         IsolatedDirectory isolated;
+        const auto executable = isolated.path() / "prefix/bin/engine-sim-offline";
+        const auto installed_catalog =
+            (executable.parent_path() / installed_asset_relative_path /
+             "catalog.v1.json")
+                .lexically_normal();
+        const auto adjacent_catalog = executable.parent_path() /
+                                      "engine-sim-offline-assets" /
+                                      "catalog.v1.json";
+        write_text(installed_catalog, "{}");
+        write_text(adjacent_catalog, "{\"poisoned\":true}");
+        const auto discovered = discover_builtin_asset_catalog(executable);
+        expect(std::holds_alternative<std::filesystem::path>(discovered) &&
+                   std::get<std::filesystem::path>(discovered) == installed_catalog,
+               "adjacent development assets overrode the installed release catalog");
+    }
+    {
+        IsolatedDirectory isolated;
         const auto discovered =
             discover_builtin_asset_catalog(isolated.path() / "bin/engine-sim-offline");
         require_input_error(discovered,

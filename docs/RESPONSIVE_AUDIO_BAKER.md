@@ -1,4 +1,13 @@
-# Responsive audio baker
+# Legacy responsive audio baker (v1 development oracle)
+
+> **Production status:** Since installed distribution v2 / release 1.2.0,
+> responsive authoring is owned by the native
+> `engine-sim-offline bake-revengine` command. It requires neither Node.js nor
+> simulation WebAssembly. This document preserves the former 1.1 JavaScript/WASM
+> baker as a source-tree migration and parity oracle; it is not installed and is
+> not the production PlugAndRev adapter boundary. See
+> [INSTALLED_DISTRIBUTION_V2.md](contracts/INSTALLED_DISTRIBUTION_V2.md) and
+> [RESPONSIVE_PROFILE_SELECTION_V2.md](contracts/RESPONSIVE_PROFILE_SELECTION_V2.md).
 
 `tools/responsive-audio-baker/bake.mjs` is the tracked standalone entry point
 for producing the responsive preview package used by the browser runtime. It
@@ -198,7 +207,11 @@ node --test tools/responsive-audio-baker/test.mjs
 to two anchors so maintainers can exercise every publishing stage quickly. It
 is structural test data, not an audition-quality profile.
 
-## Installed distribution
+## Historical 1.1 installed distribution
+
+Everything in this section describes the retired v1 installation boundary. A
+current 1.2+ distribution ships one native CLI and the one-step
+`revengine-bake-workflow.v2.json` contract described above.
 
 Build and install an explicitly incomplete native development prefix with:
 
