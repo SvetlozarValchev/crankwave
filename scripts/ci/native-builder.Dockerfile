@@ -1,16 +1,22 @@
-ARG BUILDER_BASE_IMAGE=gcc:12.4.0-bookworm@sha256:fa4be2f0a762fb14cc745289227d29aa32f0b55057c301d0d61a5eba46c85d99
+ARG BUILDER_BASE_IMAGE=debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241
 ARG NODE_BASE_IMAGE=node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
 
 FROM ${NODE_BASE_IMAGE} AS ci_node
 FROM ${BUILDER_BASE_IMAGE}
 
 ARG CMAKE_DEBIAN_VERSION=3.25.1-1
+ARG BINUTILS_DEBIAN_VERSION=2.40-2
+ARG CLANG_DEBIAN_VERSION=1:14.0-55.7~deb12u1
+ARG CLANG_14_DEBIAN_VERSION=1:14.0.6-12
 ARG GIT_LFS_DEBIAN_VERSION=3.3.0-1+deb12u1
 ARG NINJA_DEBIAN_VERSION=1.11.1-2~deb12u1
 
 RUN set -eu; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+        "binutils=${BINUTILS_DEBIAN_VERSION}" \
+        "clang=${CLANG_DEBIAN_VERSION}" \
+        "clang-14=${CLANG_14_DEBIAN_VERSION}" \
         "cmake=${CMAKE_DEBIAN_VERSION}" \
         "git-lfs=${GIT_LFS_DEBIAN_VERSION}" \
         "ninja-build=${NINJA_DEBIAN_VERSION}"; \
@@ -22,4 +28,6 @@ COPY --from=ci_node /usr/local/ /usr/local/
 
 ENV LANG=C \
     LC_ALL=C \
-    TZ=UTC
+    TZ=UTC \
+    CC=/usr/bin/clang \
+    CXX=/usr/bin/clang++

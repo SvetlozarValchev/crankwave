@@ -103,7 +103,7 @@ assert.equal(release.source.git_commit, args.revision);
 assert.match(release.source.closure_sha256, /^[0-9a-f]{64}$/u);
 assert.match(release.source.installed_inputs_closure_sha256, /^[0-9a-f]{64}$/u);
 assert.equal(release.toolchain.state, "available");
-assert.equal(release.toolchain.target_triple, "x86_64-linux-gnu");
+assert.equal(release.toolchain.target_triple, "x86_64-pc-linux-gnu");
 assert.equal(release.layout.resource_root, resourceRelative);
 assert.deepEqual(release.production_runtime, {
   kind: "native",

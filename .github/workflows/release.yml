@@ -6,7 +6,7 @@ on:
       - 'v*.*.*'
 
 env:
-  BUILDER_BASE_IMAGE: gcc:12.4.0-bookworm@sha256:fa4be2f0a762fb14cc745289227d29aa32f0b55057c301d0d61a5eba46c85d99
+  BUILDER_BASE_IMAGE: debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241
   NODE_BASE_IMAGE: node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
   BUILDER_IMAGE: engine-sim-offline-native-builder:release
   IMAGE_NAME: ghcr.io/svetlozarvalchev/engine-sim-offline
@@ -398,7 +398,7 @@ jobs:
             "io.engine-sim-offline.production-runtime": "native",
             "io.engine-sim-offline.node-required": "false",
             "io.engine-sim-offline.simulation-wasm-required": "false",
-            "io.engine-sim-offline.target": "x86_64-linux-gnu",
+            "io.engine-sim-offline.target": "x86_64-pc-linux-gnu",
           };
           for (const [name, value] of Object.entries(expected)) {
             if (labels[name] !== value) throw new Error(`OCI label mismatch: ${name}`);

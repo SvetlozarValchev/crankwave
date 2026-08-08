@@ -57,6 +57,6 @@ LABEL org.opencontainers.image.title="engine-sim-offline" \
       io.engine-sim-offline.production-runtime="native" \
       io.engine-sim-offline.node-required="false" \
       io.engine-sim-offline.simulation-wasm-required="false" \
-      io.engine-sim-offline.target="x86_64-linux-gnu"
+      io.engine-sim-offline.target="x86_64-pc-linux-gnu"
 ENTRYPOINT ["/opt/engine-sim-offline/bin/engine-sim-offline"]
 CMD ["--help"]
