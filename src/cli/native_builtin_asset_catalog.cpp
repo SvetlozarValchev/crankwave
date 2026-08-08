@@ -489,11 +489,32 @@ discover_impl(const std::filesystem::path &executable_path) {
     }
 
     const auto executable_directory = executable_path.parent_path();
-    const std::array candidates{
+    const auto installed_catalog =
         (executable_directory /
          std::filesystem::path{detail::kInstalledAssetDirectoryRelativeToExecutable} /
          "catalog.v1.json")
-            .lexically_normal(),
+            .lexically_normal();
+    const auto installed_release_manifest =
+        installed_catalog.parent_path().parent_path() / "release.json";
+    {
+        std::error_code error;
+        const auto status =
+            std::filesystem::symlink_status(installed_release_manifest, error);
+        if (!error && status.type() != std::filesystem::file_type::not_found) {
+            return installed_catalog;
+        }
+        if (error && !detail::not_found(error)) {
+            return catalog_error(
+                NativeInputErrorCode::filesystem_failure,
+                installed_release_manifest,
+                "built-in asset catalog discovery could not inspect the "
+                "installed release marker",
+                NativeInputErrorKind::software);
+        }
+    }
+
+    const std::array candidates{
+        installed_catalog,
         (executable_directory / "engine-sim-offline-assets" / "catalog.v1.json")
             .lexically_normal(),
     };
