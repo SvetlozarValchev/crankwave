@@ -146,6 +146,7 @@ void expect_throw(Function &&function, const char *message) {
         });
     }
     return {
+        PresentationAudioProcessingProjection::complete,
         kConditioning,
         std::move(routes),
         dsp::kSourcePublicationCalibration,
