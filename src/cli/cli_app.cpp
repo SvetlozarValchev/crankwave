@@ -1,5 +1,6 @@
 #include "cli_app.hpp"
 
+#include "bake_revengine_command.hpp"
 #include "native_input_files.hpp"
 #include "revengine_cli_support.hpp"
 
@@ -84,6 +85,11 @@ void print_help(std::ostream &stream) {
               "[--asset-root <developer-directory>] \\\n"
               "      [--deadline-unix-ms <epoch-ms>] "
               "[--result-format <text|json>]\n"
+              "  engine-sim-offline bake-revengine --engine <engine.json> \\\n"
+              "      --output <new.revengine> "
+              "[--asset-root <developer-directory>] \\\n"
+              "      [--deadline-unix-ms <epoch-ms>] "
+              "[--result-format <text|json>]\n"
               "  engine-sim-offline pack-revengine "
               "--package-directory <directory> \\\n"
               "      --output <new.revengine> [--deadline-unix-ms <epoch-ms>] "
@@ -98,6 +104,8 @@ void print_help(std::ostream &stream) {
               "Commands:\n"
               "  render  Compile declarative engine and scenario JSON, render the\n"
               "          admitted simulation, and atomically publish its artifacts.\n"
+              "  bake-revengine  Compile an engine, cook its complete responsive\n"
+              "                  runtime, and atomically publish a verified carrier.\n"
               "  pack-revengine     Pack a validated responsive package tree.\n"
               "  inspect-revengine  Inspect structure and the authenticated index.\n"
               "  verify-revengine   Verify every payload and package binding.\n"
@@ -782,6 +790,150 @@ observed_stop_reason(const InvocationExecutionControl &control) noexcept {
     return kExitSuccess;
 }
 
+[[nodiscard]] int bake_revengine_exit_code(const BakeRevengineErrorKind kind) noexcept {
+    switch (kind) {
+    case BakeRevengineErrorKind::data_error:
+        return kExitDataError;
+    case BakeRevengineErrorKind::no_input:
+        return kExitNoInput;
+    case BakeRevengineErrorKind::unavailable:
+        return kExitUnavailable;
+    case BakeRevengineErrorKind::software:
+        return kExitSoftware;
+    case BakeRevengineErrorKind::cant_create:
+        return kExitCantCreate;
+    case BakeRevengineErrorKind::temporary_failure:
+        return kExitTemporaryFailure;
+    case BakeRevengineErrorKind::cancelled:
+        return kExitTemporaryFailure;
+    }
+    return kExitSoftware;
+}
+
+[[nodiscard]] std::string_view
+contract_issue_code_name(const contract::ContractIssueCode code) noexcept {
+    using enum contract::ContractIssueCode;
+    switch (code) {
+    case missing_value:
+        return "missing_value";
+    case invalid_value:
+        return "invalid_value";
+    case duplicate_identity:
+        return "duplicate_identity";
+    case dangling_reference:
+        return "dangling_reference";
+    case inconsistent_shape:
+        return "inconsistent_shape";
+    case inconsistent_semantics:
+        return "inconsistent_semantics";
+    case unsupported_value:
+        return "unsupported_value";
+    }
+    return "unknown_contract_issue";
+}
+
+[[nodiscard]] int
+report_bake_revengine_error(CliOutput &output, const BakeRevengineError &failure,
+                            const InvocationExecutionControl &control) {
+    if (failure.kind == BakeRevengineErrorKind::cancelled) {
+        return report_controlled_stop(output, control, failure.message);
+    }
+    if (failure.diagnostics.has_value()) {
+        return report_diagnostics(output, failure.stage, *failure.diagnostics);
+    }
+    const auto exit_code = bake_revengine_exit_code(failure.kind);
+    if (output.format != CliResultFormat::json) {
+        return report_error(output, exit_code, failure.code,
+                            failure.stage.empty()
+                                ? failure.message
+                                : failure.stage + ": " + failure.message);
+    }
+    write_machine_prefix(output, false, failure.code, exit_code);
+    auto &stream = output.standard_out;
+    stream << ",\"message\":";
+    write_json_string(stream, failure.message);
+    stream << ",\"stage\":";
+    write_json_string(stream, failure.stage);
+    stream << ",\"path\":";
+    if (failure.path.empty()) {
+        stream << "null";
+    } else {
+        write_json_string(stream, failure.path.string());
+    }
+    stream << ",\"issues\":[";
+    if (failure.validation.has_value()) {
+        for (std::size_t index = 0U; index < failure.validation->issues.size();
+             ++index) {
+            if (index != 0U) {
+                stream.put(',');
+            }
+            const auto &issue = failure.validation->issues[index];
+            stream << "{\"code\":";
+            write_json_string(stream, contract_issue_code_name(issue.code));
+            stream << ",\"path\":";
+            write_json_string(stream, issue.path);
+            stream << ",\"message\":";
+            write_json_string(stream, issue.message);
+            stream.put('}');
+        }
+    }
+    stream << "]}\n";
+    return exit_code;
+}
+
+[[nodiscard]] int execute_bake_revengine(const BakeRevengineCommand &command,
+                                         CliOutput &output,
+                                         const InvocationExecutionControl &control) {
+    BakeRevengineRequest request;
+    request.engine_path = command.engine_path;
+    request.output_file = command.output_file;
+    if (!command.asset_root.empty()) {
+        request.asset_root = command.asset_root;
+    }
+    request.release_identity = std::string{version_label()};
+    auto result = bake_revengine_native(request, control.render.stop_token);
+    if (const auto *failure = std::get_if<BakeRevengineError>(&result)) {
+        return report_bake_revengine_error(output, *failure, control);
+    }
+    const auto &baked = std::get<BakedRevengineFile>(result);
+    if (output.format == CliResultFormat::json) {
+        write_machine_prefix(output, true, "success", kExitSuccess);
+        auto &stream = output.standard_out;
+        stream << ",\"result\":{\"output_file\":";
+        write_json_string(stream, baked.output_path.string());
+        stream << ",\"engine_id\":";
+        write_json_string(stream, baked.engine_id);
+        stream << ",\"profile_id\":";
+        write_json_string(stream, baked.profile_id);
+        stream << ",\"verified\":" << (baked.verified ? "true" : "false")
+               << ",\"container_bytes\":\"" << baked.container_byte_count
+               << "\",\"entry_count\":" << baked.entry_count
+               << ",\"held_cell_count\":" << baked.held_cell_count
+               << ",\"directional_capture_count\":" << baked.directional_capture_count
+               << ",\"lifecycle_capture_count\":" << baked.lifecycle_capture_count
+               << ",\"container_sha256\":";
+        write_json_string(stream, sha256_lower_hex(baked.container_sha256));
+        stream << ",\"cache_identity_sha256\":";
+        write_json_string(stream, sha256_lower_hex(baked.cache_identity_sha256));
+        stream << "}}\n";
+    } else {
+        output.standard_out
+            << "output_file=" << baked.output_path.string() << '\n'
+            << "engine_id=" << baked.engine_id << '\n'
+            << "profile_id=" << baked.profile_id << '\n'
+            << "verified=" << (baked.verified ? "true" : "false") << '\n'
+            << "container_bytes=" << baked.container_byte_count << '\n'
+            << "entry_count=" << baked.entry_count << '\n'
+            << "held_cell_count=" << baked.held_cell_count << '\n'
+            << "directional_capture_count=" << baked.directional_capture_count << '\n'
+            << "lifecycle_capture_count=" << baked.lifecycle_capture_count << '\n'
+            << "container_sha256=" << sha256_lower_hex(baked.container_sha256) << '\n'
+            << "cache_identity_sha256=" << sha256_lower_hex(baked.cache_identity_sha256)
+            << '\n';
+    }
+    return kExitSuccess;
+}
+
 [[nodiscard]] int execute_pack_revengine(const PackRevengineCommand &command,
                                          CliOutput &output,
                                          const InvocationExecutionControl &control) {
@@ -1136,6 +1288,24 @@ CliParseResult parse_cli_arguments(const std::span<const std::string_view> argum
                                                     CommandOptionKind::result_format},
             });
     }
+    if (arguments.front() == "bake-revengine") {
+        return parse_command_options(
+            arguments, BakeRevengineCommand{},
+            std::array{
+                CommandOption<BakeRevengineCommand>{"--engine",
+                                                    &BakeRevengineCommand::engine_path},
+                CommandOption<BakeRevengineCommand>{"--output",
+                                                    &BakeRevengineCommand::output_file},
+                CommandOption<BakeRevengineCommand>{
+                    "--asset-root", &BakeRevengineCommand::asset_root, false},
+                CommandOption<BakeRevengineCommand>{
+                    "--deadline-unix-ms", nullptr, false, false,
+                    CommandOptionKind::deadline_unix_ms},
+                CommandOption<BakeRevengineCommand>{"--result-format", nullptr, false,
+                                                    false,
+                                                    CommandOptionKind::result_format},
+            });
+    }
     if (arguments.front() == "inspect-revengine") {
         return parse_command_options(
             arguments, InspectRevengineCommand{},
@@ -1198,6 +1368,14 @@ int run_cli(const std::span<const std::string_view> arguments,
                                         [&](const InvocationExecutionControl &control) {
                                             return execute_render(*render, output,
                                                                   control);
+                                        });
+        }
+        if (const auto *bake_revengine = std::get_if<BakeRevengineCommand>(&command)) {
+            output.format = bake_revengine->result_format;
+            return execute_with_control(*bake_revengine, termination_token,
+                                        [&](const InvocationExecutionControl &control) {
+                                            return execute_bake_revengine(
+                                                *bake_revengine, output, control);
                                         });
         }
         if (const auto *pack = std::get_if<PackRevengineCommand>(&command)) {

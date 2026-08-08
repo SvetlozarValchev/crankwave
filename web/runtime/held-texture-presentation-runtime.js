@@ -6,6 +6,7 @@ import {
 import {
   CanonicalMasterDynamics,
   FixedSpectrumConvolver,
+  PartitionedSpectrumConvolver,
   loadDryDirectionalPhaseRuntime,
 } from "./dry-directional-phase-runtime.js";
 import {
@@ -28,6 +29,13 @@ const CANONICAL_SAMPLE_RATE = 192_000;
 const FFT_SIZE = 65_536;
 const IR_COEFFICIENT_COUNT = 30_071;
 const SPECTRUM_ENCODING = "interleaved-complex-float64le";
+const FIXED_TRANSFER_KIND = "fixed-overlap-save-complex-spectrum-v1";
+const PARTITIONED_TRANSFER_KIND =
+  "uniform-partitioned-overlap-save-complex-spectra-v1";
+const PARTITIONED_FFT_SIZE = 8_192;
+const PARTITIONED_BLOCK_FRAMES = 3_840;
+const PARTITIONED_BATCH_FRAMES = PARTITIONED_BLOCK_FRAMES * 8;
+const MAXIMUM_PARTITIONED_COEFFICIENT_COUNT = 570_654;
 const BATCH_FRAMES = 32_768;
 const REQUIRED_RUNNING_STATE_MASK = 0x3;
 const LIMITER_CUT_STATE_MASK = 0x10;
@@ -137,17 +145,18 @@ async function requireSha256(bytes, expected, cryptoImplementation, label) {
   }
 }
 
-function decodeSpectrum(bytes) {
-  const expectedBytes = FFT_SIZE * 2 * 8;
+function decodeSpectrum(bytes, transfer) {
+  const expectedBins = transfer.fftSize * transfer.partitionCount;
+  const expectedBytes = expectedBins * 2 * 8;
   if (bytes.byteLength !== expectedBytes) {
     throw new RangeError(
       `IR spectrum has ${bytes.byteLength} bytes; expected ${expectedBytes}`,
     );
   }
-  const real = new Float64Array(FFT_SIZE);
-  const imaginary = new Float64Array(FFT_SIZE);
+  const real = new Float64Array(expectedBins);
+  const imaginary = new Float64Array(expectedBins);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  for (let index = 0; index < FFT_SIZE; ++index) {
+  for (let index = 0; index < expectedBins; ++index) {
     const realValue = view.getFloat64(index * 16, true);
     const imaginaryValue = view.getFloat64(index * 16 + 8, true);
     if (!Number.isFinite(realValue) || !Number.isFinite(imaginaryValue)) {
@@ -156,7 +165,15 @@ function decodeSpectrum(bytes) {
     real[index] = realValue;
     imaginary[index] = imaginaryValue;
   }
-  return Object.freeze({ real, imaginary });
+  return Object.freeze({
+    kind: transfer.kind,
+    fftSize: transfer.fftSize,
+    coefficientCount: transfer.coefficientCount,
+    partitionFrameCount: transfer.partitionFrameCount,
+    partitionCount: transfer.partitionCount,
+    real,
+    imaginary,
+  });
 }
 
 async function loadSpectrum(
@@ -186,28 +203,64 @@ async function loadSpectrum(
     cryptoImplementation,
     "held route IR spectrum",
   );
-  return decodeSpectrum(spectrumBytes);
+  return decodeSpectrum(spectrumBytes, transfer);
 }
 
 function parseTransfer(transferValue, label) {
   const transfer = object(transferValue, label);
+  const kind = Object.hasOwn(transfer, "kind")
+    ? string(transfer.kind, `${label}.kind`)
+    : FIXED_TRANSFER_KIND;
   const fftSize = positiveInteger(transfer.fft_size, `${label}.fft_size`);
   const coefficientCount = positiveInteger(
     transfer.coefficient_count,
     `${label}.coefficient_count`,
   );
-  if (fftSize !== FFT_SIZE || coefficientCount !== IR_COEFFICIENT_COUNT) {
-    fail(`${label} must use the canonical 65536/30071 fixed IR shape`);
-  }
-  if (BATCH_FRAMES > fftSize - (coefficientCount - 1)) {
-    fail(`${label} does not fit the overlap-save batch`);
+  let partitionFrameCount = 0;
+  let partitionCount = 1;
+  if (kind === FIXED_TRANSFER_KIND) {
+    if (fftSize !== FFT_SIZE || coefficientCount !== IR_COEFFICIENT_COUNT) {
+      fail(`${label} must use the canonical 65536/30071 fixed IR shape`);
+    }
+    if (BATCH_FRAMES > fftSize - (coefficientCount - 1)) {
+      fail(`${label} does not fit the overlap-save batch`);
+    }
+    if (
+      Object.hasOwn(transfer, "partition_frame_count") ||
+      Object.hasOwn(transfer, "partition_count")
+    ) {
+      fail(`${label} fixed transfer must not contain partition fields`);
+    }
+  } else if (kind === PARTITIONED_TRANSFER_KIND) {
+    partitionFrameCount = positiveInteger(
+      transfer.partition_frame_count,
+      `${label}.partition_frame_count`,
+    );
+    partitionCount = positiveInteger(
+      transfer.partition_count,
+      `${label}.partition_count`,
+    );
+    if (
+      fftSize !== PARTITIONED_FFT_SIZE ||
+      partitionFrameCount !== PARTITIONED_BLOCK_FRAMES ||
+      coefficientCount <= IR_COEFFICIENT_COUNT ||
+      coefficientCount > MAXIMUM_PARTITIONED_COEFFICIENT_COUNT ||
+      partitionCount !== Math.ceil(coefficientCount / partitionFrameCount)
+    ) {
+      fail(`${label} has an invalid complete partitioned IR shape`);
+    }
+  } else {
+    fail(`unsupported ${label} kind ${kind}`);
   }
   if (transfer.spectrum_encoding !== SPECTRUM_ENCODING) {
     fail(`unsupported ${label} encoding ${transfer.spectrum_encoding}`);
   }
   return Object.freeze({
+    kind,
     fftSize,
     coefficientCount,
+    partitionFrameCount,
+    partitionCount,
     spectrumEncoding: transfer.spectrum_encoding,
     spectrumPath: string(
       transfer.spectrum_path,
@@ -660,7 +713,17 @@ export async function loadHeldTexturePresentationRuntime(
   }
   const spectrumPromises = new Map();
   const routePresentations = presentation.routes.map((route) => {
-    const key = `${route.transfer.spectrumPath}:${route.transfer.spectrumSha256}`;
+    const key = JSON.stringify([
+      route.transfer.kind,
+      route.transfer.fftSize,
+      route.transfer.coefficientCount,
+      route.transfer.partitionFrameCount,
+      route.transfer.partitionCount,
+      route.transfer.spectrumEncoding,
+      route.transfer.spectrumPath,
+      route.transfer.spectrumByteCount,
+      route.transfer.spectrumSha256,
+    ]);
     let spectrumPromise = spectrumPromises.get(key);
     if (spectrumPromise === undefined) {
       spectrumPromise = loadSpectrum(
@@ -685,6 +748,9 @@ export async function loadHeldTexturePresentationRuntime(
       route.wetMix01 === 1 &&
       route.spectrum === loadedRoutePresentations[0].spectrum,
   );
+  const hasPartitionedTransfer = loadedRoutePresentations.some(
+    (route) => route.transfer.kind === PARTITIONED_TRANSFER_KIND,
+  );
   return Object.freeze({
     kind: RUNTIME_KIND,
     manifestUrl: manifestUrl.href,
@@ -695,8 +761,14 @@ export async function loadHeldTexturePresentationRuntime(
     maximumRpm,
     heldMinimumRpm: heldPackage.minimumRpm,
     heldMaximumRpm: heldPackage.maximumRpm,
-    batchFrames: BATCH_FRAMES,
-    coefficientCount: IR_COEFFICIENT_COUNT,
+    batchFrames: hasPartitionedTransfer
+      ? PARTITIONED_BATCH_FRAMES
+      : BATCH_FRAMES,
+    coefficientCount: Math.max(
+      ...loadedRoutePresentations.map(
+        (route) => route.transfer.coefficientCount,
+      ),
+    ),
     capturedToSourceScale: presentation.capturedToSourceScale,
     masterVolumeLinear: presentation.masterVolumeLinear,
     auditionRouteIndices: presentation.auditionRouteIndices,
@@ -805,14 +877,18 @@ export class HeldTexturePresentationRuntimeCursor {
     this.#convolvers = package_.sharedFullWetTransfer
       ? []
       : package_.routePresentations.map(
-          (route) =>
-            new FixedSpectrumConvolver(route.spectrum, package_.batchFrames),
+          (route) => route.transfer.kind === PARTITIONED_TRANSFER_KIND
+            ? new PartitionedSpectrumConvolver(route.spectrum)
+            : new FixedSpectrumConvolver(
+                route.spectrum,
+                package_.batchFrames,
+              ),
         );
     if (package_.sharedFullWetTransfer) {
-      this.#sharedConvolver = new FixedSpectrumConvolver(
-        package_.routePresentations[0].spectrum,
-        package_.batchFrames,
-      );
+      const route = package_.routePresentations[0];
+      this.#sharedConvolver = route.transfer.kind === PARTITIONED_TRANSFER_KIND
+        ? new PartitionedSpectrumConvolver(route.spectrum)
+        : new FixedSpectrumConvolver(route.spectrum, package_.batchFrames);
     }
     this.#master = new CanonicalMasterDynamics(package_.masterVolumeLinear);
     this.#pendingDryRoutes = package_.routePresentations.map(

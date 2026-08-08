@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash, webcrypto } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -8,6 +9,10 @@ import {
   RevengineAudioEngine,
   RevengineAudioEngineError,
 } from "../../runtime/revengine-audio-engine.js";
+import {
+  HeldPhaseTextureCursor,
+  loadHeldPhaseTexturePackage,
+} from "../../runtime/held-phase-texture-runtime.js";
 
 const ENTRY_MODULE = fileURLToPath(
   new URL("../../runtime/revengine-audio-engine.js", import.meta.url),
@@ -50,8 +55,14 @@ function staticModuleClosure(entry) {
   return { modules: visited, edges };
 }
 
-function heldCell(index, rpm, lane, manifoldPressurePaAbs) {
-  return Object.freeze({
+function heldCell(
+  index,
+  rpm,
+  lane,
+  manifoldPressurePaAbs,
+  loadAliases = null,
+) {
+  const cell = {
     index,
     id: `${rpm}rpm-${lane}`,
     rpm,
@@ -62,7 +73,13 @@ function heldCell(index, rpm, lane, manifoldPressurePaAbs) {
     residualCombinedPower: 0,
     routes: Object.freeze([]),
     selectorSeed: BigInt(index + 1),
-  });
+  };
+  if (loadAliases !== null) {
+    cell.loadAliases = Object.freeze(
+      loadAliases.map((alias) => Object.freeze({ ...alias })),
+    );
+  }
+  return Object.freeze(cell);
 }
 
 function loadedRuntimeFixture({ batchFrames = 1 } = {}) {
@@ -123,6 +140,214 @@ function loadedRuntimeFixture({ batchFrames = 1 } = {}) {
     }),
     runtime,
   });
+}
+
+function loadedCoalescedRuntimeFixture() {
+  const base = loadedRuntimeFixture({ batchFrames: 8 });
+  const lanes = base.runtime.heldPackage.manifest.domain.load_lanes;
+  const aliases = lanes.map(({ id: lane, throttle01 }) => ({
+    lane,
+    throttle01,
+  }));
+  const cells = Object.freeze([
+    heldCell(0, 1_000, "closed", 40_000, aliases),
+    heldCell(1, 2_000, "closed", 30_000, [aliases[0]]),
+    heldCell(2, 2_000, "open", 90_000, [aliases[1]]),
+  ]);
+  const heldPackage = Object.freeze({
+    ...base.runtime.heldPackage,
+    cells,
+    rows: Object.freeze([
+      Object.freeze({ rpm: 1_000, cells: Object.freeze(cells.slice(0, 1)) }),
+      Object.freeze({ rpm: 2_000, cells: Object.freeze(cells.slice(1)) }),
+    ]),
+    meanGram: Object.freeze(
+      cells.map(() => Object.freeze(cells.map(() => 1))),
+    ),
+  });
+  return Object.freeze({
+    package: base.package,
+    runtime: Object.freeze({
+      ...base.runtime,
+      heldPackage,
+    }),
+  });
+}
+
+function heldLoaderFixture({ mutateFirstRoute, mutateSecondRoute } = {}) {
+  const encoder = new TextEncoder();
+  const encodeJson = (value) => encoder.encode(`${JSON.stringify(value)}\n`);
+  const encodeFloat32 = (values) => {
+    const bytes = new Uint8Array(values.length * 4);
+    const view = new DataView(bytes.buffer);
+    values.forEach((value, index) => view.setFloat32(index * 4, value, true));
+    return bytes;
+  };
+  const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
+  const lanes = [
+    { id: "coast", throttle01: 0 },
+    { id: "mid", throttle01: 0.5 },
+    { id: "power", throttle01: 1 },
+  ];
+  const aliases = (ids) => ({
+    coalesced_authored_lanes: ids,
+    coalesced_capture_throttles_01: ids.map(
+      (id) => lanes.find((lane) => lane.id === id).throttle01,
+    ),
+  });
+  const mean = encodeFloat32([0, 1, 0, -1]);
+  const residual = encodeFloat32([0, 0, 0, 0, 0, 0, 0, 0]);
+  const meanDescriptor = {
+    relative_path: "audio/mean.f32le",
+    sample_count: 4,
+    byte_count: mean.byteLength,
+    payload_sha256: digest(mean),
+  };
+  const residualDescriptor = {
+    relative_path: "audio/residuals.f32le",
+    cycle_count: 2,
+    samples_per_cycle: 4,
+    sample_count: 8,
+    byte_count: residual.byteLength,
+    payload_sha256: digest(residual),
+    selection_contract: "change residual ordinal only at a 720-degree boundary",
+  };
+  const cells = [
+    {
+      id: "1000rpm-coast-route",
+      rpm: 1_000,
+      lane: "coast",
+      capture_throttle_01: 0,
+      capture_provenance: aliases(["coast", "mid", "power"]),
+      manifold_pressure_pa_abs: 40_000,
+      source_cycle_begin_revolutions: 0,
+      source_cycle_end_revolutions: 4,
+      mean: meanDescriptor,
+      residual_bank: residualDescriptor,
+    },
+    {
+      id: "2000rpm-coast-route",
+      rpm: 2_000,
+      lane: "coast",
+      capture_throttle_01: 0,
+      capture_provenance: aliases(["coast", "mid"]),
+      manifold_pressure_pa_abs: 30_000,
+      source_cycle_begin_revolutions: 0,
+      source_cycle_end_revolutions: 4,
+      mean: meanDescriptor,
+      residual_bank: residualDescriptor,
+    },
+    {
+      id: "2000rpm-power-route",
+      rpm: 2_000,
+      lane: "power",
+      capture_throttle_01: 1,
+      capture_provenance: aliases(["power"]),
+      manifold_pressure_pa_abs: 90_000,
+      source_cycle_begin_revolutions: 0,
+      source_cycle_end_revolutions: 4,
+      mean: meanDescriptor,
+      residual_bank: residualDescriptor,
+    },
+  ];
+  const route = (busId) => ({
+    schema: "engine-sim-offline/responsive-audio-held-route",
+    id: `unit-${busId}`,
+    engine: "unit-engine",
+    audio: {
+      bus_id: busId,
+      sample_rate_hz: 192_000,
+      encoding: "float32le",
+      channel_layout: "mono",
+    },
+    phase: {
+      cycle_revolutions: 2,
+      samples_per_cycle: 4,
+      residual_cycle_count: 2,
+      residual_boundary_value: 0,
+      residual_taper: { frames_per_edge: 1 },
+    },
+    domain: {
+      rpm_anchors: [1_000, 2_000],
+      load_coordinate: "measured-intake-manifold-pressure-pa-abs",
+      load_lanes: lanes,
+    },
+    cells: structuredClone(cells),
+  });
+  const firstRoute = route("exhaust.dry");
+  const secondRoute = route("intake.dry");
+  mutateFirstRoute?.(firstRoute);
+  mutateSecondRoute?.(secondRoute);
+  const root = {
+    schema: "engine-sim-offline/responsive-audio-held-texture",
+    id: "unit-held",
+    engine: "unit-engine",
+    representation: {
+      kind: "cyclic-mean-plus-boundary-zero-cycle-residual-bank",
+      timeline_included: false,
+    },
+    domain: {
+      minimum_rpm: 1_000,
+      maximum_rpm: 2_000,
+      rpm_anchors: [1_000, 2_000],
+      load_lanes: lanes,
+      operating_cell_count: 3,
+    },
+    dry_bus_ids: ["exhaust.dry", "intake.dry"],
+    route_manifests: [
+      { bus_id: "exhaust.dry", manifest_path: "exhaust.json" },
+      { bus_id: "intake.dry", manifest_path: "intake.json" },
+    ],
+    phase_alignment: {
+      method: "shared-route-sum-circular-correlation-unwrapped-grid-v1",
+      reference_cell_id: "2000rpm-power",
+      unit: "phase-samples",
+      interpolation: "unwrapped-linear",
+      cells: [
+        { id: "1000rpm-coast", shift_to_canonical_samples: 0 },
+        { id: "2000rpm-coast", shift_to_canonical_samples: 0 },
+        { id: "2000rpm-power", shift_to_canonical_samples: 0 },
+      ],
+    },
+    texture_selection: {
+      algorithm: "splitmix64-shuffled-bags-v1",
+      bank_size: 2,
+      public_seed: "1",
+      no_adjacent_repeat: true,
+      change_phase: "720-degree-boundary",
+    },
+    interpolation: {
+      mean: {
+        method: "common-delay-phase-warp",
+        energy_target: "linear-anchor-rms",
+      },
+      residual: {
+        cross_cell_correlation: "independent",
+        energy_target: "linear-anchor-power",
+      },
+    },
+  };
+  const origin = "https://held-fixture.invalid/held/";
+  const resources = new Map([
+    [`${origin}package.json`, encodeJson(root)],
+    [`${origin}exhaust.json`, encodeJson(firstRoute)],
+    [`${origin}intake.json`, encodeJson(secondRoute)],
+    [`${origin}audio/mean.f32le`, mean],
+    [`${origin}audio/residuals.f32le`, residual],
+  ]);
+  return {
+    manifestUrl: `${origin}package.json`,
+    fetch: async (url) => {
+      const bytes = resources.get(String(url));
+      return {
+        ok: bytes !== undefined,
+        status: bytes === undefined ? 404 : 200,
+        async arrayBuffer() {
+          return bytes?.slice().buffer ?? new ArrayBuffer(0);
+        },
+      };
+    },
+  };
 }
 
 function assertFacadeError(code) {
@@ -221,6 +446,86 @@ test("audio facade maps normalized load through lane coordinates and RPM", () =>
   const rendered = engine.render(1);
   assert.ok(rendered instanceof Float32Array);
   assert.equal(rendered.length, 1);
+});
+
+test("coalesced held aliases preserve continuous load and cell weights", () => {
+  const loaded = loadedCoalescedRuntimeFixture();
+  const engine = new RevengineAudioEngine(loaded);
+
+  assertNear(engine.loadManifoldPressurePa(1_000, 0), 40_000);
+  assertNear(engine.loadManifoldPressurePa(1_000, 0.5), 40_000);
+  assertNear(engine.loadManifoldPressurePa(1_000, 1), 40_000);
+  assertNear(engine.loadManifoldPressurePa(1_500, 0.2), 35_000);
+  assertNear(engine.loadManifoldPressurePa(1_500, 0.5), 50_000);
+  assertNear(engine.loadManifoldPressurePa(1_500, 0.8), 65_000);
+
+  const cursor = new HeldPhaseTextureCursor(loaded.runtime.heldPackage);
+  const exactAlias = cursor.operatingWeights({
+    rpm: 1_000,
+    manifoldPressurePaAbs: 40_000,
+  });
+  assert.deepEqual(
+    exactAlias.cells.map(({ id, weight }) => ({ id, weight })),
+    [{ id: "1000rpm-closed", weight: 1 }],
+  );
+  const interpolated = cursor.operatingWeights({
+    rpm: 1_500,
+    manifoldPressurePaAbs: 50_000,
+  });
+  assert.equal(new Set(interpolated.cells.map(({ id }) => id)).size, 3);
+  assertNear(
+    interpolated.cells.reduce((sum, { weight }) => sum + weight, 0),
+    1,
+  );
+  assert.doesNotThrow(() => {
+    engine.process({ rpm: 1_000, throttle01: 0.5, load01: 0.5 }, 8);
+    engine.process({ rpm: 1_500, throttle01: 0.5, load01: 0.5 }, 8);
+    engine.process({ rpm: 2_000, throttle01: 0.5, load01: 0.5 }, 8);
+  });
+});
+
+test("held loader validates coalesced aliases against the declared domain", async () => {
+  const fixture = heldLoaderFixture();
+  const package_ = await loadHeldPhaseTexturePackage(fixture.manifestUrl, {
+    fetch: fixture.fetch,
+    crypto: webcrypto,
+  });
+  assert.deepEqual(package_.rows[0].cells[0].loadAliases, [
+    { lane: "coast", throttle01: 0 },
+    { lane: "mid", throttle01: 0.5 },
+    { lane: "power", throttle01: 1 },
+  ]);
+  assert.equal(package_.rows[0].cells.length, 1);
+  assert.equal(package_.rows[1].cells.length, 2);
+
+  const staleThrottle = heldLoaderFixture({
+    mutateFirstRoute(route) {
+      route.cells[0].capture_provenance.coalesced_capture_throttles_01[1] = 0.4;
+    },
+  });
+  await assert.rejects(
+    loadHeldPhaseTexturePackage(staleThrottle.manifestUrl, {
+      fetch: staleThrottle.fetch,
+      crypto: webcrypto,
+    }),
+    /coalesced alias mid disagrees with domain\.load_lanes/u,
+  );
+});
+
+test("held loader rejects route disagreement about coalesced aliases", async () => {
+  const fixture = heldLoaderFixture({
+    mutateSecondRoute(route) {
+      route.cells[0].capture_provenance.coalesced_authored_lanes.pop();
+      route.cells[0].capture_provenance.coalesced_capture_throttles_01.pop();
+    },
+  });
+  await assert.rejects(
+    loadHeldPhaseTexturePackage(fixture.manifestUrl, {
+      fetch: fixture.fetch,
+      crypto: webcrypto,
+    }),
+    /1000rpm-coast route coordinates disagree/u,
+  );
 });
 
 test("streaming process accepts dense endpoints behind one uniform batch", () => {

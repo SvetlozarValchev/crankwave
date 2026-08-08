@@ -540,6 +540,56 @@ target_link_libraries(
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_c_api)
 
+# Native responsive-audio cooking. This library drives the same authoritative
+# C++ session used by finite audition renders; JavaScript/WASM is a playback and
+# migration-oracle surface, not a production bake dependency.
+add_library(
+    engine_sim_offline_responsive
+    STATIC
+        src/responsive/directional_texture.cpp
+        src/responsive/directional_planning.cpp
+        src/responsive/directional_cook.cpp
+        src/responsive/finite_capture.cpp
+        src/responsive/held_alignment.cpp
+        src/responsive/held_planning.cpp
+        src/responsive/held_texture.cpp
+        src/responsive/lifecycle_cook.cpp
+        src/responsive/lifecycle_planning.cpp
+        src/responsive/native_package.cpp
+        src/responsive/native_publication.cpp
+        src/responsive/package_child_encoders.cpp
+        src/responsive/package_children.cpp
+        src/responsive/presentation_transfer.cpp
+        src/responsive/profile.cpp
+        src/responsive/scenario_template.cpp
+)
+add_library(
+    engine_sim_offline::responsive
+    ALIAS engine_sim_offline_responsive
+)
+
+target_include_directories(
+    engine_sim_offline_responsive
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_responsive
+    PUBLIC
+        engine_sim_offline::authoring
+        engine_sim_offline::compile
+        engine_sim_offline::contract
+        engine_sim_offline::session
+        engine_sim_offline::build_options
+    PRIVATE
+        engine_sim_offline::artifacts
+        engine_sim_offline::presentation
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_responsive)
+
 if(EMSCRIPTEN OR ENGINE_SIM_OFFLINE_BUILD_WASM)
     include(cmake/EngineSimOfflineWasm.cmake)
 endif()
@@ -1030,6 +1080,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     add_library(
         engine_sim_offline_cli_support
         STATIC
+            src/cli/bake_revengine_command.cpp
             src/cli/cli_app.cpp
             src/cli/native_asset_root.cpp
             src/cli/native_builtin_asset_catalog.cpp
@@ -1037,6 +1088,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             src/cli/native_input_files.cpp
             src/cli/native_input_filesystem.cpp
             src/cli/native_output_directory.cpp
+            src/cli/native_responsive_bake_identity.cpp
             src/cli/revengine_cli_support.cpp
     )
 
@@ -1063,6 +1115,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             engine_sim_offline::authoring
             engine_sim_offline::compile
             engine_sim_offline::bake
+            engine_sim_offline::responsive
             engine_sim_offline_renderer_determinism
     )
     engine_sim_offline_enable_renderer_numeric_policy(

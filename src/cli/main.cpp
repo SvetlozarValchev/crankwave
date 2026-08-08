@@ -30,7 +30,8 @@ int main(int argc, char **argv) {
 
     const auto controlled_invocation =
         !arguments.empty() &&
-        (arguments.front() == "render" || arguments.front() == "pack-revengine" ||
+        (arguments.front() == "render" || arguments.front() == "bake-revengine" ||
+         arguments.front() == "pack-revengine" ||
          arguments.front() == "inspect-revengine" ||
          arguments.front() == "verify-revengine");
     if (!controlled_invocation) {

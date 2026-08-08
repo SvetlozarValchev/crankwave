@@ -37,6 +37,7 @@ struct CatalogEntry {
 
 struct ParsedCatalog {
     std::filesystem::path canonical_path;
+    contract::Sha256Digest sha256;
     std::vector<CatalogEntry> entries;
 };
 
@@ -163,7 +164,8 @@ parse_catalog(detail::ReadFile catalog_file,
                              "built-in asset catalog 'assets' must be a bounded array");
     }
 
-    ParsedCatalog result{std::move(catalog_file.canonical_path), {}};
+    const auto catalog_sha256 = contract::sha256(catalog_file.bytes);
+    ParsedCatalog result{std::move(catalog_file.canonical_path), catalog_sha256, {}};
     result.entries.reserve(assets.size());
     constexpr std::array entry_members{std::string_view{"kind"}, std::string_view{"id"},
                                        std::string_view{"sha256"}};
@@ -444,6 +446,7 @@ load_from_catalog_impl(const std::filesystem::path &engine_path,
         return std::move(*error);
     }
     auto catalog = std::get<ParsedCatalog>(std::move(parsed_catalog));
+    input.builtin_asset_catalog_sha256 = catalog.sha256;
 
     auto root_result = detail::open_asset_root(catalog.canonical_path.parent_path());
     if (auto *error = std::get_if<NativeInputError>(&root_result)) {
@@ -658,6 +661,44 @@ IrAuthoringCatalogResult load_ir_authoring_catalog_with_builtin_assets(
             NativeInputErrorCode::filesystem_failure, {},
             "IR authoring catalog discovery failed unexpectedly",
             NativeInputErrorKind::software);
+    }
+}
+
+BuiltinAssetCatalogIdentityResult
+load_builtin_asset_catalog_identity_with_builtin_assets(NativeInputLimits limits) {
+    try {
+        auto executable = current_executable_path();
+        if (auto *error = std::get_if<NativeInputError>(&executable)) {
+            return std::move(*error);
+        }
+        auto catalog_path =
+            discover_impl(std::get<std::filesystem::path>(std::move(executable)));
+        if (auto *error = std::get_if<NativeInputError>(&catalog_path)) {
+            return std::move(*error);
+        }
+        auto catalog_file = detail::read_exact_regular_file(
+            std::get<std::filesystem::path>(catalog_path),
+            NativeInputSubject::builtin_asset_catalog, {},
+            limits.maximum_document_bytes);
+        if (auto *error = std::get_if<NativeInputError>(&catalog_file)) {
+            return std::move(*error);
+        }
+        auto parsed_catalog = parse_catalog(
+            std::get<detail::ReadFile>(std::move(catalog_file)),
+            limits.authoring_limits.json);
+        if (auto *error = std::get_if<NativeInputError>(&parsed_catalog)) {
+            return std::move(*error);
+        }
+        auto parsed = std::get<ParsedCatalog>(std::move(parsed_catalog));
+        return BuiltinAssetCatalogIdentity{std::move(parsed.canonical_path),
+                                           parsed.sha256};
+    } catch (const std::bad_alloc &) {
+        return catalog_error(NativeInputErrorCode::memory_allocation_failed, {},
+                             "built-in catalog identity allocation failed",
+                             NativeInputErrorKind::software);
+    } catch (...) {
+        return unexpected_catalog_failure(
+            {}, "built-in catalog identity loading failed unexpectedly");
     }
 }
 

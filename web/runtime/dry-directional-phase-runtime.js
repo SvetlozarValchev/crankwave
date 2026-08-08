@@ -8,6 +8,9 @@ const CANONICAL_SAMPLE_RATE = 192_000;
 const FFT_SIZE = 65_536;
 const IR_COEFFICIENT_COUNT = 30_071;
 const IR_HISTORY_FRAMES = IR_COEFFICIENT_COUNT - 1;
+const PARTITIONED_FFT_SIZE = 8_192;
+const PARTITIONED_FFT_BIT_COUNT = 13;
+const PARTITIONED_BLOCK_FRAMES = 3_840;
 const FLOAT32_BELOW_ONE = bitCastUint32ToFloat32(0x3f7fffff);
 const PEAK_RETENTION_PER_FRAME = bitCastUint32ToFloat32(0x3f7ffef2);
 const GAIN_RETENTION_PER_FRAME = bitCastUint32ToFloat32(0x3f7fe1df);
@@ -413,6 +416,254 @@ export class FixedSpectrumConvolver {
       this.#history.set(input, IR_HISTORY_FRAMES - input.length);
     }
     return output;
+  }
+}
+
+class PartitionedFftPlan {
+  #reversed = new Uint32Array(PARTITIONED_FFT_SIZE);
+  #forwardRootReal = new Float64Array(PARTITIONED_FFT_SIZE / 2);
+  #forwardRootImaginary = new Float64Array(PARTITIONED_FFT_SIZE / 2);
+
+  constructor() {
+    for (let index = 0; index < PARTITIONED_FFT_SIZE; ++index) {
+      let remaining = index;
+      let reversed = 0;
+      for (let bit = 0; bit < PARTITIONED_FFT_BIT_COUNT; ++bit) {
+        reversed = (reversed << 1) | (remaining & 1);
+        remaining >>>= 1;
+      }
+      this.#reversed[index] = reversed;
+    }
+    for (let index = 0; index < PARTITIONED_FFT_SIZE / 2; ++index) {
+      const angle = (-2 * Math.PI * index) / PARTITIONED_FFT_SIZE;
+      this.#forwardRootReal[index] = Math.cos(angle);
+      this.#forwardRootImaginary[index] = Math.sin(angle);
+    }
+  }
+
+  forward(real, imaginary) {
+    this.#transform(real, imaginary, false);
+  }
+
+  inverse(real, imaginary) {
+    this.#transform(real, imaginary, true);
+  }
+
+  #transform(real, imaginary, inverse) {
+    if (
+      !(real instanceof Float64Array) ||
+      !(imaginary instanceof Float64Array) ||
+      real.length !== PARTITIONED_FFT_SIZE ||
+      imaginary.length !== PARTITIONED_FFT_SIZE
+    ) {
+      throw new RangeError(
+        "partitioned FFT requires two 8192-element Float64 arrays",
+      );
+    }
+    for (let index = 0; index < PARTITIONED_FFT_SIZE; ++index) {
+      const reversed = this.#reversed[index];
+      if (index < reversed) {
+        const realSwap = real[index];
+        real[index] = real[reversed];
+        real[reversed] = realSwap;
+        const imaginarySwap = imaginary[index];
+        imaginary[index] = imaginary[reversed];
+        imaginary[reversed] = imaginarySwap;
+      }
+    }
+    for (let width = 2; width <= PARTITIONED_FFT_SIZE; width *= 2) {
+      const halfWidth = width / 2;
+      const rootStep = PARTITIONED_FFT_SIZE / width;
+      for (let base = 0; base < PARTITIONED_FFT_SIZE; base += width) {
+        for (let offset = 0; offset < halfWidth; ++offset) {
+          const rootIndex = offset * rootStep;
+          const rootReal = this.#forwardRootReal[rootIndex];
+          const rootImaginary = inverse
+            ? -this.#forwardRootImaginary[rootIndex]
+            : this.#forwardRootImaginary[rootIndex];
+          const oddIndex = base + offset + halfWidth;
+          const evenIndex = base + offset;
+          const oddReal =
+            real[oddIndex] * rootReal - imaginary[oddIndex] * rootImaginary;
+          const oddImaginary =
+            real[oddIndex] * rootImaginary + imaginary[oddIndex] * rootReal;
+          const evenReal = real[evenIndex];
+          const evenImaginary = imaginary[evenIndex];
+          real[evenIndex] = evenReal + oddReal;
+          imaginary[evenIndex] = evenImaginary + oddImaginary;
+          real[oddIndex] = evenReal - oddReal;
+          imaginary[oddIndex] = evenImaginary - oddImaginary;
+        }
+      }
+    }
+    if (inverse) {
+      const scale = 1 / PARTITIONED_FFT_SIZE;
+      for (let index = 0; index < PARTITIONED_FFT_SIZE; ++index) {
+        real[index] *= scale;
+        imaginary[index] *= scale;
+      }
+    }
+  }
+}
+
+// Complete uniform-partitioned configured-IR convolution for the additive v2
+// transfer descriptor. The public process call may contain several exact 20 ms
+// partitions, but never pads or drops a partial partition.
+export class PartitionedSpectrumConvolver {
+  #kernelReal;
+  #kernelImaginary;
+  #partitionCount;
+  #plan = new PartitionedFftPlan();
+  #inputSpectraReal;
+  #inputSpectraImaginary;
+  #inputReal = new Float64Array(PARTITIONED_FFT_SIZE);
+  #inputImaginary = new Float64Array(PARTITIONED_FFT_SIZE);
+  #outputReal = new Float64Array(PARTITIONED_FFT_SIZE);
+  #outputImaginary = new Float64Array(PARTITIONED_FFT_SIZE);
+  #overlap = new Float64Array(PARTITIONED_BLOCK_FRAMES - 1);
+  #nextOverlap = new Float64Array(PARTITIONED_BLOCK_FRAMES - 1);
+  #processedBlockCount = 0;
+
+  constructor(spectrum) {
+    if (
+      spectrum?.fftSize !== PARTITIONED_FFT_SIZE ||
+      spectrum?.partitionFrameCount !== PARTITIONED_BLOCK_FRAMES ||
+      !Number.isSafeInteger(spectrum?.partitionCount) ||
+      spectrum.partitionCount <= 0 ||
+      !(spectrum.real instanceof Float64Array) ||
+      !(spectrum.imaginary instanceof Float64Array) ||
+      spectrum.real.length !== spectrum.partitionCount * PARTITIONED_FFT_SIZE ||
+      spectrum.imaginary.length !== spectrum.real.length
+    ) {
+      throw new RangeError("partitioned convolver received an invalid spectrum");
+    }
+    this.#kernelReal = spectrum.real;
+    this.#kernelImaginary = spectrum.imaginary;
+    this.#partitionCount = spectrum.partitionCount;
+    this.#inputSpectraReal = new Float64Array(
+      this.#partitionCount * PARTITIONED_FFT_SIZE,
+    );
+    this.#inputSpectraImaginary = new Float64Array(
+      this.#partitionCount * PARTITIONED_FFT_SIZE,
+    );
+  }
+
+  reset() {
+    this.#inputSpectraReal.fill(0);
+    this.#inputSpectraImaginary.fill(0);
+    this.#inputReal.fill(0);
+    this.#inputImaginary.fill(0);
+    this.#outputReal.fill(0);
+    this.#outputImaginary.fill(0);
+    this.#overlap.fill(0);
+    this.#nextOverlap.fill(0);
+    this.#processedBlockCount = 0;
+  }
+
+  process(input) {
+    if (!(input instanceof Float64Array)) {
+      throw new TypeError("partitioned convolution input must be Float64Array");
+    }
+    if (
+      input.length === 0 ||
+      input.length % PARTITIONED_BLOCK_FRAMES !== 0
+    ) {
+      throw new RangeError(
+        "partitioned convolution input must contain complete 3840-frame blocks",
+      );
+    }
+    const output = new Float64Array(input.length);
+    for (
+      let offset = 0;
+      offset < input.length;
+      offset += PARTITIONED_BLOCK_FRAMES
+    ) {
+      this.#processBlock(
+        input.subarray(offset, offset + PARTITIONED_BLOCK_FRAMES),
+        output.subarray(offset, offset + PARTITIONED_BLOCK_FRAMES),
+      );
+    }
+    return output;
+  }
+
+  #processBlock(input, output) {
+    this.#inputReal.fill(0);
+    this.#inputImaginary.fill(0);
+    for (let frame = 0; frame < PARTITIONED_BLOCK_FRAMES; ++frame) {
+      const sample = input[frame];
+      if (!Number.isFinite(sample)) {
+        throw new RangeError(
+          `partitioned convolution input was non-finite at frame ${frame}`,
+        );
+      }
+      this.#inputReal[frame] = sample;
+    }
+    this.#plan.forward(this.#inputReal, this.#inputImaginary);
+    this.#outputReal.fill(0);
+    this.#outputImaginary.fill(0);
+
+    const availablePartitions = Math.min(
+      this.#processedBlockCount + 1,
+      this.#partitionCount,
+    );
+    const currentSlot = this.#processedBlockCount % this.#partitionCount;
+    for (let partition = 0; partition < availablePartitions; ++partition) {
+      const kernelOffset = partition * PARTITIONED_FFT_SIZE;
+      const inputOffset = partition === 0
+        ? 0
+        : ((currentSlot + this.#partitionCount - partition) %
+            this.#partitionCount) * PARTITIONED_FFT_SIZE;
+      const inputReal = partition === 0
+        ? this.#inputReal
+        : this.#inputSpectraReal;
+      const inputImaginary = partition === 0
+        ? this.#inputImaginary
+        : this.#inputSpectraImaginary;
+      for (let bin = 0; bin < PARTITIONED_FFT_SIZE; ++bin) {
+        const inputIndex = inputOffset + bin;
+        const kernelIndex = kernelOffset + bin;
+        const leftReal = inputReal[inputIndex];
+        const leftImaginary = inputImaginary[inputIndex];
+        const rightReal = this.#kernelReal[kernelIndex];
+        const rightImaginary = this.#kernelImaginary[kernelIndex];
+        this.#outputReal[bin] +=
+          leftReal * rightReal - leftImaginary * rightImaginary;
+        this.#outputImaginary[bin] +=
+          leftReal * rightImaginary + leftImaginary * rightReal;
+      }
+    }
+    this.#plan.inverse(this.#outputReal, this.#outputImaginary);
+
+    for (let frame = 0; frame < PARTITIONED_BLOCK_FRAMES; ++frame) {
+      const sample = this.#outputReal[frame] +
+        (frame < this.#overlap.length ? this.#overlap[frame] : 0);
+      if (!Number.isFinite(sample)) {
+        throw new RangeError(
+          `partitioned convolution output was non-finite at frame ${frame}`,
+        );
+      }
+      output[frame] = sample;
+    }
+    for (let frame = 0; frame < this.#nextOverlap.length; ++frame) {
+      const sample = this.#outputReal[PARTITIONED_BLOCK_FRAMES + frame];
+      if (!Number.isFinite(sample)) {
+        throw new RangeError(
+          `partitioned convolution overlap was non-finite at frame ${frame}`,
+        );
+      }
+      this.#nextOverlap[frame] = sample;
+    }
+
+    const slotOffset = currentSlot * PARTITIONED_FFT_SIZE;
+    this.#inputSpectraReal.set(this.#inputReal, slotOffset);
+    this.#inputSpectraImaginary.set(this.#inputImaginary, slotOffset);
+    const completedOverlap = this.#overlap;
+    this.#overlap = this.#nextOverlap;
+    this.#nextOverlap = completedOverlap;
+    if (this.#processedBlockCount === Number.MAX_SAFE_INTEGER) {
+      throw new RangeError("partitioned convolution block horizon overflowed");
+    }
+    ++this.#processedBlockCount;
   }
 }
 

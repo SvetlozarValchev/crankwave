@@ -77,7 +77,8 @@ NativeEngineInputResult load_engine_document_impl(
     NativeEngineInput result{
         std::get<authoring::EnginePackageDocument>(std::move(parsed)), {},
         {read_engine.canonical_path, std::move(read_engine.bytes),
-         engine_sha256}};
+         engine_sha256},
+        std::nullopt};
     const auto audio_count = result.document.presentation.assets.size();
     const auto accessory_count =
         result.document.engine.accessory_configurations.size();

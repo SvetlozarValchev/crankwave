@@ -93,15 +93,35 @@ function rpmRows(package_, rpm) {
   };
 }
 
-function cellsByLane(row, laneIds) {
-  const cells = new Map(row.cells.map((cell) => [cell.lane, cell]));
+function cellsByLane(row, lanes) {
+  const declaredByLane = new Map(
+    lanes.map(({ id, throttle01 }) => [id, throttle01]),
+  );
+  const cells = new Map();
+  for (const cell of row.cells) {
+    const aliases = Array.isArray(cell.loadAliases)
+      ? cell.loadAliases
+      : [{ lane: cell.lane, throttle01: declaredByLane.get(cell.lane) }];
+    for (const alias of aliases) {
+      if (
+        declaredByLane.get(alias.lane) !== alias.throttle01 ||
+        cells.has(alias.lane)
+      ) {
+        fail(
+          "invalid-runtime-package",
+          `${row.rpm} RPM has duplicate or undeclared load aliases`,
+        );
+      }
+      cells.set(alias.lane, cell);
+    }
+  }
   if (
-    cells.size !== laneIds.length ||
-    laneIds.some((laneId) => !cells.has(laneId))
+    cells.size !== lanes.length ||
+    lanes.some(({ id }) => !cells.has(id))
   ) {
     fail(
       "invalid-runtime-package",
-      `${row.rpm} RPM does not implement the complete load-lane grid`,
+      `${row.rpm} RPM does not implement the complete load-lane aliases`,
     );
   }
   return cells;
@@ -132,9 +152,8 @@ function loadLaneCurves(package_, rpm) {
     }
   }
   const { left, right, amount } = rpmRows(package_, rpm);
-  const laneIds = lanes.map(({ id }) => id);
-  const leftCells = cellsByLane(left, laneIds);
-  const rightCells = left === right ? leftCells : cellsByLane(right, laneIds);
+  const leftCells = cellsByLane(left, lanes);
+  const rightCells = left === right ? leftCells : cellsByLane(right, lanes);
   return lanes.map((lane) => {
     const leftMap = leftCells.get(lane.id).manifoldPressurePaAbs;
     const rightMap = rightCells.get(lane.id).manifoldPressurePaAbs;

@@ -11,6 +11,170 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_responsive_directional_texture_tests
+    responsive_directional_texture_test.cpp
+)
+target_link_libraries(
+    engine_sim_offline_responsive_directional_texture_tests
+    PRIVATE engine_sim_offline::responsive
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_responsive_directional_texture_tests
+)
+add_test(
+    NAME responsive.directional_texture
+    COMMAND engine_sim_offline_responsive_directional_texture_tests
+)
+
+add_executable(
+    engine_sim_offline_responsive_directional_cook_tests
+    responsive_directional_cook_test.cpp
+)
+target_link_libraries(
+    engine_sim_offline_responsive_directional_cook_tests
+    PRIVATE engine_sim_offline::responsive
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_responsive_directional_cook_tests
+)
+add_test(
+    NAME responsive.directional_cook
+    COMMAND engine_sim_offline_responsive_directional_cook_tests
+)
+
+add_executable(
+    engine_sim_offline_responsive_profile_held_texture_tests
+    responsive_profile_held_texture_test.cpp
+)
+target_link_libraries(
+    engine_sim_offline_responsive_profile_held_texture_tests
+    PRIVATE engine_sim_offline::responsive
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_responsive_profile_held_texture_tests
+)
+add_test(
+    NAME responsive.profile_held_texture
+    COMMAND engine_sim_offline_responsive_profile_held_texture_tests
+)
+
+add_executable(
+    engine_sim_offline_responsive_scenario_template_tests
+    responsive_scenario_template_test.cpp
+)
+target_link_libraries(
+    engine_sim_offline_responsive_scenario_template_tests
+    PRIVATE engine_sim_offline::responsive
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_responsive_scenario_template_tests
+)
+add_test(
+    NAME responsive.scenario_template
+    COMMAND
+        engine_sim_offline_responsive_scenario_template_tests
+        ${PROJECT_SOURCE_DIR}
+)
+
+add_executable(
+    engine_sim_offline_responsive_finite_capture_tests
+    responsive_finite_capture_test.cpp
+)
+target_link_libraries(
+    engine_sim_offline_responsive_finite_capture_tests
+    PRIVATE engine_sim_offline::responsive
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_responsive_finite_capture_tests
+)
+add_test(
+    NAME responsive.finite_capture
+    COMMAND
+        engine_sim_offline_responsive_finite_capture_tests
+        ${PROJECT_SOURCE_DIR}
+)
+set_tests_properties(
+    responsive.finite_capture
+    PROPERTIES TIMEOUT 180
+)
+
+add_executable(
+    engine_sim_offline_native_responsive_package_tests
+    native_responsive_package_test.cpp
+)
+target_link_libraries(
+    engine_sim_offline_native_responsive_package_tests
+    PRIVATE engine_sim_offline::responsive
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_native_responsive_package_tests
+)
+add_test(
+    NAME responsive.native_package
+    COMMAND engine_sim_offline_native_responsive_package_tests
+)
+
+add_executable(
+    engine_sim_offline_responsive_presentation_transfer_tests
+    responsive_presentation_transfer_test.cpp
+)
+target_link_libraries(
+    engine_sim_offline_responsive_presentation_transfer_tests
+    PRIVATE engine_sim_offline::responsive
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_responsive_presentation_transfer_tests
+)
+add_test(
+    NAME responsive.presentation_transfer
+    COMMAND
+        engine_sim_offline_responsive_presentation_transfer_tests
+        ${PROJECT_SOURCE_DIR}
+)
+set_tests_properties(
+    responsive.presentation_transfer
+    PROPERTIES TIMEOUT 180
+)
+
+add_executable(
+    engine_sim_offline_responsive_package_children_tests
+    responsive_package_children_test.cpp
+)
+target_link_libraries(
+    engine_sim_offline_responsive_package_children_tests
+    PRIVATE engine_sim_offline::responsive
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_responsive_package_children_tests
+)
+add_test(
+    NAME responsive.package_children
+    COMMAND engine_sim_offline_responsive_package_children_tests
+)
+
+add_executable(
+    engine_sim_offline_responsive_lifecycle_tests
+    responsive_lifecycle_test.cpp
+)
+target_link_libraries(
+    engine_sim_offline_responsive_lifecycle_tests
+    PRIVATE engine_sim_offline::responsive
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_responsive_lifecycle_tests
+)
+add_test(
+    NAME responsive.lifecycle
+    COMMAND
+        engine_sim_offline_responsive_lifecycle_tests
+        ${PROJECT_SOURCE_DIR}
+)
+set_tests_properties(
+    responsive.lifecycle
+    PROPERTIES TIMEOUT 180
+)
+
+add_executable(
     engine_sim_offline_c_api_header_tests
     c_api_header_test.c
 )
@@ -2365,6 +2529,7 @@ if(TARGET engine_sim_offline_cli_support)
     target_include_directories(
         engine_sim_offline_cli_app_tests
         PRIVATE
+            ${PROJECT_SOURCE_DIR}/include
             ${PROJECT_SOURCE_DIR}/src/cli
     )
 
@@ -2379,6 +2544,31 @@ if(TARGET engine_sim_offline_cli_support)
     add_test(
         NAME cli.app
         COMMAND engine_sim_offline_cli_app_tests
+    )
+
+    add_executable(
+        engine_sim_offline_bake_revengine_command_tests
+        bake_revengine_command_test.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_bake_revengine_command_tests
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/include
+            ${PROJECT_SOURCE_DIR}/src/cli
+    )
+
+    target_link_libraries(
+        engine_sim_offline_bake_revengine_command_tests
+        PRIVATE engine_sim_offline_cli_support
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_bake_revengine_command_tests
+    )
+
+    add_test(
+        NAME cli.bake_revengine_command
+        COMMAND engine_sim_offline_bake_revengine_command_tests
     )
 
     add_executable(
@@ -2483,6 +2673,20 @@ if(TARGET engine_sim_offline_cli_support)
         )
         set_tests_properties(
             runtime.revengine_audio_engine
+            PROPERTIES
+                LABELS "javascript;runtime"
+                TIMEOUT 120
+        )
+
+        add_test(
+            NAME runtime.partitioned_spectrum_convolver
+            COMMAND
+                ${_engine_sim_offline_node_for_installed_test}
+                --test
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/partitioned-spectrum-convolver.test.mjs
+        )
+        set_tests_properties(
+            runtime.partitioned_spectrum_convolver
             PROPERTIES
                 LABELS "javascript;runtime"
                 TIMEOUT 120

@@ -118,6 +118,9 @@ struct NativeEngineInput {
     authoring::EnginePackageDocument document;
     std::vector<OwnedAssetPayload> assets;
     NativeSourceDocument source;
+    // Present only when this exact input was resolved through the installed
+    // technical catalog. Developer asset-root resolution remains explicitly local.
+    std::optional<contract::Sha256Digest> builtin_asset_catalog_sha256;
 
     // The returned spans borrow this object's strings and byte vectors. Regenerate
     // them after moving or mutating NativeEngineInput.
@@ -142,6 +145,17 @@ using NativeScenarioInputResult =
 using NativeAtlasBakeInputResult = std::variant<NativeAtlasBakeInput, NativeInputError>;
 using BuiltinAssetCatalogLocationResult =
     std::variant<std::filesystem::path, NativeInputError>;
+
+struct BuiltinAssetCatalogIdentity {
+    std::filesystem::path canonical_path;
+    contract::Sha256Digest sha256;
+
+    friend bool operator==(const BuiltinAssetCatalogIdentity &,
+                           const BuiltinAssetCatalogIdentity &) = default;
+};
+
+using BuiltinAssetCatalogIdentityResult =
+    std::variant<BuiltinAssetCatalogIdentity, NativeInputError>;
 
 struct IrAuthoringCatalogDocument {
     std::filesystem::path canonical_path;
@@ -179,6 +193,13 @@ load_native_engine_input_with_builtin_assets(const std::filesystem::path &engine
 // directory.
 [[nodiscard]] BuiltinAssetCatalogLocationResult
 discover_builtin_asset_catalog(const std::filesystem::path &executable_path);
+
+// Discovers, validates, and hashes the exact installed technical catalog. This is
+// used by developer asset-root bakes to retain a release-bound implementation
+// identity without pretending their payloads came from that catalog.
+[[nodiscard]] BuiltinAssetCatalogIdentityResult
+load_builtin_asset_catalog_identity_with_builtin_assets(
+    NativeInputLimits limits = {});
 
 // Discovers and validates the semantic IR authoring palette adjacent to the
 // technical built-in asset catalog. Every exposed id+sha256 pair must also be an

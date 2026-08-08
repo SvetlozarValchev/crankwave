@@ -69,6 +69,190 @@ function positiveInteger(value, label) {
   return value;
 }
 
+function exactKeys(value, expected, label) {
+  object(value, label);
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  if (
+    actual.length !== wanted.length ||
+    actual.some((key, index) => key !== wanted[index])
+  ) {
+    fail(`${label} has unknown or missing fields`);
+  }
+  return value;
+}
+
+function loadLanes(value, label = "domain.load_lanes") {
+  const lanes = array(value, label).map((entry, index) => {
+    object(entry, `${label}[${index}]`);
+    const id = string(entry.id, `${label}[${index}].id`);
+    const throttle01 = finite(
+      entry.throttle01,
+      `${label}[${index}].throttle01`,
+    );
+    if (throttle01 < 0 || throttle01 > 1) {
+      fail(`${label}[${index}].throttle01 must be within [0, 1]`);
+    }
+    return Object.freeze({ id, throttle01 });
+  });
+  if (lanes.length === 0 || new Set(lanes.map(({ id }) => id)).size !== lanes.length) {
+    fail(`${label} must contain unique declared lanes`);
+  }
+  for (let index = 1; index < lanes.length; ++index) {
+    if (!(lanes[index].throttle01 > lanes[index - 1].throttle01)) {
+      fail(`${label} throttle coordinates must be strictly increasing`);
+    }
+  }
+  return Object.freeze(lanes);
+}
+
+function cellLoadAliases(descriptor, lane, throttle01, declaredLoadLanes, label) {
+  const declaredByLane = new Map(
+    declaredLoadLanes.map((entry, index) => [entry.id, { ...entry, index }]),
+  );
+  const retained = declaredByLane.get(lane);
+  if (retained === undefined || retained.throttle01 !== throttle01) {
+    fail(`${label} retained lane/throttle disagrees with domain.load_lanes`);
+  }
+  if (descriptor.capture_provenance === undefined) {
+    return Object.freeze([Object.freeze({ lane, throttle01 })]);
+  }
+  const provenance = exactKeys(
+    descriptor.capture_provenance,
+    ["coalesced_authored_lanes", "coalesced_capture_throttles_01"],
+    `${label}.capture_provenance`,
+  );
+  const laneValues = array(
+    provenance.coalesced_authored_lanes,
+    `${label}.capture_provenance.coalesced_authored_lanes`,
+  );
+  const throttleValues = array(
+    provenance.coalesced_capture_throttles_01,
+    `${label}.capture_provenance.coalesced_capture_throttles_01`,
+  );
+  if (laneValues.length === 0 || laneValues.length !== throttleValues.length) {
+    fail(`${label} coalesced lane/throttle arrays must be nonempty and paired`);
+  }
+  const aliases = laneValues.map((value, index) => {
+    const aliasLane = string(
+      value,
+      `${label}.capture_provenance.coalesced_authored_lanes[${index}]`,
+    );
+    const aliasThrottle = finite(
+      throttleValues[index],
+      `${label}.capture_provenance.coalesced_capture_throttles_01[${index}]`,
+    );
+    const declared = declaredByLane.get(aliasLane);
+    if (declared === undefined || declared.throttle01 !== aliasThrottle) {
+      fail(`${label} coalesced alias ${aliasLane} disagrees with domain.load_lanes`);
+    }
+    return Object.freeze({
+      lane: aliasLane,
+      throttle01: aliasThrottle,
+      declaredIndex: declared.index,
+    });
+  });
+  if (
+    aliases[0].lane !== lane ||
+    aliases[0].throttle01 !== throttle01 ||
+    new Set(aliases.map(({ lane: aliasLane }) => aliasLane)).size !== aliases.length
+  ) {
+    fail(`${label} coalesced aliases must begin with the retained unique lane`);
+  }
+  for (let index = 1; index < aliases.length; ++index) {
+    if (!(aliases[index].declaredIndex > aliases[index - 1].declaredIndex)) {
+      fail(`${label} coalesced aliases must follow declared load-lane order`);
+    }
+  }
+  return Object.freeze(
+    aliases.map(({ lane: aliasLane, throttle01: aliasThrottle }) =>
+      Object.freeze({ lane: aliasLane, throttle01: aliasThrottle })
+    ),
+  );
+}
+
+function aliasesAgree(left, right) {
+  return (
+    left.length === right.length &&
+    left.every(
+      (entry, index) =>
+        entry.lane === right[index].lane &&
+        entry.throttle01 === right[index].throttle01,
+    )
+  );
+}
+
+function cellsByDeclaredLane(row, declaredLoadLanes) {
+  const declaredByLane = new Map(
+    declaredLoadLanes.map((entry) => [entry.id, entry.throttle01]),
+  );
+  const result = new Map();
+  for (const cell of row.cells) {
+    const aliases = Array.isArray(cell.loadAliases)
+      ? cell.loadAliases
+      : [{ lane: cell.lane, throttle01: declaredByLane.get(cell.lane) }];
+    for (const alias of aliases) {
+      if (
+        declaredByLane.get(alias.lane) !== alias.throttle01 ||
+        result.has(alias.lane)
+      ) {
+        throw new RangeError(
+          `${row.rpm} RPM has duplicate or undeclared held load aliases`,
+        );
+      }
+      result.set(alias.lane, cell);
+    }
+  }
+  if (
+    result.size !== declaredLoadLanes.length ||
+    declaredLoadLanes.some(({ id }) => !result.has(id))
+  ) {
+    throw new RangeError(
+      `${row.rpm} RPM does not implement the complete held load-lane aliases`,
+    );
+  }
+  return result;
+}
+
+function collapseAliasCoincidentCurves(curves, rpm) {
+  const result = [];
+  for (const curve of curves) {
+    const previous = result.at(-1);
+    if (
+      previous === undefined ||
+      previous.manifoldPressurePaAbs !== curve.manifoldPressurePaAbs
+    ) {
+      result.push(curve);
+      continue;
+    }
+    if (
+      previous.leftCell !== curve.leftCell ||
+      previous.rightCell !== curve.rightCell
+    ) {
+      throw new RangeError(`held load-lane curves coincide at ${rpm} RPM`);
+    }
+    previous.lanes.push(...curve.lanes);
+  }
+  return result;
+}
+
+function combineCellWeights(entries) {
+  const result = [];
+  const byCell = new Map();
+  for (const entry of entries) {
+    if (!(entry.weight > 0)) continue;
+    const existing = byCell.get(entry.cell);
+    if (existing === undefined) {
+      const retained = { cell: entry.cell, weight: entry.weight };
+      byCell.set(entry.cell, retained);
+      result.push(retained);
+    } else {
+      existing.weight += entry.weight;
+    }
+  }
+  return result;
+}
+
 function resolveUrl(value) {
   if (value instanceof URL) return new URL(value.href);
   if (typeof value !== "string" || value.length === 0) {
@@ -279,6 +463,7 @@ function floorModuloBigInt(value, divisor) {
 async function loadRouteManifest(
   rootManifestUrl,
   relativePath,
+  declaredLoadLanes,
   fetchImplementation,
   cryptoImplementation,
 ) {
@@ -352,6 +537,13 @@ async function loadRouteManifest(
       if (throttle01 < 0 || throttle01 > 1) {
         fail(`${id}.capture_throttle_01 must be within [0, 1]`);
       }
+      const loadAliases = cellLoadAliases(
+        descriptor,
+        lane,
+        throttle01,
+        declaredLoadLanes,
+        id,
+      );
       const map = positive(
         descriptor.manifold_pressure_pa_abs,
         `${id}.manifold_pressure_pa_abs`,
@@ -443,6 +635,7 @@ async function loadRouteManifest(
         rpm,
         lane,
         throttle01,
+        loadAliases,
         manifoldPressurePaAbs: map,
         sourceCycleBeginRevolutions,
         sourceCycleEndRevolutions,
@@ -599,6 +792,7 @@ export async function loadHeldPhaseTexturePackage(
   ) {
     fail("held texture RPM bounds must equal the outer anchors");
   }
+  const declaredLoadLanes = loadLanes(manifest.domain.load_lanes);
   const dryBusIds = array(manifest.dry_bus_ids, "root manifest.dry_bus_ids")
     .map((value, index) => string(value, `dry_bus_ids[${index}]`));
   const routeDescriptors = array(
@@ -627,6 +821,7 @@ export async function loadHeldPhaseTexturePackage(
       loadRouteManifest(
         manifestUrl,
         descriptor.path,
+        declaredLoadLanes,
         fetchImplementation,
         cryptoImplementation,
       ),
@@ -682,7 +877,8 @@ export async function loadHeldPhaseTexturePackage(
         cell.rpm !== referenceCell.rpm ||
         cell.lane !== referenceCell.lane ||
         cell.manifoldPressurePaAbs !== referenceCell.manifoldPressurePaAbs ||
-        cell.throttle01 !== referenceCell.throttle01
+        cell.throttle01 !== referenceCell.throttle01 ||
+        !aliasesAgree(cell.loadAliases, referenceCell.loadAliases)
       ) {
         fail(`${referenceCell.stateId} route coordinates disagree`);
       }
@@ -705,6 +901,7 @@ export async function loadHeldPhaseTexturePackage(
       rpm: referenceCell.rpm,
       lane: referenceCell.lane,
       throttle01: referenceCell.throttle01,
+      loadAliases: referenceCell.loadAliases,
       manifoldPressurePaAbs: referenceCell.manifoldPressurePaAbs,
       shiftToCanonicalSamples,
       routes: Object.freeze(cells),
@@ -752,7 +949,9 @@ export async function loadHeldPhaseTexturePackage(
         fail(`${rpm} RPM manifold-pressure cells are not strictly ordered`);
       }
     }
-    return Object.freeze({ rpm, cells: Object.freeze(cells) });
+    const row = Object.freeze({ rpm, cells: Object.freeze(cells) });
+    cellsByDeclaredLane(row, declaredLoadLanes);
+    return row;
   });
   const { alignedMeans, gram } = buildMeanGram(
     pairedCells,
@@ -1117,47 +1316,30 @@ export class HeldPhaseTextureCursor {
       }
     }
 
-    const laneIds = this.#package.manifest.domain.load_lanes.map(({ id }) => id);
-    const cellsByLane = (row) => {
-      const result = new Map();
-      for (const cell of row.cells) {
-        if (!laneIds.includes(cell.lane) || result.has(cell.lane)) {
-          throw new RangeError(
-            `${row.rpm} RPM has duplicate or undeclared held load lanes`,
-          );
-        }
-        result.set(cell.lane, cell);
-      }
-      if (
-        result.size !== laneIds.length ||
-        laneIds.some((id) => !result.has(id))
-      ) {
-        throw new RangeError(
-          `${row.rpm} RPM does not implement the complete held load-lane grid`,
-        );
-      }
-      return result;
-    };
-    const leftByLane = cellsByLane(leftRow);
+    const declaredLoadLanes = this.#package.manifest.domain.load_lanes;
+    const leftByLane = cellsByDeclaredLane(leftRow, declaredLoadLanes);
     const rightByLane = leftRow === rightRow
       ? leftByLane
-      : cellsByLane(rightRow);
-    const laneCurves = laneIds.map((lane) => {
-      const leftCell = leftByLane.get(lane);
-      const rightCell = rightByLane.get(lane);
-      return {
-        lane,
-        leftCell,
-        rightCell,
-        manifoldPressurePaAbs: interpolate(
-          leftCell.manifoldPressurePaAbs,
-          rightCell.manifoldPressurePaAbs,
-          rpmAmount,
-        ),
-      };
-    }).sort(
-      (left, right) =>
-        left.manifoldPressurePaAbs - right.manifoldPressurePaAbs,
+      : cellsByDeclaredLane(rightRow, declaredLoadLanes);
+    const laneCurves = collapseAliasCoincidentCurves(
+      declaredLoadLanes.map(({ id: lane }) => {
+        const leftCell = leftByLane.get(lane);
+        const rightCell = rightByLane.get(lane);
+        return {
+          lanes: [lane],
+          leftCell,
+          rightCell,
+          manifoldPressurePaAbs: interpolate(
+            leftCell.manifoldPressurePaAbs,
+            rightCell.manifoldPressurePaAbs,
+            rpmAmount,
+          ),
+        };
+      }).sort(
+        (left, right) =>
+          left.manifoldPressurePaAbs - right.manifoldPressurePaAbs,
+      ),
+      rpm,
     );
     for (let index = 1; index < laneCurves.length; ++index) {
       if (
@@ -1165,7 +1347,7 @@ export class HeldPhaseTextureCursor {
           laneCurves[index - 1].manifoldPressurePaAbs)
       ) {
         throw new RangeError(
-          `held load-lane curves coincide at ${rpm} RPM`,
+          `held load-lane curves are not strictly ordered at ${rpm} RPM`,
         );
       }
     }
@@ -1199,7 +1381,7 @@ export class HeldPhaseTextureCursor {
       if (leftWeight > 0) result.push({ cell: curve.leftCell, weight: leftWeight });
       if (rightWeight > 0) result.push({ cell: curve.rightCell, weight: rightWeight });
     }
-    return result;
+    return combineCellWeights(result);
   }
 
   #residualOrdinal(cell, cycleOrdinal) {

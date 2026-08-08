@@ -57,6 +57,15 @@ struct PackRevengineCommand : MachineResultOptions {
                            const PackRevengineCommand &) = default;
 };
 
+struct BakeRevengineCommand : MachineResultOptions {
+    std::string engine_path;
+    std::string asset_root;
+    std::string output_file;
+
+    friend bool operator==(const BakeRevengineCommand &,
+                           const BakeRevengineCommand &) = default;
+};
+
 struct InspectRevengineCommand : MachineResultOptions {
     std::string input_file;
 
@@ -77,8 +86,9 @@ struct InspectIrCatalogCommand : MachineResultOptions {
 };
 
 using CliCommand = std::variant<HelpCommand, VersionCommand, RenderCommand,
-                                PackRevengineCommand, InspectRevengineCommand,
-                                VerifyRevengineCommand, InspectIrCatalogCommand>;
+                                BakeRevengineCommand, PackRevengineCommand,
+                                InspectRevengineCommand, VerifyRevengineCommand,
+                                InspectIrCatalogCommand>;
 
 struct CliUsageError {
     std::string message;

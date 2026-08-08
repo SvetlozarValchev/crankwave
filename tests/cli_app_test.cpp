@@ -1,4 +1,5 @@
 #include "cli_app.hpp"
+#include "native_responsive_bake_identity.hpp"
 
 #include <array>
 #include <iostream>
@@ -13,6 +14,7 @@
 
 namespace {
 
+using engine_sim_offline::cli::BakeRevengineCommand;
 using engine_sim_offline::cli::CliCommand;
 using engine_sim_offline::cli::CliParseResult;
 using engine_sim_offline::cli::CliResultFormat;
@@ -76,6 +78,20 @@ void test_exact_render_grammar() {
 }
 
 void test_exact_revengine_grammars() {
+    const auto baked =
+        parse({"bake-revengine", "--output", "engine.revengine", "--result-format",
+               "json", "--asset-root", "assets", "--deadline-unix-ms", "1786057200000",
+               "--engine", "engine.json"});
+    const auto *baked_command = std::get_if<CliCommand>(&baked);
+    expect(baked_command != nullptr, "valid bake-revengine syntax was rejected");
+    const auto *bake = std::get_if<BakeRevengineCommand>(baked_command);
+    expect(bake != nullptr && bake->engine_path == "engine.json" &&
+               bake->asset_root == "assets" &&
+               bake->output_file == "engine.revengine" &&
+               bake->deadline_unix_ms == 1786057200000ULL &&
+               bake->result_format == CliResultFormat::json,
+           "bake-revengine options were not retained order-independently");
+
     const auto packed = parse({"pack-revengine", "--output", "engine.revengine",
                                "--result-format", "json", "--deadline-unix-ms",
                                "1786057200001", "--package-directory", "package"});
@@ -107,6 +123,31 @@ void test_exact_revengine_grammars() {
     expect(verify != nullptr && verify->input_file == "b.revengine" &&
                verify->deadline_unix_ms == 1786057200003ULL,
            "verify-revengine input was not retained");
+}
+
+[[nodiscard]] std::string
+digest_hex(const engine_sim_offline::contract::Sha256Digest &digest) {
+    constexpr std::string_view digits = "0123456789abcdef";
+    std::string result;
+    result.reserve(64U);
+    for (const auto byte : digest.bytes) {
+        result.push_back(digits[byte >> 4U]);
+        result.push_back(digits[byte & 0x0fU]);
+    }
+    return result;
+}
+
+void test_native_responsive_authority_golden() {
+    const auto authority =
+        engine_sim_offline::cli::native_responsive_bake_authority_v1();
+    expect(authority.method_authority_preimage.size() == 2058U &&
+               digest_hex(authority.method_authority_sha256) ==
+                   "8b97b7ad80b9497cc375da53c41d7cc4b5557c77ac134d04e687404ed61b8760",
+           "native responsive method-authority preimage or digest changed");
+    expect(authority.bake_recipe_preimage.size() == 3167U &&
+               digest_hex(authority.bake_recipe_sha256) ==
+                   "a6993b2c06eba81707b465f00cb05dbed34cd73eaa29b656884f15220ed0c319",
+           "native responsive bake-recipe preimage or digest changed");
 }
 
 void test_ir_authoring_catalog_grammar() {
@@ -159,6 +200,13 @@ void test_strict_render_rejections() {
         {"render", "--help", "--engine", "e", "--scenario", "s", "--asset-root", "a",
          "--output-directory", "o"},
         {"pack-revengine"},
+        {"bake-revengine"},
+        {"bake-revengine", "--engine", "engine.json"},
+        {"bake-revengine", "--output", "engine.revengine"},
+        {"bake-revengine", "--engine", "engine.json", "--output", "one.revengine",
+         "--output", "two.revengine"},
+        {"bake-revengine", "--engine", "engine.json", "--output", "engine.revengine",
+         "--deadline-unix-ms", "0"},
         {"pack-revengine", "--package-directory", "package"},
         {"pack-revengine", "--package-directory", "package", "--output",
          "one.revengine", "--output", "two.revengine"},
@@ -238,6 +286,9 @@ void test_standalone_help_and_version() {
                help.standard_out.find("verify-revengine --input <file.revengine>") !=
                    std::string::npos,
            "--help must advertise the exact REVENGINE command grammar");
+    expect(help.standard_out.find("bake-revengine --engine <engine.json>") !=
+               std::string::npos,
+           "--help must advertise the native responsive bake command");
     expect(help.standard_out.find("inspect-ir-catalog") != std::string::npos,
            "--help must advertise the installed IR authoring query");
     expect(help.standard_error.empty(), "--help must not write stderr");
@@ -364,6 +415,16 @@ void test_machine_failures_and_external_stop() {
                    "\"code\":\"pack-revengine-terminated\"") != std::string::npos,
            "pre-requested pack termination lost its stable machine result");
 
+    const std::array<std::string_view, 7> bake_arguments{
+        "bake-revengine",   "--engine",        "unused-engine", "--output",
+        "unused.revengine", "--result-format", "json"};
+    const auto stopped_bake = invoke(bake_arguments, termination.get_token());
+    expect(stopped_bake.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
+               stopped_bake.standard_error.empty() &&
+               stopped_bake.standard_out.find(
+                   "\"code\":\"bake-revengine-terminated\"") != std::string::npos,
+           "pre-requested native bake termination lost its stable machine result");
+
     const std::array<std::string_view, 5> verify_arguments{
         "verify-revengine", "--input", "unused.revengine", "--result-format", "json"};
     const auto stopped_verify = invoke(verify_arguments, termination.get_token());
@@ -404,6 +465,7 @@ int main() {
     try {
         test_exact_render_grammar();
         test_exact_revengine_grammars();
+        test_native_responsive_authority_golden();
         test_ir_authoring_catalog_grammar();
         test_strict_render_rejections();
         test_standalone_help_and_version();
