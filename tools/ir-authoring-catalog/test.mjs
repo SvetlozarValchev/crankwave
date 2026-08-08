@@ -61,7 +61,7 @@ assert.equal(
   schema.$id,
   "https://engine-sim-offline.dev/schemas/ir-authoring-catalog.schema.json",
 );
-assert.equal(schema.properties.release_identity.const, "1.1.0");
+assert.equal(schema.properties.release_identity.const, "1.2.0");
 assert.equal(schema.properties.entry_count.const, 73);
 
 const catalog = JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8"));
@@ -80,7 +80,7 @@ exactKeys(catalog, [
   "entries",
 ], "catalog");
 assert.equal(catalog.schema, "engine-sim-offline/ir-authoring-catalog.v1");
-assert.equal(catalog.release_identity, "1.1.0");
+assert.equal(catalog.release_identity, "1.2.0");
 assert.equal(catalog.entry_count, 73);
 assert.equal(catalog.entries.length, 73);
 assert.deepEqual(

@@ -779,6 +779,7 @@ if(GIT_FOUND)
             "-DTEST_DIRECTORY=${PROJECT_BINARY_DIR}/tests/installed-distribution-source-identity"
             "-DGIT_EXECUTABLE=${GIT_EXECUTABLE}"
             "-DSOURCE_IDENTITY_SCRIPT=${PROJECT_SOURCE_DIR}/cmake/GenerateInstalledDistributionSourceIdentity.cmake"
+            "-DCOMPLETE_DISTRIBUTION_SCRIPT=${PROJECT_SOURCE_DIR}/cmake/RequireCompleteDistribution.cmake"
             -P
             "${PROJECT_SOURCE_DIR}/tests/installed_distribution_source_identity_test.cmake"
     )
@@ -2692,11 +2693,9 @@ if(TARGET engine_sim_offline_cli_support)
                 TIMEOUT 120
         )
     endif()
-    if(UNIX AND _engine_sim_offline_node_for_installed_test AND
-       ENGINE_SIM_OFFLINE_DISTRIBUTION_TAR_FOR_TESTS AND
+    if(UNIX AND ENGINE_SIM_OFFLINE_DISTRIBUTION_TAR_FOR_TESTS AND
        NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_BINDIR_FOR_TESTS}" AND
-       NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_DATADIR_FOR_TESTS}" AND
-       NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_LIBEXECDIR_FOR_TESTS}")
+       NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_DATADIR_FOR_TESTS}")
         add_test(
             NAME distribution.installed_prefix
             COMMAND
@@ -2705,9 +2704,7 @@ if(TARGET engine_sim_offline_cli_support)
                 -DINSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/installed-distribution-$<CONFIG>
                 -DINSTALL_BINDIR=${ENGINE_SIM_OFFLINE_INSTALL_BINDIR_FOR_TESTS}
                 -DINSTALL_DATADIR=${ENGINE_SIM_OFFLINE_INSTALL_DATADIR_FOR_TESTS}
-                -DINSTALL_LIBEXECDIR=${ENGINE_SIM_OFFLINE_INSTALL_LIBEXECDIR_FOR_TESTS}
                 -DINSTALL_CONFIG=$<CONFIG>
-                -DNODE_EXECUTABLE=${_engine_sim_offline_node_for_installed_test}
                 -DRELEASE_IDENTITY=${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY_FOR_TESTS}
                 -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}
                 -DTAR_EXECUTABLE=${ENGINE_SIM_OFFLINE_DISTRIBUTION_TAR_FOR_TESTS}
@@ -2718,7 +2715,7 @@ if(TARGET engine_sim_offline_cli_support)
             PROPERTIES
                 LABELS "distribution"
                 RUN_SERIAL TRUE
-                TIMEOUT 240
+                TIMEOUT 420
         )
     endif()
 

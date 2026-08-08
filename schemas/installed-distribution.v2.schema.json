@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engine-sim-offline.dev/schemas/installed-distribution.v2.schema.json",
+  "title": "Engine Sim Offline installed distribution v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "release_identity",
+    "classification",
+    "complete",
+    "source",
+    "toolchain",
+    "layout",
+    "production_runtime",
+    "native_cli",
+    "browser_playback",
+    "telemetry_contract",
+    "revengine_bake_workflow",
+    "files"
+  ],
+  "properties": {
+    "schema": {"const": "engine-sim-offline/installed-distribution.v2"},
+    "release_identity": {"$ref": "#/$defs/releaseIdentity"},
+    "classification": {
+      "enum": ["immutable_release", "incomplete_development_install"]
+    },
+    "complete": {"type": "boolean"},
+    "source": {"$ref": "#/$defs/source"},
+    "toolchain": {"$ref": "#/$defs/toolchain"},
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_root"],
+      "properties": {"resource_root": {"$ref": "#/$defs/path"}}
+    },
+    "production_runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "node_required", "simulation_wasm_required"],
+      "properties": {
+        "kind": {"const": "native"},
+        "node_required": {"const": false},
+        "simulation_wasm_required": {"const": false}
+      }
+    },
+    "native_cli": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "commands"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "commands": {
+          "const": [
+            "render",
+            "bake-revengine",
+            "pack-revengine",
+            "inspect-revengine",
+            "verify-revengine",
+            "inspect-ir-catalog"
+          ]
+        }
+      }
+    },
+    "browser_playback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "resource_directory", "entrypoint"],
+      "properties": {
+        "kind": {"const": "simulator-free-esm"},
+        "resource_directory": {"$ref": "#/$defs/path"},
+        "entrypoint": {"$ref": "#/$defs/path"}
+      }
+    },
+    "telemetry_contract": {"$ref": "#/$defs/telemetry"},
+    "revengine_bake_workflow": {"$ref": "#/$defs/binding"},
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/file"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"complete": {"const": true}}},
+      "then": {"properties": {"classification": {"const": "immutable_release"}}},
+      "else": {
+        "properties": {
+          "classification": {"const": "incomplete_development_install"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitCommit": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._+/@-]+$"
+    },
+    "releaseIdentity": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z][0-9A-Za-z.+-]*)?$"
+    },
+    "nullableIdentity": {
+      "anyOf": [
+        {"type": "string", "pattern": "^[A-Za-z0-9._+:-]+$"},
+        {"type": "null"}
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "renderer_state",
+        "installed_inputs_state",
+        "git_commit",
+        "closure_sha256",
+        "installed_inputs_closure_sha256"
+      ],
+      "properties": {
+        "state": {"enum": ["clean", "dirty", "unavailable"]},
+        "renderer_state": {"enum": ["clean", "dirty", "unavailable"]},
+        "installed_inputs_state": {"enum": ["clean", "dirty", "unavailable"]},
+        "git_commit": {"anyOf": [{"$ref": "#/$defs/gitCommit"}, {"type": "null"}]},
+        "closure_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "installed_inputs_closure_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "compiler_id", "compiler_version", "target_triple"],
+      "properties": {
+        "state": {"enum": ["available", "unavailable"]},
+        "compiler_id": {"$ref": "#/$defs/nullableIdentity"},
+        "compiler_version": {"$ref": "#/$defs/nullableIdentity"},
+        "target_triple": {"$ref": "#/$defs/nullableIdentity"}
+      }
+    },
+    "telemetry": {
+      "const": {
+        "role": "diagnostics.engine-telemetry.v1",
+        "kind": "telemetry",
+        "path": "telemetry/engine-telemetry.v1.ndjson",
+        "schema": "engine-sim-offline.engine-telemetry.ndjson.v1",
+        "originating_commit": "c8d672b59e3046654ad5f818f31725798aef7ffa"
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "bytes": {"type": "integer", "minimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

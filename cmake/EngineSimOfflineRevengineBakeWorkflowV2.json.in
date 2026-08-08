@@ -1,0 +1,64 @@
+{
+  "schema": "engine-sim-offline/revengine-bake-workflow.v2",
+  "release_identity": "@ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@",
+  "path_base": "distribution_root",
+  "production_runtime": {
+    "kind": "native",
+    "node_required": false,
+    "simulation_wasm_required": false
+  },
+  "responsive_profile_selection": {
+    "default_policy": "engine-redline-affine-v1",
+    "profile_id": "interactive-preview-redline-v1",
+    "explicit_override": null
+  },
+  "telemetry_contract": {
+    "producer_command": "render",
+    "role": "diagnostics.engine-telemetry.v1",
+    "kind": "telemetry",
+    "path": "telemetry/engine-telemetry.v1.ndjson",
+    "schema": "engine-sim-offline.engine-telemetry.ndjson.v1",
+    "originating_commit": "c8d672b59e3046654ad5f818f31725798aef7ffa",
+    "included_in_revengine_workflow": false
+  },
+  "placeholders": {
+    "engine_json": "absolute path to the admitted engine document",
+    "deadline_unix_ms": "positive Unix epoch deadline in milliseconds",
+    "new_revengine_file": "absolute .revengine path that does not exist"
+  },
+  "steps": [
+    {
+      "ordinal": 1,
+      "id": "bake_revengine",
+      "executable": "@CMAKE_INSTALL_BINDIR@/engine-sim-offline",
+      "arguments": [
+        "bake-revengine",
+        "--engine",
+        "{engine_json}",
+        "--output",
+        "{new_revengine_file}",
+        "--deadline-unix-ms",
+        "{deadline_unix_ms}",
+        "--result-format",
+        "json"
+      ],
+      "required_output": "{new_revengine_file}",
+      "required_stdout_record": {
+        "schema": "engine-sim-offline.cli-result.v1",
+        "release_identity": "@ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@",
+        "command": "bake-revengine",
+        "ok": true,
+        "code": "success",
+        "exit_code": 0
+      },
+      "required_result_fields": {
+        "output_file": "{new_revengine_file}",
+        "verified": true
+      }
+    }
+  ],
+  "success": {
+    "definition": "the single native step exits zero after full carrier verification",
+    "publishable_after_step": 1
+  }
+}

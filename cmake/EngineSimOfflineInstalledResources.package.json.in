@@ -3,8 +3,5 @@
   "private": true,
   "license": "UNLICENSED",
   "version": "@ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@",
-  "type": "module",
-  "engines": {
-    "node": ">=20.11.0"
-  }
+  "type": "module"
 }

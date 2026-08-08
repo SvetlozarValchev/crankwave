@@ -1,7 +1,7 @@
 # Native CLI machine result v1
 
-`render`, `pack-revengine`, `inspect-revengine`, `verify-revengine`, and
-`inspect-ir-catalog` accept
+`render`, `bake-revengine`, `pack-revengine`, `inspect-revengine`,
+`verify-revengine`, and `inspect-ir-catalog` accept
 `--result-format json`. In that mode the command writes exactly one UTF-8 JSON
 object followed by one LF to standard output for either success or failure. It does
 not write human diagnostics to standard error. Process-launch failures that occur
@@ -16,7 +16,7 @@ Every result begins with these keys in this order:
 ```json
 {
   "schema": "engine-sim-offline.cli-result.v1",
-  "release_identity": "1.1.0",
+  "release_identity": "1.2.0",
   "command": "render",
   "ok": true,
   "code": "success",
@@ -25,16 +25,21 @@ Every result begins with these keys in this order:
 ```
 
 `release_identity` is the identity of the installed distribution. `command` is one
-of the five command spellings above. `code` is a stable symbolic outcome code and
+of the six command spellings above. `code` is a stable symbolic outcome code and
 `exit_code` is the exact process status. Success appends a command-specific
 `result` object. Failure appends `message` and may append typed diagnostic fields.
 Consumers must select behavior from `schema`, `command`, `ok`, `code`, and
 `exit_code`; `message` is explanatory text rather than a programmatic identifier.
 
-Render success contains `output_directory` and `manifest`. Pack success contains
-`output_file`, `container_bytes`, `entry_count`, and `container_sha256`. Inspect and
-verify success contain the REVENGINE version, verification state, byte/count/hash
-summary, ordered entry records, and either a verified package descriptor or null.
+Render success contains `output_directory` and `manifest`. Native bake success
+contains `output_file`, `engine_id`, `profile_id`, `verified`, `container_bytes`,
+`entry_count`, `held_cell_count`, `directional_capture_count`,
+`lifecycle_capture_count`, `container_sha256`, and `cache_identity_sha256`.
+`verified` is true only after the complete carrier and its ordered package tree have
+been checked before atomic publication. Pack success contains `output_file`,
+`container_bytes`, `entry_count`, and `container_sha256`. Inspect and verify success
+contain the REVENGINE version, verification state, byte/count/hash summary, ordered
+entry records, and either a verified package descriptor or null.
 IR-catalog inspection success contains `catalog_sha256`, `entry_count`, and the
 validated `engine-sim-offline/ir-authoring-catalog.v1` object. Its release identity
 must equal the outer installed release identity, and every exposed selection is
@@ -48,6 +53,9 @@ Failure codes are drawn from these stable families:
 - the published native input/output error labels such as `path-not-found` and
   `destination-exists`;
 - `authoring-diagnostics`, accompanied by the ordered authored diagnostics;
+- native-bake planning, cooking, backend-identity, packaging, and publication codes,
+  including the stable `responsive-*` and `native-responsive-*` detail-code
+  namespaces;
 - `revengine-data-error`, `revengine-input-unavailable`,
   `revengine-output-unavailable`, and `revengine-operation-unavailable`;
 - `render-invalid-specification`, `render-unreachable-target`,
@@ -55,7 +63,9 @@ Failure codes are drawn from these stable families:
   `render-numerical-failure`, `render-incomplete-source-route`,
   `render-evidence-rights-failure`, `render-artifact-publication-failure`, and
   `render-contract-violation`;
-- `render-cancelled`, `render-terminated`, and `render-deadline-exceeded`.
+- `render-cancelled`, `render-terminated`, and `render-deadline-exceeded`;
+- `bake-revengine-cancelled`, `bake-revengine-terminated`, and
+  `bake-revengine-deadline-exceeded`;
 - `pack-revengine-cancelled`, `pack-revengine-terminated`, and
   `pack-revengine-deadline-exceeded`;
 - `inspect-revengine-cancelled`, `inspect-revengine-terminated`, and
@@ -63,7 +73,18 @@ Failure codes are drawn from these stable families:
 - `verify-revengine-cancelled`, `verify-revengine-terminated`, and
   `verify-revengine-deadline-exceeded`.
 
-The four rendering/container commands accept `--deadline-unix-ms <epoch-ms>`, where
+For native-bake failures other than authored diagnostics and controlled stops, the
+failure object appends `message`, `stage`, nullable `path`, and an ordered `issues`
+array. A contract-validation issue contains `code`, `path`, and `message`.
+`authoring-diagnostics` instead appends `message`, `stage`, and ordered
+`diagnostics`; each diagnostic contains `severity`, `code`, `json_pointer`, and
+`message`. Controlled stops append `message`. Bake failures use sysexits-compatible
+statuses: invalid data 65, unavailable input 66, unavailable capability 69,
+internal failure 70, output creation failure 73, and temporary failure or
+cancellation 75.
+
+The five rendering/baking/container commands accept
+`--deadline-unix-ms <epoch-ms>`, where
 the value is a
 positive base-10 signed-64-bit-compatible Unix epoch deadline in milliseconds. An
 expired deadline or a deadline reached during work returns exit 75 with the
@@ -76,6 +97,15 @@ and is observed between complete 20 ms session blocks and at publication
 boundaries. A begun but uncommitted directory transaction is aborted and its
 private staging tree is removed; an incomplete public output is never a successful
 result.
+
+Native bake observes cancellation during admission, engine and asset loading,
+responsive planning, held/directional/lifecycle capture and cooking, child encoding,
+package construction, complete carrier verification, staged-file verification, and
+publication. It verifies the complete REVENGINE carrier before writing a unique
+private stage and atomically publishes without replacing an existing destination.
+Cancellation before publication removes the private stage and exposes no partial
+output. Once no-overwrite publication succeeds, the committed result wins over a
+later termination request.
 
 Pack observes cancellation while walking and reading the package and while writing
 the container. On Linux, it writes through a unique private file opened with

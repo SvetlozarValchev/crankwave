@@ -1,10 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
 foreach(_required IN ITEMS
-        NODE_EXECUTABLE
-        WASM_CLOSURE_READER
-        WASM_LOADER
-        WASM_MODULE
         SOURCE_STAMP
         SOURCE_ROOT
         RELEASE_SOURCE_INPUTS
@@ -15,15 +11,8 @@ foreach(_required IN ITEMS
     endif()
 endforeach()
 
-foreach(_renderer IN ITEMS "${WASM_LOADER}" "${WASM_MODULE}")
-    if(NOT EXISTS "${_renderer}" OR IS_DIRECTORY "${_renderer}" OR
-       IS_SYMLINK "${_renderer}")
-        message(FATAL_ERROR
-            "engine_sim_offline_distribution requires a regular renderer file: ${_renderer}")
-    endif()
-endforeach()
-
-if(NOT EXISTS "${SOURCE_STAMP}" OR IS_DIRECTORY "${SOURCE_STAMP}")
+if(NOT EXISTS "${SOURCE_STAMP}" OR IS_DIRECTORY "${SOURCE_STAMP}" OR
+   IS_SYMLINK "${SOURCE_STAMP}")
     message(FATAL_ERROR
         "engine_sim_offline_distribution source stamp is absent: ${SOURCE_STAMP}")
 endif()
@@ -82,20 +71,4 @@ if(NOT _release_source_state STREQUAL "clean" OR
    NOT _release_source_closure_length EQUAL 64)
     message(FATAL_ERROR
         "engine_sim_offline_distribution requires clean installed release inputs")
-endif()
-
-execute_process(
-    COMMAND
-        "${NODE_EXECUTABLE}" "${WASM_CLOSURE_READER}" "${WASM_LOADER}"
-    RESULT_VARIABLE _wasm_identity_result
-    OUTPUT_VARIABLE _wasm_source_closure
-    ERROR_VARIABLE _wasm_identity_stderr
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    TIMEOUT 30
-)
-if(NOT _wasm_identity_result EQUAL 0 OR
-   NOT _wasm_source_closure STREQUAL _source_closure)
-    message(FATAL_ERROR
-        "engine_sim_offline_distribution WASM/native source closure differs\n"
-        "WASM identity stderr: ${_wasm_identity_stderr}")
 endif()

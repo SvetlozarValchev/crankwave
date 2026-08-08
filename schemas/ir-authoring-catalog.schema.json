@@ -22,7 +22,7 @@
     "schema": {"const": "engine-sim-offline/ir-authoring-catalog.v1"},
     "catalog_id": {"const": "engine-sim-offline-built-in-ir-library"},
     "catalog_revision": {"const": 1},
-    "release_identity": {"const": "1.1.0"},
+    "release_identity": {"const": "1.2.0"},
     "entry_count": {"const": 73},
     "selection_contract": {"$ref": "#/$defs/selectionContract"},
     "source_collection": {"$ref": "#/$defs/sourceCollection"},
@@ -433,7 +433,7 @@
         "end_to_end_catalog_sweep"
       ],
       "properties": {
-        "release_identity": {"const": "1.1.0"},
+        "release_identity": {"const": "1.2.0"},
         "native_conversion_method": {
           "const": "hybrid-static-ir-pcm16-pcm24-44100-to-192000-binary64-v2"
         },

@@ -67,7 +67,7 @@ The authoring decision is the exact triple:
 
 ```json
 {
-  "release_identity": "1.1.0",
+  "release_identity": "1.2.0",
   "id": "smooth-39",
   "sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"
 }
@@ -118,7 +118,7 @@ ships the required notice separately from ESO's proprietary project license.
 
 ## Runtime compatibility
 
-Release 1.1.0 admits every catalog entry. Twenty-four PCM16 responses stay on the
+Release 1.2.0 admits every catalog entry. Twenty-four PCM16 responses stay on the
 unchanged v1 conversion and fixed-kernel branches. The other 49 responses use the
 additive v2 extended conversion and uniform-partitioned convolution branches,
 including the original PCM24 response. Branch selection is derived from decoded

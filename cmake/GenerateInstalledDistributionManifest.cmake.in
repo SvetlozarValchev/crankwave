@@ -2,15 +2,9 @@ cmake_minimum_required(VERSION 3.21)
 
 set(_release_identity "@ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@")
 set(_resource_relative "@_engine_sim_offline_install_resource_directory@")
-set(_helper_relative "@_engine_sim_offline_install_helper_directory@/dump-ir-spectrum")
 set(_cli_relative "@CMAKE_INSTALL_BINDIR@/engine-sim-offline")
-set(_launcher_relative
-    "@CMAKE_INSTALL_BINDIR@/engine-sim-offline-responsive-bake")
 set(_stamp_header
     "@PROJECT_BINARY_DIR@/generated/engine_sim_offline_generated/renderer_source_stamp_generated.hpp")
-set(_node_executable "@_engine_sim_offline_distribution_node_executable@")
-set(_wasm_closure_reader
-    "@PROJECT_SOURCE_DIR@/cmake/ReadWasmSourceClosure.mjs")
 set(_source_root "@PROJECT_SOURCE_DIR@")
 set(_git_executable "@GIT_EXECUTABLE@")
 set(_release_source_inputs
@@ -19,27 +13,33 @@ set(_release_source_identity_script
     "@PROJECT_SOURCE_DIR@/cmake/GenerateInstalledDistributionSourceIdentity.cmake")
 
 set(_physical_prefix "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}")
-cmake_path(NORMAL_PATH _physical_prefix)
+cmake_path(ABSOLUTE_PATH _physical_prefix NORMALIZE)
 set(_resource_root "${_physical_prefix}/${_resource_relative}")
 set(_manifest_path "${_resource_root}/release.json")
 set(_binding_path "${_resource_root}/release.json.sha256")
+set(_workflow_relative
+    "${_resource_relative}/contracts/revengine-bake-workflow.v2.json")
+set(_workflow_path "${_physical_prefix}/${_workflow_relative}")
 
 foreach(_required_file IN ITEMS
         "${_physical_prefix}/${_cli_relative}"
-        "${_physical_prefix}/${_launcher_relative}"
-        "${_physical_prefix}/${_helper_relative}"
         "${_resource_root}/package.json"
-        "${_resource_root}/contracts/revengine-bake-workflow.v1.json"
+        "${_workflow_path}"
         "${_resource_root}/assets/catalog.v1.json"
         "${_resource_root}/assets/ir-authoring-catalog.v1.json"
+        "${_resource_root}/profiles/interactive-preview-v1.json"
+        "${_resource_root}/schemas/installed-distribution.v2.schema.json"
+        "${_resource_root}/schemas/revengine-bake-workflow.v2.schema.json"
         "${_resource_root}/schemas/ir-authoring-catalog.schema.json"
         "${_resource_root}/web/runtime/release.js"
+        "${_resource_root}/web/runtime/revengine-audio-engine.js"
         "${_release_source_inputs}"
         "${_release_source_identity_script}"
         "${_stamp_header}")
-    if(NOT EXISTS "${_required_file}" OR IS_DIRECTORY "${_required_file}")
+    if(NOT EXISTS "${_required_file}" OR IS_DIRECTORY "${_required_file}" OR
+       IS_SYMLINK "${_required_file}")
         message(FATAL_ERROR
-            "installed distribution manifest input is absent: ${_required_file}")
+            "installed distribution manifest input is not a regular file: ${_required_file}")
     endif()
 endforeach()
 
@@ -119,73 +119,6 @@ _json_string_or_null(_compiler_version_json
                      "${_RendererCompilerVersion}")
 _json_string_or_null(_target_triple_json "${_RendererTargetTriple}")
 
-set(_wasm_loader_relative "${_resource_relative}/renderer/engine-sim-offline.js")
-set(_wasm_binary_relative
-    "${_resource_relative}/renderer/engine-sim-offline.wasm")
-set(_wasm_loader "${_physical_prefix}/${_wasm_loader_relative}")
-set(_wasm_binary "${_physical_prefix}/${_wasm_binary_relative}")
-set(_wasm_loader_exists FALSE)
-set(_wasm_binary_exists FALSE)
-if(EXISTS "${_wasm_loader}")
-    set(_wasm_loader_exists TRUE)
-endif()
-if(EXISTS "${_wasm_binary}")
-    set(_wasm_binary_exists TRUE)
-endif()
-if((_wasm_loader_exists AND NOT _wasm_binary_exists) OR
-   (_wasm_binary_exists AND NOT _wasm_loader_exists))
-    message(FATAL_ERROR
-        "installed renderer must contain both engine-sim-offline.js and .wasm")
-endif()
-if(_wasm_loader_exists AND _wasm_binary_exists)
-    if(IS_DIRECTORY "${_wasm_loader}" OR IS_DIRECTORY "${_wasm_binary}")
-        message(FATAL_ERROR "installed renderer inputs must be regular files")
-    endif()
-    file(SHA256 "${_wasm_loader}" _wasm_loader_sha256)
-    file(SHA256 "${_wasm_binary}" _wasm_binary_sha256)
-    set(_has_wasm TRUE)
-    set(_wasm_source_closure "")
-    set(_wasm_source_closure_valid FALSE)
-    set(_wasm_source_closure_verified FALSE)
-    if(NOT _node_executable STREQUAL "" AND
-       EXISTS "${_node_executable}" AND
-       EXISTS "${_wasm_closure_reader}")
-        execute_process(
-            COMMAND
-                "${_node_executable}" "${_wasm_closure_reader}"
-                "${_wasm_loader}"
-            RESULT_VARIABLE _wasm_identity_result
-            OUTPUT_VARIABLE _wasm_source_closure
-            ERROR_VARIABLE _wasm_identity_stderr
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            TIMEOUT 30
-        )
-        _is_lower_hex_length(_wasm_source_closure_valid
-                             "${_wasm_source_closure}" 64)
-        if(_wasm_identity_result EQUAL 0 AND
-           _wasm_source_closure_valid AND
-           _wasm_source_closure STREQUAL _RendererSourceClosureSha256)
-            set(_wasm_source_closure_verified TRUE)
-        endif()
-    endif()
-    if(NOT _wasm_source_closure_valid)
-        set(_wasm_source_closure "")
-    endif()
-    _json_string_or_null(_wasm_source_closure_json
-                         "${_wasm_source_closure}")
-    if(_wasm_source_closure_verified)
-        set(_wasm_source_closure_matches_native_json true)
-    else()
-        set(_wasm_source_closure_matches_native_json false)
-    endif()
-    set(_wasm_json
-        "{\"loader_path\":\"${_wasm_loader_relative}\",\"loader_sha256\":\"${_wasm_loader_sha256}\",\"module_path\":\"${_wasm_binary_relative}\",\"module_sha256\":\"${_wasm_binary_sha256}\",\"source_closure_sha256\":${_wasm_source_closure_json},\"source_closure_matches_native\":${_wasm_source_closure_matches_native_json}}")
-else()
-    set(_has_wasm FALSE)
-    set(_wasm_source_closure_verified FALSE)
-    set(_wasm_json "null")
-endif()
-
 _is_lower_hex_length(_git_commit_valid "${_RendererFullGitHead}" 40 64)
 _is_lower_hex_length(_source_closure_valid
                      "${_RendererSourceClosureSha256}" 64)
@@ -202,8 +135,7 @@ elseif(_RendererSourceState STREQUAL "unavailable" OR
 else()
     set(_release_source_state dirty)
 endif()
-if(_has_wasm AND _wasm_source_closure_verified AND
-   _release_source_state STREQUAL "clean" AND
+if(_release_source_state STREQUAL "clean" AND
    _RendererToolchainState STREQUAL "available" AND
    _git_commit_valid AND _source_closure_valid AND
    _installed_source_closure_valid)
@@ -215,17 +147,13 @@ else()
 endif()
 
 file(SHA256 "${_physical_prefix}/${_cli_relative}" _native_cli_sha256)
-file(SHA256
-    "${_resource_root}/contracts/revengine-bake-workflow.v1.json"
-    _workflow_sha256)
+file(SHA256 "${_workflow_path}" _workflow_sha256)
 
 file(GLOB_RECURSE _resource_files LIST_DIRECTORIES FALSE
      "${_resource_root}/*")
 list(REMOVE_ITEM _resource_files "${_manifest_path}" "${_binding_path}")
-list(APPEND _distribution_files
+set(_distribution_files
     "${_physical_prefix}/${_cli_relative}"
-    "${_physical_prefix}/${_launcher_relative}"
-    "${_physical_prefix}/${_helper_relative}"
     ${_resource_files})
 list(REMOVE_DUPLICATES _distribution_files)
 list(SORT _distribution_files)
@@ -252,10 +180,12 @@ foreach(_file IN LISTS _distribution_files)
         "{\"path\":\"${_relative}\",\"bytes\":${_bytes},\"sha256\":\"${_sha256}\"}")
 endforeach()
 
+set(_commands_json
+    "[\"render\",\"bake-revengine\",\"pack-revengine\",\"inspect-revengine\",\"verify-revengine\",\"inspect-ir-catalog\"]")
 set(_telemetry_contract_json
     "{\"role\":\"diagnostics.engine-telemetry.v1\",\"kind\":\"telemetry\",\"path\":\"telemetry/engine-telemetry.v1.ndjson\",\"schema\":\"engine-sim-offline.engine-telemetry.ndjson.v1\",\"originating_commit\":\"c8d672b59e3046654ad5f818f31725798aef7ffa\"}")
 set(_manifest
-    "{\"schema\":\"engine-sim-offline/installed-distribution.v1\",\"release_identity\":\"${_release_identity}\",\"classification\":\"${_classification}\",\"complete\":${_complete_json},\"source\":{\"state\":\"${_release_source_state}\",\"renderer_state\":\"${_RendererSourceState}\",\"installed_inputs_state\":\"${_InstalledSourceState}\",\"git_commit\":${_git_commit_json},\"closure_sha256\":${_source_closure_json},\"installed_inputs_closure_sha256\":\"${_InstalledSourceClosureSha256}\"},\"toolchain\":{\"state\":\"${_RendererToolchainState}\",\"compiler_id\":${_compiler_id_json},\"compiler_version\":${_compiler_version_json},\"target_triple\":${_target_triple_json}},\"layout\":{\"resource_root\":\"${_resource_relative}\"},\"renderers\":{\"native\":{\"path\":\"${_cli_relative}\",\"sha256\":\"${_native_cli_sha256}\"},\"wasm\":${_wasm_json}},\"telemetry_contract\":${_telemetry_contract_json},\"revengine_bake_workflow\":{\"path\":\"${_resource_relative}/contracts/revengine-bake-workflow.v1.json\",\"sha256\":\"${_workflow_sha256}\"},\"files\":[${_file_records}]}\n")
+    "{\"schema\":\"engine-sim-offline/installed-distribution.v2\",\"release_identity\":\"${_release_identity}\",\"classification\":\"${_classification}\",\"complete\":${_complete_json},\"source\":{\"state\":\"${_release_source_state}\",\"renderer_state\":\"${_RendererSourceState}\",\"installed_inputs_state\":\"${_InstalledSourceState}\",\"git_commit\":${_git_commit_json},\"closure_sha256\":${_source_closure_json},\"installed_inputs_closure_sha256\":\"${_InstalledSourceClosureSha256}\"},\"toolchain\":{\"state\":\"${_RendererToolchainState}\",\"compiler_id\":${_compiler_id_json},\"compiler_version\":${_compiler_version_json},\"target_triple\":${_target_triple_json}},\"layout\":{\"resource_root\":\"${_resource_relative}\"},\"production_runtime\":{\"kind\":\"native\",\"node_required\":false,\"simulation_wasm_required\":false},\"native_cli\":{\"path\":\"${_cli_relative}\",\"sha256\":\"${_native_cli_sha256}\",\"commands\":${_commands_json}},\"browser_playback\":{\"kind\":\"simulator-free-esm\",\"resource_directory\":\"${_resource_relative}/web/runtime\",\"entrypoint\":\"${_resource_relative}/web/runtime/revengine-audio-engine.js\"},\"telemetry_contract\":${_telemetry_contract_json},\"revengine_bake_workflow\":{\"path\":\"${_workflow_relative}\",\"sha256\":\"${_workflow_sha256}\"},\"files\":[${_file_records}]}\n")
 file(WRITE "${_manifest_path}.tmp" "${_manifest}")
 file(RENAME "${_manifest_path}.tmp" "${_manifest_path}")
 file(SHA256 "${_manifest_path}" _manifest_sha256)
