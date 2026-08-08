@@ -36,11 +36,6 @@ if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
     exit 65
 fi
 
-git lfs fsck
-node tools/ir-authoring-catalog/generate.mjs --check
-node tools/ir-authoring-catalog/test.mjs
-node --test tests/wasm/c-api-v9-layout.test.mjs
-
 cmake -E remove_directory "${build_root}"
 cmake -E make_directory \
     "${build_root}/home" \
@@ -53,70 +48,53 @@ export LANG=C
 export LC_ALL=C
 export TZ=UTC
 
-wasm_build="${build_root}/wasm"
-native_build="${build_root}/native"
+git lfs fsck
+node tools/ir-authoring-catalog/generate.mjs --check
+node tools/ir-authoring-catalog/test.mjs
 
-emcmake cmake \
-    -S . \
-    -B "${wasm_build}" \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DENGINE_SIM_OFFLINE_BUILD_TESTS=ON \
-    -DENGINE_SIM_OFFLINE_BUILD_CLI=OFF \
-    -DENGINE_SIM_OFFLINE_BUILD_WASM=ON \
-    -DENGINE_SIM_OFFLINE_RELEASE_IDENTITY="${release_identity}"
-cmake \
-    --build "${wasm_build}" \
-    --parallel "${parallel_jobs}" \
-    --target \
-        engine_sim_offline_wasm \
-        engine_sim_offline_wasm_parity_module \
-        engine_sim_offline_wasm_numeric_contract_tests
-ctest \
-    --test-dir "${wasm_build}" \
-    --output-on-failure \
-    -R '^wasm.numeric_contract$'
+native_build="${build_root}/native"
 
 cmake \
     -S . \
     -B "${native_build}" \
+    -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DENGINE_SIM_OFFLINE_BUILD_TESTS=ON \
     -DENGINE_SIM_OFFLINE_BUILD_CLI=ON \
     -DENGINE_SIM_OFFLINE_BUILD_WASM=OFF \
-    -DENGINE_SIM_OFFLINE_RELEASE_IDENTITY="${release_identity}" \
-    -DENGINE_SIM_OFFLINE_INSTALL_WASM_DIRECTORY="${repository_dir}/${wasm_build}"
+    -DENGINE_SIM_OFFLINE_RELEASE_IDENTITY="${release_identity}"
 cmake --build "${native_build}" --parallel "${parallel_jobs}"
+
+cli_executable="${native_build}/engine-sim-offline"
+max_required_version() {
+    local namespace=$1
+    readelf --version-info "${cli_executable}" |
+        grep -o "${namespace}_[0-9.]*" |
+        sort -Vu |
+        tail -n 1
+}
+require_version_at_most() {
+    local actual=$1
+    local ceiling=$2
+    local label=$3
+    local highest
+    highest=$(printf '%s\n' "${actual}" "${ceiling}" | sort -V | tail -n 1)
+    if [[ -z "${actual}" || "${highest}" != "${ceiling}" ]]; then
+        echo "${label} requirement ${actual:-absent} exceeds runtime ceiling ${ceiling}" >&2
+        exit 70
+    fi
+}
+max_glibcxx=$(max_required_version GLIBCXX)
+max_glibc=$(max_required_version GLIBC)
+require_version_at_most "${max_glibcxx}" "GLIBCXX_3.4.30" "libstdc++"
+require_version_at_most "${max_glibc}" "GLIBC_2.36" "glibc"
+printf 'native_abi_max_glibcxx=%s\n' "${max_glibcxx}"
+printf 'native_abi_max_glibc=%s\n' "${max_glibc}"
+
 ctest \
     --test-dir "${native_build}" \
     --output-on-failure \
     --parallel 1
-
-native_bundle="${build_root}/native.bundle"
-wasm_bundle="${build_root}/wasm.bundle"
-"${native_build}/tests/engine_sim_offline_wasm_parity_native" \
-    data/engines/bmw-m52b28/engine.json \
-    tests/wasm/bmw-m52b28-short-live-parity.json \
-    smooth-39 \
-    reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav \
-    warm-stock-accessories \
-    data/profiles/bmw-m52b28/accessory-configurations/bmw-m52b28-warm-stock-accessories-v1.json \
-    "${native_bundle}"
-cmake -E copy_if_different \
-    "${wasm_build}/engine-sim-offline.js" \
-    "${wasm_build}/engine-sim-offline.mjs"
-node tests/wasm/smoke_public_module.mjs \
-    "${wasm_build}/engine-sim-offline.mjs"
-node tests/wasm/compare_parity.mjs \
-    "${wasm_build}/tests/engine-sim-offline-wasm-parity.mjs" \
-    "${native_bundle}" \
-    data/engines/bmw-m52b28/engine.json \
-    tests/wasm/bmw-m52b28-short-live-parity.json \
-    smooth-39 \
-    reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav \
-    warm-stock-accessories \
-    data/profiles/bmw-m52b28/accessory-configurations/bmw-m52b28-warm-stock-accessories-v1.json \
-    "${wasm_bundle}" \
-    tests/wasm/parity_expectations.json
 
 cmake \
     --build "${native_build}" \
@@ -134,13 +112,8 @@ if [[ "${expected_archive_sha}" != "${actual_archive_sha}" ]]; then
 fi
 
 tar -xf "${archive}" -C "${build_root}/extracted"
-prefix="${build_root}/extracted/engine-sim-offline-${release_identity}"
-node scripts/ci/verify-release.mjs \
-    --archive "${archive}" \
-    --sidecar "${sidecar}" \
-    --prefix "${prefix}" \
-    --release "${release_identity}" \
-    --revision "${expected_revision}"
+test -x \
+    "${build_root}/extracted/engine-sim-offline-${release_identity}/bin/engine-sim-offline"
 
 printf 'release_archive=%s\n' "${archive}"
 printf 'release_archive_sha256=%s\n' "${actual_archive_sha}"

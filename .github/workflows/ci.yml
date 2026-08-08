@@ -14,11 +14,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  BUILDER_IMAGE: emscripten/emsdk@sha256:3a0d11e50f072dc2c4bc92e3b05ab1340fb7d4dd152f80b8af35fc1c6f15e644
+  BUILDER_BASE_IMAGE: gcc:12.4.0-bookworm@sha256:fa4be2f0a762fb14cc745289227d29aa32f0b55057c301d0d61a5eba46c85d99
+  NODE_BASE_IMAGE: node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
+  BUILDER_IMAGE: engine-sim-offline-native-builder:ci
 
 jobs:
   release-gate:
-    name: Native, WASM, distribution
+    name: Native tests and native-only distribution
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -34,16 +36,39 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version=$(node -e 'const s=require("node:fs").readFileSync("CMakeLists.txt","utf8");const m=s.match(/project\(\s*engine_sim_offline\s+VERSION\s+([^\s)]+)/s);if(!m)process.exit(1);process.stdout.write(m[1])')
+          version=$(awk '$1 == "VERSION" { print $2; exit }' CMakeLists.txt)
+          [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
 
-      - name: Verify LFS materialization
-        run: git lfs fsck
+      - name: Verify source assets and simulator-free playback modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          git lfs fsck
+          node tools/ir-authoring-catalog/generate.mjs --check
+          node tools/ir-authoring-catalog/test.mjs
+          node --test \
+            web/tests/runtime/partitioned-spectrum-convolver.test.mjs \
+            web/tests/runtime/renderer-runtime-compatibility.test.mjs \
+            web/tests/runtime/responsive-audio-lifecycle-runtime.test.mjs \
+            web/tests/runtime/revengine-audio-engine.test.mjs \
+            web/tests/runtime/revengine-package.test.mjs \
+            web/tests/runtime/shared-recorded-starter-runtime.test.mjs
 
-      - name: Pull pinned build environment
-        run: docker pull "${BUILDER_IMAGE}"
+      - name: Assemble pinned native build environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "${BUILDER_BASE_IMAGE}"
+          docker pull "${NODE_BASE_IMAGE}"
+          docker build \
+            --build-arg "BUILDER_BASE_IMAGE=${BUILDER_BASE_IMAGE}" \
+            --build-arg "NODE_BASE_IMAGE=${NODE_BASE_IMAGE}" \
+            --file scripts/ci/native-builder.Dockerfile \
+            --tag "${BUILDER_IMAGE}" \
+            scripts/ci
 
-      - name: Run complete release gate
+      - name: Build and test native release
         env:
           ESO_VERSION: ${{ steps.release.outputs.version }}
         shell: bash
@@ -61,3 +86,22 @@ jobs:
             -w /src \
             "${BUILDER_IMAGE}" \
             ./scripts/ci/build-release.sh
+
+      - name: Verify emitted distribution from the host boundary
+        env:
+          ESO_VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive=".work/github-ci/native/distribution/Release/engine-sim-offline-${ESO_VERSION}.tar"
+          sidecar="${archive}.sha256"
+          extracted=".work/github-ci/host-verification"
+          rm -rf "${extracted}"
+          mkdir -p "${extracted}"
+          tar -xf "${archive}" -C "${extracted}" --no-same-owner --no-same-permissions
+          node scripts/ci/verify-release.mjs \
+            --archive "${archive}" \
+            --sidecar "${sidecar}" \
+            --prefix "${extracted}/engine-sim-offline-${ESO_VERSION}" \
+            --release "${ESO_VERSION}" \
+            --revision "${GITHUB_SHA}"

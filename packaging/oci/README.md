@@ -1,28 +1,37 @@
 # OCI image
 
-The GHCR image is a generic Linux/amd64 Engine Sim Offline job image. It is built
-only from the already verified, manifest-bound release tar; it never rebuilds ESO.
-The release workflow pins the outer tar SHA-256 and inner `release.json` SHA-256 as
-both build checks and OCI labels.
+The GHCR image is a generic Linux/amd64 Engine Sim Offline job image. It is
+assembled from the already verified, manifest-bound release tar and never rebuilds
+ESO. The release workflow binds the source revision, outer tar SHA-256, and inner
+`release.json` SHA-256 into OCI labels and the GitHub release binding.
 
-The native CLI is the default entrypoint:
-
-```sh
-docker run --rm ghcr.io/svetlozarvalchev/engine-sim-offline@sha256:<digest> --version
-```
-
-Mount job inputs and outputs beneath `/work`. Mount a persistent responsive-bake
-cache at `/cache` when desired. The image runs as the upstream `node` image's
-unprivileged `node` user; `/opt/engine-sim-offline` is read-only product content.
-
-The responsive baker remains its own installed command:
+The image is based on a digest-pinned Debian slim runtime. It contains no Node.js
+runtime and no simulation WebAssembly module. The one native CLI is its direct
+entrypoint:
 
 ```sh
 docker run --rm \
-  --entrypoint /opt/engine-sim-offline/bin/engine-sim-offline-responsive-bake \
   ghcr.io/svetlozarvalchev/engine-sim-offline@sha256:<digest> \
-  --help
+  --version
 ```
 
-Tags are discovery aids only. Integrations must pin the OCI manifest digest and
-retain the inner ESO release binding reported in the corresponding GitHub Release.
+Mount inputs read-only and a caller-owned writable directory at `/work`:
+
+```sh
+docker run --rm \
+  --mount type=bind,src="$PWD/engine.json",dst=/inputs/engine.json,readonly \
+  --mount type=bind,src="$PWD/output",dst=/work \
+  ghcr.io/svetlozarvalchev/engine-sim-offline@sha256:<digest> \
+  bake-revengine \
+  --engine /inputs/engine.json \
+  --output /work/engine.revengine \
+  --result-format json
+```
+
+The default process is the fixed unprivileged user `65532:65532` and
+`/opt/engine-sim-offline` is immutable product content. The image is not AWS-specific;
+job scheduling, storage mounts, deadlines, and cancellation remain adapter policy.
+
+Tags are discovery aids only. Production integrations pin the OCI manifest digest
+and retain the matching semantic release, distribution SHA-256, and `release.json`
+SHA-256 from the GitHub release binding.

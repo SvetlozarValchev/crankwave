@@ -1,9 +1,10 @@
 # Engine Sim Offline
 
 Engine Sim Offline is a portable engine simulation and audio-rendering core. Its
-product boundary is declarative JSON in and streamed PCM plus physical telemetry out.
-The same C++ session runs unpaced for native WAV rendering and incrementally in a
-fixed-memory WASM module for the interactive browser workbench.
+production authoring boundary is one native executable: declarative JSON goes in,
+and audition PCM, physical telemetry, or a complete `.revengine` carrier comes out.
+Playback consumers use the simulator-free JavaScript modules packaged with the
+carrier format; they do not run the engine simulation.
 
 The project is a source-informed rewrite. Original engine-sim is a capability and
 behavior oracle, not a runtime dependency. The JSON contract preserves its useful
@@ -177,20 +178,19 @@ only as a developer override for authored local URIs.
 The current production flow is:
 
 ```text
-engine.json + scenario.json + assets
-                  |
-          validate and compile
-                  |
-             EngineSession
-                  |
-        PCM buses + telemetry
-            /             \
-       native WAV       fixed-memory WASM
-                              |
-                   Worker + PCM ring
-                              |
-                       AudioWorklet + UI
+engine.json + scenario.json + installed assets
+                         |
+                 native C++ CLI
+                    /          \
+       audition + telemetry   .revengine
+                                    |
+                          simulator-free playback
 ```
+
+The installed distribution and GHCR image contain no Node.js runtime and no
+simulation WebAssembly module. The source-tree browser workbench still builds a WASM
+session as a development and interactive-simulation surface; it is not part of the
+production authoring distribution or the `.revengine` playback path.
 
 Its canonical method quantum is 400 physics/capture frames at 20 kHz to 3,840 delivery
 frames at 192 kHz: 20 ms per `process_block()` call. The browser's explicitly labelled
@@ -239,8 +239,8 @@ and the shared native/WASM lifecycle is in
 
 ## Build
 
-A C++20 compiler and CMake 3.21 or newer are required. The responsive-audio
-baker additionally requires Node.js 20.11 or newer.
+A C++20 compiler and CMake 3.21 or newer are required. Native rendering and
+responsive cooking have no Node.js dependency.
 
 ```bash
 cmake -S . -B build -DENGINE_SIM_OFFLINE_BUILD_TESTS=ON
@@ -249,35 +249,34 @@ ctest --test-dir build --output-on-failure
 ```
 
 The CLI build stages its catalog and shared runtime-audio package beside the
-build-tree executable. A normal developer prefix install places launchers under
-`bin`, the helper under `libexec/engine-sim-offline`, and resources under the
-versioned `share/engine-sim-offline/<release>/` directory:
+build-tree executable. A normal developer prefix install places the native CLI under
+`bin` and resources under the versioned
+`share/engine-sim-offline/<release>/` directory:
 
 ```bash
 cmake --build build
 cmake --install build --prefix artifacts/engine-sim-offline-install
 ```
 
-Such an install is explicitly classified as incomplete when it omits the external
-WASM renderer pair or comes from a dirty source closure. The
-`engine_sim_offline_distribution` release target additionally requires the pair, a
-clean renderer source identity, clean installed tools/runtime/assets inputs, and
-exact native/WASM renderer source-closure agreement. Every install publishes a
-byte-bound `release.json` and `release.json.sha256`; consumers pin the semantic
-release identity and the latter binding digest.
+The `engine_sim_offline_distribution` target requires a clean native source and
+installed-resource closure. It emits the complete native-only relocatable prefix;
+there is no separately supplied renderer pair. Every install publishes a byte-bound
+`release.json` and `release.json.sha256`; consumers pin the semantic release identity
+and the latter binding digest.
 
-`CMAKE_INSTALL_BINDIR`, `CMAKE_INSTALL_LIBEXECDIR`, and `CMAKE_INSTALL_DATADIR`
-may be changed to other relative GNUInstallDirs locations. Catalog discovery and the
-installed baker launcher encode only paths relative to the installed bindir, so the
-complete prefix remains relocatable.
+`CMAKE_INSTALL_BINDIR` and `CMAKE_INSTALL_DATADIR` may be changed to other relative
+GNUInstallDirs locations. Catalog discovery uses
+only paths relative to the installed bindir, so the complete prefix remains
+relocatable.
 
-The reproducible native/WASM parity gate uses a pinned Emscripten container:
+The source-tree native/WASM parity gate remains available for development of the
+interactive simulation workbench. It does not feed the release archive or OCI image:
 
 ```bash
 scripts/verify-wasm-parity.sh
 ```
 
-Build and serve the local browser workbench:
+Build and serve the local browser workbench (development Node.js tooling only):
 
 ```bash
 scripts/build-workbench.sh
@@ -319,78 +318,70 @@ aliases. The catalog format, discovery rules, and integrity boundary are specifi
 [BUILTIN_ASSET_CATALOG_V1.md](docs/contracts/BUILTIN_ASSET_CATALOG_V1.md). Catalog
 membership is a technical runtime allowlist, not a licensing or provenance assertion.
 
-Responsive-audio baking and REVENGINE containerization are two distinct stages. The
-Node baker performs the actual simulation and audio
-capture and publishes a validated package directory, including its `runtime.json`
-and `revengine.json`. The native `pack-revengine` command does not simulate or bake;
-it validates that finished tree and deterministically encodes its exact files into
-an uncompressed, hash-indexed carrier:
+The stable production cooker is one native command. It compiles the engine, derives
+the redline-affine responsive profile, captures all required held, directional, and
+lifecycle material, packages it, verifies the carrier, and atomically publishes only
+the finished `.revengine`:
 
 ```bash
-node tools/responsive-audio-baker/bake.mjs \
+build/engine-sim-offline bake-revengine \
   --engine data/engines/bmw-m52tub28-cleanroom/engine.json \
-  --profile tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
-  --output .work/responsive-bakes/m52tu-package \
-  --cache .work/responsive-bake-cache \
-  --builtin-assets build/generated/engine-sim-offline-assets \
-  --module .work/browser-workbench/build/workbench/web/engine-sim-offline.js
-
-build/engine-sim-offline pack-revengine \
-  --package-directory .work/responsive-bakes/m52tu-package \
-  --output artifacts/m52tu.revengine
+  --output artifacts/m52tu.revengine \
+  --result-format json
 
 build/engine-sim-offline verify-revengine \
-  --input artifacts/m52tu.revengine
+  --input artifacts/m52tu.revengine \
+  --result-format json
 ```
 
-The installed Node launcher supplies the installed asset bundle and compiled IR
-helper automatically:
+The installed command has the same interface and discovers only its own
+manifest-bound assets:
 
 ```bash
-artifacts/engine-sim-offline-install/bin/engine-sim-offline-responsive-bake \
+artifacts/engine-sim-offline-install/bin/engine-sim-offline bake-revengine \
   --engine /absolute/path/to/engine.json \
-  --profile artifacts/engine-sim-offline-install/share/engine-sim-offline/1.1.0/tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
-  --output /absolute/path/to/new-package \
-  --cache /absolute/path/to/bake-cache \
-  --plan
+  --output /absolute/path/to/new.revengine \
+  --deadline-unix-ms 1800000000000 \
+  --result-format json
 ```
 
-When `--profile` is omitted, ESO deterministically derives the versioned
-`interactive-preview-redline-v1` profile from the engine's declared redline;
-the final anchor is exactly the redline and the capture grid remains fixed at
-11 anchors. Passing `--profile` retains the exact explicit-profile behavior.
+ESO deterministically derives the versioned `interactive-preview-redline-v1` profile
+from the engine's declared operating range; the final anchor is exactly the redline
+and the capture grid remains fixed at 11 anchors.
 The selection contract is specified in
-[RESPONSIVE_PROFILE_SELECTION_V1.md](docs/contracts/RESPONSIVE_PROFILE_SELECTION_V1.md).
-Plan mode needs no renderer. A real bake still requires the separately built
-Emscripten `engine-sim-offline.js`/`engine-sim-offline.wasm` pair. Point a native
-distribution configure at a completed pair to install it under the resource tree:
-
-```bash
-cmake -S . -B build-native \
-  -DENGINE_SIM_OFFLINE_INSTALL_WASM_DIRECTORY=/absolute/path/to/wasm-build
-cmake --build build-native --target engine_sim_offline_distribution
-```
+[RESPONSIVE_PROFILE_SELECTION_V2.md](docs/contracts/RESPONSIVE_PROFILE_SELECTION_V2.md).
 
 The release target stages the full relocatable prefix and writes
-`build-native/distribution/<config>/engine-sim-offline-<release>.tar` plus a
+`build/distribution/<config>/engine-sim-offline-<release>.tar` plus a
 one-line `.tar.sha256` sidecar. Archive member order, timestamps, ownership, and
 permissions are normalized; rebuilding the same admitted source/toolchain closure
 produces identical archive bytes. An ordinary `cmake --install` remains the separate
 development-prefix path described above.
 
-The installed launcher does not accept renderer, asset, helper, or compiler
-overrides: it pins resources from its own release prefix. Direct source-tree
-`node tools/responsive-audio-baker/bake.mjs` execution retains `--module` and the
-other development overrides. Native CMake does not invoke Emscripten, and the
-launcher is not a native child-process bake wrapper; it checks Node 20.11+, locates
-installed resources, and executes the tracked Node baker.
+Pushing an exact `v<release>` tag runs two independent native release builds, requires
+byte-identical archives, verifies the installed v2 manifest, and then publishes the
+tar, its digest, the exact manifest, and a GitHub/OCI binding. The corresponding GHCR
+image is built only from that verified tar. It is a generic, non-root Linux/amd64
+Debian slim image with the native CLI as its entrypoint:
+
+```bash
+docker run --rm \
+  ghcr.io/svetlozarvalchev/engine-sim-offline@sha256:<manifest-digest> \
+  --version
+```
+
+Release tags are discovery aids. Production callers pin the OCI digest and retain the
+matching semantic release, distribution SHA-256, and `release.json` SHA-256 recorded
+in `engine-sim-offline-<release>.binding.json`.
+
+`--asset-root` remains an explicit developer override for source-tree experiments.
+Production adapters omit it, pin the installed release and manifest digest, and use
+the one-step `revengine-bake-workflow.v2.json` contract.
 
 `inspect-revengine` authenticates and reports the carrier structure and index;
 `verify-revengine` additionally hashes every payload and validates the package
-descriptor's runtime-manifest binding. The baker's detailed prerequisites, installed
-resource layout, and cache contract are documented in
-[RESPONSIVE_AUDIO_BAKER.md](docs/RESPONSIVE_AUDIO_BAKER.md), and the carrier format is
-specified in [REVENGINE_CONTAINER_V1.md](docs/contracts/REVENGINE_CONTAINER_V1.md).
+descriptor's runtime-manifest binding. The carrier format is specified in
+[REVENGINE_CONTAINER_V1.md](docs/contracts/REVENGINE_CONTAINER_V1.md).
 
 ### Audition a REVENGINE as an external consumer
 
