@@ -22,6 +22,7 @@ enum class HandleKind : std::uint8_t {
     engine = 1,
     scenario = 2,
     session = 3,
+    vehicleengine = 4,
 };
 
 inline constexpr std::uint64_t kHandleSlotMask = UINT64_C(0x000fffff);
@@ -52,6 +53,18 @@ struct SessionEntry {
     std::vector<EngineControlCommand> control_scratch;
     std::uint64_t emitted_block_count = 0;
     bool terminal = false;
+};
+
+struct VehicleEngineEntry {
+    std::vector<std::byte> bytes;
+    std::string engine_id;
+    std::string profile_id;
+    std::uint64_t entry_count = 0U;
+    std::uint64_t held_cell_count = 0U;
+    std::uint64_t directional_capture_count = 0U;
+    std::uint64_t lifecycle_capture_count = 0U;
+    contract::Sha256Digest container_sha256;
+    contract::Sha256Digest cache_identity_sha256;
 };
 
 template <class Value, HandleKind Kind> class HandleRegistry {
@@ -230,7 +243,8 @@ completed_cycle_evidence(const EngineCompletedCycleEvidence &cycle) noexcept;
 
 struct eso_context {
     explicit eso_context(std::uint32_t tag)
-        : engines(tag), scenarios(tag), sessions(tag), context_tag(tag) {}
+        : engines(tag), scenarios(tag), sessions(tag), vehicleengines(tag),
+          context_tag(tag) {}
 
     engine_sim_offline::c_api::HandleRegistry<
         engine_sim_offline::compile::CompiledEngine,
@@ -244,6 +258,10 @@ struct eso_context {
         engine_sim_offline::c_api::SessionEntry,
         engine_sim_offline::c_api::HandleKind::session>
         sessions;
+    engine_sim_offline::c_api::HandleRegistry<
+        engine_sim_offline::c_api::VehicleEngineEntry,
+        engine_sim_offline::c_api::HandleKind::vehicleengine>
+        vehicleengines;
     std::optional<engine_sim_offline::c_api::ErrorRecord> last_error;
     std::uint32_t context_tag = 0U;
 };

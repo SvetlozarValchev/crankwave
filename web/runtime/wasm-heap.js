@@ -1,6 +1,6 @@
 export class WasmHeapExhaustedError extends Error {
   constructor(byteCount, purpose) {
-    super(`the fixed wasm heap could not allocate ${byteCount} bytes for ${purpose}`);
+    super(`the wasm heap could not allocate ${byteCount} bytes for ${purpose}`);
     this.name = "WasmHeapExhaustedError";
     this.byteCount = byteCount;
     this.purpose = purpose;
@@ -20,7 +20,7 @@ export class WasmHeap {
       typeof module?._free !== "function" ||
       !(module.HEAPU8 instanceof Uint8Array)
     ) {
-      throw new TypeError("the Emscripten module does not expose its fixed heap");
+      throw new TypeError("the Emscripten module does not expose its heap");
     }
     this.#module = module;
     this.#buffer = module.HEAPU8.buffer;
@@ -32,17 +32,17 @@ export class WasmHeap {
   }
 
   get buffer() {
-    this.#assertFixedMemory();
+    this.#refreshMemory();
     return this.#buffer;
   }
 
   get bytes() {
-    this.#assertFixedMemory();
+    this.#refreshMemory();
     return this.#module.HEAPU8;
   }
 
   get view() {
-    this.#assertFixedMemory();
+    this.#refreshMemory();
     return this.#view;
   }
 
@@ -90,11 +90,10 @@ export class WasmHeap {
     return this.bytes.slice(pointer, pointer + byteCount);
   }
 
-  #assertFixedMemory() {
+  #refreshMemory() {
     if (this.#module.HEAPU8.buffer !== this.#buffer) {
-      throw new Error(
-        "the wasm memory buffer changed; this runtime requires ALLOW_MEMORY_GROWTH=0",
-      );
+      this.#buffer = this.#module.HEAPU8.buffer;
+      this.#view = new DataView(this.#buffer);
     }
   }
 }

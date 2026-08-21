@@ -3,7 +3,7 @@
 // This module deliberately describes one ABI version. A mismatched module is
 // rejected during startup; there is no compatibility decoder.
 
-export const ESO_C_API_VERSION = 9;
+export const ESO_C_API_VERSION = 10;
 export const ESO_INVALID_HANDLE = 0n;
 export const ESO_CANONICAL_SAMPLE_RATE = 192_000;
 export const ESO_SHA256_DIGEST_SIZE = 32;
@@ -24,6 +24,7 @@ export const Status = Object.freeze({
   controlRejected: 12,
   processFailed: 13,
   internalError: 14,
+  bakeFailed: 15,
 });
 
 export const AssetKind = Object.freeze({
@@ -160,6 +161,7 @@ export const STATUS_NAMES = Object.freeze([
   "control-rejected",
   "process-failed",
   "internal-error",
+  "bake-failed",
 ]);
 
 export const ERROR_STAGE_NAMES = Object.freeze([
@@ -174,6 +176,7 @@ export const ERROR_STAGE_NAMES = Object.freeze([
   "control",
   "process",
   "abi",
+  "bake",
 ]);
 
 export function statusName(status) {
@@ -328,6 +331,40 @@ export const Layout = Object.freeze({
     idBytes: 8,
     payloadData: 12,
     payloadBytes: 16,
+  }),
+  vehicleEngineBakeInputs: Object.freeze({
+    size: 104,
+    engineJsonData: 0,
+    engineJsonBytes: 4,
+    assets: 8,
+    assetCount: 12,
+    starterRuntimeData: 16,
+    starterRuntimeBytes: 20,
+    starterAudioData: 24,
+    starterAudioBytes: 28,
+    releaseIdentityData: 32,
+    releaseIdentityBytes: 36,
+    wasmModuleSha256: 40,
+    assetCatalogSha256: 72,
+  }),
+  vehicleEngineDescriptor: Object.freeze({
+    size: 112,
+    containerBytes: 0,
+    entryCount: 8,
+    heldCellCount: 16,
+    directionalCaptureCount: 24,
+    lifecycleCaptureCount: 32,
+    engineIdBytes: 40,
+    profileIdBytes: 44,
+    containerSha256: 48,
+    cacheIdentitySha256: 80,
+  }),
+  vehicleEngineIdentityBuffers: Object.freeze({
+    size: 16,
+    engineIdData: 0,
+    engineIdCapacity: 4,
+    profileIdData: 8,
+    profileIdCapacity: 12,
   }),
   abiLayout: Object.freeze({ size: 48 }),
   errorInfo: Object.freeze({

@@ -262,6 +262,29 @@ void test_native_identity_and_package_are_deterministic() {
            "built carrier changed the VEHICLEENGINE v1 contract or tree closure");
 }
 
+void test_wasm_identity_builds_the_same_portable_carrier_contract() {
+    auto input = input_fixture();
+    input.identity.backend.kind = std::string{kWasmResponsiveBackendKindV1};
+    input.identity.backend.target = std::string{kWasmResponsiveTargetV1};
+    input.identity.backend.numeric_runtime =
+        std::string{kWasmResponsiveNumericRuntimeV1};
+    input.identity.backend.executable_sha256 = digest("wasm-module");
+    input.identity.bake_recipe_sha256 = digest("wasm-bake-recipe-v1");
+
+    const auto encoded = encode_native_responsive_bake_identity_v1(input.identity);
+    const auto *identity = std::get_if<EncodedNativeResponsiveBakeIdentityV1>(&encoded);
+    expect(identity != nullptr &&
+               text(identity->bytes).find("wasm-cpp") != std::string::npos,
+           "WASM responsive identity was rejected or lost its backend kind");
+
+    const auto package =
+        require_package(build_native_responsive_package_v2(std::move(input)));
+    expect(!package.vehicleengine_v1.empty() &&
+               text(find_member(package, "bake-report.json").bytes)
+                       .find("wasm32-ieee754-binary128-strict-v1") != std::string::npos,
+           "WASM responsive package did not retain its numeric backend identity");
+}
+
 void test_fail_closed_topology_identity_and_cancellation() {
     auto mismatch = input_fixture();
     auto &directional = mismatch.payload_members[1].bytes;
@@ -420,7 +443,8 @@ void test_atomic_tree_and_carrier_publication() {
            "directory publisher replaced an existing destination");
 
     const auto carrier_path = temporary.path() / "example-engine.vehicleengine";
-    const auto carrier_result = publish_native_vehicleengine_atomic(package, carrier_path);
+    const auto carrier_result =
+        publish_native_vehicleengine_atomic(package, carrier_path);
     expect(std::holds_alternative<NativeResponsiveCarrierPublication>(carrier_result) &&
                read_file(carrier_path) == package.vehicleengine_v1,
            "atomic carrier publication did not preserve exact bytes");
@@ -478,6 +502,7 @@ void test_atomic_tree_and_carrier_publication() {
 int main() {
     try {
         test_native_identity_and_package_are_deterministic();
+        test_wasm_identity_builds_the_same_portable_carrier_contract();
         test_fail_closed_topology_identity_and_cancellation();
         test_optional_runtime_paths_and_native_provenance_round_trip();
         test_atomic_tree_and_carrier_publication();

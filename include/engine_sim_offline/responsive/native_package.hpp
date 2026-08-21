@@ -23,6 +23,10 @@ inline constexpr std::string_view kNativeResponsiveBackendKindV1 = "native-cpp";
 inline constexpr std::string_view kNativeResponsiveTargetV1 = "linux-x86_64";
 inline constexpr std::string_view kNativeResponsiveNumericRuntimeV1 =
     "linux-x86-64-sysv-x87-extended-strict-v1";
+inline constexpr std::string_view kWasmResponsiveBackendKindV1 = "wasm-cpp";
+inline constexpr std::string_view kWasmResponsiveTargetV1 = "wasm32";
+inline constexpr std::string_view kWasmResponsiveNumericRuntimeV1 =
+    "wasm32-ieee754-binary128-strict-v1";
 inline constexpr std::string_view kResponsiveRuntimePathV1 = "runtime.json";
 inline constexpr std::string_view kNativeResponsiveBakeReportPathV2 =
     "bake-report.json";
@@ -79,6 +83,7 @@ struct SharedRecordedStarterIdentityV1 {
 // intentionally cannot share cache entries, even if their package payloads happen
 // to be byte-identical.
 struct NativeResponsiveBackendIdentityV1 {
+    std::string kind = std::string{kNativeResponsiveBackendKindV1};
     std::string release_identity;
     std::uint32_t c_api_version = 0;
     std::string target = std::string{kNativeResponsiveTargetV1};

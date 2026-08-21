@@ -719,7 +719,7 @@ There is no form that omits `execution_kind`.
 
 The implemented ABI:
 
-- the sole accepted exact version is `ESO_C_API_VERSION == 9`, with no older-layout
+- the sole accepted exact version is `ESO_C_API_VERSION == 10`, with no older-layout
   decoder or compatibility symbol family;
 - no C++ exception crosses the boundary;
 - every call returns an explicit status;

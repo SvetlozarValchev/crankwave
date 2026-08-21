@@ -15,7 +15,7 @@ extern "C" {
  * This is the only engine-sim-offline C ABI. It is a greenfield, exact-version
  * contract rather than a compatibility family.
  */
-#define ESO_C_API_VERSION UINT32_C(9)
+#define ESO_C_API_VERSION UINT32_C(10)
 #define ESO_INVALID_HANDLE UINT64_C(0)
 #define ESO_SHA256_DIGEST_SIZE UINT32_C(32)
 
@@ -23,6 +23,7 @@ typedef struct eso_context eso_context_t;
 typedef uint64_t eso_engine_handle_t;
 typedef uint64_t eso_scenario_handle_t;
 typedef uint64_t eso_session_handle_t;
+typedef uint64_t eso_vehicleengine_handle_t;
 
 typedef uint32_t eso_status_t;
 enum {
@@ -40,7 +41,8 @@ enum {
     ESO_STATUS_SESSION_CREATE_FAILED = 11,
     ESO_STATUS_CONTROL_REJECTED = 12,
     ESO_STATUS_PROCESS_FAILED = 13,
-    ESO_STATUS_INTERNAL_ERROR = 14
+    ESO_STATUS_INTERNAL_ERROR = 14,
+    ESO_STATUS_BAKE_FAILED = 15
 };
 
 typedef uint32_t eso_error_stage_t;
@@ -55,7 +57,8 @@ enum {
     ESO_ERROR_STAGE_SESSION_CREATE = 7,
     ESO_ERROR_STAGE_CONTROL = 8,
     ESO_ERROR_STAGE_PROCESS = 9,
-    ESO_ERROR_STAGE_ABI = 10
+    ESO_ERROR_STAGE_ABI = 10,
+    ESO_ERROR_STAGE_BAKE = 11
 };
 
 /*
@@ -88,7 +91,13 @@ enum {
     ESO_ERROR_CONTROL_UNAVAILABLE_DURING_PREPARATION = 207,
     ESO_ERROR_CONTROL_OUTSIDE_SESSION_HORIZON = 208,
     ESO_ERROR_CONTROL_SESSION_TERMINAL = 209,
-    ESO_ERROR_CONTROL_INTERNAL_CLOCK = 210
+    ESO_ERROR_CONTROL_INTERNAL_CLOCK = 210,
+    ESO_ERROR_BAKE_PROFILE = 300,
+    ESO_ERROR_BAKE_SCENARIO = 301,
+    ESO_ERROR_BAKE_CAPTURE = 302,
+    ESO_ERROR_BAKE_COOK = 303,
+    ESO_ERROR_BAKE_PACKAGE = 304,
+    ESO_ERROR_BAKE_IDENTITY = 305
 };
 
 typedef struct eso_utf8_view {
@@ -109,6 +118,34 @@ typedef struct eso_mutable_utf8_buffer {
 typedef struct eso_sha256_digest {
     uint8_t bytes[ESO_SHA256_DIGEST_SIZE];
 } eso_sha256_digest_t;
+
+typedef struct eso_vehicleengine_bake_inputs {
+    eso_utf8_view_t engine_json;
+    const struct eso_asset_payload *assets;
+    size_t asset_count;
+    eso_byte_view_t shared_starter_runtime_json;
+    eso_byte_view_t shared_starter_audio;
+    eso_utf8_view_t release_identity;
+    eso_sha256_digest_t wasm_module_sha256;
+    eso_sha256_digest_t asset_catalog_sha256;
+} eso_vehicleengine_bake_inputs_t;
+
+typedef struct eso_vehicleengine_descriptor {
+    uint64_t container_byte_count;
+    uint64_t entry_count;
+    uint64_t held_cell_count;
+    uint64_t directional_capture_count;
+    uint64_t lifecycle_capture_count;
+    size_t engine_id_utf8_bytes;
+    size_t profile_id_utf8_bytes;
+    eso_sha256_digest_t container_sha256;
+    eso_sha256_digest_t cache_identity_sha256;
+} eso_vehicleengine_descriptor_t;
+
+typedef struct eso_vehicleengine_identity_buffers {
+    eso_mutable_utf8_buffer_t engine_id;
+    eso_mutable_utf8_buffer_t profile_id;
+} eso_vehicleengine_identity_buffers_t;
 
 typedef uint32_t eso_asset_kind_t;
 enum { ESO_ASSET_AUDIO = 1, ESO_ASSET_ACCESSORY_CONFIGURATION = 2 };
@@ -623,6 +660,28 @@ eso_engine_copy_provenance_sha256(eso_context_t *context, eso_engine_handle_t en
  */
 eso_status_t eso_renderer_copy_source_closure_sha256(
     eso_context_t *context, eso_sha256_digest_t *out_sha256) ESO_C_API_NOEXCEPT;
+
+/*
+ * Runs the complete responsive bake synchronously and retains the verified
+ * VEHICLEENGINE carrier in context-owned memory. Browser callers should invoke
+ * this from a dedicated worker. No filesystem or platform service is consulted.
+ */
+eso_status_t eso_bake_vehicleengine(
+    eso_context_t *context, const eso_vehicleengine_bake_inputs_t *inputs,
+    eso_vehicleengine_handle_t *out_vehicleengine) ESO_C_API_NOEXCEPT;
+eso_status_t
+eso_destroy_vehicleengine(eso_context_t *context,
+                          eso_vehicleengine_handle_t vehicleengine) ESO_C_API_NOEXCEPT;
+eso_status_t eso_vehicleengine_get_descriptor(
+    eso_context_t *context, eso_vehicleengine_handle_t vehicleengine,
+    eso_vehicleengine_descriptor_t *out_descriptor) ESO_C_API_NOEXCEPT;
+eso_status_t eso_vehicleengine_copy_identity(
+    eso_context_t *context, eso_vehicleengine_handle_t vehicleengine,
+    eso_vehicleengine_identity_buffers_t *buffers) ESO_C_API_NOEXCEPT;
+eso_status_t eso_vehicleengine_copy_bytes(eso_context_t *context,
+                                          eso_vehicleengine_handle_t vehicleengine,
+                                          uint8_t *bytes, size_t capacity,
+                                          size_t *out_byte_count) ESO_C_API_NOEXCEPT;
 
 eso_status_t
 eso_compile_scenario_json(eso_context_t *context, eso_engine_handle_t engine,

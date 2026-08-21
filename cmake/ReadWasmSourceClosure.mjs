@@ -28,7 +28,7 @@ async function main() {
       throw new Error(`WASM renderer is missing ${name}`);
     }
   }
-  if (module._eso_api_version() !== 9 || !(module.HEAPU8 instanceof Uint8Array)) {
+  if (module._eso_api_version() !== 10 || !(module.HEAPU8 instanceof Uint8Array)) {
     throw new Error("WASM renderer exposes an incompatible C API");
   }
 
@@ -39,7 +39,7 @@ async function main() {
   }
   try {
     module.HEAPU8.fill(0, contextOutput, contextOutput + 4);
-    if (module._eso_context_create(9, contextOutput) !== 0) {
+    if (module._eso_context_create(10, contextOutput) !== 0) {
       throw new Error("WASM renderer context creation failed");
     }
     const context = new DataView(

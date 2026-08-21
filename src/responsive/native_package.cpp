@@ -243,7 +243,7 @@ encode_cache_identity(const NativeResponsiveBakeIdentityInputV1 &input,
     output.append("{\"schema\":");
     append_json_string(output, kNativeResponsiveCacheIdentitySchemaV1);
     output.append(",\"backend\":{\"kind\":");
-    append_json_string(output, kNativeResponsiveBackendKindV1);
+    append_json_string(output, input.backend.kind);
     output.append(",\"release_identity\":");
     append_json_string(output, input.backend.release_identity);
     output.append(",\"c_api_version\":");
@@ -302,22 +302,40 @@ encode_cache_identity(const NativeResponsiveBakeIdentityInputV1 &input,
 validate_identity(const NativeResponsiveBakeIdentityInputV1 &input,
                   std::vector<ResolvedResponsiveAssetIdentity> &ordered_assets,
                   const std::stop_token stop_token) {
-#if !defined(__linux__) || !defined(__x86_64__)
-    static_cast<void>(input);
-    static_cast<void>(ordered_assets);
-    static_cast<void>(stop_token);
-    return error(ErrorCode::unsupported_platform,
-                 "native-responsive-backend-platform-unsupported", "/backend",
-                 "the native responsive backend is admitted only on Linux x86-64");
-#else
     if (stop_token.stop_requested()) {
         return cancelled_error();
     }
-    if (!numeric::target_extended_precision_format_is_admitted()) {
-        return error(
-            ErrorCode::unsupported_platform,
-            "native-responsive-numeric-runtime-unavailable", "/backend",
-            "compiled long-double format does not match the native backend identity");
+    if (input.backend.kind == kNativeResponsiveBackendKindV1) {
+#if !defined(__linux__) || !defined(__x86_64__)
+        return error(ErrorCode::unsupported_platform,
+                     "native-responsive-backend-platform-unsupported", "/backend",
+                     "the native responsive backend is admitted only on Linux x86-64");
+#else
+        if (!numeric::target_extended_precision_format_is_admitted()) {
+            return error(ErrorCode::unsupported_platform,
+                         "native-responsive-numeric-runtime-unavailable", "/backend",
+                         "compiled long-double format does not match the native "
+                         "backend identity");
+        }
+        if (input.backend.target != kNativeResponsiveTargetV1 ||
+            input.backend.numeric_runtime != kNativeResponsiveNumericRuntimeV1) {
+            return error(
+                ErrorCode::invalid_identity,
+                "native-responsive-numeric-backend-mismatch", "/backend",
+                "native backend target or numeric runtime identity is unsupported");
+        }
+#endif
+    } else if (input.backend.kind == kWasmResponsiveBackendKindV1) {
+        if (input.backend.target != kWasmResponsiveTargetV1 ||
+            input.backend.numeric_runtime != kWasmResponsiveNumericRuntimeV1) {
+            return error(
+                ErrorCode::invalid_identity, "wasm-responsive-numeric-backend-mismatch",
+                "/backend",
+                "WASM backend target or numeric runtime identity is unsupported");
+        }
+    } else {
+        return error(ErrorCode::invalid_identity, "responsive-backend-kind-unsupported",
+                     "/backend/kind", "responsive backend kind is unsupported");
     }
     if (!valid_release_identity(input.backend.release_identity)) {
         return error(
@@ -330,13 +348,6 @@ validate_identity(const NativeResponsiveBakeIdentityInputV1 &input,
             ErrorCode::invalid_identity, "native-responsive-c-api-version-mismatch",
             "/backend/c_api_version",
             "native backend identity must use the current exact C API version");
-    }
-    if (input.backend.target != kNativeResponsiveTargetV1 ||
-        input.backend.numeric_runtime != kNativeResponsiveNumericRuntimeV1) {
-        return error(
-            ErrorCode::invalid_identity, "native-responsive-numeric-backend-mismatch",
-            "/backend",
-            "native backend target or numeric runtime identity is unsupported");
     }
     if (input.backend.executable_sha256.is_zero() ||
         input.backend.source_closure_sha256.is_zero() ||
@@ -410,7 +421,6 @@ validate_identity(const NativeResponsiveBakeIdentityInputV1 &input,
         }
     }
     return std::nullopt;
-#endif
 }
 
 [[nodiscard]] const PortableResponsivePackageMember *
@@ -817,7 +827,7 @@ encode_report(const NativeResponsivePackageInputV2 &input,
                         digest_hex(cache_identity.sha256));
     append_key(output, 4U, "backend");
     output.append("{\n");
-    append_string_field(output, 6U, "kind", kNativeResponsiveBackendKindV1);
+    append_string_field(output, 6U, "kind", backend.kind);
     append_integer_field(output, 6U, "c_api_version", backend.c_api_version);
     append_string_field(output, 6U, "target", backend.target);
     append_string_field(output, 6U, "numeric_runtime", backend.numeric_runtime);
@@ -893,7 +903,8 @@ build_native_responsive_package_v2(NativeResponsivePackageInputV2 input,
     auto cache_identity =
         std::get<EncodedNativeResponsiveBakeIdentityV1>(std::move(cache_result));
 
-    if (input.payload_members.size() > artifacts::kVehicleEngineMaximumEntryCountV1 - 3U) {
+    if (input.payload_members.size() >
+        artifacts::kVehicleEngineMaximumEntryCountV1 - 3U) {
         return error(
             ErrorCode::resource_limit, "native-responsive-package-entry-limit-exceeded",
             "", "responsive payload leaves no room for generated package manifests");

@@ -594,6 +594,34 @@ target_link_libraries(
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_responsive)
 
+# The full responsive baker is isolated from the realtime C API so browser
+# distributions can keep the live module fixed-memory while loading this much
+# heavier surface only inside a dedicated offline worker.
+add_library(
+    engine_sim_offline_bake_c_api
+    STATIC
+        src/c_api/bake.cpp
+)
+add_library(
+    engine_sim_offline::bake_c_api
+    ALIAS engine_sim_offline_bake_c_api
+)
+target_include_directories(
+    engine_sim_offline_bake_c_api
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+target_link_libraries(
+    engine_sim_offline_bake_c_api
+    PRIVATE
+        engine_sim_offline::c_api
+        engine_sim_offline::responsive
+        engine_sim_offline_renderer_determinism
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_bake_c_api)
+
 if(EMSCRIPTEN OR ENGINE_SIM_OFFLINE_BUILD_WASM)
     include(cmake/EngineSimOfflineWasm.cmake)
 endif()
@@ -634,6 +662,48 @@ if(ENGINE_SIM_OFFLINE_BUILD_WASM)
     )
     engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_wasm)
     engine_sim_offline_configure_wasm_numeric_target(engine_sim_offline_wasm)
+
+    add_executable(
+        engine_sim_offline_wasm_baker
+        src/wasm/module.cpp
+    )
+    set_target_properties(
+        engine_sim_offline_wasm_baker
+        PROPERTIES OUTPUT_NAME engine-sim-offline-baker
+    )
+    target_link_libraries(
+        engine_sim_offline_wasm_baker
+        PRIVATE
+            engine_sim_offline::c_api
+            engine_sim_offline::bake_c_api
+    )
+    target_link_options(
+        engine_sim_offline_wasm_baker
+        PRIVATE
+            --no-entry
+            -fwasm-exceptions
+            "SHELL:-sMODULARIZE=1"
+            "SHELL:-sEXPORT_ES6=1"
+            "SHELL:-sENVIRONMENT=web,worker,node"
+            "SHELL:-sINCOMING_MODULE_JS_API=['locateFile','wasmBinary']"
+            "SHELL:-sFILESYSTEM=0"
+            "SHELL:-sALLOW_MEMORY_GROWTH=1"
+            "SHELL:-sINITIAL_MEMORY=268435456"
+            "SHELL:-sMAXIMUM_MEMORY=2147483648"
+            "SHELL:-sSTACK_SIZE=1048576"
+            "SHELL:-sABORTING_MALLOC=0"
+            "SHELL:-sEXIT_RUNTIME=0"
+            "SHELL:-sSTRICT=1"
+            "SHELL:-sWASM_BIGINT=1"
+            "SHELL:-sEXPORTED_RUNTIME_METHODS=['HEAPU8','HEAPU32']"
+            "SHELL:-sEXPORTED_FUNCTIONS=['_malloc','_free','_eso_api_version','_eso_get_abi_layout','_eso_context_create','_eso_context_destroy','_eso_context_get_last_error','_eso_context_copy_last_error_text','_eso_context_get_diagnostic','_eso_context_copy_diagnostic_text','_eso_context_get_related_diagnostic','_eso_context_copy_related_diagnostic_text','_eso_bake_vehicleengine','_eso_destroy_vehicleengine','_eso_vehicleengine_get_descriptor','_eso_vehicleengine_copy_identity','_eso_vehicleengine_copy_bytes']"
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_wasm_baker
+    )
+    engine_sim_offline_configure_wasm_numeric_target(
+        engine_sim_offline_wasm_baker
+    )
 
     include(cmake/EngineSimOfflineWorkbench.cmake)
     engine_sim_offline_add_web_workbench(engine_sim_offline_wasm)
@@ -1404,6 +1474,7 @@ set(
     engine_sim_offline_excitation
     engine_sim_offline_session
     engine_sim_offline_c_api
+    engine_sim_offline_bake_c_api
     engine_sim_offline_execution
     engine_sim_offline_renderer_determinism
 )
@@ -1412,6 +1483,7 @@ if(TARGET engine_sim_offline_wasm)
         APPEND
         _engine_sim_offline_numeric_policy_targets
         engine_sim_offline_wasm
+        engine_sim_offline_wasm_baker
     )
 endif()
 if(ENGINE_SIM_OFFLINE_BUILD_TESTS)
