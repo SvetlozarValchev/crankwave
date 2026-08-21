@@ -8,7 +8,7 @@ import {
 
 const WORKER_URL = "/harness/harness-worker.js";
 const WORKLET_URL = "/harness/audio-worklet.js";
-const PROCESSOR_NAME = "revengine-ring-output";
+const PROCESSOR_NAME = "vehicleengine-ring-output";
 const MAXIMUM_CARRIER_BYTES = 2 ** 32;
 const OUTPUT_LEAD_SECONDS = 0.35;
 
@@ -221,7 +221,7 @@ function acceptWorkerMessage(message) {
 function startWorker() {
   state.worker = new Worker(WORKER_URL, {
     type: "module",
-    name: "revengine-audio-bridge",
+    name: "vehicleengine-audio-bridge",
   });
   state.worker.addEventListener("message", (event) => {
     acceptWorkerMessage(event.data);
@@ -282,7 +282,7 @@ async function loadFile(file) {
     setChip(elements.packageStatus, "Package rejected", "bad");
     setMessage(
       elements.packageMessage,
-      "The selected file is empty or exceeds the REVENGINE v1 carrier limit.",
+      "The selected file is empty or exceeds the VEHICLEENGINE v1 carrier limit.",
       true,
     );
     return;

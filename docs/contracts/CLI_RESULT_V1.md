@@ -1,7 +1,7 @@
 # Native CLI machine result v1
 
-`render`, `bake-revengine`, `pack-revengine`, `inspect-revengine`,
-`verify-revengine`, and `inspect-ir-catalog` accept
+`render`, `bake-vehicleengine`, `pack-vehicleengine`, `inspect-vehicleengine`,
+`verify-vehicleengine`, and `inspect-ir-catalog` accept
 `--result-format json`. In that mode the command writes exactly one UTF-8 JSON
 object followed by one LF to standard output for either success or failure. It does
 not write human diagnostics to standard error. Process-launch failures that occur
@@ -38,7 +38,7 @@ contains `output_file`, `engine_id`, `profile_id`, `verified`, `container_bytes`
 `verified` is true only after the complete carrier and its ordered package tree have
 been checked before atomic publication. Pack success contains `output_file`,
 `container_bytes`, `entry_count`, and `container_sha256`. Inspect and verify success
-contain the REVENGINE version, verification state, byte/count/hash summary, ordered
+contain the VEHICLEENGINE version, verification state, byte/count/hash summary, ordered
 entry records, and either a verified package descriptor or null.
 IR-catalog inspection success contains `catalog_sha256`, `entry_count`, and the
 validated `engine-sim-offline/ir-authoring-catalog.v1` object. Its release identity
@@ -56,22 +56,22 @@ Failure codes are drawn from these stable families:
 - native-bake planning, cooking, backend-identity, packaging, and publication codes,
   including the stable `responsive-*` and `native-responsive-*` detail-code
   namespaces;
-- `revengine-data-error`, `revengine-input-unavailable`,
-  `revengine-output-unavailable`, and `revengine-operation-unavailable`;
+- `vehicleengine-data-error`, `vehicleengine-input-unavailable`,
+  `vehicleengine-output-unavailable`, and `vehicleengine-operation-unavailable`;
 - `render-invalid-specification`, `render-unreachable-target`,
   `render-event-schedule-violation`, `render-nonphysical-state`,
   `render-numerical-failure`, `render-incomplete-source-route`,
   `render-evidence-rights-failure`, `render-artifact-publication-failure`, and
   `render-contract-violation`;
 - `render-cancelled`, `render-terminated`, and `render-deadline-exceeded`;
-- `bake-revengine-cancelled`, `bake-revengine-terminated`, and
-  `bake-revengine-deadline-exceeded`;
-- `pack-revengine-cancelled`, `pack-revengine-terminated`, and
-  `pack-revengine-deadline-exceeded`;
-- `inspect-revengine-cancelled`, `inspect-revengine-terminated`, and
-  `inspect-revengine-deadline-exceeded`;
-- `verify-revengine-cancelled`, `verify-revengine-terminated`, and
-  `verify-revengine-deadline-exceeded`.
+- `bake-vehicleengine-cancelled`, `bake-vehicleengine-terminated`, and
+  `bake-vehicleengine-deadline-exceeded`;
+- `pack-vehicleengine-cancelled`, `pack-vehicleengine-terminated`, and
+  `pack-vehicleengine-deadline-exceeded`;
+- `inspect-vehicleengine-cancelled`, `inspect-vehicleengine-terminated`, and
+  `inspect-vehicleengine-deadline-exceeded`;
+- `verify-vehicleengine-cancelled`, `verify-vehicleengine-terminated`, and
+  `verify-vehicleengine-deadline-exceeded`.
 
 For native-bake failures other than authored diagnostics and controlled stops, the
 failure object appends `message`, `stage`, nullable `path`, and an ordered `issues`
@@ -101,7 +101,7 @@ result.
 Native bake observes cancellation during admission, engine and asset loading,
 responsive planning, held/directional/lifecycle capture and cooking, child encoding,
 package construction, complete carrier verification, staged-file verification, and
-publication. It verifies the complete REVENGINE carrier before writing a unique
+publication. It verifies the complete VEHICLEENGINE carrier before writing a unique
 private stage and atomically publishes without replacing an existing destination.
 Cancellation before publication removes the private stage and exposes no partial
 output. Once no-overwrite publication succeeds, the committed result wins over a

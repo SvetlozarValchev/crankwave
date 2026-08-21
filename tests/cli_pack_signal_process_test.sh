@@ -14,7 +14,7 @@ standard_error=$5
 output_parent=$6
 signal_name=$7
 
-"$cli" pack-revengine \
+"$cli" pack-vehicleengine \
     --package-directory "$package_directory" \
     --output "$output" \
     --result-format json >"$standard_out" 2>"$standard_error" &

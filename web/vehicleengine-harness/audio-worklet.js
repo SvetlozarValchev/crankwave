@@ -6,7 +6,7 @@ const PRODUCER_PAUSED = 2;
 const PRODUCER_ENDED = 3;
 const PRODUCER_FAILED = 4;
 
-class RevengineRingOutput extends AudioWorkletProcessor {
+class VehicleEngineRingOutput extends AudioWorkletProcessor {
   constructor(options) {
     super();
     const config = options.processorOptions;
@@ -172,4 +172,4 @@ class RevengineRingOutput extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor("revengine-ring-output", RevengineRingOutput);
+registerProcessor("vehicleengine-ring-output", VehicleEngineRingOutput);

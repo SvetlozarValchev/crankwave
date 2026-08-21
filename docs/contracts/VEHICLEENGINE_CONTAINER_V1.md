@@ -1,19 +1,19 @@
-# REVENGINE container v1
+# VEHICLEENGINE container v1
 
 ## Scope
 
-REVENGINE v1 is an engine-sim-offline-owned, deterministic, uncompressed carrier
+VEHICLEENGINE v1 is an engine-sim-offline-owned, deterministic, uncompressed carrier
 for an already validated responsive package tree. It is deliberately independent
-of PlugAndRev or any other service. The carrier does not define package JSON,
+of any editor or service. The carrier does not define package JSON,
 licensing, signing authority, runtime compatibility policy, compression, or audio
 reconstruction semantics.
 
 The ESO pack command requires one strictly validated package entry point at
-`revengine.json`:
+`vehicleengine.json`:
 
 ```json
 {
-  "schema": "engine-sim-offline/revengine-package",
+  "schema": "engine-sim-offline/vehicleengine-package",
   "version": 1,
   "engine_id": "example-engine",
   "runtime": {
@@ -26,8 +26,8 @@ The ESO pack command requires one strictly validated package entry point at
 
 The object is closed to unknown fields. The engine ID uses lowercase letters,
 digits, `.`, `_`, and `-`, begins and ends with a letter or digit, and is at most
-128 bytes. `revengine.json` itself is limited to 16 KiB. The runtime manifest is
-an in-tree portable path other than `revengine.json`; its digest binds the exact
+128 bytes. `vehicleengine.json` itself is limited to 16 KiB. The runtime manifest is
+an in-tree portable path other than `vehicleengine.json`; its digest binds the exact
 manifest bytes. Package semantics below that manifest remain versioned by the
 responsive runtime rather than the carrier.
 

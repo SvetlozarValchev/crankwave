@@ -1,8 +1,8 @@
 export const DEVICE_RESAMPLER_ID =
   "engine-sim-offline/windowed-sinc-129-phase2048-v1";
 
-// This resampler is also part of the standalone REVENGINE consumer surface.
-// Keep its rate contract independent of the simulation C API: a REVENGINE
+// This resampler is also part of the standalone VEHICLEENGINE consumer surface.
+// Keep its rate contract independent of the simulation C API: a VEHICLEENGINE
 // player must not need to load or understand the renderer ABI.
 const MAXIMUM_SUPPORTED_SAMPLE_RATE = 192_000;
 

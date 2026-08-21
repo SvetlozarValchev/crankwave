@@ -51,8 +51,8 @@ jobs:
             web/tests/runtime/partitioned-spectrum-convolver.test.mjs \
             web/tests/runtime/renderer-runtime-compatibility.test.mjs \
             web/tests/runtime/responsive-audio-lifecycle-runtime.test.mjs \
-            web/tests/runtime/revengine-audio-engine.test.mjs \
-            web/tests/runtime/revengine-package.test.mjs \
+            web/tests/runtime/vehicleengine-audio-engine.test.mjs \
+            web/tests/runtime/vehicleengine-package.test.mjs \
             web/tests/runtime/shared-recorded-starter-runtime.test.mjs
 
       - name: Verify development-only WASM parity oracle

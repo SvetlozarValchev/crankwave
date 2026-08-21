@@ -1,8 +1,8 @@
-# Engine Sim Offline
+# Engine Sim WASM
 
-Engine Sim Offline is a portable engine simulation and audio-rendering core. Its
+Engine Sim WASM is a portable engine simulation and audio-rendering core. Its
 production authoring boundary is one native executable: declarative JSON goes in,
-and audition PCM, physical telemetry, or a complete `.revengine` carrier comes out.
+and audition PCM, physical telemetry, or a complete `.vehicleengine` carrier comes out.
 Playback consumers use the simulator-free JavaScript modules packaged with the
 carrier format; they do not run the engine simulation.
 
@@ -182,7 +182,7 @@ engine.json + scenario.json + installed assets
                          |
                  native C++ CLI
                     /          \
-       audition + telemetry   .revengine
+       audition + telemetry   .vehicleengine
                                     |
                           simulator-free playback
 ```
@@ -190,7 +190,7 @@ engine.json + scenario.json + installed assets
 The installed distribution and GHCR image contain no Node.js runtime and no
 simulation WebAssembly module. The source-tree browser workbench still builds a WASM
 session as a development and interactive-simulation surface; it is not part of the
-production authoring distribution or the `.revengine` playback path.
+production authoring distribution or the `.vehicleengine` playback path.
 
 Its canonical method quantum is 400 physics/capture frames at 20 kHz to 3,840 delivery
 frames at 192 kHz: 20 ms per `process_block()` call. The browser's explicitly labelled
@@ -321,16 +321,16 @@ membership is a technical runtime allowlist, not a licensing or provenance asser
 The stable production cooker is one native command. It compiles the engine, derives
 the redline-affine responsive profile, captures all required held, directional, and
 lifecycle material, packages it, verifies the carrier, and atomically publishes only
-the finished `.revengine`:
+the finished `.vehicleengine`:
 
 ```bash
-build/engine-sim-offline bake-revengine \
+build/engine-sim-offline bake-vehicleengine \
   --engine data/engines/bmw-m52tub28-cleanroom/engine.json \
-  --output artifacts/m52tu.revengine \
+  --output artifacts/m52tu.vehicleengine \
   --result-format json
 
-build/engine-sim-offline verify-revengine \
-  --input artifacts/m52tu.revengine \
+build/engine-sim-offline verify-vehicleengine \
+  --input artifacts/m52tu.vehicleengine \
   --result-format json
 ```
 
@@ -338,9 +338,9 @@ The installed command has the same interface and discovers only its own
 manifest-bound assets:
 
 ```bash
-artifacts/engine-sim-offline-install/bin/engine-sim-offline bake-revengine \
+artifacts/engine-sim-offline-install/bin/engine-sim-offline bake-vehicleengine \
   --engine /absolute/path/to/engine.json \
-  --output /absolute/path/to/new.revengine \
+  --output /absolute/path/to/new.vehicleengine \
   --deadline-unix-ms 1800000000000 \
   --result-format json
 ```
@@ -376,29 +376,29 @@ in `engine-sim-offline-<release>.binding.json`.
 
 `--asset-root` remains an explicit developer override for source-tree experiments.
 Production adapters omit it, pin the installed release and manifest digest, and use
-the one-step `revengine-bake-workflow.v2.json` contract.
+the one-step `vehicleengine-bake-workflow.v2.json` contract.
 
-`inspect-revengine` authenticates and reports the carrier structure and index;
-`verify-revengine` additionally hashes every payload and validates the package
+`inspect-vehicleengine` authenticates and reports the carrier structure and index;
+`verify-vehicleengine` additionally hashes every payload and validates the package
 descriptor's runtime-manifest binding. The carrier format is specified in
-[REVENGINE_CONTAINER_V1.md](docs/contracts/REVENGINE_CONTAINER_V1.md).
+[VEHICLEENGINE_CONTAINER_V1.md](docs/contracts/VEHICLEENGINE_CONTAINER_V1.md).
 
-### Audition a REVENGINE as an external consumer
+### Audition a VEHICLEENGINE as an external consumer
 
 The standalone audio harness proves the other side of the boundary: it accepts one
-local `.revengine` file and supplies only RPM, normalized throttle, and normalized
+local `.vehicleengine` file and supplies only RPM, normalized throttle, and normalized
 load. It does not load engine JSON, scenario JSON, the C API, or a simulation WASM
 module:
 
 ```bash
-node scripts/serve-revengine-harness.mjs
+node scripts/serve-vehicleengine-harness.mjs
 ```
 
 Open `http://127.0.0.1:4173/`, choose the carrier, press **Play**, and move the three
 operating-point controls. The browser verifies the complete carrier before a Worker
-renders its packaged mono PCM. The public `RevengineAudioEngine` facade is also usable
+renders its packaged mono PCM. The public `VehicleEngineAudioEngine` facade is also usable
 directly by another bridge or host. Its API and control semantics are documented in
-[REVENGINE_AUDIO_BRIDGE.md](docs/REVENGINE_AUDIO_BRIDGE.md).
+[VEHICLEENGINE_AUDIO_BRIDGE.md](docs/VEHICLEENGINE_AUDIO_BRIDGE.md).
 
 ## Preserved reference
 
@@ -446,7 +446,7 @@ not define the new product API or retain old executable modes.
 
 ## License
 
-Engine Sim Offline is proprietary software. Copyright (c) 2026 Svetlozar Valchev.
+Engine Sim WASM is proprietary software. Copyright (c) 2026 Svetlozar Valchev.
 All rights are reserved; see [LICENSE](LICENSE). Third-party materials retain their
 own licenses and notices, including the MIT-licensed upstream engine-sim material
 listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

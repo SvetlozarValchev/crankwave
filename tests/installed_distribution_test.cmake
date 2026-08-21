@@ -58,7 +58,7 @@ set(resource_root "${INSTALL_PREFIX}/${resource_relative}")
 set(runtime_root "${resource_root}/web/runtime")
 set(cli "${bin_directory}/engine-sim-offline")
 set(workflow_path
-    "${resource_root}/contracts/revengine-bake-workflow.v2.json")
+    "${resource_root}/contracts/vehicleengine-bake-workflow.v2.json")
 set(release_manifest_path "${resource_root}/release.json")
 
 set(required_files
@@ -81,7 +81,7 @@ set(required_files
     "${resource_root}/schemas/responsive-audio-bake-profile.schema.json"
     "${resource_root}/schemas/ir-authoring-catalog.schema.json"
     "${resource_root}/schemas/installed-distribution.v2.schema.json"
-    "${resource_root}/schemas/revengine-bake-workflow.v2.schema.json")
+    "${resource_root}/schemas/vehicleengine-bake-workflow.v2.schema.json")
 foreach(required_file IN LISTS required_files)
     require_regular_file("${required_file}")
 endforeach()
@@ -89,9 +89,9 @@ endforeach()
 file(READ "${resource_root}/docs/contracts/CLI_RESULT_V1.md"
     cli_result_contract)
 foreach(required_contract_term IN ITEMS
-        "bake-revengine"
+        "bake-vehicleengine"
         "cache_identity_sha256"
-        "bake-revengine-deadline-exceeded"
+        "bake-vehicleengine-deadline-exceeded"
         "native-responsive-*"
         "1.2.0")
     string(FIND "${cli_result_contract}" "${required_contract_term}"
@@ -114,11 +114,11 @@ set(expected_runtime_entries
     release.js
     renderer-runtime-compatibility.js
     responsive-audio-lifecycle-runtime.js
-    revengine-audio-engine.js
-    revengine-package.js
     shared-recorded-starter-runtime.js
     state-phase-texture-runtime.js
-    steady-transient-envelope.js)
+    steady-transient-envelope.js
+    vehicleengine-audio-engine.js
+    vehicleengine-package.js)
 if(NOT "${runtime_entries}" STREQUAL "${expected_runtime_entries}")
     message(FATAL_ERROR
         "installed simulator-free ESM closure differs: ${runtime_entries}")
@@ -178,8 +178,8 @@ execute_process(
     ERROR_VARIABLE cli_help_stderr
 )
 foreach(command IN ITEMS
-        render bake-revengine pack-revengine inspect-revengine
-        verify-revengine inspect-ir-catalog)
+        render bake-vehicleengine pack-vehicleengine inspect-vehicleengine
+        verify-vehicleengine inspect-ir-catalog)
     if(NOT cli_help_stdout MATCHES "${command}")
         message(FATAL_ERROR "installed CLI help omits ${command}")
     endif()
@@ -264,7 +264,7 @@ string(JSON workflow_profile_id GET
 string(JSON workflow_profile_override_type TYPE
     "${workflow}" responsive_profile_selection explicit_override)
 if(NOT workflow_schema STREQUAL
-       "engine-sim-offline/revengine-bake-workflow.v2" OR
+       "engine-sim-offline/vehicleengine-bake-workflow.v2" OR
    NOT workflow_release STREQUAL RELEASE_IDENTITY OR
    NOT workflow_step_count EQUAL 1 OR
    NOT workflow_runtime_kind STREQUAL "native" OR
@@ -286,17 +286,17 @@ foreach(workflow_argument_index RANGE 0 ${workflow_argument_last})
     list(APPEND workflow_arguments "${workflow_argument}")
 endforeach()
 set(expected_workflow_arguments
-    bake-revengine
+    bake-vehicleengine
     --engine
     {engine_json}
     --output
-    {new_revengine_file}
+    {new_vehicleengine_file}
     --deadline-unix-ms
     {deadline_unix_ms}
     --result-format
     json)
 if(NOT workflow_step_ordinal EQUAL 1 OR
-   NOT workflow_step_id STREQUAL "bake_revengine" OR
+   NOT workflow_step_id STREQUAL "bake_vehicleengine" OR
    NOT workflow_step_executable STREQUAL
        "${INSTALL_BINDIR}/engine-sim-offline" OR
    NOT "${workflow_arguments}" STREQUAL "${expected_workflow_arguments}")
@@ -314,7 +314,7 @@ string(JSON workflow_result_verified GET
     "${workflow}" steps 0 required_result_fields verified)
 if(NOT workflow_result_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
    NOT workflow_result_release STREQUAL RELEASE_IDENTITY OR
-   NOT workflow_result_command STREQUAL "bake-revengine" OR
+   NOT workflow_result_command STREQUAL "bake-vehicleengine" OR
    NOT workflow_result_ok OR NOT workflow_result_verified)
     message(FATAL_ERROR "installed native bake result contract differs")
 endif()
@@ -378,7 +378,7 @@ if(NOT release_schema STREQUAL
    NOT release_browser_kind STREQUAL "simulator-free-esm" OR
    NOT release_browser_directory STREQUAL "${resource_relative}/web/runtime" OR
    NOT release_browser_entrypoint STREQUAL
-       "${resource_relative}/web/runtime/revengine-audio-engine.js" OR
+       "${resource_relative}/web/runtime/vehicleengine-audio-engine.js" OR
    NOT release_resource_root STREQUAL resource_relative OR
    NOT release_telemetry_role STREQUAL "diagnostics.engine-telemetry.v1" OR
    NOT release_telemetry_schema STREQUAL
@@ -388,8 +388,8 @@ if(NOT release_schema STREQUAL
     message(FATAL_ERROR "installed distribution v2 metadata differs")
 endif()
 set(expected_commands
-    render bake-revengine pack-revengine inspect-revengine
-    verify-revengine inspect-ir-catalog)
+    render bake-vehicleengine pack-vehicleengine inspect-vehicleengine
+    verify-vehicleengine inspect-ir-catalog)
 set(release_commands)
 foreach(command_index RANGE 0 5)
     string(JSON release_command GET
@@ -409,11 +409,11 @@ elseif(NOT release_classification STREQUAL
 endif()
 file(SHA256 "${workflow_path}" actual_workflow_sha256)
 string(JSON release_workflow_path GET
-    "${release_manifest}" revengine_bake_workflow path)
+    "${release_manifest}" vehicleengine_bake_workflow path)
 string(JSON release_workflow_sha256 GET
-    "${release_manifest}" revengine_bake_workflow sha256)
+    "${release_manifest}" vehicleengine_bake_workflow sha256)
 if(NOT release_workflow_path STREQUAL
-       "${resource_relative}/contracts/revengine-bake-workflow.v2.json" OR
+       "${resource_relative}/contracts/vehicleengine-bake-workflow.v2.json" OR
    NOT release_workflow_sha256 STREQUAL actual_workflow_sha256)
     message(FATAL_ERROR "installed workflow manifest binding differs")
 endif()
@@ -552,7 +552,7 @@ if(NOT archive_list_result EQUAL 0 OR
 endif()
 
 set(tampered_member
-    "${repeat_install_prefix}/${resource_relative}/contracts/revengine-bake-workflow.v2.json")
+    "${repeat_install_prefix}/${resource_relative}/contracts/vehicleengine-bake-workflow.v2.json")
 file(APPEND "${tampered_member}" " ")
 set(tampered_archive "${INSTALL_PREFIX}.tampered.tar")
 file(REMOVE "${tampered_archive}" "${tampered_archive}.sha256")
@@ -597,7 +597,7 @@ if(bake_engine_json MATCHES "smooth-39|smooth_39|75de9db4")
 endif()
 set(bake_engine "${work_root}/kohler-smooth-45.engine.json")
 file(WRITE "${bake_engine}" "${bake_engine_json}")
-set(deadline_output "${work_root}/deadline.revengine")
+set(deadline_output "${work_root}/deadline.vehicleengine")
 execute_process(
     COMMAND
         "${CMAKE_COMMAND}" -E env
@@ -607,7 +607,7 @@ execute_process(
         "HTTP_PROXY=http://127.0.0.1:1"
         "HTTPS_PROXY=http://127.0.0.1:1"
         "NODE_OPTIONS=must-not-be-consumed"
-        "${cli}" bake-revengine
+        "${cli}" bake-vehicleengine
         --engine "${bake_engine}"
         --output "${deadline_output}"
         --deadline-unix-ms 1
@@ -630,8 +630,8 @@ string(JSON deadline_ok GET "${deadline_stdout}" ok)
 string(JSON deadline_code GET "${deadline_stdout}" code)
 if(NOT deadline_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
    NOT deadline_release STREQUAL RELEASE_IDENTITY OR
-   NOT deadline_command STREQUAL "bake-revengine" OR deadline_ok OR
-   NOT deadline_code STREQUAL "bake-revengine-deadline-exceeded")
+   NOT deadline_command STREQUAL "bake-vehicleengine" OR deadline_ok OR
+   NOT deadline_code STREQUAL "bake-vehicleengine-deadline-exceeded")
     message(FATAL_ERROR "installed native deadline JSON differs")
 endif()
 
@@ -643,7 +643,7 @@ set(adjacent_poison_root "${bin_directory}/engine-sim-offline-assets")
 file(MAKE_DIRECTORY "${adjacent_poison_root}")
 file(WRITE "${adjacent_poison_root}/catalog.v1.json"
     "{\"poisoned_unmanifested_catalog\":true}\n")
-set(signal_output "${work_root}/terminated.revengine")
+set(signal_output "${work_root}/terminated.vehicleengine")
 set(signal_stdout_path "${work_root}/termination.stdout")
 set(signal_stderr_path "${work_root}/termination.stderr")
 execute_process(
@@ -675,8 +675,8 @@ string(JSON signal_ok GET "${signal_stdout}" ok)
 string(JSON signal_code GET "${signal_stdout}" code)
 if(NOT signal_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
    NOT signal_release STREQUAL RELEASE_IDENTITY OR
-   NOT signal_command STREQUAL "bake-revengine" OR signal_ok OR
-   NOT signal_code STREQUAL "bake-revengine-terminated")
+   NOT signal_command STREQUAL "bake-vehicleengine" OR signal_ok OR
+   NOT signal_code STREQUAL "bake-vehicleengine-terminated")
     message(FATAL_ERROR "installed native termination JSON differs")
 endif()
 file(GLOB interrupted_debris "${work_root}/.engine-sim-offline-*")
@@ -685,8 +685,8 @@ if(interrupted_debris)
         "installed native cancellation left incomplete output: ${interrupted_debris}")
 endif()
 
-set(first_carrier "${work_root}/first.revengine")
-set(second_carrier "${work_root}/second.revengine")
+set(first_carrier "${work_root}/first.vehicleengine")
+set(second_carrier "${work_root}/second.vehicleengine")
 set(native_bake_environment
     "${CMAKE_COMMAND}" -E env
     "PATH=${work_root}/empty-path"
@@ -698,7 +698,7 @@ set(native_bake_environment
 execute_process(
     COMMAND
         ${native_bake_environment}
-        "${cli}" bake-revengine
+        "${cli}" bake-vehicleengine
         --engine "${bake_engine}"
         --output "${first_carrier}"
         --result-format json
@@ -716,7 +716,7 @@ endif()
 execute_process(
     COMMAND
         ${native_bake_environment}
-        "${cli}" bake-revengine
+        "${cli}" bake-vehicleengine
         --engine "${bake_engine}"
         --output "${second_carrier}"
         --result-format json
@@ -740,7 +740,7 @@ foreach(bake_stdout IN ITEMS first_bake_stdout second_bake_stdout)
     string(JSON bake_profile GET "${${bake_stdout}}" result profile_id)
     if(NOT bake_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
        NOT bake_release STREQUAL RELEASE_IDENTITY OR
-       NOT bake_command STREQUAL "bake-revengine" OR
+       NOT bake_command STREQUAL "bake-vehicleengine" OR
        NOT bake_ok OR NOT bake_verified OR
        NOT bake_profile STREQUAL "interactive-preview-redline-v1")
         message(FATAL_ERROR "installed native bake result identity differs")
@@ -757,14 +757,14 @@ if(first_carrier_bytes LESS 1 OR
 endif()
 
 execute_process(
-    COMMAND "${cli}" inspect-revengine --input "${first_carrier}"
+    COMMAND "${cli}" inspect-vehicleengine --input "${first_carrier}"
         --result-format json
     RESULT_VARIABLE inspect_result
     OUTPUT_VARIABLE inspect_stdout
     ERROR_VARIABLE inspect_stderr
 )
 execute_process(
-    COMMAND "${cli}" verify-revengine --input "${first_carrier}"
+    COMMAND "${cli}" verify-vehicleengine --input "${first_carrier}"
         --result-format json
     RESULT_VARIABLE verify_result
     OUTPUT_VARIABLE verify_stdout
@@ -780,20 +780,20 @@ string(JSON verify_release GET "${verify_stdout}" release_identity)
 string(JSON verify_command GET "${verify_stdout}" command)
 string(JSON verify_verified GET "${verify_stdout}" result verified)
 if(NOT inspect_release STREQUAL RELEASE_IDENTITY OR
-   NOT inspect_command STREQUAL "inspect-revengine" OR
+   NOT inspect_command STREQUAL "inspect-vehicleengine" OR
    NOT verify_release STREQUAL RELEASE_IDENTITY OR
-   NOT verify_command STREQUAL "verify-revengine" OR NOT verify_verified)
+   NOT verify_command STREQUAL "verify-vehicleengine" OR NOT verify_verified)
     message(FATAL_ERROR "installed native inspect/verify result identity differs")
 endif()
 
 if(DEFINED NODE_EXECUTABLE AND NOT NODE_EXECUTABLE STREQUAL "" AND
    EXISTS "${NODE_EXECUTABLE}" AND
-   EXISTS "${SOURCE_ROOT}/tests/installed_revengine_playback_test.mjs")
+   EXISTS "${SOURCE_ROOT}/tests/installed_vehicleengine_playback_test.mjs")
     execute_process(
         COMMAND
             "${NODE_EXECUTABLE}"
-            "${SOURCE_ROOT}/tests/installed_revengine_playback_test.mjs"
-            "${runtime_root}/revengine-audio-engine.js"
+            "${SOURCE_ROOT}/tests/installed_vehicleengine_playback_test.mjs"
+            "${runtime_root}/vehicleengine-audio-engine.js"
             "${first_carrier}"
         RESULT_VARIABLE playback_result
         OUTPUT_VARIABLE playback_stdout
@@ -810,11 +810,11 @@ if(DEFINED NODE_EXECUTABLE AND NOT NODE_EXECUTABLE STREQUAL "" AND
     endif()
 endif()
 
-set(tampered_carrier "${work_root}/tampered.revengine")
+set(tampered_carrier "${work_root}/tampered.vehicleengine")
 file(COPY_FILE "${first_carrier}" "${tampered_carrier}")
 file(APPEND "${tampered_carrier}" "tamper")
 execute_process(
-    COMMAND "${cli}" verify-revengine --input "${tampered_carrier}"
+    COMMAND "${cli}" verify-vehicleengine --input "${tampered_carrier}"
         --result-format json
     RESULT_VARIABLE tampered_verify_result
     OUTPUT_VARIABLE tampered_verify_stdout
@@ -831,7 +831,7 @@ string(JSON tampered_verify_command GET "${tampered_verify_stdout}" command)
 string(JSON tampered_verify_ok GET "${tampered_verify_stdout}" ok)
 if(NOT tampered_verify_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
    NOT tampered_verify_release STREQUAL RELEASE_IDENTITY OR
-   NOT tampered_verify_command STREQUAL "verify-revengine" OR
+   NOT tampered_verify_command STREQUAL "verify-vehicleengine" OR
    tampered_verify_ok)
     message(FATAL_ERROR "tampered native carrier failure envelope differs")
 endif()
@@ -840,9 +840,9 @@ else()
     # A dirty development binary deliberately refuses to mint a carrier because its
     # backend identity is not publishable. The complete clean-tree release gate above
     # exercises termination, repeat cooking, verification, and carrier tamper checks.
-    set(incomplete_output "${work_root}/incomplete.revengine")
+    set(incomplete_output "${work_root}/incomplete.vehicleengine")
     execute_process(
-        COMMAND "${cli}" bake-revengine
+        COMMAND "${cli}" bake-vehicleengine
             --engine "${bake_engine}"
             --output "${incomplete_output}"
             --result-format json

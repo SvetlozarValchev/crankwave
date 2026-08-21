@@ -49,35 +49,35 @@ struct RenderCommand : MachineResultOptions {
     friend bool operator==(const RenderCommand &, const RenderCommand &) = default;
 };
 
-struct PackRevengineCommand : MachineResultOptions {
+struct PackVehicleEngineCommand : MachineResultOptions {
     std::string package_directory;
     std::string output_file;
 
-    friend bool operator==(const PackRevengineCommand &,
-                           const PackRevengineCommand &) = default;
+    friend bool operator==(const PackVehicleEngineCommand &,
+                           const PackVehicleEngineCommand &) = default;
 };
 
-struct BakeRevengineCommand : MachineResultOptions {
+struct BakeVehicleEngineCommand : MachineResultOptions {
     std::string engine_path;
     std::string asset_root;
     std::string output_file;
 
-    friend bool operator==(const BakeRevengineCommand &,
-                           const BakeRevengineCommand &) = default;
+    friend bool operator==(const BakeVehicleEngineCommand &,
+                           const BakeVehicleEngineCommand &) = default;
 };
 
-struct InspectRevengineCommand : MachineResultOptions {
+struct InspectVehicleEngineCommand : MachineResultOptions {
     std::string input_file;
 
-    friend bool operator==(const InspectRevengineCommand &,
-                           const InspectRevengineCommand &) = default;
+    friend bool operator==(const InspectVehicleEngineCommand &,
+                           const InspectVehicleEngineCommand &) = default;
 };
 
-struct VerifyRevengineCommand : MachineResultOptions {
+struct VerifyVehicleEngineCommand : MachineResultOptions {
     std::string input_file;
 
-    friend bool operator==(const VerifyRevengineCommand &,
-                           const VerifyRevengineCommand &) = default;
+    friend bool operator==(const VerifyVehicleEngineCommand &,
+                           const VerifyVehicleEngineCommand &) = default;
 };
 
 struct InspectIrCatalogCommand : MachineResultOptions {
@@ -86,8 +86,8 @@ struct InspectIrCatalogCommand : MachineResultOptions {
 };
 
 using CliCommand = std::variant<HelpCommand, VersionCommand, RenderCommand,
-                                BakeRevengineCommand, PackRevengineCommand,
-                                InspectRevengineCommand, VerifyRevengineCommand,
+                                BakeVehicleEngineCommand, PackVehicleEngineCommand,
+                                InspectVehicleEngineCommand, VerifyVehicleEngineCommand,
                                 InspectIrCatalogCommand>;
 
 struct CliUsageError {

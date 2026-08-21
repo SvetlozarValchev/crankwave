@@ -1,6 +1,6 @@
 # Responsive profile selection v2
 
-The installed native `bake-revengine` command has one deterministic profile policy:
+The installed native `bake-vehicleengine` command has one deterministic profile policy:
 `engine-redline-affine-v1`, producing profile ID
 `interactive-preview-redline-v1`. It does not accept an installed profile override,
 search sibling files, or select a nearest fixed-redline profile.

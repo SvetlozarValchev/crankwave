@@ -427,15 +427,15 @@ jobs:
           docker run --rm --platform linux/amd64 \
             --mount "type=bind,src=${GITHUB_WORKSPACE}/data,dst=/inputs,readonly" \
             --mount "type=bind,src=${smoke},dst=/work" \
-            "${image}" bake-revengine \
+            "${image}" bake-vehicleengine \
             --engine /inputs/engines/kohler-ch750-cleanroom/engine.json \
-            --output /work/kohler.revengine \
+            --output /work/kohler.vehicleengine \
             --deadline-unix-ms "${deadline}" \
             --result-format json > release/image-bake.json
           docker run --rm --platform linux/amd64 \
             --mount "type=bind,src=${smoke},dst=/work" \
-            "${image}" verify-revengine \
-            --input /work/kohler.revengine \
+            "${image}" verify-vehicleengine \
+            --input /work/kohler.vehicleengine \
             --deadline-unix-ms "${deadline}" \
             --result-format json > release/image-verify.json
           node --input-type=module <<'NODE'

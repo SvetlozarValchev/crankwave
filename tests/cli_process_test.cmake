@@ -32,33 +32,33 @@ if(NOT result STREQUAL "0" OR
    NOT standard_out MATCHES
        "bundled content-addressed asset catalog" OR
    NOT standard_out MATCHES
-       "pack-revengine --package-directory <directory>" OR
+       "pack-vehicleengine --package-directory <directory>" OR
    NOT standard_out MATCHES
-       "verify-revengine --input <file.revengine>" OR
+       "verify-vehicleengine --input <file.vehicleengine>" OR
    NOT standard_error STREQUAL "")
     message(FATAL_ERROR
         "--help process contract failed\n"
         "exit: ${result}\nstdout: ${standard_out}\nstderr: ${standard_error}")
 endif()
 
-set(revengine_package "${cli_directory}/cli-process-revengine-package")
-set(revengine_output "${cli_directory}/cli-process.revengine")
-set(revengine_machine_output "${cli_directory}/cli-process-machine.revengine")
-set(revengine_corrupt "${cli_directory}/cli-process-corrupt.revengine")
-set(revengine_deadline_output "${cli_directory}/cli-process-deadline.revengine")
-file(REMOVE_RECURSE "${revengine_package}")
+set(vehicleengine_package "${cli_directory}/cli-process-vehicleengine-package")
+set(vehicleengine_output "${cli_directory}/cli-process.vehicleengine")
+set(vehicleengine_machine_output "${cli_directory}/cli-process-machine.vehicleengine")
+set(vehicleengine_corrupt "${cli_directory}/cli-process-corrupt.vehicleengine")
+set(vehicleengine_deadline_output "${cli_directory}/cli-process-deadline.vehicleengine")
+file(REMOVE_RECURSE "${vehicleengine_package}")
 file(REMOVE
-    "${revengine_output}"
-    "${revengine_machine_output}"
-    "${revengine_corrupt}"
-    "${revengine_deadline_output}")
-file(MAKE_DIRECTORY "${revengine_package}/audio")
-file(WRITE "${revengine_package}/runtime.json"
+    "${vehicleengine_output}"
+    "${vehicleengine_machine_output}"
+    "${vehicleengine_corrupt}"
+    "${vehicleengine_deadline_output}")
+file(MAKE_DIRECTORY "${vehicleengine_package}/audio")
+file(WRITE "${vehicleengine_package}/runtime.json"
     "{\"schema\":\"engine-sim-offline/responsive-audio-preview\"}\n")
-file(WRITE "${revengine_package}/audio/idle.pcm" "deterministic-audio-fixture")
-file(SHA256 "${revengine_package}/runtime.json" runtime_manifest_sha256)
-file(WRITE "${revengine_package}/revengine.json"
-    "{\"schema\":\"engine-sim-offline/revengine-package\","
+file(WRITE "${vehicleengine_package}/audio/idle.pcm" "deterministic-audio-fixture")
+file(SHA256 "${vehicleengine_package}/runtime.json" runtime_manifest_sha256)
+file(WRITE "${vehicleengine_package}/vehicleengine.json"
+    "{\"schema\":\"engine-sim-offline/vehicleengine-package\","
     "\"version\":1,\"engine_id\":\"cli-process-engine\","
     "\"runtime\":{\"kind\":\"responsive-audio\","
     "\"manifest_path\":\"runtime.json\","
@@ -66,32 +66,32 @@ file(WRITE "${revengine_package}/revengine.json"
 
 run_cli(
     result standard_out standard_error
-    pack-revengine
-    --package-directory "${revengine_package}"
-    --output "${revengine_output}"
+    pack-vehicleengine
+    --package-directory "${vehicleengine_package}"
+    --output "${vehicleengine_output}"
 )
 if(NOT result STREQUAL "0" OR
    NOT standard_out MATCHES "entry_count=3" OR
    NOT standard_out MATCHES "container_sha256=[0-9a-f]+" OR
    NOT standard_error STREQUAL "" OR
-   NOT EXISTS "${revengine_output}")
+   NOT EXISTS "${vehicleengine_output}")
     message(FATAL_ERROR
-        "pack-revengine process contract failed\n"
+        "pack-vehicleengine process contract failed\n"
         "exit: ${result}\nstdout: ${standard_out}\nstderr: ${standard_error}")
 endif()
 
 run_cli(
     result standard_out standard_error
-    pack-revengine
-    --package-directory "${revengine_package}"
-    --output "${revengine_machine_output}"
+    pack-vehicleengine
+    --package-directory "${vehicleengine_package}"
+    --output "${vehicleengine_machine_output}"
     --result-format json
 )
 if(NOT result STREQUAL "0" OR
    NOT standard_error STREQUAL "" OR
-   NOT EXISTS "${revengine_machine_output}")
+   NOT EXISTS "${vehicleengine_machine_output}")
     message(FATAL_ERROR
-        "machine pack-revengine process contract failed\n"
+        "machine pack-vehicleengine process contract failed\n"
         "exit: ${result}\nstdout: ${standard_out}\nstderr: ${standard_error}")
 endif()
 string(JSON machine_schema GET "${standard_out}" schema)
@@ -104,20 +104,20 @@ string(JSON machine_entry_count GET "${standard_out}" result entry_count)
 string(JSON machine_output_file GET "${standard_out}" result output_file)
 if(NOT machine_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
    NOT machine_release STREQUAL RELEASE_IDENTITY OR
-   NOT machine_command STREQUAL "pack-revengine" OR
+   NOT machine_command STREQUAL "pack-vehicleengine" OR
    NOT machine_ok OR
    NOT machine_code STREQUAL "success" OR
    NOT machine_exit EQUAL 0 OR
    NOT machine_entry_count EQUAL 3 OR
-   NOT machine_output_file STREQUAL revengine_machine_output)
-    message(FATAL_ERROR "machine pack-revengine JSON fields are invalid")
+   NOT machine_output_file STREQUAL vehicleengine_machine_output)
+    message(FATAL_ERROR "machine pack-vehicleengine JSON fields are invalid")
 endif()
 
 run_cli(
     result standard_out standard_error
-    pack-revengine
-    --package-directory "${revengine_package}"
-    --output "${revengine_machine_output}"
+    pack-vehicleengine
+    --package-directory "${vehicleengine_package}"
+    --output "${vehicleengine_machine_output}"
     --result-format json
 )
 if(NOT result STREQUAL "73" OR NOT standard_error STREQUAL "")
@@ -128,51 +128,51 @@ endif()
 string(JSON machine_command GET "${standard_out}" command)
 string(JSON machine_ok GET "${standard_out}" ok)
 string(JSON machine_code GET "${standard_out}" code)
-if(NOT machine_command STREQUAL "pack-revengine" OR
+if(NOT machine_command STREQUAL "pack-vehicleengine" OR
    machine_ok OR
-   NOT machine_code STREQUAL "revengine-output-unavailable")
+   NOT machine_code STREQUAL "vehicleengine-output-unavailable")
     message(FATAL_ERROR "machine pack failure JSON fields are invalid")
 endif()
 
 run_cli(
     result standard_out standard_error
-    inspect-revengine --input "${revengine_output}"
+    inspect-vehicleengine --input "${vehicleengine_output}"
 )
 if(NOT result STREQUAL "0" OR
-   NOT standard_out MATCHES "revengine_version=1" OR
+   NOT standard_out MATCHES "vehicleengine_version=1" OR
    NOT standard_out MATCHES "verified=false" OR
-   NOT standard_out MATCHES "entry=revengine.json" OR
+   NOT standard_out MATCHES "entry=vehicleengine.json" OR
    standard_out MATCHES "engine_id=" OR
    NOT standard_error STREQUAL "")
     message(FATAL_ERROR
-        "inspect-revengine process contract failed\n"
+        "inspect-vehicleengine process contract failed\n"
         "exit: ${result}\nstdout: ${standard_out}\nstderr: ${standard_error}")
 endif()
 
 run_cli(
     result standard_out standard_error
-    inspect-revengine
-    --input "${revengine_machine_output}"
+    inspect-vehicleengine
+    --input "${vehicleengine_machine_output}"
     --result-format json
 )
 if(NOT result STREQUAL "0" OR NOT standard_error STREQUAL "")
     message(FATAL_ERROR
-        "machine inspect-revengine process contract failed\n"
+        "machine inspect-vehicleengine process contract failed\n"
         "exit: ${result}\nstdout: ${standard_out}\nstderr: ${standard_error}")
 endif()
 string(JSON machine_command GET "${standard_out}" command)
 string(JSON machine_verified GET "${standard_out}" result verified)
 string(JSON machine_package_type TYPE "${standard_out}" result package)
-if(NOT machine_command STREQUAL "inspect-revengine" OR
+if(NOT machine_command STREQUAL "inspect-vehicleengine" OR
    machine_verified OR
    NOT machine_package_type STREQUAL "NULL")
-    message(FATAL_ERROR "machine inspect-revengine JSON fields are invalid")
+    message(FATAL_ERROR "machine inspect-vehicleengine JSON fields are invalid")
 endif()
 
 run_cli(
     result standard_out standard_error
-    inspect-revengine
-    --input "${revengine_machine_output}.missing"
+    inspect-vehicleengine
+    --input "${vehicleengine_machine_output}.missing"
     --result-format json
 )
 if(NOT result STREQUAL "66" OR NOT standard_error STREQUAL "")
@@ -183,15 +183,15 @@ endif()
 string(JSON machine_command GET "${standard_out}" command)
 string(JSON machine_ok GET "${standard_out}" ok)
 string(JSON machine_code GET "${standard_out}" code)
-if(NOT machine_command STREQUAL "inspect-revengine" OR
+if(NOT machine_command STREQUAL "inspect-vehicleengine" OR
    machine_ok OR
-   NOT machine_code STREQUAL "revengine-input-unavailable")
+   NOT machine_code STREQUAL "vehicleengine-input-unavailable")
     message(FATAL_ERROR "machine inspect failure JSON fields are invalid")
 endif()
 
 run_cli(
     result standard_out standard_error
-    verify-revengine --input "${revengine_output}"
+    verify-vehicleengine --input "${vehicleengine_output}"
 )
 if(NOT result STREQUAL "0" OR
    NOT standard_out MATCHES "verified=true" OR
@@ -200,90 +200,90 @@ if(NOT result STREQUAL "0" OR
    NOT standard_out MATCHES "runtime_manifest_path=runtime.json" OR
    NOT standard_error STREQUAL "")
     message(FATAL_ERROR
-        "verify-revengine process contract failed\n"
+        "verify-vehicleengine process contract failed\n"
         "exit: ${result}\nstdout: ${standard_out}\nstderr: ${standard_error}")
 endif()
 
 run_cli(
     result standard_out standard_error
-    verify-revengine
-    --input "${revengine_machine_output}"
+    verify-vehicleengine
+    --input "${vehicleengine_machine_output}"
     --result-format json
 )
 if(NOT result STREQUAL "0" OR NOT standard_error STREQUAL "")
     message(FATAL_ERROR
-        "machine verify-revengine process contract failed\n"
+        "machine verify-vehicleengine process contract failed\n"
         "exit: ${result}\nstdout: ${standard_out}\nstderr: ${standard_error}")
 endif()
 string(JSON machine_command GET "${standard_out}" command)
 string(JSON machine_verified GET "${standard_out}" result verified)
 string(JSON machine_engine_id GET "${standard_out}" result package engine_id)
-if(NOT machine_command STREQUAL "verify-revengine" OR
+if(NOT machine_command STREQUAL "verify-vehicleengine" OR
    NOT machine_verified OR
    NOT machine_engine_id STREQUAL "cli-process-engine")
-    message(FATAL_ERROR "machine verify-revengine JSON fields are invalid")
+    message(FATAL_ERROR "machine verify-vehicleengine JSON fields are invalid")
 endif()
 
 run_cli(
     result standard_out standard_error
-    pack-revengine
-    --package-directory "${revengine_package}"
-    --output "${revengine_output}"
+    pack-vehicleengine
+    --package-directory "${vehicleengine_package}"
+    --output "${vehicleengine_output}"
 )
 if(NOT result STREQUAL "73" OR
    NOT standard_out STREQUAL "" OR
    NOT standard_error MATCHES "already exists")
     message(FATAL_ERROR
-        "pack-revengine overwrite rejection failed\n"
+        "pack-vehicleengine overwrite rejection failed\n"
         "exit: ${result}\nstdout: ${standard_out}\nstderr: ${standard_error}")
 endif()
 
-file(COPY_FILE "${revengine_output}" "${revengine_corrupt}")
-file(APPEND "${revengine_corrupt}" "corrupt")
+file(COPY_FILE "${vehicleengine_output}" "${vehicleengine_corrupt}")
+file(APPEND "${vehicleengine_corrupt}" "corrupt")
 run_cli(
     result standard_out standard_error
-    verify-revengine --input "${revengine_corrupt}"
+    verify-vehicleengine --input "${vehicleengine_corrupt}"
 )
 if(NOT result STREQUAL "65" OR
    NOT standard_out STREQUAL "" OR
-   NOT standard_error MATCHES "invalid REVENGINE container")
+   NOT standard_error MATCHES "invalid VEHICLEENGINE container")
     message(FATAL_ERROR
-        "verify-revengine corruption rejection failed\n"
+        "verify-vehicleengine corruption rejection failed\n"
         "exit: ${result}\nstdout: ${standard_out}\nstderr: ${standard_error}")
 endif()
 
 run_cli(
     result standard_out standard_error
-    verify-revengine
-    --input "${revengine_corrupt}"
+    verify-vehicleengine
+    --input "${vehicleengine_corrupt}"
     --result-format json
 )
 if(NOT result STREQUAL "65" OR
    NOT standard_error STREQUAL "")
     message(FATAL_ERROR
-        "machine verify-revengine corruption rejection failed\n"
+        "machine verify-vehicleengine corruption rejection failed\n"
         "exit: ${result}\nstdout: ${standard_out}\nstderr: ${standard_error}")
 endif()
 string(JSON machine_ok GET "${standard_out}" ok)
 string(JSON machine_code GET "${standard_out}" code)
 string(JSON machine_exit GET "${standard_out}" exit_code)
 if(machine_ok OR
-   NOT machine_code STREQUAL "revengine-data-error" OR
+   NOT machine_code STREQUAL "vehicleengine-data-error" OR
    NOT machine_exit EQUAL 65)
     message(FATAL_ERROR "machine verify failure JSON fields are invalid")
 endif()
 
 run_cli(
     result standard_out standard_error
-    pack-revengine
-    --package-directory "${revengine_package}"
-    --output "${revengine_deadline_output}"
+    pack-vehicleengine
+    --package-directory "${vehicleengine_package}"
+    --output "${vehicleengine_deadline_output}"
     --deadline-unix-ms 1
     --result-format json
 )
 if(NOT result STREQUAL "75" OR
    NOT standard_error STREQUAL "" OR
-   EXISTS "${revengine_deadline_output}")
+   EXISTS "${vehicleengine_deadline_output}")
     message(FATAL_ERROR
         "expired pack deadline process contract failed\n"
         "exit: ${result}\nstdout: ${standard_out}\nstderr: ${standard_error}")
@@ -292,15 +292,15 @@ string(JSON machine_ok GET "${standard_out}" ok)
 string(JSON machine_code GET "${standard_out}" code)
 string(JSON machine_exit GET "${standard_out}" exit_code)
 if(machine_ok OR
-   NOT machine_code STREQUAL "pack-revengine-deadline-exceeded" OR
+   NOT machine_code STREQUAL "pack-vehicleengine-deadline-exceeded" OR
    NOT machine_exit EQUAL 75)
     message(FATAL_ERROR "expired pack deadline JSON fields are invalid")
 endif()
 
 run_cli(
     result standard_out standard_error
-    verify-revengine
-    --input "${revengine_machine_output}"
+    verify-vehicleengine
+    --input "${vehicleengine_machine_output}"
     --deadline-unix-ms 1
     --result-format json
 )
@@ -313,16 +313,16 @@ string(JSON machine_ok GET "${standard_out}" ok)
 string(JSON machine_code GET "${standard_out}" code)
 string(JSON machine_exit GET "${standard_out}" exit_code)
 if(machine_ok OR
-   NOT machine_code STREQUAL "verify-revengine-deadline-exceeded" OR
+   NOT machine_code STREQUAL "verify-vehicleengine-deadline-exceeded" OR
    NOT machine_exit EQUAL 75)
     message(FATAL_ERROR "expired verify deadline JSON fields are invalid")
 endif()
 
 set(pack_signal_root "${cli_directory}/cli-process-pack-signal-root")
-set(pack_signal_output "${pack_signal_root}/cancelled.revengine")
+set(pack_signal_output "${pack_signal_root}/cancelled.vehicleengine")
 set(pack_signal_stdout "${pack_signal_root}/signal.stdout")
 set(pack_signal_stderr "${pack_signal_root}/signal.stderr")
-set(pack_signal_padding "${revengine_package}/audio/cancellation-padding.pcm")
+set(pack_signal_padding "${vehicleengine_package}/audio/cancellation-padding.pcm")
 file(REMOVE_RECURSE "${pack_signal_root}")
 file(MAKE_DIRECTORY "${pack_signal_root}")
 find_program(TRUNCATE_EXECUTABLE NAMES truncate REQUIRED)
@@ -339,7 +339,7 @@ execute_process(
         "${BASH_EXECUTABLE}"
         "${SOURCE_ROOT}/tests/cli_pack_signal_process_test.sh"
         "${CLI_EXECUTABLE}"
-        "${revengine_package}"
+        "${vehicleengine_package}"
         "${pack_signal_output}"
         "${pack_signal_stdout}"
         "${pack_signal_stderr}"
@@ -369,16 +369,16 @@ string(JSON machine_ok GET "${standard_out}" ok)
 string(JSON machine_code GET "${standard_out}" code)
 string(JSON machine_exit GET "${standard_out}" exit_code)
 if(machine_ok OR
-   NOT machine_code STREQUAL "pack-revengine-terminated" OR
+   NOT machine_code STREQUAL "pack-vehicleengine-terminated" OR
    NOT machine_exit EQUAL 75)
     message(FATAL_ERROR "SIGTERM pack JSON fields are invalid")
 endif()
 
-set(verify_signal_input "${pack_signal_root}/verify-input.revengine")
+set(verify_signal_input "${pack_signal_root}/verify-input.vehicleengine")
 run_cli(
     result standard_out standard_error
-    pack-revengine
-    --package-directory "${revengine_package}"
+    pack-vehicleengine
+    --package-directory "${vehicleengine_package}"
     --output "${verify_signal_input}"
 )
 if(NOT result STREQUAL "0" OR
@@ -417,19 +417,19 @@ string(JSON machine_ok GET "${standard_out}" ok)
 string(JSON machine_code GET "${standard_out}" code)
 string(JSON machine_exit GET "${standard_out}" exit_code)
 if(machine_ok OR
-   NOT machine_code STREQUAL "verify-revengine-terminated" OR
+   NOT machine_code STREQUAL "verify-vehicleengine-terminated" OR
    NOT machine_exit EQUAL 75)
     message(FATAL_ERROR "SIGTERM verify JSON fields are invalid")
 endif()
 file(REMOVE "${pack_signal_padding}")
 file(REMOVE_RECURSE "${pack_signal_root}")
 
-file(REMOVE_RECURSE "${revengine_package}")
+file(REMOVE_RECURSE "${vehicleengine_package}")
 file(REMOVE
-    "${revengine_output}"
-    "${revengine_machine_output}"
-    "${revengine_corrupt}"
-    "${revengine_deadline_output}")
+    "${vehicleengine_output}"
+    "${vehicleengine_machine_output}"
+    "${vehicleengine_corrupt}"
+    "${vehicleengine_deadline_output}")
 
 run_cli(result standard_out standard_error --version)
 if(NOT result STREQUAL "0" OR

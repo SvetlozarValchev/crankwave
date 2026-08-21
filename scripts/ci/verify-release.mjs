@@ -113,10 +113,10 @@ assert.deepEqual(release.production_runtime, {
 
 const expectedCommands = [
   "render",
-  "bake-revengine",
-  "pack-revengine",
-  "inspect-revengine",
-  "verify-revengine",
+  "bake-vehicleengine",
+  "pack-vehicleengine",
+  "inspect-vehicleengine",
+  "verify-vehicleengine",
   "inspect-ir-catalog",
 ];
 assert.equal(release.native_cli.path, "bin/engine-sim-offline");
@@ -125,7 +125,7 @@ assert.deepEqual(release.native_cli.commands, expectedCommands);
 assert.equal(release.browser_playback.kind, "simulator-free-esm");
 assert.equal(release.browser_playback.resource_directory, `${resourceRelative}/web/runtime`);
 assert.equal(release.browser_playback.entrypoint,
-  `${resourceRelative}/web/runtime/revengine-audio-engine.js`);
+  `${resourceRelative}/web/runtime/vehicleengine-audio-engine.js`);
 assert.deepEqual(release.telemetry_contract, {
   role: "diagnostics.engine-telemetry.v1",
   kind: "telemetry",
@@ -134,9 +134,9 @@ assert.deepEqual(release.telemetry_contract, {
   originating_commit: "c8d672b59e3046654ad5f818f31725798aef7ffa",
 });
 
-const expectedWorkflowPath = `${resourceRelative}/contracts/revengine-bake-workflow.v2.json`;
-assert.equal(release.revengine_bake_workflow.path, expectedWorkflowPath);
-assert.match(release.revengine_bake_workflow.sha256, /^[0-9a-f]{64}$/u);
+const expectedWorkflowPath = `${resourceRelative}/contracts/vehicleengine-bake-workflow.v2.json`;
+assert.equal(release.vehicleengine_bake_workflow.path, expectedWorkflowPath);
+assert.match(release.vehicleengine_bake_workflow.sha256, /^[0-9a-f]{64}$/u);
 
 const declaredPaths = new Set();
 let previousPath = "";
@@ -184,8 +184,8 @@ const browserModuleNames = [
   "release.js",
   "renderer-runtime-compatibility.js",
   "responsive-audio-lifecycle-runtime.js",
-  "revengine-audio-engine.js",
-  "revengine-package.js",
+  "vehicleengine-audio-engine.js",
+  "vehicleengine-package.js",
   "shared-recorded-starter-runtime.js",
   "state-phase-texture-runtime.js",
   "steady-transient-envelope.js",
@@ -206,7 +206,7 @@ for (const required of [
   `${resourceRelative}/package.json`,
   `${resourceRelative}/profiles/interactive-preview-v1.json`,
   `${resourceRelative}/schemas/installed-distribution.v2.schema.json`,
-  `${resourceRelative}/schemas/revengine-bake-workflow.v2.schema.json`,
+  `${resourceRelative}/schemas/vehicleengine-bake-workflow.v2.schema.json`,
   expectedWorkflowPath,
   release.browser_playback.entrypoint,
 ]) {
@@ -242,9 +242,9 @@ assert.equal(releaseModule.ENGINE_SIM_OFFLINE_RELEASE_IDENTITY, args.release);
 assert.equal(releaseModule.default.releaseIdentity, args.release);
 
 const workflowPath = path.join(args.prefix, expectedWorkflowPath);
-assert.equal(sha256(fs.readFileSync(workflowPath)), release.revengine_bake_workflow.sha256);
+assert.equal(sha256(fs.readFileSync(workflowPath)), release.vehicleengine_bake_workflow.sha256);
 const workflow = readJson(workflowPath);
-assert.equal(workflow.schema, "engine-sim-offline/revengine-bake-workflow.v2");
+assert.equal(workflow.schema, "engine-sim-offline/vehicleengine-bake-workflow.v2");
 assert.equal(workflow.release_identity, args.release);
 assert.equal(workflow.path_base, "distribution_root");
 assert.deepEqual(workflow.production_runtime, release.production_runtime);
@@ -255,34 +255,34 @@ assert.equal(workflow.responsive_profile_selection.explicit_override, null);
 assert.deepEqual(workflow.telemetry_contract, {
   producer_command: "render",
   ...release.telemetry_contract,
-  included_in_revengine_workflow: false,
+  included_in_vehicleengine_workflow: false,
 });
 assert.equal(workflow.steps.length, 1);
 assert.equal(workflow.steps[0].ordinal, 1);
-assert.equal(workflow.steps[0].id, "bake_revengine");
+assert.equal(workflow.steps[0].id, "bake_vehicleengine");
 assert.equal(workflow.steps[0].executable, "bin/engine-sim-offline");
 assert.deepEqual(workflow.steps[0].arguments, [
-  "bake-revengine",
+  "bake-vehicleengine",
   "--engine",
   "{engine_json}",
   "--output",
-  "{new_revengine_file}",
+  "{new_vehicleengine_file}",
   "--deadline-unix-ms",
   "{deadline_unix_ms}",
   "--result-format",
   "json",
 ]);
-assert.equal(workflow.steps[0].required_output, "{new_revengine_file}");
+assert.equal(workflow.steps[0].required_output, "{new_vehicleengine_file}");
 assert.deepEqual(workflow.steps[0].required_stdout_record, {
   schema: "engine-sim-offline.cli-result.v1",
   release_identity: args.release,
-  command: "bake-revengine",
+  command: "bake-vehicleengine",
   ok: true,
   code: "success",
   exit_code: 0,
 });
 assert.deepEqual(workflow.steps[0].required_result_fields, {
-  output_file: "{new_revengine_file}",
+  output_file: "{new_vehicleengine_file}",
   verified: true,
 });
 assert.deepEqual(workflow.success, {

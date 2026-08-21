@@ -1,23 +1,23 @@
 import {
   HeldTexturePresentationRuntimeCursor,
 } from "./held-texture-presentation-runtime.js";
-import { loadResponsiveAudioRevengine } from "./revengine-package.js";
+import { loadResponsiveAudioVehicleEngine } from "./vehicleengine-package.js";
 
 const RUNNING_STATE_MASK = 0x03;
 const DEFAULT_RENDER_FRAMES = 8_192;
 const PROCESS_CALLS_PER_SECOND = 50;
 const MAXIMUM_RENDER_FRAMES = 1_048_576;
 
-export class RevengineAudioEngineError extends Error {
+export class VehicleEngineAudioEngineError extends Error {
   constructor(code, message) {
     super(message);
-    this.name = "RevengineAudioEngineError";
+    this.name = "VehicleEngineAudioEngineError";
     this.code = code;
   }
 }
 
 function fail(code, message) {
-  throw new RevengineAudioEngineError(code, message);
+  throw new VehicleEngineAudioEngineError(code, message);
 }
 
 function finite(value, label) {
@@ -57,7 +57,7 @@ function copyOperatingPoint(value, minimumRpm, maximumRpm) {
   if (rpm < minimumRpm || rpm > maximumRpm) {
     fail(
       "rpm-outside-package",
-      `rpm must lie in the REVENGINE range ${minimumRpm}..${maximumRpm}`,
+      `rpm must lie in the VEHICLEENGINE range ${minimumRpm}..${maximumRpm}`,
     );
   }
   return Object.freeze({
@@ -132,7 +132,7 @@ function loadLaneCurves(package_, rpm) {
   if (!Array.isArray(lanes) || lanes.length < 2) {
     fail(
       "invalid-runtime-package",
-      "REVENGINE held material must declare at least two load lanes",
+      "VEHICLEENGINE held material must declare at least two load lanes",
     );
   }
   for (let index = 0; index < lanes.length; ++index) {
@@ -147,7 +147,7 @@ function loadLaneCurves(package_, rpm) {
     ) {
       fail(
         "invalid-runtime-package",
-        "REVENGINE load-lane coordinates must be ordered in [0, 1]",
+        "VEHICLEENGINE load-lane coordinates must be ordered in [0, 1]",
       );
     }
   }
@@ -161,7 +161,7 @@ function loadLaneCurves(package_, rpm) {
     if (!Number.isFinite(map) || map <= 0) {
       fail(
         "invalid-runtime-package",
-        `REVENGINE load lane ${lane.id} has invalid captured pressure`,
+        `VEHICLEENGINE load lane ${lane.id} has invalid captured pressure`,
       );
     }
     return Object.freeze({
@@ -207,10 +207,10 @@ function concatenateQueued(chunks, frameCount) {
 
 // A deliberately small, simulator-independent consumer facade:
 //
-//   .revengine + { rpm, throttle01, load01 } -> mono Float32 PCM
+//   .vehicleengine + { rpm, throttle01, load01 } -> mono Float32 PCM
 //
 // It does not load engine/scenario JSON, the C API, or a renderer WASM module.
-export class RevengineAudioEngine {
+export class VehicleEngineAudioEngine {
   #loaded;
   #runtime;
   #cursor;
@@ -231,20 +231,20 @@ export class RevengineAudioEngine {
       sessionSeed = "0",
     } = {},
   ) {
-    const loaded = await loadResponsiveAudioRevengine(input, {
+    const loaded = await loadResponsiveAudioVehicleEngine(input, {
       crypto: cryptoImplementation,
     });
-    return new RevengineAudioEngine(loaded, { sessionSeed });
+    return new VehicleEngineAudioEngine(loaded, { sessionSeed });
   }
 
   constructor(loaded, { sessionSeed = "0" } = {}) {
     if (
-      loaded?.package?.kind !== "revengine-package" ||
+      loaded?.package?.kind !== "vehicleengine-package" ||
       loaded?.runtime?.kind !== "responsive-audio-preview"
     ) {
       fail(
         "invalid-runtime-package",
-        "RevengineAudioEngine requires a verified responsive REVENGINE",
+        "VehicleEngineAudioEngine requires a verified responsive VEHICLEENGINE",
       );
     }
     this.#loaded = loaded;
@@ -322,7 +322,7 @@ export class RevengineAudioEngine {
     if (checkedRpm < this.minimumRpm || checkedRpm > this.maximumRpm) {
       fail(
         "rpm-outside-package",
-        `rpm must lie in the REVENGINE range ${this.minimumRpm}..${this.maximumRpm}`,
+        `rpm must lie in the VEHICLEENGINE range ${this.minimumRpm}..${this.maximumRpm}`,
       );
     }
     return mapLoadToPressure(
@@ -359,7 +359,7 @@ export class RevengineAudioEngine {
     if (this.#cursor.initialize(start).segmentId === null) {
       fail(
         "operating-point-outside-package",
-        "REVENGINE rejected the initial operating point",
+        "VEHICLEENGINE rejected the initial operating point",
       );
     }
     const duration = this.blockFrames / this.sampleRate;
@@ -394,7 +394,7 @@ export class RevengineAudioEngine {
     if (this.#renderMode === "offline") {
       fail(
         "mixed-render-modes",
-        "reset the REVENGINE engine before switching from render() to process()",
+        "reset the VEHICLEENGINE engine before switching from render() to process()",
       );
     }
     if (this.#renderMode === null) {
@@ -414,7 +414,7 @@ export class RevengineAudioEngine {
     if (rendered.length !== completedAfter - completedBefore) {
       fail(
         "runtime-output-shape",
-        "REVENGINE runtime violated its fixed presentation batching",
+        "VEHICLEENGINE runtime violated its fixed presentation batching",
       );
     }
     this.#streamingInputFrames += requested;
@@ -422,7 +422,7 @@ export class RevengineAudioEngine {
     if (this.#queuedFrames < requested) {
       fail(
         "runtime-output-underflow",
-        "REVENGINE presentation latency queue underflowed",
+        "VEHICLEENGINE presentation latency queue underflowed",
       );
     }
     const output = concatenateQueued(this.#queue, requested);
@@ -432,7 +432,7 @@ export class RevengineAudioEngine {
     if (this.#queuedFrames !== expectedQueued) {
       fail(
         "runtime-latency-invariant",
-        "REVENGINE presentation did not preserve one uniform latency batch",
+        "VEHICLEENGINE presentation did not preserve one uniform latency batch",
       );
     }
     this.#renderedFrames += requested;
@@ -444,7 +444,7 @@ export class RevengineAudioEngine {
     if (this.#renderMode === "streaming") {
       fail(
         "mixed-render-modes",
-        "reset the REVENGINE engine before switching from process() to render()",
+        "reset the VEHICLEENGINE engine before switching from process() to render()",
       );
     }
     this.#renderMode = "offline";
@@ -456,7 +456,7 @@ export class RevengineAudioEngine {
       if (rendered.length !== this.blockFrames) {
         fail(
           "runtime-output-shape",
-          "REVENGINE runtime did not return one complete mono PCM block",
+          "VEHICLEENGINE runtime did not return one complete mono PCM block",
         );
       }
       this.#appendRendered(rendered);
@@ -529,7 +529,7 @@ export class RevengineAudioEngine {
     if (!(rendered instanceof Float32Array)) {
       fail(
         "runtime-output-shape",
-        "REVENGINE runtime did not return mono Float32 PCM",
+        "VEHICLEENGINE runtime did not return mono Float32 PCM",
       );
     }
     this.#committedPoint = endPoint;

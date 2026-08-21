@@ -1,8 +1,8 @@
 #include "cli_app.hpp"
 
-#include "bake_revengine_command.hpp"
+#include "bake_vehicleengine_command.hpp"
 #include "native_input_files.hpp"
-#include "revengine_cli_support.hpp"
+#include "vehicleengine_cli_support.hpp"
 
 #include "engine_sim_offline/artifacts/directory_render_sink.hpp"
 #include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
@@ -85,18 +85,18 @@ void print_help(std::ostream &stream) {
               "[--asset-root <developer-directory>] \\\n"
               "      [--deadline-unix-ms <epoch-ms>] "
               "[--result-format <text|json>]\n"
-              "  engine-sim-offline bake-revengine --engine <engine.json> \\\n"
-              "      --output <new.revengine> "
+              "  engine-sim-offline bake-vehicleengine --engine <engine.json> \\\n"
+              "      --output <new.vehicleengine> "
               "[--asset-root <developer-directory>] \\\n"
               "      [--deadline-unix-ms <epoch-ms>] "
               "[--result-format <text|json>]\n"
-              "  engine-sim-offline pack-revengine "
+              "  engine-sim-offline pack-vehicleengine "
               "--package-directory <directory> \\\n"
-              "      --output <new.revengine> [--deadline-unix-ms <epoch-ms>] "
+              "      --output <new.vehicleengine> [--deadline-unix-ms <epoch-ms>] "
               "[--result-format <text|json>]\n"
-              "  engine-sim-offline inspect-revengine --input <file.revengine> "
+              "  engine-sim-offline inspect-vehicleengine --input <file.vehicleengine> "
               "[--deadline-unix-ms <epoch-ms>] [--result-format <text|json>]\n"
-              "  engine-sim-offline verify-revengine --input <file.revengine> "
+              "  engine-sim-offline verify-vehicleengine --input <file.vehicleengine> "
               "[--deadline-unix-ms <epoch-ms>] [--result-format <text|json>]\n"
               "  engine-sim-offline inspect-ir-catalog "
               "[--result-format <text|json>]\n"
@@ -104,11 +104,11 @@ void print_help(std::ostream &stream) {
               "Commands:\n"
               "  render  Compile declarative engine and scenario JSON, render the\n"
               "          admitted simulation, and atomically publish its artifacts.\n"
-              "  bake-revengine  Compile an engine, cook its complete responsive\n"
+              "  bake-vehicleengine  Compile an engine, cook its complete responsive\n"
               "                  runtime, and atomically publish a verified carrier.\n"
-              "  pack-revengine     Pack a validated responsive package tree.\n"
-              "  inspect-revengine  Inspect structure and the authenticated index.\n"
-              "  verify-revengine   Verify every payload and package binding.\n"
+              "  pack-vehicleengine     Pack a validated responsive package tree.\n"
+              "  inspect-vehicleengine  Inspect structure and the authenticated index.\n"
+              "  verify-vehicleengine   Verify every payload and package binding.\n"
               "  inspect-ir-catalog  Return the release-bound IR authoring palette.\n"
               "\n"
               "Render uses the bundled content-addressed asset catalog by default.\n"
@@ -318,47 +318,47 @@ void write_machine_prefix(CliOutput &output, const bool ok, const std::string_vi
                                          const InvocationExecutionControl &control,
                                          std::string_view message);
 
-[[nodiscard]] int revengine_cli_exit_code(const RevengineCliErrorKind kind) noexcept {
+[[nodiscard]] int vehicleengine_cli_exit_code(const VehicleEngineCliErrorKind kind) noexcept {
     switch (kind) {
-    case RevengineCliErrorKind::data_error:
+    case VehicleEngineCliErrorKind::data_error:
         return kExitDataError;
-    case RevengineCliErrorKind::no_input:
+    case VehicleEngineCliErrorKind::no_input:
         return kExitNoInput;
-    case RevengineCliErrorKind::cant_create:
+    case VehicleEngineCliErrorKind::cant_create:
         return kExitCantCreate;
-    case RevengineCliErrorKind::unavailable:
+    case VehicleEngineCliErrorKind::unavailable:
         return kExitUnavailable;
-    case RevengineCliErrorKind::cancelled:
+    case VehicleEngineCliErrorKind::cancelled:
         return kExitTemporaryFailure;
     }
     return kExitSoftware;
 }
 
 [[nodiscard]] std::string_view
-revengine_cli_error_code(const RevengineCliErrorKind kind) noexcept {
+vehicleengine_cli_error_code(const VehicleEngineCliErrorKind kind) noexcept {
     switch (kind) {
-    case RevengineCliErrorKind::data_error:
-        return "revengine-data-error";
-    case RevengineCliErrorKind::no_input:
-        return "revengine-input-unavailable";
-    case RevengineCliErrorKind::cant_create:
-        return "revengine-output-unavailable";
-    case RevengineCliErrorKind::unavailable:
-        return "revengine-operation-unavailable";
-    case RevengineCliErrorKind::cancelled:
-        return "revengine-cancelled";
+    case VehicleEngineCliErrorKind::data_error:
+        return "vehicleengine-data-error";
+    case VehicleEngineCliErrorKind::no_input:
+        return "vehicleengine-input-unavailable";
+    case VehicleEngineCliErrorKind::cant_create:
+        return "vehicleengine-output-unavailable";
+    case VehicleEngineCliErrorKind::unavailable:
+        return "vehicleengine-operation-unavailable";
+    case VehicleEngineCliErrorKind::cancelled:
+        return "vehicleengine-cancelled";
     }
     return "software-error";
 }
 
-[[nodiscard]] int report_revengine_error(CliOutput &output,
-                                         const RevengineCliError &error,
+[[nodiscard]] int report_vehicleengine_error(CliOutput &output,
+                                         const VehicleEngineCliError &error,
                                          const InvocationExecutionControl &control) {
-    if (error.kind == RevengineCliErrorKind::cancelled) {
+    if (error.kind == VehicleEngineCliErrorKind::cancelled) {
         return report_controlled_stop(output, control, error.message);
     }
-    return report_error(output, revengine_cli_exit_code(error.kind),
-                        revengine_cli_error_code(error.kind), error.message);
+    return report_error(output, vehicleengine_cli_exit_code(error.kind),
+                        vehicleengine_cli_error_code(error.kind), error.message);
 }
 
 [[nodiscard]] std::string_view
@@ -790,21 +790,21 @@ observed_stop_reason(const InvocationExecutionControl &control) noexcept {
     return kExitSuccess;
 }
 
-[[nodiscard]] int bake_revengine_exit_code(const BakeRevengineErrorKind kind) noexcept {
+[[nodiscard]] int bake_vehicleengine_exit_code(const BakeVehicleEngineErrorKind kind) noexcept {
     switch (kind) {
-    case BakeRevengineErrorKind::data_error:
+    case BakeVehicleEngineErrorKind::data_error:
         return kExitDataError;
-    case BakeRevengineErrorKind::no_input:
+    case BakeVehicleEngineErrorKind::no_input:
         return kExitNoInput;
-    case BakeRevengineErrorKind::unavailable:
+    case BakeVehicleEngineErrorKind::unavailable:
         return kExitUnavailable;
-    case BakeRevengineErrorKind::software:
+    case BakeVehicleEngineErrorKind::software:
         return kExitSoftware;
-    case BakeRevengineErrorKind::cant_create:
+    case BakeVehicleEngineErrorKind::cant_create:
         return kExitCantCreate;
-    case BakeRevengineErrorKind::temporary_failure:
+    case BakeVehicleEngineErrorKind::temporary_failure:
         return kExitTemporaryFailure;
-    case BakeRevengineErrorKind::cancelled:
+    case BakeVehicleEngineErrorKind::cancelled:
         return kExitTemporaryFailure;
     }
     return kExitSoftware;
@@ -833,15 +833,15 @@ contract_issue_code_name(const contract::ContractIssueCode code) noexcept {
 }
 
 [[nodiscard]] int
-report_bake_revengine_error(CliOutput &output, const BakeRevengineError &failure,
+report_bake_vehicleengine_error(CliOutput &output, const BakeVehicleEngineError &failure,
                             const InvocationExecutionControl &control) {
-    if (failure.kind == BakeRevengineErrorKind::cancelled) {
+    if (failure.kind == BakeVehicleEngineErrorKind::cancelled) {
         return report_controlled_stop(output, control, failure.message);
     }
     if (failure.diagnostics.has_value()) {
         return report_diagnostics(output, failure.stage, *failure.diagnostics);
     }
-    const auto exit_code = bake_revengine_exit_code(failure.kind);
+    const auto exit_code = bake_vehicleengine_exit_code(failure.kind);
     if (output.format != CliResultFormat::json) {
         return report_error(output, exit_code, failure.code,
                             failure.stage.empty()
@@ -881,21 +881,21 @@ report_bake_revengine_error(CliOutput &output, const BakeRevengineError &failure
     return exit_code;
 }
 
-[[nodiscard]] int execute_bake_revengine(const BakeRevengineCommand &command,
+[[nodiscard]] int execute_bake_vehicleengine(const BakeVehicleEngineCommand &command,
                                          CliOutput &output,
                                          const InvocationExecutionControl &control) {
-    BakeRevengineRequest request;
+    BakeVehicleEngineRequest request;
     request.engine_path = command.engine_path;
     request.output_file = command.output_file;
     if (!command.asset_root.empty()) {
         request.asset_root = command.asset_root;
     }
     request.release_identity = std::string{version_label()};
-    auto result = bake_revengine_native(request, control.render.stop_token);
-    if (const auto *failure = std::get_if<BakeRevengineError>(&result)) {
-        return report_bake_revengine_error(output, *failure, control);
+    auto result = bake_vehicleengine_native(request, control.render.stop_token);
+    if (const auto *failure = std::get_if<BakeVehicleEngineError>(&result)) {
+        return report_bake_vehicleengine_error(output, *failure, control);
     }
-    const auto &baked = std::get<BakedRevengineFile>(result);
+    const auto &baked = std::get<BakedVehicleEngineFile>(result);
     if (output.format == CliResultFormat::json) {
         write_machine_prefix(output, true, "success", kExitSuccess);
         auto &stream = output.standard_out;
@@ -934,16 +934,16 @@ report_bake_revengine_error(CliOutput &output, const BakeRevengineError &failure
     return kExitSuccess;
 }
 
-[[nodiscard]] int execute_pack_revengine(const PackRevengineCommand &command,
+[[nodiscard]] int execute_pack_vehicleengine(const PackVehicleEngineCommand &command,
                                          CliOutput &output,
                                          const InvocationExecutionControl &control) {
-    auto result = pack_revengine_package_directory(
+    auto result = pack_vehicleengine_package_directory(
         std::filesystem::path{command.package_directory},
         std::filesystem::path{command.output_file}, control.render.stop_token);
-    if (const auto *error = std::get_if<RevengineCliError>(&result)) {
-        return report_revengine_error(output, *error, control);
+    if (const auto *error = std::get_if<VehicleEngineCliError>(&result)) {
+        return report_vehicleengine_error(output, *error, control);
     }
-    const auto &packed = std::get<PackedRevengineFile>(result);
+    const auto &packed = std::get<PackedVehicleEngineFile>(result);
     if (output.format == CliResultFormat::json) {
         write_machine_prefix(output, true, "success", kExitSuccess);
         output.standard_out << ",\"result\":{\"output_file\":";
@@ -964,19 +964,19 @@ report_bake_revengine_error(CliOutput &output, const BakeRevengineError &failure
     return kExitSuccess;
 }
 
-[[nodiscard]] int execute_load_revengine(const std::string &input_file,
+[[nodiscard]] int execute_load_vehicleengine(const std::string &input_file,
                                          const bool verify_payloads, CliOutput &output,
                                          const InvocationExecutionControl &control) {
-    auto result = inspect_revengine_file(std::filesystem::path{input_file},
+    auto result = inspect_vehicleengine_file(std::filesystem::path{input_file},
                                          verify_payloads, control.render.stop_token);
-    if (const auto *error = std::get_if<RevengineCliError>(&result)) {
-        return report_revengine_error(output, *error, control);
+    if (const auto *error = std::get_if<VehicleEngineCliError>(&result)) {
+        return report_vehicleengine_error(output, *error, control);
     }
-    const auto &loaded = std::get<LoadedRevengineFile>(result);
+    const auto &loaded = std::get<LoadedVehicleEngineFile>(result);
     if (output.format == CliResultFormat::json) {
         write_machine_prefix(output, true, "success", kExitSuccess);
         auto &stream = output.standard_out;
-        stream << ",\"result\":{\"revengine_version\":" << loaded.index.version
+        stream << ",\"result\":{\"vehicleengine_version\":" << loaded.index.version
                << ",\"verified\":" << (loaded.fully_verified ? "true" : "false")
                << ",\"container_bytes\":\"" << loaded.index.container_byte_count
                << "\",\"index_bytes\":\"" << loaded.index.index_byte_count
@@ -1003,7 +1003,7 @@ report_bake_revengine_error(CliOutput &output, const BakeRevengineError &failure
         }
         stream << "],\"package\":";
         if (const auto *package =
-                std::get_if<artifacts::RevenginePackageDescriptor>(&loaded.package)) {
+                std::get_if<artifacts::VehicleEnginePackageDescriptor>(&loaded.package)) {
             stream << "{\"engine_id\":";
             write_json_string(stream, package->engine_id);
             stream << ",\"runtime_kind\":";
@@ -1020,7 +1020,7 @@ report_bake_revengine_error(CliOutput &output, const BakeRevengineError &failure
         stream << "}}\n";
     } else {
         output.standard_out
-            << "revengine_version=" << loaded.index.version << '\n'
+            << "vehicleengine_version=" << loaded.index.version << '\n'
             << "verified=" << (loaded.fully_verified ? "true" : "false") << '\n'
             << "container_bytes=" << loaded.index.container_byte_count << '\n'
             << "index_bytes=" << loaded.index.index_byte_count << '\n'
@@ -1036,7 +1036,7 @@ report_bake_revengine_error(CliOutput &output, const BakeRevengineError &failure
                                 << sha256_lower_hex(entry.payload_sha256) << '\n';
         }
         if (const auto *package =
-                std::get_if<artifacts::RevenginePackageDescriptor>(&loaded.package)) {
+                std::get_if<artifacts::VehicleEnginePackageDescriptor>(&loaded.package)) {
             output.standard_out
                 << "engine_id=" << package->engine_id << '\n'
                 << "runtime_kind=" << package->runtime.kind << '\n'
@@ -1272,64 +1272,64 @@ CliParseResult parse_cli_arguments(const std::span<const std::string_view> argum
                                              CommandOptionKind::result_format},
             });
     }
-    if (arguments.front() == "pack-revengine") {
+    if (arguments.front() == "pack-vehicleengine") {
         return parse_command_options(
-            arguments, PackRevengineCommand{},
+            arguments, PackVehicleEngineCommand{},
             std::array{
-                CommandOption<PackRevengineCommand>{
-                    "--package-directory", &PackRevengineCommand::package_directory},
-                CommandOption<PackRevengineCommand>{"--output",
-                                                    &PackRevengineCommand::output_file},
-                CommandOption<PackRevengineCommand>{
+                CommandOption<PackVehicleEngineCommand>{
+                    "--package-directory", &PackVehicleEngineCommand::package_directory},
+                CommandOption<PackVehicleEngineCommand>{"--output",
+                                                    &PackVehicleEngineCommand::output_file},
+                CommandOption<PackVehicleEngineCommand>{
                     "--deadline-unix-ms", nullptr, false, false,
                     CommandOptionKind::deadline_unix_ms},
-                CommandOption<PackRevengineCommand>{"--result-format", nullptr, false,
+                CommandOption<PackVehicleEngineCommand>{"--result-format", nullptr, false,
                                                     false,
                                                     CommandOptionKind::result_format},
             });
     }
-    if (arguments.front() == "bake-revengine") {
+    if (arguments.front() == "bake-vehicleengine") {
         return parse_command_options(
-            arguments, BakeRevengineCommand{},
+            arguments, BakeVehicleEngineCommand{},
             std::array{
-                CommandOption<BakeRevengineCommand>{"--engine",
-                                                    &BakeRevengineCommand::engine_path},
-                CommandOption<BakeRevengineCommand>{"--output",
-                                                    &BakeRevengineCommand::output_file},
-                CommandOption<BakeRevengineCommand>{
-                    "--asset-root", &BakeRevengineCommand::asset_root, false},
-                CommandOption<BakeRevengineCommand>{
+                CommandOption<BakeVehicleEngineCommand>{"--engine",
+                                                    &BakeVehicleEngineCommand::engine_path},
+                CommandOption<BakeVehicleEngineCommand>{"--output",
+                                                    &BakeVehicleEngineCommand::output_file},
+                CommandOption<BakeVehicleEngineCommand>{
+                    "--asset-root", &BakeVehicleEngineCommand::asset_root, false},
+                CommandOption<BakeVehicleEngineCommand>{
                     "--deadline-unix-ms", nullptr, false, false,
                     CommandOptionKind::deadline_unix_ms},
-                CommandOption<BakeRevengineCommand>{"--result-format", nullptr, false,
+                CommandOption<BakeVehicleEngineCommand>{"--result-format", nullptr, false,
                                                     false,
                                                     CommandOptionKind::result_format},
             });
     }
-    if (arguments.front() == "inspect-revengine") {
+    if (arguments.front() == "inspect-vehicleengine") {
         return parse_command_options(
-            arguments, InspectRevengineCommand{},
+            arguments, InspectVehicleEngineCommand{},
             std::array{
-                CommandOption<InspectRevengineCommand>{
-                    "--input", &InspectRevengineCommand::input_file},
-                CommandOption<InspectRevengineCommand>{
+                CommandOption<InspectVehicleEngineCommand>{
+                    "--input", &InspectVehicleEngineCommand::input_file},
+                CommandOption<InspectVehicleEngineCommand>{
                     "--deadline-unix-ms", nullptr, false, false,
                     CommandOptionKind::deadline_unix_ms},
-                CommandOption<InspectRevengineCommand>{
+                CommandOption<InspectVehicleEngineCommand>{
                     "--result-format", nullptr, false, false,
                     CommandOptionKind::result_format},
             });
     }
-    if (arguments.front() == "verify-revengine") {
+    if (arguments.front() == "verify-vehicleengine") {
         return parse_command_options(
-            arguments, VerifyRevengineCommand{},
+            arguments, VerifyVehicleEngineCommand{},
             std::array{
-                CommandOption<VerifyRevengineCommand>{
-                    "--input", &VerifyRevengineCommand::input_file},
-                CommandOption<VerifyRevengineCommand>{
+                CommandOption<VerifyVehicleEngineCommand>{
+                    "--input", &VerifyVehicleEngineCommand::input_file},
+                CommandOption<VerifyVehicleEngineCommand>{
                     "--deadline-unix-ms", nullptr, false, false,
                     CommandOptionKind::deadline_unix_ms},
-                CommandOption<VerifyRevengineCommand>{"--result-format", nullptr, false,
+                CommandOption<VerifyVehicleEngineCommand>{"--result-format", nullptr, false,
                                                       false,
                                                       CommandOptionKind::result_format},
             });
@@ -1370,36 +1370,36 @@ int run_cli(const std::span<const std::string_view> arguments,
                                                                   control);
                                         });
         }
-        if (const auto *bake_revengine = std::get_if<BakeRevengineCommand>(&command)) {
-            output.format = bake_revengine->result_format;
-            return execute_with_control(*bake_revengine, termination_token,
+        if (const auto *bake_vehicleengine = std::get_if<BakeVehicleEngineCommand>(&command)) {
+            output.format = bake_vehicleengine->result_format;
+            return execute_with_control(*bake_vehicleengine, termination_token,
                                         [&](const InvocationExecutionControl &control) {
-                                            return execute_bake_revengine(
-                                                *bake_revengine, output, control);
+                                            return execute_bake_vehicleengine(
+                                                *bake_vehicleengine, output, control);
                                         });
         }
-        if (const auto *pack = std::get_if<PackRevengineCommand>(&command)) {
+        if (const auto *pack = std::get_if<PackVehicleEngineCommand>(&command)) {
             output.format = pack->result_format;
             return execute_with_control(*pack, termination_token,
                                         [&](const InvocationExecutionControl &control) {
-                                            return execute_pack_revengine(*pack, output,
+                                            return execute_pack_vehicleengine(*pack, output,
                                                                           control);
                                         });
         }
-        if (const auto *inspect = std::get_if<InspectRevengineCommand>(&command)) {
+        if (const auto *inspect = std::get_if<InspectVehicleEngineCommand>(&command)) {
             output.format = inspect->result_format;
             return execute_with_control(*inspect, termination_token,
                                         [&](const InvocationExecutionControl &control) {
-                                            return execute_load_revengine(
+                                            return execute_load_vehicleengine(
                                                 inspect->input_file, false, output,
                                                 control);
                                         });
         }
-        if (const auto *verify = std::get_if<VerifyRevengineCommand>(&command)) {
+        if (const auto *verify = std::get_if<VerifyVehicleEngineCommand>(&command)) {
             output.format = verify->result_format;
             return execute_with_control(*verify, termination_token,
                                         [&](const InvocationExecutionControl &control) {
-                                            return execute_load_revengine(
+                                            return execute_load_vehicleengine(
                                                 verify->input_file, true, output,
                                                 control);
                                         });

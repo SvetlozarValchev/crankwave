@@ -13,7 +13,7 @@
 
 namespace engine_sim_offline::cli {
 
-enum class BakeRevengineErrorKind : std::uint8_t {
+enum class BakeVehicleEngineErrorKind : std::uint8_t {
     data_error,
     no_input,
     unavailable,
@@ -23,8 +23,8 @@ enum class BakeRevengineErrorKind : std::uint8_t {
     cancelled,
 };
 
-struct BakeRevengineError {
-    BakeRevengineErrorKind kind = BakeRevengineErrorKind::software;
+struct BakeVehicleEngineError {
+    BakeVehicleEngineErrorKind kind = BakeVehicleEngineErrorKind::software;
     std::string code;
     std::string stage;
     std::filesystem::path path;
@@ -32,18 +32,18 @@ struct BakeRevengineError {
     std::optional<authoring::DiagnosticReport> diagnostics;
     std::optional<contract::ValidationReport> validation;
 
-    friend bool operator==(const BakeRevengineError &,
-                           const BakeRevengineError &) = default;
+    friend bool operator==(const BakeVehicleEngineError &,
+                           const BakeVehicleEngineError &) = default;
 };
 
-struct BakeRevengineRequest {
+struct BakeVehicleEngineRequest {
     std::filesystem::path engine_path;
     std::filesystem::path output_file;
     std::optional<std::filesystem::path> asset_root;
     std::string release_identity;
 };
 
-struct BakedRevengineFile {
+struct BakedVehicleEngineFile {
     std::filesystem::path output_path;
     std::string engine_id;
     std::string profile_id;
@@ -57,13 +57,13 @@ struct BakedRevengineFile {
     bool verified = false;
 };
 
-using BakeRevengineResult = std::variant<BakedRevengineFile, BakeRevengineError>;
+using BakeVehicleEngineResult = std::variant<BakedVehicleEngineFile, BakeVehicleEngineError>;
 
-[[nodiscard]] BakeRevengineResult
-bake_revengine_native(const BakeRevengineRequest &request,
+[[nodiscard]] BakeVehicleEngineResult
+bake_vehicleengine_native(const BakeVehicleEngineRequest &request,
                       std::stop_token stop_token = {});
 
 [[nodiscard]] std::string_view
-bake_revengine_error_kind_label(BakeRevengineErrorKind kind) noexcept;
+bake_vehicleengine_error_kind_label(BakeVehicleEngineErrorKind kind) noexcept;
 
 } // namespace engine_sim_offline::cli

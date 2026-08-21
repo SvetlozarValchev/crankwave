@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://engine-sim-offline.dev/schemas/revengine-bake-workflow.v2.schema.json",
-  "title": "Engine Sim Offline native REVENGINE bake workflow v2",
+  "$id": "https://engine-sim-offline.dev/schemas/vehicleengine-bake-workflow.v2.schema.json",
+  "title": "Engine Sim Offline native VEHICLEENGINE bake workflow v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -16,7 +16,7 @@
     "success"
   ],
   "properties": {
-    "schema": {"const": "engine-sim-offline/revengine-bake-workflow.v2"},
+    "schema": {"const": "engine-sim-offline/vehicleengine-bake-workflow.v2"},
     "release_identity": {
       "type": "string",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z][0-9A-Za-z.+-]*)?$"
@@ -44,14 +44,14 @@
         "path": "telemetry/engine-telemetry.v1.ndjson",
         "schema": "engine-sim-offline.engine-telemetry.ndjson.v1",
         "originating_commit": "c8d672b59e3046654ad5f818f31725798aef7ffa",
-        "included_in_revengine_workflow": false
+        "included_in_vehicleengine_workflow": false
       }
     },
     "placeholders": {
       "const": {
         "engine_json": "absolute path to the admitted engine document",
         "deadline_unix_ms": "positive Unix epoch deadline in milliseconds",
-        "new_revengine_file": "absolute .revengine path that does not exist"
+        "new_vehicleengine_file": "absolute .vehicleengine path that does not exist"
       }
     },
     "steps": {
@@ -82,22 +82,22 @@
       ],
       "properties": {
         "ordinal": {"const": 1},
-        "id": {"const": "bake_revengine"},
+        "id": {"const": "bake_vehicleengine"},
         "executable": {"type": "string", "pattern": "^[A-Za-z0-9._+/@-]+$"},
         "arguments": {
           "const": [
-            "bake-revengine",
+            "bake-vehicleengine",
             "--engine",
             "{engine_json}",
             "--output",
-            "{new_revengine_file}",
+            "{new_vehicleengine_file}",
             "--deadline-unix-ms",
             "{deadline_unix_ms}",
             "--result-format",
             "json"
           ]
         },
-        "required_output": {"const": "{new_revengine_file}"},
+        "required_output": {"const": "{new_vehicleengine_file}"},
         "required_stdout_record": {
           "type": "object",
           "additionalProperties": false,
@@ -105,14 +105,14 @@
           "properties": {
             "schema": {"const": "engine-sim-offline.cli-result.v1"},
             "release_identity": {"type": "string"},
-            "command": {"const": "bake-revengine"},
+            "command": {"const": "bake-vehicleengine"},
             "ok": {"const": true},
             "code": {"const": "success"},
             "exit_code": {"const": 0}
           }
         },
         "required_result_fields": {
-          "const": {"output_file": "{new_revengine_file}", "verified": true}
+          "const": {"output_file": "{new_vehicleengine_file}", "verified": true}
         }
       }
     }

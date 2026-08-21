@@ -891,18 +891,18 @@ add_test(
 )
 
 add_executable(
-    engine_sim_offline_revengine_container_tests
-    revengine_container_test.cpp
+    engine_sim_offline_vehicleengine_container_tests
+    vehicleengine_container_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_revengine_container_tests
+    engine_sim_offline_vehicleengine_container_tests
     PRIVATE engine_sim_offline::artifacts
 )
 
 add_test(
-    NAME artifacts.revengine_container
-    COMMAND engine_sim_offline_revengine_container_tests
+    NAME artifacts.vehicleengine_container
+    COMMAND engine_sim_offline_vehicleengine_container_tests
 )
 
 add_executable(
@@ -2497,29 +2497,29 @@ endif()
 
 if(TARGET engine_sim_offline_cli_support)
     add_executable(
-        engine_sim_offline_revengine_cli_support_tests
-        revengine_cli_support_test.cpp
+        engine_sim_offline_vehicleengine_cli_support_tests
+        vehicleengine_cli_support_test.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_revengine_cli_support_tests
+        engine_sim_offline_vehicleengine_cli_support_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/src/cli
     )
 
     target_link_libraries(
-        engine_sim_offline_revengine_cli_support_tests
+        engine_sim_offline_vehicleengine_cli_support_tests
         PRIVATE
             engine_sim_offline_cli_support
             engine_sim_offline::artifacts
     )
     engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_revengine_cli_support_tests
+        engine_sim_offline_vehicleengine_cli_support_tests
     )
 
     add_test(
-        NAME cli.revengine_support
-        COMMAND engine_sim_offline_revengine_cli_support_tests
+        NAME cli.vehicleengine_support
+        COMMAND engine_sim_offline_vehicleengine_cli_support_tests
     )
 
     add_executable(
@@ -2548,28 +2548,28 @@ if(TARGET engine_sim_offline_cli_support)
     )
 
     add_executable(
-        engine_sim_offline_bake_revengine_command_tests
-        bake_revengine_command_test.cpp
+        engine_sim_offline_bake_vehicleengine_command_tests
+        bake_vehicleengine_command_test.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_bake_revengine_command_tests
+        engine_sim_offline_bake_vehicleengine_command_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/include
             ${PROJECT_SOURCE_DIR}/src/cli
     )
 
     target_link_libraries(
-        engine_sim_offline_bake_revengine_command_tests
+        engine_sim_offline_bake_vehicleengine_command_tests
         PRIVATE engine_sim_offline_cli_support
     )
     engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_bake_revengine_command_tests
+        engine_sim_offline_bake_vehicleengine_command_tests
     )
 
     add_test(
-        NAME cli.bake_revengine_command
-        COMMAND engine_sim_offline_bake_revengine_command_tests
+        NAME cli.bake_vehicleengine_command
+        COMMAND engine_sim_offline_bake_vehicleengine_command_tests
     )
 
     add_executable(
@@ -2652,28 +2652,28 @@ if(TARGET engine_sim_offline_cli_support)
         )
 
         add_test(
-            NAME runtime.revengine_package
+            NAME runtime.vehicleengine_package
             COMMAND
                 ${_engine_sim_offline_node_for_installed_test}
                 --test
-                ${PROJECT_SOURCE_DIR}/web/tests/runtime/revengine-package.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/vehicleengine-package.test.mjs
         )
         set_tests_properties(
-            runtime.revengine_package
+            runtime.vehicleengine_package
             PROPERTIES
                 LABELS "javascript;runtime"
                 TIMEOUT 120
         )
 
         add_test(
-            NAME runtime.revengine_audio_engine
+            NAME runtime.vehicleengine_audio_engine
             COMMAND
                 ${_engine_sim_offline_node_for_installed_test}
                 --test
-                ${PROJECT_SOURCE_DIR}/web/tests/runtime/revengine-audio-engine.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/vehicleengine-audio-engine.test.mjs
         )
         set_tests_properties(
-            runtime.revengine_audio_engine
+            runtime.vehicleengine_audio_engine
             PROPERTIES
                 LABELS "javascript;runtime"
                 TIMEOUT 120

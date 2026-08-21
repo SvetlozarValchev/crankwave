@@ -30,10 +30,10 @@ int main(int argc, char **argv) {
 
     const auto controlled_invocation =
         !arguments.empty() &&
-        (arguments.front() == "render" || arguments.front() == "bake-revengine" ||
-         arguments.front() == "pack-revengine" ||
-         arguments.front() == "inspect-revengine" ||
-         arguments.front() == "verify-revengine");
+        (arguments.front() == "render" || arguments.front() == "bake-vehicleengine" ||
+         arguments.front() == "pack-vehicleengine" ||
+         arguments.front() == "inspect-vehicleengine" ||
+         arguments.front() == "verify-vehicleengine");
     if (!controlled_invocation) {
         return engine_sim_offline::cli::run_cli(arguments, std::cout, std::cerr);
     }

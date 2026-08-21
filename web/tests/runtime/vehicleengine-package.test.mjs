@@ -3,11 +3,11 @@ import { createHash, webcrypto } from "node:crypto";
 import test from "node:test";
 
 import {
-  createRevengineFetch,
-  isPortableRevenginePath,
-  loadRevenginePackage,
-  RevenginePackageError,
-} from "../../runtime/revengine-package.js";
+  createVehicleEngineFetch,
+  isPortableVehicleEnginePath,
+  loadVehicleEnginePackage,
+  VehicleEnginePackageError,
+} from "../../runtime/vehicleengine-package.js";
 
 const encoder = new TextEncoder();
 const MAGIC = encoder.encode("REVENG01");
@@ -85,7 +85,7 @@ function fixture() {
   );
   const descriptor = encoder.encode(
     `${JSON.stringify({
-      schema: "engine-sim-offline/revengine-package",
+      schema: "engine-sim-offline/vehicleengine-package",
       version: 1,
       engine_id: "unit-engine",
       runtime: {
@@ -101,17 +101,17 @@ function fixture() {
     descriptor,
     starter,
     bytes: pack([
-      ["revengine.json", descriptor],
+      ["vehicleengine.json", descriptor],
       ["packages/unit-engine/runtime.json", manifest],
       ["packages/shared-recorded-starter/runtime.json", starter],
     ]),
   };
 }
 
-test("REVENGINE verifies its carrier, descriptor, and virtual package tree", async () => {
+test("VEHICLEENGINE verifies its carrier, descriptor, and virtual package tree", async () => {
   const source = fixture();
-  const package_ = await loadRevenginePackage(source.bytes, { crypto: webcrypto });
-  assert.equal(package_.kind, "revengine-package");
+  const package_ = await loadVehicleEnginePackage(source.bytes, { crypto: webcrypto });
+  assert.equal(package_.kind, "vehicleengine-package");
   assert.equal(package_.descriptor.engineId, "unit-engine");
   assert.equal(
     package_.descriptor.runtime.manifestPath,
@@ -119,36 +119,36 @@ test("REVENGINE verifies its carrier, descriptor, and virtual package tree", asy
   );
   assert.equal(package_.entries.length, 3);
 
-  const fetch = createRevengineFetch(package_);
+  const fetch = createVehicleEngineFetch(package_);
   const runtime = await fetch(
-    "https://revengine.invalid/packages/unit-engine/runtime.json",
+    "https://vehicleengine.invalid/packages/unit-engine/runtime.json",
   );
   assert.equal(runtime.ok, true);
   assert.deepEqual(new Uint8Array(await runtime.arrayBuffer()), source.manifest);
   const shared = await fetch(
     new URL(
       "../shared-recorded-starter/runtime.json",
-      "https://revengine.invalid/packages/unit-engine/runtime.json",
+      "https://vehicleengine.invalid/packages/unit-engine/runtime.json",
     ).href,
   );
   assert.equal(shared.ok, true);
   assert.deepEqual(new Uint8Array(await shared.arrayBuffer()), source.starter);
   assert.equal((await fetch("https://example.com/runtime.json")).status, 404);
   assert.equal(
-    (await fetch("https://revengine.invalid/packages/%2e%2e/revengine.json"))
+    (await fetch("https://vehicleengine.invalid/packages/%2e%2e/vehicleengine.json"))
       .status,
     404,
   );
 });
 
-test("REVENGINE rejects aggregate and per-entry payload corruption", async () => {
+test("VEHICLEENGINE rejects aggregate and per-entry payload corruption", async () => {
   const source = fixture();
   const aggregateCorrupt = source.bytes.slice();
   aggregateCorrupt[aggregateCorrupt.length - 1] ^= 0x20;
   await assert.rejects(
-    loadRevenginePackage(aggregateCorrupt, { crypto: webcrypto }),
+    loadVehicleEnginePackage(aggregateCorrupt, { crypto: webcrypto }),
     (error) =>
-      error instanceof RevenginePackageError &&
+      error instanceof VehicleEnginePackageError &&
       error.code === "payload-hash-mismatch",
   );
 
@@ -159,18 +159,18 @@ test("REVENGINE rejects aggregate and per-entry payload corruption", async () =>
   );
   entryCorrupt.set(sha256(entryCorrupt.subarray(payloadOffset)), 96);
   await assert.rejects(
-    loadRevenginePackage(entryCorrupt, { crypto: webcrypto }),
+    loadVehicleEnginePackage(entryCorrupt, { crypto: webcrypto }),
     (error) =>
-      error instanceof RevenginePackageError &&
+      error instanceof VehicleEnginePackageError &&
       error.code === "entry-hash-mismatch",
   );
 });
 
-test("REVENGINE rejects stale semantic descriptor bindings", async () => {
+test("VEHICLEENGINE rejects stale semantic descriptor bindings", async () => {
   const source = fixture();
   const staleDescriptor = encoder.encode(
     `${JSON.stringify({
-      schema: "engine-sim-offline/revengine-package",
+      schema: "engine-sim-offline/vehicleengine-package",
       version: 1,
       engine_id: "unit-engine",
       runtime: {
@@ -181,84 +181,84 @@ test("REVENGINE rejects stale semantic descriptor bindings", async () => {
     })}\n`,
   );
   const stale = pack([
-    ["revengine.json", staleDescriptor],
+    ["vehicleengine.json", staleDescriptor],
     ["packages/unit-engine/runtime.json", source.manifest],
     ["packages/shared-recorded-starter/runtime.json", source.starter],
   ]);
   await assert.rejects(
-    loadRevenginePackage(stale, { crypto: webcrypto }),
+    loadVehicleEnginePackage(stale, { crypto: webcrypto }),
     (error) =>
-      error instanceof RevenginePackageError &&
+      error instanceof VehicleEnginePackageError &&
       error.code === "invalid-descriptor" &&
       error.path === "packages/unit-engine/runtime.json",
   );
 });
 
-test("REVENGINE rejects duplicate decoded descriptor members", async () => {
+test("VEHICLEENGINE rejects duplicate decoded descriptor members", async () => {
   const source = fixture();
   const duplicateDescriptor = encoder.encode(
-    `{"schema":"engine-sim-offline/revengine-package",` +
-      `"sch\\u0065ma":"engine-sim-offline/revengine-package",` +
+    `{"schema":"engine-sim-offline/vehicleengine-package",` +
+      `"sch\\u0065ma":"engine-sim-offline/vehicleengine-package",` +
       `"version":1,"engine_id":"unit-engine","runtime":{` +
       `"kind":"responsive-audio",` +
       `"manifest_path":"packages/unit-engine/runtime.json",` +
       `"manifest_sha256":"${sha256Hex(source.manifest)}"}}\n`,
   );
   const duplicate = pack([
-    ["revengine.json", duplicateDescriptor],
+    ["vehicleengine.json", duplicateDescriptor],
     ["packages/unit-engine/runtime.json", source.manifest],
   ]);
   await assert.rejects(
-    loadRevenginePackage(duplicate, { crypto: webcrypto }),
+    loadVehicleEnginePackage(duplicate, { crypto: webcrypto }),
     (error) =>
-      error instanceof RevenginePackageError &&
+      error instanceof VehicleEnginePackageError &&
       error.code === "invalid-descriptor" &&
       /repeats object member schema/u.test(error.message),
   );
 });
 
-test("REVENGINE enforces the descriptor byte and self-reference bounds", async () => {
+test("VEHICLEENGINE enforces the descriptor byte and self-reference bounds", async () => {
   const oversized = pack([
-    ["revengine.json", new Uint8Array(16 * 1024 + 1)],
+    ["vehicleengine.json", new Uint8Array(16 * 1024 + 1)],
   ]);
   await assert.rejects(
-    loadRevenginePackage(oversized, { crypto: webcrypto }),
+    loadVehicleEnginePackage(oversized, { crypto: webcrypto }),
     (error) =>
-      error instanceof RevenginePackageError &&
+      error instanceof VehicleEnginePackageError &&
       error.code === "invalid-descriptor" &&
       /byte limit/u.test(error.message),
   );
 
   const selfDescriptor = encoder.encode(
     `${JSON.stringify({
-      schema: "engine-sim-offline/revengine-package",
+      schema: "engine-sim-offline/vehicleengine-package",
       version: 1,
       engine_id: "unit-engine",
       runtime: {
         kind: "responsive-audio",
-        manifest_path: "revengine.json",
+        manifest_path: "vehicleengine.json",
         manifest_sha256: "0".repeat(64),
       },
     })}\n`,
   );
   await assert.rejects(
-    loadRevenginePackage(pack([["revengine.json", selfDescriptor]]), {
+    loadVehicleEnginePackage(pack([["vehicleengine.json", selfDescriptor]]), {
       crypto: webcrypto,
     }),
     (error) =>
-      error instanceof RevenginePackageError &&
+      error instanceof VehicleEnginePackageError &&
       error.code === "invalid-descriptor" &&
       /cannot name itself/u.test(error.message),
   );
 });
 
-test("REVENGINE portable paths match the carrier grammar", () => {
+test("VEHICLEENGINE portable paths match the carrier grammar", () => {
   for (const path of [
-    "revengine.json",
+    "vehicleengine.json",
     "audio/idle.f32le",
     "packages/unit-engine/runtime.json",
   ]) {
-    assert.equal(isPortableRevenginePath(path), true, path);
+    assert.equal(isPortableVehicleEnginePath(path), true, path);
   }
   for (const path of [
     "",
@@ -271,6 +271,6 @@ test("REVENGINE portable paths match the carrier grammar", () => {
     "safe/X.json",
     "con/file.bin",
   ]) {
-    assert.equal(isPortableRevenginePath(path), false, path);
+    assert.equal(isPortableVehicleEnginePath(path), false, path);
   }
 });

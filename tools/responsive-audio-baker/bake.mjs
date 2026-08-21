@@ -15,7 +15,7 @@ import {
   hashLabeledFiles,
   rendererBytesIdentity,
   sha256Hex,
-  validateRevenginePackageTree,
+  validateVehicleEnginePackageTree,
 } from "./internal/bake-contract.mjs";
 
 export const PROFILE_SCHEMA =
@@ -721,13 +721,13 @@ function lowercaseSha256(value, label) {
   return value;
 }
 
-function revengineEngineId(value, label) {
+function vehicleengineEngineId(value, label) {
   const id = string(value, label);
   if (
     id.length > 128 ||
     !/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u.test(id)
   ) {
-    fail(`${label} is not a portable REVENGINE engine identifier`);
+    fail(`${label} is not a portable VEHICLEENGINE engine identifier`);
   }
   return id;
 }
@@ -2019,10 +2019,10 @@ export function cleanupPublishedLifecycleRuns(cacheNamespace) {
   return true;
 }
 
-export function createRevengineDescriptor(engineId, runtimeBytes) {
-  const canonicalEngineId = revengineEngineId(engineId, "engine identity id");
+export function createVehicleEngineDescriptor(engineId, runtimeBytes) {
+  const canonicalEngineId = vehicleengineEngineId(engineId, "engine identity id");
   return {
-    schema: "engine-sim-offline/revengine-package",
+    schema: "engine-sim-offline/vehicleengine-package",
     version: 1,
     engine_id: canonicalEngineId,
     runtime: {
@@ -2119,7 +2119,7 @@ export function createBakeReport({
   resolvedAssets,
   starterIdentity,
   runtimeManifestSha256,
-  revengineDescriptorSha256,
+  vehicleengineDescriptorSha256,
 }) {
   const assets = resolvedAssets.map(({ kind, id, sha256: digest }) => ({
     kind,
@@ -2158,7 +2158,7 @@ export function createBakeReport({
       scope: "held-and-directional-renderer-captures",
     },
     runtime_manifest_sha256: runtimeManifestSha256,
-    revengine_descriptor_sha256: revengineDescriptorSha256,
+    vehicleengine_descriptor_sha256: vehicleengineDescriptorSha256,
     completed: true,
   };
 }
@@ -2212,7 +2212,7 @@ async function executeBake(options, supervisor) {
   const sharedStarterSource = profile.lifecycle.shared_recorded_starter
     ? builtinAssets.sharedStarter()
     : null;
-  const engineId = revengineEngineId(
+  const engineId = vehicleengineEngineId(
     engine.engine?.identity?.id,
     "engine identity id",
   );
@@ -2520,9 +2520,9 @@ async function executeBake(options, supervisor) {
     }
     const runtimeBytes = fs.readFileSync(runtimePath);
     const runtimeManifestSha256 = sha256(runtimeBytes);
-    const descriptorPath = path.join(stageOutput, "revengine.json");
-    writeJson(descriptorPath, createRevengineDescriptor(engineId, runtimeBytes));
-    const revengineDescriptorSha256 = sha256(fs.readFileSync(descriptorPath));
+    const descriptorPath = path.join(stageOutput, "vehicleengine.json");
+    writeJson(descriptorPath, createVehicleEngineDescriptor(engineId, runtimeBytes));
+    const vehicleengineDescriptorSha256 = sha256(fs.readFileSync(descriptorPath));
     writeJson(
       path.join(stageOutput, "bake-report.json"),
       createBakeReport({
@@ -2540,10 +2540,10 @@ async function executeBake(options, supervisor) {
         resolvedAssets,
         starterIdentity: sharedStarterSource?.identity ?? null,
         runtimeManifestSha256,
-        revengineDescriptorSha256,
+        vehicleengineDescriptorSha256,
       }),
     );
-    validateRevenginePackageTree(stageOutput);
+    validateVehicleEnginePackageTree(stageOutput);
     supervisor.throwIfAborted();
     fs.renameSync(stageOutput, options.outputPath);
     try {

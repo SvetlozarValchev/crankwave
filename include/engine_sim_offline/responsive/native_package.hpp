@@ -164,14 +164,14 @@ struct NativeResponsivePackageInputV2 {
     std::vector<PortableResponsivePackageMember> payload_members;
 };
 
-// Owns both canonical sorted package members and the deterministic REVENGINE v1
+// Owns both canonical sorted package members and the deterministic VEHICLEENGINE v1
 // carrier. All spans passed into the existing packer expire before this value is
 // returned.
 struct NativeResponsivePackageV2 {
     EncodedNativeResponsiveBakeIdentityV1 cache_identity;
     std::vector<PortableResponsivePackageMember> members;
-    std::vector<std::byte> revengine_v1;
-    contract::Sha256Digest revengine_sha256;
+    std::vector<std::byte> vehicleengine_v1;
+    contract::Sha256Digest vehicleengine_sha256;
 };
 
 using EncodedNativeResponsiveBakeIdentityResultV1 =

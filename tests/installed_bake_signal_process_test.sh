@@ -19,7 +19,7 @@ env \
     HTTP_PROXY=http://127.0.0.1:1 \
     HTTPS_PROXY=http://127.0.0.1:1 \
     NODE_OPTIONS=must-not-be-consumed \
-    "$cli" bake-revengine \
+    "$cli" bake-vehicleengine \
         --engine "$engine" \
         --output "$output" \
         --result-format json >"$standard_out" 2>"$standard_error" &

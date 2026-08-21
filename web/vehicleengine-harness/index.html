@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="A standalone browser harness for verified REVENGINE audio packages."
+      content="A standalone browser harness for verified VEHICLEENGINE audio packages."
     />
-    <title>REVENGINE · Audio Bridge Harness</title>
+    <title>VEHICLEENGINE · Audio Bridge Harness</title>
     <link rel="icon" href="/harness/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/harness/styles.css" />
   </head>
@@ -18,7 +18,7 @@
 
     <div id="security-gate" class="fatal-banner" role="alert" hidden>
       <strong>Isolated browser audio is unavailable.</strong>
-      Open this page through <code>scripts/serve-revengine-harness.mjs</code> on
+      Open this page through <code>scripts/serve-vehicleengine-harness.mjs</code> on
       localhost. The harness requires Web Audio, Web Workers, Web Crypto, and
       cross-origin-isolated shared memory.
     </div>
@@ -27,7 +27,7 @@
       <div class="brand">
         <span class="brand-mark" aria-hidden="true"></span>
         <span>
-          <span class="brand-kicker">REVENGINE</span>
+          <span class="brand-kicker">VEHICLEENGINE</span>
           <span class="brand-title">Audio bridge harness</span>
         </span>
       </div>
@@ -74,7 +74,7 @@
         <div class="panel-heading">
           <div>
             <p class="eyebrow">PACKAGE</p>
-            <h2 id="package-title">Load a <code>.revengine</code></h2>
+            <h2 id="package-title">Load a <code>.vehicleengine</code></h2>
           </div>
           <button id="choose-file-button" class="button button-primary" type="button">
             Choose file
@@ -84,12 +84,12 @@
           id="package-file-input"
           class="visually-hidden"
           type="file"
-          accept=".revengine,application/octet-stream"
+          accept=".vehicleengine,application/octet-stream"
         />
         <div id="drop-zone" class="drop-zone" tabindex="0" role="button">
           <span class="drop-icon" aria-hidden="true">↓</span>
           <span>
-            <strong id="file-name">Drop a REVENGINE file here</strong>
+            <strong id="file-name">Drop a VEHICLEENGINE file here</strong>
             <small id="file-detail">The file stays in this browser tab.</small>
           </span>
         </div>

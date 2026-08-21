@@ -2,10 +2,10 @@
 
 > **Production status:** Since installed distribution v2 / release 1.2.0,
 > responsive authoring is owned by the native
-> `engine-sim-offline bake-revengine` command. It requires neither Node.js nor
+> `engine-sim-offline bake-vehicleengine` command. It requires neither Node.js nor
 > simulation WebAssembly. This document preserves the former 1.1 JavaScript/WASM
 > baker as a source-tree migration and parity oracle; it is not installed and is
-> not the production PlugAndRev adapter boundary. See
+> not the production integration boundary. See
 > [INSTALLED_DISTRIBUTION_V2.md](contracts/INSTALLED_DISTRIBUTION_V2.md) and
 > [RESPONSIVE_PROFILE_SELECTION_V2.md](contracts/RESPONSIVE_PROFILE_SELECTION_V2.md).
 
@@ -86,7 +86,7 @@ The emitted tree contains:
 
 ```text
 runtime.json
-revengine.json
+vehicleengine.json
 bake-report.json
 held/
 directional/
@@ -95,17 +95,17 @@ shared-recorded-starter/   # when enabled by the profile
 ```
 
 `runtime.json` is directly loadable by the responsive browser runtime.
-`revengine.json` binds those exact bytes, so the complete output is directly
+`vehicleengine.json` binds those exact bytes, so the complete output is directly
 accepted by the separate container packer. Before publication, the baker
-preflights the complete output against the REVENGINE v1 portable-tree limits,
+preflights the complete output against the VEHICLEENGINE v1 portable-tree limits,
 including entry count, total size, path and segment syntax/length, regular-file
 requirements, and descriptor/runtime hash binding:
 
 ```bash
-build/engine-sim-offline pack-revengine \
+build/engine-sim-offline pack-vehicleengine \
   --package-directory .work/responsive-bakes/m52tu \
-  --output .work/m52tu.revengine
-build/engine-sim-offline verify-revengine --input .work/m52tu.revengine
+  --output .work/m52tu.vehicleengine
+build/engine-sim-offline verify-vehicleengine --input .work/m52tu.vehicleengine
 ```
 
 ## Identity, cache, and failure behavior
@@ -211,7 +211,7 @@ is structural test data, not an audition-quality profile.
 
 Everything in this section describes the retired v1 installation boundary. A
 current 1.2+ distribution ships one native CLI and the one-step
-`revengine-bake-workflow.v2.json` contract described above.
+`vehicleengine-bake-workflow.v2.json` contract described above.
 
 Build and install an explicitly incomplete native development prefix with:
 
@@ -233,7 +233,7 @@ share/engine-sim-offline/<release>/
   release.json
   release.json.sha256
   package.json
-  contracts/revengine-bake-workflow.v1.json
+  contracts/vehicleengine-bake-workflow.v1.json
   docs/contracts/
   assets/
   schemas/responsive-audio-bake-profile.schema.json
@@ -258,8 +258,8 @@ share/engine-sim-offline/<release>/
     renderer-runtime-compatibility.js
     release.js
     responsive-audio-lifecycle-runtime.js
-    revengine-audio-engine.js
-    revengine-package.js
+    vehicleengine-audio-engine.js
+    vehicleengine-package.js
     shared-recorded-starter-runtime.js
     state-phase-texture-runtime.js
     steady-transient-envelope.js
@@ -271,7 +271,7 @@ share/engine-sim-offline/<release>/
 
 The C-API files under `web/runtime` are the exact transitive JavaScript dependency
 closure used by the baker stages. The remaining files are the simulator-free
-`RevengineAudioEngine` consumer closure, so an installed distribution can verify and
+`VehicleEngineAudioEngine` consumer closure, so an installed distribution can verify and
 play its own carrier without repository sources. Workbench UI, Worker orchestration,
 and unrelated browser modules are deliberately not installed. The IR-helper source
 remains a resource because its bytes participate in the baker cache identity, while

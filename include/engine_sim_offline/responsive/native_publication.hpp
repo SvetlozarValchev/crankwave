@@ -42,7 +42,7 @@ publish_native_responsive_package_atomic(const NativeResponsivePackageV2 &packag
 // Publishes the already-built carrier independently with no-replace semantics.
 // Directory and carrier publication are separate atomic operations by design.
 [[nodiscard]] NativeResponsiveCarrierPublicationResult
-publish_native_revengine_atomic(const NativeResponsivePackageV2 &package,
+publish_native_vehicleengine_atomic(const NativeResponsivePackageV2 &package,
                                 const std::filesystem::path &output_file,
                                 std::stop_token stop_token = {});
 

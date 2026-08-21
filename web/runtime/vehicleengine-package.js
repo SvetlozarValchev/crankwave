@@ -13,22 +13,22 @@ const MAXIMUM_PATH_BYTES = 512;
 const MAXIMUM_ENTRY_BYTES = 2 ** 30;
 const MAXIMUM_CONTAINER_BYTES = 2 ** 32;
 const MAXIMUM_DESCRIPTOR_BYTES = 16 * 1024;
-const VIRTUAL_ORIGIN = "https://revengine.invalid";
-const DESCRIPTOR_PATH = "revengine.json";
-const DESCRIPTOR_SCHEMA = "engine-sim-offline/revengine-package";
+const VIRTUAL_ORIGIN = "https://vehicleengine.invalid";
+const DESCRIPTOR_PATH = "vehicleengine.json";
+const DESCRIPTOR_SCHEMA = "engine-sim-offline/vehicleengine-package";
 const verifiedPackages = new WeakMap();
 
-export class RevenginePackageError extends Error {
+export class VehicleEnginePackageError extends Error {
   constructor(code, message, { path = null } = {}) {
     super(message);
-    this.name = "RevenginePackageError";
+    this.name = "VehicleEnginePackageError";
     this.code = code;
     this.path = path;
   }
 }
 
 function fail(code, message, options) {
-  throw new RevenginePackageError(code, message, options);
+  throw new VehicleEnginePackageError(code, message, options);
 }
 
 function bytes(value) {
@@ -39,7 +39,7 @@ function bytes(value) {
   if (ArrayBuffer.isView(value)) {
     return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
   }
-  fail("invalid-argument", "REVENGINE input must be an ArrayBuffer or byte view");
+  fail("invalid-argument", "VEHICLEENGINE input must be an ArrayBuffer or byte view");
 }
 
 function readSafeU64(view, offset, label) {
@@ -114,7 +114,7 @@ function rejectDuplicateObjectKeys(text) {
     if (object?.kind !== "object") continue;
     const key = JSON.parse(text.slice(start, index + 1));
     if (object.keys.has(key)) {
-      fail("invalid-descriptor", `revengine.json repeats object member ${key}`);
+      fail("invalid-descriptor", `vehicleengine.json repeats object member ${key}`);
     }
     object.keys.add(key);
   }
@@ -145,7 +145,7 @@ function reservedSegment(segment) {
   );
 }
 
-export function isPortableRevenginePath(value) {
+export function isPortableVehicleEnginePath(value) {
   if (
     typeof value !== "string" ||
     value.length === 0 ||
@@ -172,14 +172,14 @@ function parseDescriptor(entryBytes, entries) {
     descriptor = JSON.parse(text);
     rejectDuplicateObjectKeys(text);
   } catch (error) {
-    if (error instanceof RevenginePackageError) throw error;
-    fail("invalid-descriptor", "revengine.json is not canonical UTF-8 JSON", {
+    if (error instanceof VehicleEnginePackageError) throw error;
+    fail("invalid-descriptor", "vehicleengine.json is not canonical UTF-8 JSON", {
       cause: error,
     });
   }
   exactKeys(descriptor, ["schema", "version", "engine_id", "runtime"], "descriptor");
   if (descriptor.schema !== DESCRIPTOR_SCHEMA || descriptor.version !== 1) {
-    fail("invalid-descriptor", "revengine.json schema or version is unsupported");
+    fail("invalid-descriptor", "vehicleengine.json schema or version is unsupported");
   }
   portableId(descriptor.engine_id, "descriptor.engine_id");
   const runtime = exactKeys(
@@ -190,7 +190,7 @@ function parseDescriptor(entryBytes, entries) {
   if (runtime.kind !== "responsive-audio") {
     fail("invalid-descriptor", "descriptor.runtime.kind is unsupported");
   }
-  if (!isPortableRevenginePath(runtime.manifest_path)) {
+  if (!isPortableVehicleEnginePath(runtime.manifest_path)) {
     fail("invalid-descriptor", "descriptor.runtime.manifest_path is not portable");
   }
   if (runtime.manifest_path === DESCRIPTOR_PATH) {
@@ -224,24 +224,24 @@ function entryPayload(container, entry) {
   return container.subarray(entry.offset, entry.offset + entry.byteCount);
 }
 
-// Fully verifies one complete REVENGINE v1 carrier before exposing any entry.
-export async function loadRevenginePackage(
+// Fully verifies one complete VEHICLEENGINE v1 carrier before exposing any entry.
+export async function loadVehicleEnginePackage(
   input,
   { crypto: cryptoImplementation = globalThis.crypto } = {},
 ) {
   const source = bytes(input);
   if (source.byteLength > MAXIMUM_CONTAINER_BYTES) {
-    fail("resource-limit", "REVENGINE container exceeds the v1 byte limit");
+    fail("resource-limit", "VEHICLEENGINE container exceeds the v1 byte limit");
   }
   // Reject malformed or impossible headers before doubling memory for an owned
   // carrier snapshot. No asynchronous work occurs before the snapshot, so the
   // caller cannot mutate a normal JavaScript buffer between these checks and
   // the copy.
   if (source.byteLength < HEADER_BYTES) {
-    fail("malformed-header", "REVENGINE header is truncated");
+    fail("malformed-header", "VEHICLEENGINE header is truncated");
   }
   if (MAGIC.some((value, index) => source[index] !== value)) {
-    fail("malformed-header", "REVENGINE magic is invalid");
+    fail("malformed-header", "VEHICLEENGINE magic is invalid");
   }
   const sourceView = new DataView(
     source.buffer,
@@ -250,7 +250,7 @@ export async function loadRevenginePackage(
   );
   const version = sourceView.getUint16(8, true);
   if (version !== CONTAINER_VERSION) {
-    fail("unsupported-version", "REVENGINE container version is unsupported");
+    fail("unsupported-version", "VEHICLEENGINE container version is unsupported");
   }
   const headerBytes = sourceView.getUint16(10, true);
   const flags = sourceView.getUint32(12, true);
@@ -267,23 +267,23 @@ export async function loadRevenginePackage(
     entryPrefixBytes !== INDEX_ENTRY_PREFIX_BYTES ||
     indexOffset !== HEADER_BYTES
   ) {
-    fail("malformed-header", "REVENGINE v1 fixed header fields are noncanonical");
+    fail("malformed-header", "VEHICLEENGINE v1 fixed header fields are noncanonical");
   }
   if (entryCount < 1 || entryCount > MAXIMUM_ENTRY_COUNT) {
-    fail("resource-limit", "REVENGINE entry count is outside the v1 bounds");
+    fail("resource-limit", "VEHICLEENGINE entry count is outside the v1 bounds");
   }
   if (
     payloadOffset !== indexOffset + indexBytes ||
     containerBytes !== payloadOffset + payloadBytes ||
     containerBytes !== source.byteLength
   ) {
-    fail("malformed-header", "REVENGINE ranges do not cover the exact container");
+    fail("malformed-header", "VEHICLEENGINE ranges do not cover the exact container");
   }
   if (
     indexBytes < entryCount * (INDEX_ENTRY_PREFIX_BYTES + 1) ||
     indexBytes > entryCount * (INDEX_ENTRY_PREFIX_BYTES + MAXIMUM_PATH_BYTES)
   ) {
-    fail("resource-limit", "REVENGINE index size is inconsistent with its entries");
+    fail("resource-limit", "VEHICLEENGINE index size is inconsistent with its entries");
   }
 
   // Take ownership of immutable-by-convention bytes before any asynchronous
@@ -299,10 +299,10 @@ export async function loadRevenginePackage(
   const actualIndexSha256 = await digestHex(
     container.subarray(indexOffset, payloadOffset),
     cryptoImplementation,
-    "the REVENGINE index",
+    "the VEHICLEENGINE index",
   );
   if (actualIndexSha256 !== expectedIndexSha256) {
-    fail("index-hash-mismatch", "REVENGINE index SHA-256 does not match its header");
+    fail("index-hash-mismatch", "VEHICLEENGINE index SHA-256 does not match its header");
   }
 
   const entries = new Map();
@@ -311,7 +311,7 @@ export async function loadRevenginePackage(
   let previousPath = null;
   for (let ordinal = 0; ordinal < entryCount; ordinal += 1) {
     if (cursor + INDEX_ENTRY_PREFIX_BYTES > payloadOffset) {
-      fail("malformed-index", "REVENGINE index entry prefix is truncated");
+      fail("malformed-index", "VEHICLEENGINE index entry prefix is truncated");
     }
     const pathBytes = view.getUint16(cursor, true);
     const entryFlags = view.getUint16(cursor + 2, true);
@@ -331,7 +331,7 @@ export async function loadRevenginePackage(
       offset !== expectedEntryOffset ||
       offset + byteCount > containerBytes
     ) {
-      fail("malformed-index", "REVENGINE index entry fields or ranges are invalid");
+      fail("malformed-index", "VEHICLEENGINE index entry fields or ranges are invalid");
     }
     let path;
     try {
@@ -339,13 +339,13 @@ export async function loadRevenginePackage(
         container.subarray(pathStart, pathEnd),
       );
     } catch (error) {
-      fail("invalid-path", "REVENGINE entry path is not UTF-8", { cause: error });
+      fail("invalid-path", "VEHICLEENGINE entry path is not UTF-8", { cause: error });
     }
-    if (!isPortableRevenginePath(path)) {
-      fail("invalid-path", "REVENGINE entry path is not portable", { path });
+    if (!isPortableVehicleEnginePath(path)) {
+      fail("invalid-path", "VEHICLEENGINE entry path is not portable", { path });
     }
     if (previousPath !== null && path <= previousPath) {
-      fail("noncanonical-index", "REVENGINE paths are not strictly sorted", {
+      fail("noncanonical-index", "VEHICLEENGINE paths are not strictly sorted", {
         path,
       });
     }
@@ -358,15 +358,15 @@ export async function loadRevenginePackage(
     expectedEntryOffset = offset + byteCount;
   }
   if (cursor !== payloadOffset || expectedEntryOffset !== containerBytes) {
-    fail("noncanonical-index", "REVENGINE index or payload has undeclared bytes");
+    fail("noncanonical-index", "VEHICLEENGINE index or payload has undeclared bytes");
   }
   const actualPayloadSha256 = await digestHex(
     container.subarray(payloadOffset),
     cryptoImplementation,
-    "the REVENGINE payload",
+    "the VEHICLEENGINE payload",
   );
   if (actualPayloadSha256 !== expectedPayloadSha256) {
-    fail("payload-hash-mismatch", "REVENGINE payload SHA-256 does not match its header");
+    fail("payload-hash-mismatch", "VEHICLEENGINE payload SHA-256 does not match its header");
   }
   for (const entry of entries.values()) {
     const actual = await digestHex(
@@ -375,24 +375,24 @@ export async function loadRevenginePackage(
       entry.path,
     );
     if (actual !== entry.sha256) {
-      fail("entry-hash-mismatch", "REVENGINE entry SHA-256 does not match", {
+      fail("entry-hash-mismatch", "VEHICLEENGINE entry SHA-256 does not match", {
         path: entry.path,
       });
     }
   }
   const descriptorEntry = entries.get(DESCRIPTOR_PATH);
   if (descriptorEntry === undefined) {
-    fail("invalid-descriptor", "REVENGINE package omits revengine.json");
+    fail("invalid-descriptor", "VEHICLEENGINE package omits vehicleengine.json");
   }
   if (descriptorEntry.byteCount > MAXIMUM_DESCRIPTOR_BYTES) {
-    fail("invalid-descriptor", "revengine.json exceeds its byte limit");
+    fail("invalid-descriptor", "vehicleengine.json exceeds its byte limit");
   }
   const descriptor = parseDescriptor(
     entryPayload(container, descriptorEntry),
     entries,
   );
   const package_ = Object.freeze({
-    kind: "revengine-package",
+    kind: "vehicleengine-package",
     version,
     descriptor,
     entries: Object.freeze(Array.from(entries.values())),
@@ -428,16 +428,16 @@ function pathFromVirtualUrl(value) {
   } catch {
     return null;
   }
-  if (encodeURI(path) !== encoded || !isPortableRevenginePath(path)) return null;
+  if (encodeURI(path) !== encoded || !isPortableVehicleEnginePath(path)) return null;
   return path;
 }
 
-export function createRevengineFetch(package_) {
+export function createVehicleEngineFetch(package_) {
   const verified = verifiedPackages.get(package_);
-  if (package_?.kind !== "revengine-package" || verified === undefined) {
-    fail("invalid-argument", "a verified REVENGINE package is required");
+  if (package_?.kind !== "vehicleengine-package" || verified === undefined) {
+    fail("invalid-argument", "a verified VEHICLEENGINE package is required");
   }
-  return async function revengineFetch(value) {
+  return async function vehicleengineFetch(value) {
     const path = pathFromVirtualUrl(value);
     const entry = path === null ? undefined : verified.entries.get(path);
     if (entry === undefined) {
@@ -468,21 +468,21 @@ export function createRevengineFetch(package_) {
 }
 
 // Loads the proven responsive runtime directly from a fully verified carrier.
-export async function loadResponsiveAudioRevengine(
+export async function loadResponsiveAudioVehicleEngine(
   input,
   { crypto: cryptoImplementation = globalThis.crypto } = {},
 ) {
-  const package_ = await loadRevenginePackage(input, {
+  const package_ = await loadVehicleEnginePackage(input, {
     crypto: cryptoImplementation,
   });
-  const fetchImplementation = createRevengineFetch(package_);
+  const fetchImplementation = createVehicleEngineFetch(package_);
   const manifestUrl = `${VIRTUAL_ORIGIN}/${package_.descriptor.runtime.manifestPath}`;
   const runtime = await loadHeldTexturePresentationRuntime(manifestUrl, {
     fetch: fetchImplementation,
     crypto: cryptoImplementation,
   });
   if (runtime.manifest.engine !== package_.descriptor.engineId) {
-    fail("runtime-identity-mismatch", "responsive runtime engine does not match revengine.json");
+    fail("runtime-identity-mismatch", "responsive runtime engine does not match vehicleengine.json");
   }
   if (runtime.lifecyclePackage === null) {
     return Object.freeze({ package: package_, runtime });

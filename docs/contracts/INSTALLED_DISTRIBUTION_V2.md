@@ -3,7 +3,7 @@
 Installed distribution v2 is the fully native production boundary introduced by
 release 1.2.0. It contains one relocatable `engine-sim-offline` executable. That
 executable owns finite audition rendering and telemetry, native responsive cooking,
-REVENGINE packing, inspection, verification, and IR-catalog inspection. Responsive
+VEHICLEENGINE packing, inspection, verification, and IR-catalog inspection. Responsive
 cooking does not launch Node.js, a compiler, a helper executable, or simulation
 WebAssembly.
 
@@ -33,7 +33,7 @@ The manifest records:
   fixed to false;
 - the simulator-free ESM playback resource directory and entry point;
 - source, toolchain, and installed-input closure identities;
-- the one-step native REVENGINE bake workflow and its digest; and
+- the one-step native VEHICLEENGINE bake workflow and its digest; and
 - the unchanged diagnostic telemetry role/schema boundary originating at commit
   `c8d672b59e3046654ad5f818f31725798aef7ffa`.
 
@@ -57,12 +57,12 @@ oracles but are not release members or production dependencies.
 
 ## Native workflow
 
-`contracts/revengine-bake-workflow.v2.json` freezes one command:
+`contracts/vehicleengine-bake-workflow.v2.json` freezes one command:
 
 ```text
-bin/engine-sim-offline bake-revengine \
+bin/engine-sim-offline bake-vehicleengine \
   --engine {engine_json} \
-  --output {new_revengine_file} \
+  --output {new_vehicleengine_file} \
   --deadline-unix-ms {deadline_unix_ms} \
   --result-format json
 ```

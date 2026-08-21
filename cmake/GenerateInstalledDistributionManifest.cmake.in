@@ -18,7 +18,7 @@ set(_resource_root "${_physical_prefix}/${_resource_relative}")
 set(_manifest_path "${_resource_root}/release.json")
 set(_binding_path "${_resource_root}/release.json.sha256")
 set(_workflow_relative
-    "${_resource_relative}/contracts/revengine-bake-workflow.v2.json")
+    "${_resource_relative}/contracts/vehicleengine-bake-workflow.v2.json")
 set(_workflow_path "${_physical_prefix}/${_workflow_relative}")
 
 foreach(_required_file IN ITEMS
@@ -29,10 +29,10 @@ foreach(_required_file IN ITEMS
         "${_resource_root}/assets/ir-authoring-catalog.v1.json"
         "${_resource_root}/profiles/interactive-preview-v1.json"
         "${_resource_root}/schemas/installed-distribution.v2.schema.json"
-        "${_resource_root}/schemas/revengine-bake-workflow.v2.schema.json"
+        "${_resource_root}/schemas/vehicleengine-bake-workflow.v2.schema.json"
         "${_resource_root}/schemas/ir-authoring-catalog.schema.json"
         "${_resource_root}/web/runtime/release.js"
-        "${_resource_root}/web/runtime/revengine-audio-engine.js"
+        "${_resource_root}/web/runtime/vehicleengine-audio-engine.js"
         "${_release_source_inputs}"
         "${_release_source_identity_script}"
         "${_stamp_header}")
@@ -181,11 +181,11 @@ foreach(_file IN LISTS _distribution_files)
 endforeach()
 
 set(_commands_json
-    "[\"render\",\"bake-revengine\",\"pack-revengine\",\"inspect-revengine\",\"verify-revengine\",\"inspect-ir-catalog\"]")
+    "[\"render\",\"bake-vehicleengine\",\"pack-vehicleengine\",\"inspect-vehicleengine\",\"verify-vehicleengine\",\"inspect-ir-catalog\"]")
 set(_telemetry_contract_json
     "{\"role\":\"diagnostics.engine-telemetry.v1\",\"kind\":\"telemetry\",\"path\":\"telemetry/engine-telemetry.v1.ndjson\",\"schema\":\"engine-sim-offline.engine-telemetry.ndjson.v1\",\"originating_commit\":\"c8d672b59e3046654ad5f818f31725798aef7ffa\"}")
 set(_manifest
-    "{\"schema\":\"engine-sim-offline/installed-distribution.v2\",\"release_identity\":\"${_release_identity}\",\"classification\":\"${_classification}\",\"complete\":${_complete_json},\"source\":{\"state\":\"${_release_source_state}\",\"renderer_state\":\"${_RendererSourceState}\",\"installed_inputs_state\":\"${_InstalledSourceState}\",\"git_commit\":${_git_commit_json},\"closure_sha256\":${_source_closure_json},\"installed_inputs_closure_sha256\":\"${_InstalledSourceClosureSha256}\"},\"toolchain\":{\"state\":\"${_RendererToolchainState}\",\"compiler_id\":${_compiler_id_json},\"compiler_version\":${_compiler_version_json},\"target_triple\":${_target_triple_json}},\"layout\":{\"resource_root\":\"${_resource_relative}\"},\"production_runtime\":{\"kind\":\"native\",\"node_required\":false,\"simulation_wasm_required\":false},\"native_cli\":{\"path\":\"${_cli_relative}\",\"sha256\":\"${_native_cli_sha256}\",\"commands\":${_commands_json}},\"browser_playback\":{\"kind\":\"simulator-free-esm\",\"resource_directory\":\"${_resource_relative}/web/runtime\",\"entrypoint\":\"${_resource_relative}/web/runtime/revengine-audio-engine.js\"},\"telemetry_contract\":${_telemetry_contract_json},\"revengine_bake_workflow\":{\"path\":\"${_workflow_relative}\",\"sha256\":\"${_workflow_sha256}\"},\"files\":[${_file_records}]}\n")
+    "{\"schema\":\"engine-sim-offline/installed-distribution.v2\",\"release_identity\":\"${_release_identity}\",\"classification\":\"${_classification}\",\"complete\":${_complete_json},\"source\":{\"state\":\"${_release_source_state}\",\"renderer_state\":\"${_RendererSourceState}\",\"installed_inputs_state\":\"${_InstalledSourceState}\",\"git_commit\":${_git_commit_json},\"closure_sha256\":${_source_closure_json},\"installed_inputs_closure_sha256\":\"${_InstalledSourceClosureSha256}\"},\"toolchain\":{\"state\":\"${_RendererToolchainState}\",\"compiler_id\":${_compiler_id_json},\"compiler_version\":${_compiler_version_json},\"target_triple\":${_target_triple_json}},\"layout\":{\"resource_root\":\"${_resource_relative}\"},\"production_runtime\":{\"kind\":\"native\",\"node_required\":false,\"simulation_wasm_required\":false},\"native_cli\":{\"path\":\"${_cli_relative}\",\"sha256\":\"${_native_cli_sha256}\",\"commands\":${_commands_json}},\"browser_playback\":{\"kind\":\"simulator-free-esm\",\"resource_directory\":\"${_resource_relative}/web/runtime\",\"entrypoint\":\"${_resource_relative}/web/runtime/vehicleengine-audio-engine.js\"},\"telemetry_contract\":${_telemetry_contract_json},\"vehicleengine_bake_workflow\":{\"path\":\"${_workflow_relative}\",\"sha256\":\"${_workflow_sha256}\"},\"files\":[${_file_records}]}\n")
 file(WRITE "${_manifest_path}.tmp" "${_manifest}")
 file(RENAME "${_manifest_path}.tmp" "${_manifest_path}")
 file(SHA256 "${_manifest_path}" _manifest_sha256)

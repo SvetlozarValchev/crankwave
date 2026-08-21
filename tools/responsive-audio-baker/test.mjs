@@ -21,7 +21,7 @@ import {
   createBakeProcessSupervisor,
   createBakeReport,
   createExecutionRuntimeIdentity,
-  createRevengineDescriptor,
+  createVehicleEngineDescriptor,
   deriveResponsiveBakeProfile,
   createSanitizedChildEnvironment,
   main,
@@ -33,11 +33,11 @@ import {
 } from "./bake.mjs";
 import {
   compareCodeUnits,
-  isPortableRevenginePath,
+  isPortableVehicleEnginePath,
   portableArtifactToken,
   rendererFileIdentity,
   reusablePriorPhaseAlignment,
-  validateRevenginePackageTree,
+  validateVehicleEnginePackageTree,
 } from "./internal/bake-contract.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -575,10 +575,10 @@ test("artifact tokens are portable and do not inherit slug collisions", () => {
   const dotted = portableArtifactToken("route", "front.left_dry");
   const dashed = portableArtifactToken("route", "front-left-dry");
   assert.notEqual(dotted, dashed);
-  assert.equal(isPortableRevenginePath(`audio/${dotted}.f32le`), true);
-  assert.equal(isPortableRevenginePath("Upper/audio.f32le"), false);
-  assert.equal(isPortableRevenginePath("con.bin"), false);
-  assert.equal(isPortableRevenginePath(`${"a".repeat(128)}.bin`), false);
+  assert.equal(isPortableVehicleEnginePath(`audio/${dotted}.f32le`), true);
+  assert.equal(isPortableVehicleEnginePath("Upper/audio.f32le"), false);
+  assert.equal(isPortableVehicleEnginePath("con.bin"), false);
+  assert.equal(isPortableVehicleEnginePath(`${"a".repeat(128)}.bin`), false);
 });
 
 test("code-unit ordering and execution runtime identity are explicit", () => {
@@ -685,9 +685,9 @@ test("generic inventory derives routes and authored assets without engine branch
   );
 });
 
-test("REVENGINE descriptor binds the exact responsive runtime bytes", () => {
+test("VEHICLEENGINE descriptor binds the exact responsive runtime bytes", () => {
   const bytes = Buffer.from("{\"engine\":\"example\"}\n");
-  const descriptor = createRevengineDescriptor("example-engine", bytes);
+  const descriptor = createVehicleEngineDescriptor("example-engine", bytes);
   assert.equal(descriptor.version, 1);
   assert.equal(descriptor.runtime.manifest_path, "runtime.json");
   assert.equal(
@@ -702,39 +702,39 @@ test("package-tree preflight enforces the carrier path and manifest binding", ()
     const runtimeBytes = Buffer.from("not-json-but-bound\n");
     fs.writeFileSync(path.join(temporary, "runtime.json"), runtimeBytes);
     fs.writeFileSync(
-      path.join(temporary, "revengine.json"),
-      `${JSON.stringify(createRevengineDescriptor("example-engine", runtimeBytes))}\n`,
+      path.join(temporary, "vehicleengine.json"),
+      `${JSON.stringify(createVehicleEngineDescriptor("example-engine", runtimeBytes))}\n`,
     );
-    const report = validateRevenginePackageTree(temporary);
+    const report = validateVehicleEnginePackageTree(temporary);
     assert.equal(report.entry_count, 2);
 
     const validDescriptor = fs.readFileSync(
-      path.join(temporary, "revengine.json"),
+      path.join(temporary, "vehicleengine.json"),
       "utf8",
     );
     fs.writeFileSync(
-      path.join(temporary, "revengine.json"),
+      path.join(temporary, "vehicleengine.json"),
       validDescriptor.replace(
-        '"schema":"engine-sim-offline/revengine-package"',
-        '"schema":"engine-sim-offline/revengine-package",' +
-          '"sch\\u0065ma":"engine-sim-offline/revengine-package"',
+        '"schema":"engine-sim-offline/vehicleengine-package"',
+        '"schema":"engine-sim-offline/vehicleengine-package",' +
+          '"sch\\u0065ma":"engine-sim-offline/vehicleengine-package"',
       ),
     );
     assert.throws(
-      () => validateRevenginePackageTree(temporary),
+      () => validateVehicleEnginePackageTree(temporary),
       /repeats object member schema/u,
     );
-    fs.writeFileSync(path.join(temporary, "revengine.json"), validDescriptor);
+    fs.writeFileSync(path.join(temporary, "vehicleengine.json"), validDescriptor);
 
     fs.writeFileSync(path.join(temporary, "Upper.bin"), "x");
     assert.throws(
-      () => validateRevenginePackageTree(temporary),
+      () => validateVehicleEnginePackageTree(temporary),
       /nonportable relative path/u,
     );
     fs.rmSync(path.join(temporary, "Upper.bin"));
     fs.symlinkSync("runtime.json", path.join(temporary, "linked.bin"));
     assert.throws(
-      () => validateRevenginePackageTree(temporary),
+      () => validateVehicleEnginePackageTree(temporary),
       /symlink/u,
     );
   } finally {
@@ -754,8 +754,8 @@ test("package-tree scanning rejects the first entry beyond the carrier bound", (
       );
     }
     assert.throws(
-      () => validateRevenginePackageTree(temporary),
-      /entry count is outside the REVENGINE v1 bounds/u,
+      () => validateVehicleEnginePackageTree(temporary),
+      /entry count is outside the VEHICLEENGINE v1 bounds/u,
     );
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
@@ -918,7 +918,7 @@ test("packaged bake reports contain portable runtime identity but no host paths"
     ],
     starterIdentity: { aggregate_sha256: digest, entries: [] },
     runtimeManifestSha256: digest,
-    revengineDescriptorSha256: digest,
+    vehicleengineDescriptorSha256: digest,
   });
   const text = JSON.stringify(report);
   assert.doesNotMatch(text, /\/tmp\/private/u);

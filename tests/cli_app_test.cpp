@@ -14,16 +14,16 @@
 
 namespace {
 
-using engine_sim_offline::cli::BakeRevengineCommand;
+using engine_sim_offline::cli::BakeVehicleEngineCommand;
 using engine_sim_offline::cli::CliCommand;
 using engine_sim_offline::cli::CliParseResult;
 using engine_sim_offline::cli::CliResultFormat;
 using engine_sim_offline::cli::CliUsageError;
 using engine_sim_offline::cli::InspectIrCatalogCommand;
-using engine_sim_offline::cli::InspectRevengineCommand;
-using engine_sim_offline::cli::PackRevengineCommand;
+using engine_sim_offline::cli::InspectVehicleEngineCommand;
+using engine_sim_offline::cli::PackVehicleEngineCommand;
 using engine_sim_offline::cli::RenderCommand;
-using engine_sim_offline::cli::VerifyRevengineCommand;
+using engine_sim_offline::cli::VerifyVehicleEngineCommand;
 
 static_assert(engine_sim_offline::cli::kExitSuccess == 0);
 static_assert(engine_sim_offline::cli::kExitUsage == 64);
@@ -77,52 +77,52 @@ void test_exact_render_grammar() {
            "render flags and the developer override must be order-independent");
 }
 
-void test_exact_revengine_grammars() {
+void test_exact_vehicleengine_grammars() {
     const auto baked =
-        parse({"bake-revengine", "--output", "engine.revengine", "--result-format",
+        parse({"bake-vehicleengine", "--output", "engine.vehicleengine", "--result-format",
                "json", "--asset-root", "assets", "--deadline-unix-ms", "1786057200000",
                "--engine", "engine.json"});
     const auto *baked_command = std::get_if<CliCommand>(&baked);
-    expect(baked_command != nullptr, "valid bake-revengine syntax was rejected");
-    const auto *bake = std::get_if<BakeRevengineCommand>(baked_command);
+    expect(baked_command != nullptr, "valid bake-vehicleengine syntax was rejected");
+    const auto *bake = std::get_if<BakeVehicleEngineCommand>(baked_command);
     expect(bake != nullptr && bake->engine_path == "engine.json" &&
                bake->asset_root == "assets" &&
-               bake->output_file == "engine.revengine" &&
+               bake->output_file == "engine.vehicleengine" &&
                bake->deadline_unix_ms == 1786057200000ULL &&
                bake->result_format == CliResultFormat::json,
-           "bake-revengine options were not retained order-independently");
+           "bake-vehicleengine options were not retained order-independently");
 
-    const auto packed = parse({"pack-revengine", "--output", "engine.revengine",
+    const auto packed = parse({"pack-vehicleengine", "--output", "engine.vehicleengine",
                                "--result-format", "json", "--deadline-unix-ms",
                                "1786057200001", "--package-directory", "package"});
     const auto *packed_command = std::get_if<CliCommand>(&packed);
-    expect(packed_command != nullptr, "valid pack-revengine syntax was rejected");
-    const auto *pack = std::get_if<PackRevengineCommand>(packed_command);
+    expect(packed_command != nullptr, "valid pack-vehicleengine syntax was rejected");
+    const auto *pack = std::get_if<PackVehicleEngineCommand>(packed_command);
     expect(pack != nullptr && pack->package_directory == "package" &&
-               pack->output_file == "engine.revengine" &&
+               pack->output_file == "engine.vehicleengine" &&
                pack->deadline_unix_ms == 1786057200001ULL &&
                pack->result_format == CliResultFormat::json,
-           "pack-revengine options were not retained order-independently");
+           "pack-vehicleengine options were not retained order-independently");
 
     const auto inspected =
-        parse({"inspect-revengine", "--deadline-unix-ms", "1786057200002", "--input",
-               "a.revengine", "--result-format", "json"});
+        parse({"inspect-vehicleengine", "--deadline-unix-ms", "1786057200002", "--input",
+               "a.vehicleengine", "--result-format", "json"});
     const auto *inspected_command = std::get_if<CliCommand>(&inspected);
-    expect(inspected_command != nullptr, "valid inspect-revengine syntax was rejected");
-    const auto *inspect = std::get_if<InspectRevengineCommand>(inspected_command);
-    expect(inspect != nullptr && inspect->input_file == "a.revengine" &&
+    expect(inspected_command != nullptr, "valid inspect-vehicleengine syntax was rejected");
+    const auto *inspect = std::get_if<InspectVehicleEngineCommand>(inspected_command);
+    expect(inspect != nullptr && inspect->input_file == "a.vehicleengine" &&
                inspect->deadline_unix_ms == 1786057200002ULL &&
                inspect->result_format == CliResultFormat::json,
-           "inspect-revengine input was not retained");
+           "inspect-vehicleengine input was not retained");
 
-    const auto verified = parse({"verify-revengine", "--input", "b.revengine",
+    const auto verified = parse({"verify-vehicleengine", "--input", "b.vehicleengine",
                                  "--deadline-unix-ms", "1786057200003"});
     const auto *verified_command = std::get_if<CliCommand>(&verified);
-    expect(verified_command != nullptr, "valid verify-revengine syntax was rejected");
-    const auto *verify = std::get_if<VerifyRevengineCommand>(verified_command);
-    expect(verify != nullptr && verify->input_file == "b.revengine" &&
+    expect(verified_command != nullptr, "valid verify-vehicleengine syntax was rejected");
+    const auto *verify = std::get_if<VerifyVehicleEngineCommand>(verified_command);
+    expect(verify != nullptr && verify->input_file == "b.vehicleengine" &&
                verify->deadline_unix_ms == 1786057200003ULL,
-           "verify-revengine input was not retained");
+           "verify-vehicleengine input was not retained");
 }
 
 [[nodiscard]] std::string
@@ -144,10 +144,13 @@ void test_native_responsive_authority_golden() {
                digest_hex(authority.method_authority_sha256) ==
                    "8b97b7ad80b9497cc375da53c41d7cc4b5557c77ac134d04e687404ed61b8760",
            "native responsive method-authority preimage or digest changed");
-    expect(authority.bake_recipe_preimage.size() == 3167U &&
-               digest_hex(authority.bake_recipe_sha256) ==
-                   "a6993b2c06eba81707b465f00cb05dbed34cd73eaa29b656884f15220ed0c319",
-           "native responsive bake-recipe preimage or digest changed");
+    const auto bake_recipe_digest = digest_hex(authority.bake_recipe_sha256);
+    expect(authority.bake_recipe_preimage.size() == 3195U &&
+               bake_recipe_digest ==
+                   "a0ec4024df72c2df92c95855f70132381cdce8266bc061df15d07b0891a196df",
+           std::string{"native responsive bake-recipe preimage or digest changed: size="} +
+               std::to_string(authority.bake_recipe_preimage.size()) +
+               " digest=" + bake_recipe_digest);
 }
 
 void test_ir_authoring_catalog_grammar() {
@@ -199,26 +202,26 @@ void test_strict_render_rejections() {
          "--output-directory", "o"},
         {"render", "--help", "--engine", "e", "--scenario", "s", "--asset-root", "a",
          "--output-directory", "o"},
-        {"pack-revengine"},
-        {"bake-revengine"},
-        {"bake-revengine", "--engine", "engine.json"},
-        {"bake-revengine", "--output", "engine.revengine"},
-        {"bake-revengine", "--engine", "engine.json", "--output", "one.revengine",
-         "--output", "two.revengine"},
-        {"bake-revengine", "--engine", "engine.json", "--output", "engine.revengine",
+        {"pack-vehicleengine"},
+        {"bake-vehicleengine"},
+        {"bake-vehicleengine", "--engine", "engine.json"},
+        {"bake-vehicleengine", "--output", "engine.vehicleengine"},
+        {"bake-vehicleengine", "--engine", "engine.json", "--output", "one.vehicleengine",
+         "--output", "two.vehicleengine"},
+        {"bake-vehicleengine", "--engine", "engine.json", "--output", "engine.vehicleengine",
          "--deadline-unix-ms", "0"},
-        {"pack-revengine", "--package-directory", "package"},
-        {"pack-revengine", "--package-directory", "package", "--output",
-         "one.revengine", "--output", "two.revengine"},
-        {"pack-revengine", "--package-directory", "package", "--output",
-         "one.revengine", "--deadline-unix-ms", "0"},
-        {"pack-revengine", "--package-directory=package", "--output",
-         "engine.revengine"},
-        {"inspect-revengine"},
-        {"inspect-revengine", "--input", "one", "extra"},
-        {"inspect-revengine", "--input", "one", "--deadline-unix-ms", "-1"},
-        {"verify-revengine", "--output", "one"},
-        {"verify-revengine", "--input", "one", "--deadline-unix-ms",
+        {"pack-vehicleengine", "--package-directory", "package"},
+        {"pack-vehicleengine", "--package-directory", "package", "--output",
+         "one.vehicleengine", "--output", "two.vehicleengine"},
+        {"pack-vehicleengine", "--package-directory", "package", "--output",
+         "one.vehicleengine", "--deadline-unix-ms", "0"},
+        {"pack-vehicleengine", "--package-directory=package", "--output",
+         "engine.vehicleengine"},
+        {"inspect-vehicleengine"},
+        {"inspect-vehicleengine", "--input", "one", "extra"},
+        {"inspect-vehicleengine", "--input", "one", "--deadline-unix-ms", "-1"},
+        {"verify-vehicleengine", "--output", "one"},
+        {"verify-vehicleengine", "--input", "one", "--deadline-unix-ms",
          "9223372036854775808"},
         {"inspect-ir-catalog", "extra"},
         {"inspect-ir-catalog", "--result-format", "yaml"},
@@ -279,14 +282,14 @@ void test_standalone_help_and_version() {
            "--help must distinguish default assets from the developer override");
     expect(help.standard_out.find("bake-atlas") == std::string::npos,
            "--help must not advertise the withdrawn atlas baker");
-    expect(help.standard_out.find("pack-revengine --package-directory <directory>") !=
+    expect(help.standard_out.find("pack-vehicleengine --package-directory <directory>") !=
                    std::string::npos &&
-               help.standard_out.find("inspect-revengine --input <file.revengine>") !=
+               help.standard_out.find("inspect-vehicleengine --input <file.vehicleengine>") !=
                    std::string::npos &&
-               help.standard_out.find("verify-revengine --input <file.revengine>") !=
+               help.standard_out.find("verify-vehicleengine --input <file.vehicleengine>") !=
                    std::string::npos,
-           "--help must advertise the exact REVENGINE command grammar");
-    expect(help.standard_out.find("bake-revengine --engine <engine.json>") !=
+           "--help must advertise the exact VEHICLEENGINE command grammar");
+    expect(help.standard_out.find("bake-vehicleengine --engine <engine.json>") !=
                std::string::npos,
            "--help must advertise the native responsive bake command");
     expect(help.standard_out.find("inspect-ir-catalog") != std::string::npos,
@@ -401,44 +404,44 @@ void test_machine_failures_and_external_stop() {
                    std::string::npos,
            "pre-requested termination must produce a machine cancellation result");
 
-    const std::array<std::string_view, 7> pack_arguments{"pack-revengine",
+    const std::array<std::string_view, 7> pack_arguments{"pack-vehicleengine",
                                                          "--package-directory",
                                                          "unused-package",
                                                          "--output",
-                                                         "unused.revengine",
+                                                         "unused.vehicleengine",
                                                          "--result-format",
                                                          "json"};
     const auto stopped_pack = invoke(pack_arguments, termination.get_token());
     expect(stopped_pack.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
                stopped_pack.standard_error.empty() &&
                stopped_pack.standard_out.find(
-                   "\"code\":\"pack-revengine-terminated\"") != std::string::npos,
+                   "\"code\":\"pack-vehicleengine-terminated\"") != std::string::npos,
            "pre-requested pack termination lost its stable machine result");
 
     const std::array<std::string_view, 7> bake_arguments{
-        "bake-revengine",   "--engine",        "unused-engine", "--output",
-        "unused.revengine", "--result-format", "json"};
+        "bake-vehicleengine",   "--engine",        "unused-engine", "--output",
+        "unused.vehicleengine", "--result-format", "json"};
     const auto stopped_bake = invoke(bake_arguments, termination.get_token());
     expect(stopped_bake.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
                stopped_bake.standard_error.empty() &&
                stopped_bake.standard_out.find(
-                   "\"code\":\"bake-revengine-terminated\"") != std::string::npos,
+                   "\"code\":\"bake-vehicleengine-terminated\"") != std::string::npos,
            "pre-requested native bake termination lost its stable machine result");
 
     const std::array<std::string_view, 5> verify_arguments{
-        "verify-revengine", "--input", "unused.revengine", "--result-format", "json"};
+        "verify-vehicleengine", "--input", "unused.vehicleengine", "--result-format", "json"};
     const auto stopped_verify = invoke(verify_arguments, termination.get_token());
     expect(stopped_verify.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
                stopped_verify.standard_error.empty() &&
                stopped_verify.standard_out.find(
-                   "\"code\":\"verify-revengine-terminated\"") != std::string::npos,
+                   "\"code\":\"verify-vehicleengine-terminated\"") != std::string::npos,
            "pre-requested verify termination lost its stable machine result");
 
-    const std::array<std::string_view, 7> expired_pack_arguments{"pack-revengine",
+    const std::array<std::string_view, 7> expired_pack_arguments{"pack-vehicleengine",
                                                                  "--package-directory",
                                                                  "unused-package",
                                                                  "--output",
-                                                                 "unused.revengine",
+                                                                 "unused.vehicleengine",
                                                                  "--deadline-unix-ms",
                                                                  "1"};
     const auto expired_pack = invoke(expired_pack_arguments);
@@ -448,13 +451,13 @@ void test_machine_failures_and_external_stop() {
            "expired pack deadline did not preserve human-mode diagnostics");
 
     const std::array<std::string_view, 7> expired_verify_arguments{
-        "verify-revengine", "--input", "unused.revengine", "--deadline-unix-ms", "1",
+        "verify-vehicleengine", "--input", "unused.vehicleengine", "--deadline-unix-ms", "1",
         "--result-format",  "json"};
     const auto expired_verify = invoke(expired_verify_arguments);
     expect(expired_verify.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
                expired_verify.standard_error.empty() &&
                expired_verify.standard_out.find(
-                   "\"code\":\"verify-revengine-deadline-exceeded\"") !=
+                   "\"code\":\"verify-vehicleengine-deadline-exceeded\"") !=
                    std::string::npos,
            "expired verify deadline lost its stable machine result");
 }
@@ -464,7 +467,7 @@ void test_machine_failures_and_external_stop() {
 int main() {
     try {
         test_exact_render_grammar();
-        test_exact_revengine_grammars();
+        test_exact_vehicleengine_grammars();
         test_native_responsive_authority_golden();
         test_ir_authoring_catalog_grammar();
         test_strict_render_rejections();

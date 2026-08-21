@@ -22,9 +22,9 @@ docker run --rm \
   --mount type=bind,src="$PWD/engine.json",dst=/inputs/engine.json,readonly \
   --mount type=bind,src="$PWD/output",dst=/work \
   ghcr.io/svetlozarvalchev/engine-sim-offline@sha256:<digest> \
-  bake-revengine \
+  bake-vehicleengine \
   --engine /inputs/engine.json \
-  --output /work/engine.revengine \
+  --output /work/engine.vehicleengine \
   --result-format json
 ```
 

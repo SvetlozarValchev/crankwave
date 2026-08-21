@@ -1,6 +1,6 @@
 #include "engine_sim_offline/responsive/package_children.hpp"
 
-#include "engine_sim_offline/artifacts/revengine_container.hpp"
+#include "engine_sim_offline/artifacts/vehicleengine_container.hpp"
 #include "engine_sim_offline/authoring/json.hpp"
 #include "engine_sim_offline/authoring/parse.hpp"
 
@@ -1592,7 +1592,7 @@ validate_optional_child(const ResponsiveOptionalChildPackageV1 &child,
         if (stop_token.stop_requested()) {
             return cancelled_error();
         }
-        if (!artifacts::is_portable_revengine_path(member.path) ||
+        if (!artifacts::is_portable_vehicleengine_path(member.path) ||
             !member.path.starts_with(prefix) || member.bytes.empty() ||
             !paths.insert(member.path).second ||
             member.bytes.size() >
@@ -1700,7 +1700,7 @@ validate_complete_member_set(std::vector<PortableResponsivePackageMember> &membe
             return cancelled_error();
         }
         const auto &member = members[index];
-        if (!artifacts::is_portable_revengine_path(member.path) ||
+        if (!artifacts::is_portable_vehicleengine_path(member.path) ||
             member.bytes.empty() ||
             (index != 0U && members[index - 1U].path == member.path) ||
             member.bytes.size() >

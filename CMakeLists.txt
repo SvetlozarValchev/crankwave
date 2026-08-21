@@ -347,8 +347,8 @@ add_library(
         src/artifacts/manifest_encoder.cpp
         src/artifacts/manifest_encoder_output.cpp
         src/artifacts/manifest_encoder_presentation.cpp
-        src/artifacts/revengine_container.cpp
-        src/artifacts/revengine_package.cpp
+        src/artifacts/vehicleengine_container.cpp
+        src/artifacts/vehicleengine_package.cpp
         src/artifacts/secure_filesystem_support.cpp
         src/artifacts/simulation_manifest_encoder.cpp
         src/artifacts/telemetry_encoder.cpp
@@ -856,8 +856,8 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         @ONLY
     )
     configure_file(
-        "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineRevengineBakeWorkflowV2.json.in"
-        "${_engine_sim_offline_installed_generated_directory}/revengine-bake-workflow.v2.json"
+        "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineVehicleEngineBakeWorkflowV2.json.in"
+        "${_engine_sim_offline_installed_generated_directory}/vehicleengine-bake-workflow.v2.json"
         @ONLY
     )
     configure_file(
@@ -1039,7 +1039,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     add_library(
         engine_sim_offline_cli_support
         STATIC
-            src/cli/bake_revengine_command.cpp
+            src/cli/bake_vehicleengine_command.cpp
             src/cli/cli_app.cpp
             src/cli/native_asset_root.cpp
             src/cli/native_builtin_asset_catalog.cpp
@@ -1048,7 +1048,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             src/cli/native_input_filesystem.cpp
             src/cli/native_output_directory.cpp
             src/cli/native_responsive_bake_identity.cpp
-            src/cli/revengine_cli_support.cpp
+            src/cli/vehicleengine_cli_support.cpp
     )
 
     target_include_directories(
@@ -1159,7 +1159,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     )
     install(
         FILES
-            "${_engine_sim_offline_installed_generated_directory}/revengine-bake-workflow.v2.json"
+            "${_engine_sim_offline_installed_generated_directory}/vehicleengine-bake-workflow.v2.json"
         DESTINATION
             "${_engine_sim_offline_install_resource_directory}/contracts"
     )
@@ -1189,26 +1189,26 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             "${PROJECT_SOURCE_DIR}/schemas/responsive-audio-bake-profile.schema.json"
             "${PROJECT_SOURCE_DIR}/schemas/ir-authoring-catalog.schema.json"
             "${PROJECT_SOURCE_DIR}/schemas/installed-distribution.v2.schema.json"
-            "${PROJECT_SOURCE_DIR}/schemas/revengine-bake-workflow.v2.schema.json"
+            "${PROJECT_SOURCE_DIR}/schemas/vehicleengine-bake-workflow.v2.schema.json"
         DESTINATION
             "${_engine_sim_offline_install_resource_directory}/schemas"
     )
     set(
-        _engine_sim_offline_revengine_javascript_closure
+        _engine_sim_offline_vehicleengine_javascript_closure
         "${PROJECT_SOURCE_DIR}/web/runtime/directional-phase-cell.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/dry-directional-phase-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/held-phase-texture-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/held-texture-presentation-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/renderer-runtime-compatibility.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/responsive-audio-lifecycle-runtime.js"
-        "${PROJECT_SOURCE_DIR}/web/runtime/revengine-audio-engine.js"
-        "${PROJECT_SOURCE_DIR}/web/runtime/revengine-package.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/vehicleengine-audio-engine.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/vehicleengine-package.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/shared-recorded-starter-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/state-phase-texture-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/steady-transient-envelope.js"
     )
     install(
-        FILES ${_engine_sim_offline_revengine_javascript_closure}
+        FILES ${_engine_sim_offline_vehicleengine_javascript_closure}
         DESTINATION
             "${_engine_sim_offline_install_resource_directory}/web/runtime"
     )
@@ -1226,12 +1226,12 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         "${PROJECT_SOURCE_DIR}/schemas/responsive-audio-bake-profile.schema.json"
         "${PROJECT_SOURCE_DIR}/schemas/ir-authoring-catalog.schema.json"
         "${PROJECT_SOURCE_DIR}/schemas/installed-distribution.v2.schema.json"
-        "${PROJECT_SOURCE_DIR}/schemas/revengine-bake-workflow.v2.schema.json"
-        ${_engine_sim_offline_revengine_javascript_closure}
+        "${PROJECT_SOURCE_DIR}/schemas/vehicleengine-bake-workflow.v2.schema.json"
+        ${_engine_sim_offline_vehicleengine_javascript_closure}
         ${_engine_sim_offline_installed_contract_sources}
         "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineInstalledResources.package.json.in"
         "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineInstalledRelease.js.in"
-        "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineRevengineBakeWorkflowV2.json.in"
+        "${PROJECT_SOURCE_DIR}/cmake/EngineSimOfflineVehicleEngineBakeWorkflowV2.json.in"
         "${PROJECT_SOURCE_DIR}/cmake/GenerateInstalledDistributionManifest.cmake.in"
     )
     list(REMOVE_DUPLICATES _engine_sim_offline_release_source_inputs)

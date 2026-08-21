@@ -16,16 +16,16 @@ file(REMOVE_RECURSE "${TEST_DIRECTORY}")
 file(MAKE_DIRECTORY
     "${source_root}/src/cli"
     "${source_root}/web/runtime"
-    "${source_root}/web/revengine-harness")
-file(WRITE "${source_root}/src/cli/bake_revengine_command.cpp"
-    "int bake_revengine_command() { return 0; }\n")
+    "${source_root}/web/vehicleengine-harness")
+file(WRITE "${source_root}/src/cli/bake_vehicleengine_command.cpp"
+    "int bake_vehicleengine_command() { return 0; }\n")
 file(WRITE "${source_root}/web/runtime/runtime.js"
     "export const runtime = true;\n")
-file(WRITE "${source_root}/web/revengine-harness/app.js"
+file(WRITE "${source_root}/web/vehicleengine-harness/app.js"
     "export const harness = true;\n")
 file(WRITE "${source_root}/user-notes.txt" "private notes\n")
 file(WRITE "${input_paths}"
-    "src/cli/bake_revengine_command.cpp\nweb/runtime/runtime.js\n")
+    "src/cli/bake_vehicleengine_command.cpp\nweb/runtime/runtime.js\n")
 
 function(run_git)
     execute_process(
@@ -110,7 +110,7 @@ if(NOT native_complete_result EQUAL 0 OR
         "stderr: ${native_complete_stderr}")
 endif()
 
-file(APPEND "${source_root}/web/revengine-harness/app.js" "// local UI\n")
+file(APPEND "${source_root}/web/vehicleengine-harness/app.js" "// local UI\n")
 file(APPEND "${source_root}/user-notes.txt" "more private notes\n")
 read_source_identity(unrelated_identity)
 string(JSON unrelated_state GET "${unrelated_identity}" state)
@@ -135,8 +135,8 @@ endif()
 file(WRITE "${source_root}/web/runtime/runtime.js"
     "export const runtime = true;\n")
 run_git(update-index --assume-unchanged
-    src/cli/bake_revengine_command.cpp)
-file(APPEND "${source_root}/src/cli/bake_revengine_command.cpp"
+    src/cli/bake_vehicleengine_command.cpp)
+file(APPEND "${source_root}/src/cli/bake_vehicleengine_command.cpp"
     "// hidden native release change\n")
 read_source_identity(hidden_dirty_identity)
 string(JSON hidden_dirty_state GET "${hidden_dirty_identity}" state)
@@ -148,6 +148,6 @@ if(NOT hidden_dirty_state STREQUAL "dirty" OR
         "assume-unchanged installed tool input did not dirty the release identity")
 endif()
 run_git(update-index --no-assume-unchanged
-    src/cli/bake_revengine_command.cpp)
+    src/cli/bake_vehicleengine_command.cpp)
 
 file(REMOVE_RECURSE "${TEST_DIRECTORY}")

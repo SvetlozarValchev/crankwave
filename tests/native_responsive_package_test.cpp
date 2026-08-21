@@ -1,4 +1,4 @@
-#include "engine_sim_offline/artifacts/revengine_container.hpp"
+#include "engine_sim_offline/artifacts/vehicleengine_container.hpp"
 #include "engine_sim_offline/authoring/json.hpp"
 #include "engine_sim_offline/c_api.h"
 #include "engine_sim_offline/responsive/native_package.hpp"
@@ -202,8 +202,8 @@ void test_native_identity_and_package_are_deterministic() {
         require_package(build_native_responsive_package_v2(std::move(reordered_input)));
     expect(first.cache_identity == second.cache_identity &&
                first.members == second.members &&
-               first.revengine_v1 == second.revengine_v1 &&
-               first.revengine_sha256 == second.revengine_sha256,
+               first.vehicleengine_v1 == second.vehicleengine_v1 &&
+               first.vehicleengine_sha256 == second.vehicleengine_sha256,
            "identical native package inputs did not produce identical package bytes");
 
     const auto runtime_text = text(find_member(first, "runtime.json").bytes);
@@ -245,21 +245,21 @@ void test_native_identity_and_package_are_deterministic() {
     const auto expected_runtime_sha256 =
         hex(contract::sha256(find_member(first, "runtime.json").bytes));
     const auto expected_descriptor_sha256 =
-        hex(contract::sha256(find_member(first, "revengine.json").bytes));
+        hex(contract::sha256(find_member(first, "vehicleengine.json").bytes));
     expect(report.size() == 10U &&
                report.find("runtime_manifest_sha256").string() ==
                    std::optional<std::string_view>{expected_runtime_sha256} &&
-               report.find("revengine_descriptor_sha256").string() ==
+               report.find("vehicleengine_descriptor_sha256").string() ==
                    std::optional<std::string_view>{expected_descriptor_sha256},
            "native v2 report does not bind exact generated manifest bytes");
 
-    const auto verified = artifacts::verify_revengine(first.revengine_v1);
-    expect(std::holds_alternative<artifacts::RevengineContainerIndex>(verified),
-           "built carrier did not pass existing REVENGINE v1 verification");
-    const auto &index = std::get<artifacts::RevengineContainerIndex>(verified);
-    expect(index.version == artifacts::kRevengineContainerVersionV1 &&
+    const auto verified = artifacts::verify_vehicleengine(first.vehicleengine_v1);
+    expect(std::holds_alternative<artifacts::VehicleEngineContainerIndex>(verified),
+           "built carrier did not pass existing VEHICLEENGINE v1 verification");
+    const auto &index = std::get<artifacts::VehicleEngineContainerIndex>(verified);
+    expect(index.version == artifacts::kVehicleEngineContainerVersionV1 &&
                index.entries.size() == first.members.size(),
-           "built carrier changed the REVENGINE v1 contract or tree closure");
+           "built carrier changed the VEHICLEENGINE v1 contract or tree closure");
 }
 
 void test_fail_closed_topology_identity_and_cancellation() {
@@ -419,13 +419,13 @@ void test_atomic_tree_and_carrier_publication() {
                    NativeResponsivePackageErrorCode::output_conflict,
            "directory publisher replaced an existing destination");
 
-    const auto carrier_path = temporary.path() / "example-engine.revengine";
-    const auto carrier_result = publish_native_revengine_atomic(package, carrier_path);
+    const auto carrier_path = temporary.path() / "example-engine.vehicleengine";
+    const auto carrier_result = publish_native_vehicleengine_atomic(package, carrier_path);
     expect(std::holds_alternative<NativeResponsiveCarrierPublication>(carrier_result) &&
-               read_file(carrier_path) == package.revengine_v1,
+               read_file(carrier_path) == package.vehicleengine_v1,
            "atomic carrier publication did not preserve exact bytes");
     const auto carrier_conflict =
-        publish_native_revengine_atomic(package, carrier_path);
+        publish_native_vehicleengine_atomic(package, carrier_path);
     const auto *carrier_failure =
         std::get_if<NativeResponsivePackageError>(&carrier_conflict);
     expect(carrier_failure != nullptr &&
@@ -434,13 +434,13 @@ void test_atomic_tree_and_carrier_publication() {
            "carrier publisher replaced an existing destination");
 
     auto tampered = package;
-    tampered.revengine_v1.back() ^= std::byte{0x01};
-    const auto tampered_result = publish_native_revengine_atomic(
-        tampered, temporary.path() / "tampered.revengine");
+    tampered.vehicleengine_v1.back() ^= std::byte{0x01};
+    const auto tampered_result = publish_native_vehicleengine_atomic(
+        tampered, temporary.path() / "tampered.vehicleengine");
     const auto *tampered_failure =
         std::get_if<NativeResponsivePackageError>(&tampered_result);
     expect(tampered_failure != nullptr &&
-               !std::filesystem::exists(temporary.path() / "tampered.revengine"),
+               !std::filesystem::exists(temporary.path() / "tampered.vehicleengine"),
            "publication admitted a tampered carrier or left an incomplete output");
 
     auto tampered_tree = package;
@@ -458,13 +458,13 @@ void test_atomic_tree_and_carrier_publication() {
 
     std::stop_source stopped;
     stopped.request_stop();
-    const auto cancelled = publish_native_revengine_atomic(
-        package, temporary.path() / "cancelled.revengine", stopped.get_token());
+    const auto cancelled = publish_native_vehicleengine_atomic(
+        package, temporary.path() / "cancelled.vehicleengine", stopped.get_token());
     const auto *cancelled_failure =
         std::get_if<NativeResponsivePackageError>(&cancelled);
     expect(cancelled_failure != nullptr &&
                cancelled_failure->code == NativeResponsivePackageErrorCode::cancelled &&
-               !std::filesystem::exists(temporary.path() / "cancelled.revengine"),
+               !std::filesystem::exists(temporary.path() / "cancelled.vehicleengine"),
            "cancelled carrier publication left an incomplete output");
 
     for (const auto &entry : std::filesystem::directory_iterator(temporary.path())) {

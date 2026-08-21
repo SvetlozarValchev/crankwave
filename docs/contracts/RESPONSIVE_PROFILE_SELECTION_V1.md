@@ -1,8 +1,8 @@
 # Responsive Profile Selection V1
 
 ESO responsive baking accepts either an explicit authored profile or an
-automatic profile. Profile selection is an ESO product concern and does not
-introduce PlugAndRev-specific fields or behavior.
+automatic profile. Profile selection is an Engine Sim concern and does not
+introduce downstream product-specific fields or behavior.
 
 ## Selection
 

@@ -1,7 +1,7 @@
 # Third-party notices
 
-Engine Sim Offline is proprietary software. The following third-party material is
-distributed under its own license and is not relicensed by the Engine Sim Offline
+Engine Sim WASM is proprietary software. The following third-party material is
+distributed under its own license and is not relicensed by the Engine Sim WASM
 proprietary license.
 
 ## engine-sim sound-library impulse responses and source-informed material

@@ -1,7 +1,7 @@
 #include "native_responsive_bake_identity.hpp"
 
-#include "engine_sim_offline/artifacts/revengine_container.hpp"
-#include "engine_sim_offline/artifacts/revengine_package.hpp"
+#include "engine_sim_offline/artifacts/vehicleengine_container.hpp"
+#include "engine_sim_offline/artifacts/vehicleengine_package.hpp"
 #include "engine_sim_offline/responsive/directional_cook.hpp"
 #include "engine_sim_offline/responsive/held_texture.hpp"
 #include "engine_sim_offline/responsive/lifecycle.hpp"
@@ -88,9 +88,9 @@ NativeResponsiveBakeAuthorityV1 native_responsive_bake_authority_v1() {
         "engine-sim-offline.native-responsive-method-authority.v1", method_records);
 
     const auto container_version =
-        std::to_string(artifacts::kRevengineContainerVersionV1);
+        std::to_string(artifacts::kVehicleEngineContainerVersionV1);
     const auto package_schema_version =
-        std::to_string(artifacts::kRevenginePackageSchemaVersion);
+        std::to_string(artifacts::kVehicleEnginePackageSchemaVersion);
     const std::array recipe_records{
         Record{"automatic-profile", kAutomaticResponsiveProfileId},
         Record{"responsive-profile-schema", kResponsiveBakeProfileSchema},
@@ -139,13 +139,13 @@ NativeResponsiveBakeAuthorityV1 native_responsive_bake_authority_v1() {
                kResponsiveSharedRecordedStarterPackagePathV1},
         Record{"root-runtime-path", kResponsiveRuntimePathV1},
         Record{"bake-report-path", kNativeResponsiveBakeReportPathV2},
-        Record{"revengine-package-descriptor-path",
-               artifacts::kRevenginePackageDescriptorPath},
-        Record{"revengine-package-schema", artifacts::kRevenginePackageSchema},
-        Record{"revengine-package-schema-version", package_schema_version},
-        Record{"revengine-runtime-kind",
-               artifacts::kRevengineResponsiveAudioRuntimeKind},
-        Record{"revengine-container-version", container_version},
+        Record{"vehicleengine-package-descriptor-path",
+               artifacts::kVehicleEnginePackageDescriptorPath},
+        Record{"vehicleengine-package-schema", artifacts::kVehicleEnginePackageSchema},
+        Record{"vehicleengine-package-schema-version", package_schema_version},
+        Record{"vehicleengine-runtime-kind",
+               artifacts::kVehicleEngineResponsiveAudioRuntimeKind},
+        Record{"vehicleengine-container-version", container_version},
         Record{"publication", "verify-complete-carrier-then-atomic-noreplace-v1"},
     };
     auto recipe_preimage = encode_records(

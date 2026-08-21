@@ -4,7 +4,7 @@
 
 Every successful finite native `render` transaction publishes a fixed mechanical
 diagnostic stream alongside its audio artifacts. The stream is intended for trusted
-authoring automation, including PlugAndRev's private candidate-evaluation loop. It is
+authoring automation, including private candidate-evaluation loops. It is
 not a user-selectable telemetry facility and it is not an LLM conclusion or score.
 
 Authored `output.telemetry_channels` remains unsupported. The renderer, rather than

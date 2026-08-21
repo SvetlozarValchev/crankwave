@@ -46,7 +46,7 @@ ENV ESO_PREFIX=/opt/engine-sim-offline \
 WORKDIR /work
 USER 65532:65532
 LABEL org.opencontainers.image.title="engine-sim-offline" \
-      org.opencontainers.image.description="Native deterministic engine audition and REVENGINE generation" \
+      org.opencontainers.image.description="Native deterministic engine audition and VEHICLEENGINE generation" \
       org.opencontainers.image.version="${ESO_VERSION}" \
       org.opencontainers.image.revision="${ESO_GIT_SHA}" \
       org.opencontainers.image.created="${OCI_CREATED}" \

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "bake_revengine_command.hpp"
+#include "bake_vehicleengine_command.hpp"
 #include "native_input_files.hpp"
 
 #include <algorithm>
@@ -20,21 +20,21 @@
 
 namespace engine_sim_offline::cli::detail {
 
-[[nodiscard]] constexpr BakeRevengineErrorKind
+[[nodiscard]] constexpr BakeVehicleEngineErrorKind
 bake_output_error_kind(const NativeOutputErrorKind kind) noexcept {
     switch (kind) {
     case NativeOutputErrorKind::cant_create:
-        return BakeRevengineErrorKind::cant_create;
+        return BakeVehicleEngineErrorKind::cant_create;
     case NativeOutputErrorKind::temp_fail:
-        return BakeRevengineErrorKind::temporary_failure;
+        return BakeVehicleEngineErrorKind::temporary_failure;
     }
-    return BakeRevengineErrorKind::software;
+    return BakeVehicleEngineErrorKind::software;
 }
 
-[[nodiscard]] inline BakeRevengineError
-parallel_bake_error(const BakeRevengineErrorKind kind, std::string code,
+[[nodiscard]] inline BakeVehicleEngineError
+parallel_bake_error(const BakeVehicleEngineErrorKind kind, std::string code,
                     const std::string_view stage, std::string message) {
-    BakeRevengineError result;
+    BakeVehicleEngineError result;
     result.kind = kind;
     result.code = std::move(code);
     result.stage = std::string{stage};
@@ -47,19 +47,19 @@ parallel_bake_error(const BakeRevengineErrorKind kind, std::string code,
 // later ordinals from starting, but never cancels already-claimed lower ordinals;
 // this makes the reported lowest-ordinal concrete failure scheduling-independent.
 template <class Output, class Input, class Operation>
-[[nodiscard]] std::variant<std::vector<Output>, BakeRevengineError>
+[[nodiscard]] std::variant<std::vector<Output>, BakeVehicleEngineError>
 parallel_map_ordered_with_workers(const std::span<const Input> inputs,
                                   const std::string_view stage,
                                   const std::stop_token parent_stop,
                                   const std::size_t requested_worker_count,
                                   Operation operation) {
     if (parent_stop.stop_requested()) {
-        return parallel_bake_error(BakeRevengineErrorKind::cancelled,
-                                   "bake-revengine-cancelled", stage,
+        return parallel_bake_error(BakeVehicleEngineErrorKind::cancelled,
+                                   "bake-vehicleengine-cancelled", stage,
                                    "native responsive bake was cancelled");
     }
     if (inputs.empty()) {
-        return parallel_bake_error(BakeRevengineErrorKind::software,
+        return parallel_bake_error(BakeVehicleEngineErrorKind::software,
                                    "native-responsive-parallel-plan-empty", stage,
                                    "parallel responsive capture plan is empty");
     }
@@ -74,13 +74,13 @@ parallel_map_ordered_with_workers(const std::span<const Input> inputs,
     std::atomic<std::size_t> next{0U};
     std::atomic<std::size_t> lowest_failed_ordinal{inputs.size()};
     std::vector<std::optional<Output>> outputs(inputs.size());
-    std::vector<std::optional<BakeRevengineError>> failures(inputs.size());
-    std::optional<BakeRevengineError> setup_failure;
+    std::vector<std::optional<BakeVehicleEngineError>> failures(inputs.size());
+    std::optional<BakeVehicleEngineError> setup_failure;
     std::vector<std::jthread> workers;
     workers.reserve(worker_count);
 
     const auto record_failure = [&](const std::size_t index,
-                                    BakeRevengineError failure) {
+                                    BakeVehicleEngineError failure) {
         failures[index] = std::move(failure);
         auto observed = lowest_failed_ordinal.load(std::memory_order_relaxed);
         while (index < observed && !lowest_failed_ordinal.compare_exchange_weak(
@@ -113,7 +113,7 @@ parallel_map_ordered_with_workers(const std::span<const Input> inputs,
 
             try {
                 auto result = operation(inputs[index], parent_cancellation.get_token());
-                if (auto *failure = std::get_if<BakeRevengineError>(&result)) {
+                if (auto *failure = std::get_if<BakeVehicleEngineError>(&result)) {
                     record_failure(index, std::move(*failure));
                     return;
                 }
@@ -121,14 +121,14 @@ parallel_map_ordered_with_workers(const std::span<const Input> inputs,
             } catch (const std::bad_alloc &) {
                 record_failure(index,
                                parallel_bake_error(
-                                   BakeRevengineErrorKind::software,
+                                   BakeVehicleEngineErrorKind::software,
                                    "native-responsive-worker-memory-exhausted", stage,
                                    "responsive capture worker exhausted memory"));
                 return;
             } catch (const std::exception &failure) {
                 record_failure(index,
                                parallel_bake_error(
-                                   BakeRevengineErrorKind::software,
+                                   BakeVehicleEngineErrorKind::software,
                                    "native-responsive-worker-failed", stage,
                                    std::string{"responsive capture worker failed: "} +
                                        failure.what()));
@@ -136,7 +136,7 @@ parallel_map_ordered_with_workers(const std::span<const Input> inputs,
             } catch (...) {
                 record_failure(index,
                                parallel_bake_error(
-                                   BakeRevengineErrorKind::software,
+                                   BakeVehicleEngineErrorKind::software,
                                    "native-responsive-worker-failed", stage,
                                    "responsive capture worker failed unexpectedly"));
                 return;
@@ -150,14 +150,14 @@ parallel_map_ordered_with_workers(const std::span<const Input> inputs,
         }
     } catch (const std::exception &failure) {
         setup_failure = parallel_bake_error(
-            BakeRevengineErrorKind::software, "native-responsive-worker-start-failed",
+            BakeVehicleEngineErrorKind::software, "native-responsive-worker-start-failed",
             stage,
             std::string{"could not start responsive capture workers: "} +
                 failure.what());
         static_cast<void>(parent_cancellation.request_stop());
     } catch (...) {
         setup_failure = parallel_bake_error(
-            BakeRevengineErrorKind::software, "native-responsive-worker-start-failed",
+            BakeVehicleEngineErrorKind::software, "native-responsive-worker-start-failed",
             stage, "could not start responsive capture workers");
         static_cast<void>(parent_cancellation.request_stop());
     }
@@ -173,13 +173,13 @@ parallel_map_ordered_with_workers(const std::span<const Input> inputs,
     // A concrete failure is more informative than parent cancellation. Among
     // concrete failures, ordinal order is the stable plan authority.
     for (auto &failure : failures) {
-        if (failure.has_value() && failure->kind != BakeRevengineErrorKind::cancelled) {
+        if (failure.has_value() && failure->kind != BakeVehicleEngineErrorKind::cancelled) {
             return std::move(*failure);
         }
     }
     if (parent_stop.stop_requested()) {
-        return parallel_bake_error(BakeRevengineErrorKind::cancelled,
-                                   "bake-revengine-cancelled", stage,
+        return parallel_bake_error(BakeVehicleEngineErrorKind::cancelled,
+                                   "bake-vehicleengine-cancelled", stage,
                                    "native responsive bake was cancelled");
     }
     for (auto &failure : failures) {
@@ -193,7 +193,7 @@ parallel_map_ordered_with_workers(const std::span<const Input> inputs,
     for (auto &output : outputs) {
         if (!output.has_value()) {
             return parallel_bake_error(
-                BakeRevengineErrorKind::software,
+                BakeVehicleEngineErrorKind::software,
                 "native-responsive-worker-result-missing", stage,
                 "responsive worker pool drained without every result");
         }

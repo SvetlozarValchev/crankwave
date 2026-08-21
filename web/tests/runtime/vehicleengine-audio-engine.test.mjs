@@ -6,16 +6,16 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  RevengineAudioEngine,
-  RevengineAudioEngineError,
-} from "../../runtime/revengine-audio-engine.js";
+  VehicleEngineAudioEngine,
+  VehicleEngineAudioEngineError,
+} from "../../runtime/vehicleengine-audio-engine.js";
 import {
   HeldPhaseTextureCursor,
   loadHeldPhaseTexturePackage,
 } from "../../runtime/held-phase-texture-runtime.js";
 
 const ENTRY_MODULE = fileURLToPath(
-  new URL("../../runtime/revengine-audio-engine.js", import.meta.url),
+  new URL("../../runtime/vehicleengine-audio-engine.js", import.meta.url),
 );
 
 function moduleSpecifiers(source) {
@@ -135,7 +135,7 @@ function loadedRuntimeFixture({ batchFrames = 1 } = {}) {
   });
   return Object.freeze({
     package: Object.freeze({
-      kind: "revengine-package",
+      kind: "vehicleengine-package",
       descriptor: Object.freeze({ engineId: "unit-engine" }),
     }),
     runtime,
@@ -352,7 +352,7 @@ function heldLoaderFixture({ mutateFirstRoute, mutateSecondRoute } = {}) {
 
 function assertFacadeError(code) {
   return (error) =>
-    error instanceof RevengineAudioEngineError && error.code === code;
+    error instanceof VehicleEngineAudioEngineError && error.code === code;
 }
 
 function assertNear(actual, expected) {
@@ -368,9 +368,9 @@ test("audio facade dependency closure excludes simulator and WASM modules", () =
   assert.ok(closure.modules.size > 2, "the test must traverse the full closure");
   assert.ok(
     [...closure.modules].some((modulePath) =>
-      modulePath.endsWith("/revengine-package.js")
+      modulePath.endsWith("/vehicleengine-package.js")
     ),
-    "the closure must include the REVENGINE verifier",
+    "the closure must include the VEHICLEENGINE verifier",
   );
   for (const { sourcePath, specifier } of closure.edges) {
     assert.doesNotMatch(
@@ -383,10 +383,10 @@ test("audio facade dependency closure excludes simulator and WASM modules", () =
 
 test("audio facade validates construction, operating points, and frame counts", () => {
   assert.throws(
-    () => new RevengineAudioEngine(null),
+    () => new VehicleEngineAudioEngine(null),
     assertFacadeError("invalid-runtime-package"),
   );
-  const engine = new RevengineAudioEngine(loadedRuntimeFixture());
+  const engine = new VehicleEngineAudioEngine(loadedRuntimeFixture());
   assert.equal(engine.engineId, "unit-engine");
   assert.equal(engine.sampleRate, 192_000);
   assert.equal(engine.blockFrames, 1);
@@ -427,7 +427,7 @@ test("audio facade validates construction, operating points, and frame counts", 
 });
 
 test("audio facade maps normalized load through lane coordinates and RPM", () => {
-  const engine = new RevengineAudioEngine(loadedRuntimeFixture());
+  const engine = new VehicleEngineAudioEngine(loadedRuntimeFixture());
 
   assertNear(engine.loadManifoldPressurePa(1_500, 0), 35_000);
   assertNear(engine.loadManifoldPressurePa(1_500, 0.2), 35_000);
@@ -450,7 +450,7 @@ test("audio facade maps normalized load through lane coordinates and RPM", () =>
 
 test("coalesced held aliases preserve continuous load and cell weights", () => {
   const loaded = loadedCoalescedRuntimeFixture();
-  const engine = new RevengineAudioEngine(loaded);
+  const engine = new VehicleEngineAudioEngine(loaded);
 
   assertNear(engine.loadManifoldPressurePa(1_000, 0), 40_000);
   assertNear(engine.loadManifoldPressurePa(1_000, 0.5), 40_000);
@@ -529,7 +529,7 @@ test("held loader rejects route disagreement about coalesced aliases", async () 
 });
 
 test("streaming process accepts dense endpoints behind one uniform batch", () => {
-  const engine = new RevengineAudioEngine(
+  const engine = new VehicleEngineAudioEngine(
     loadedRuntimeFixture({ batchFrames: 8 }),
   );
   const points = [
@@ -585,7 +585,7 @@ test("streaming process accepts dense endpoints behind one uniform batch", () =>
 });
 
 test("streaming process defaults to one 20 ms endpoint", () => {
-  const engine = new RevengineAudioEngine(loadedRuntimeFixture());
+  const engine = new VehicleEngineAudioEngine(loadedRuntimeFixture());
   assert.equal(engine.processFrames, 3_840);
   assert.equal(engine.latencyFrames, engine.blockFrames);
   assert.deepEqual(engine.format, {
@@ -607,7 +607,7 @@ test("streaming process defaults to one 20 ms endpoint", () => {
 });
 
 test("streaming validates endpoints and counts before advancing", () => {
-  const engine = new RevengineAudioEngine(loadedRuntimeFixture());
+  const engine = new VehicleEngineAudioEngine(loadedRuntimeFixture());
   const point = { rpm: 1_200, throttle01: 0.3, load01: 0.4 };
   assert.throws(
     () => engine.process(point, 0),

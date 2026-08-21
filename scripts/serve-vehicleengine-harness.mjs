@@ -23,9 +23,9 @@ function parseArguments(arguments_) {
       result.port = Number(arguments_[++index]);
     } else if (argument === "--help") {
       console.log(
-        "Usage: node scripts/serve-revengine-harness.mjs " +
+        "Usage: node scripts/serve-vehicleengine-harness.mjs " +
           "[--host 127.0.0.1] [--port 4173]\n\n" +
-          "Serves only the standalone REVENGINE harness and browser runtime.\n" +
+          "Serves only the standalone VEHICLEENGINE harness and browser runtime.\n" +
           "No workbench build or WebAssembly module is required.",
       );
       process.exit(0);
@@ -64,8 +64,8 @@ const runtimeFiles = new Set([
   "pcm-ring-buffer.js",
   "renderer-runtime-compatibility.js",
   "responsive-audio-lifecycle-runtime.js",
-  "revengine-audio-engine.js",
-  "revengine-package.js",
+  "vehicleengine-audio-engine.js",
+  "vehicleengine-package.js",
   "shared-recorded-starter-runtime.js",
   "state-phase-texture-runtime.js",
   "steady-transient-envelope.js",
@@ -190,7 +190,7 @@ async function serve(request, response, roots) {
 const options = parseArguments(process.argv.slice(2));
 const roots = Object.freeze({
   harness: await fs.realpath(
-    path.join(repositoryDirectory, "web", "revengine-harness"),
+    path.join(repositoryDirectory, "web", "vehicleengine-harness"),
   ),
   runtime: await fs.realpath(path.join(repositoryDirectory, "web", "runtime")),
 });
@@ -198,14 +198,14 @@ const server = http.createServer((request, response) => {
   void serve(request, response, roots);
 });
 server.on("error", (error) => {
-  console.error(`REVENGINE harness server failed: ${error.message}`);
+  console.error(`VEHICLEENGINE harness server failed: ${error.message}`);
   process.exitCode = 1;
 });
 server.listen(options.port, options.host, () => {
   const address = server.address();
   const port =
     typeof address === "object" && address !== null ? address.port : options.port;
-  console.log(`REVENGINE audio harness: http://${options.host}:${port}/`);
+  console.log(`VEHICLEENGINE audio harness: http://${options.host}:${port}/`);
   console.log("Serving only the harness and its JavaScript runtime dependencies.");
   console.log("Cross-origin isolation is enabled; press Ctrl+C to stop.");
 });

@@ -1,7 +1,7 @@
 #include "engine_sim_offline/responsive/native_package.hpp"
 
-#include "engine_sim_offline/artifacts/revengine_container.hpp"
-#include "engine_sim_offline/artifacts/revengine_package.hpp"
+#include "engine_sim_offline/artifacts/vehicleengine_container.hpp"
+#include "engine_sim_offline/artifacts/vehicleengine_package.hpp"
 #include "engine_sim_offline/authoring/json.hpp"
 #include "engine_sim_offline/c_api.h"
 
@@ -345,10 +345,10 @@ validate_identity(const NativeResponsiveBakeIdentityInputV1 &input,
                      "native-responsive-backend-digest-missing", "/backend",
                      "every native backend digest must be nonzero");
     }
-    if (!artifacts::is_revengine_engine_id(input.engine_id)) {
+    if (!artifacts::is_vehicleengine_engine_id(input.engine_id)) {
         return error(ErrorCode::invalid_identity, "native-responsive-engine-id-invalid",
                      "/engine/id",
-                     "engine ID is not a portable REVENGINE engine identity");
+                     "engine ID is not a portable VEHICLEENGINE engine identity");
     }
     if (!valid_identity_text(input.profile_id)) {
         return error(ErrorCode::invalid_identity,
@@ -547,7 +547,7 @@ validate_runtime_input(const ResponsiveRuntimeInputV1 &runtime,
         return cancelled_error();
     }
     if (runtime.engine_id != identity.engine_id ||
-        !artifacts::is_revengine_engine_id(runtime.engine_id) ||
+        !artifacts::is_vehicleengine_engine_id(runtime.engine_id) ||
         runtime.compiled_engine_provenance_sha256.is_zero()) {
         return error(ErrorCode::invalid_argument,
                      "native-responsive-runtime-engine-identity-invalid", "/runtime",
@@ -604,8 +604,8 @@ validate_runtime_input(const ResponsiveRuntimeInputV1 &runtime,
                       runtime.shared_recorded_starter_package_path);
     std::set<std::string_view> unique_paths;
     for (const auto &[label, path] : declared_paths) {
-        if (!artifacts::is_portable_revengine_path(path) ||
-            path == artifacts::kRevenginePackageDescriptorPath ||
+        if (!artifacts::is_portable_vehicleengine_path(path) ||
+            path == artifacts::kVehicleEnginePackageDescriptorPath ||
             path == kResponsiveRuntimePathV1 ||
             path == kNativeResponsiveBakeReportPathV2 ||
             !unique_paths.insert(path).second) {
@@ -636,7 +636,7 @@ validate_runtime_input(const ResponsiveRuntimeInputV1 &runtime,
                 identity.backend.source_closure_sha256 ||
             compatibility.evidence_byte_count == 0U ||
             compatibility.evidence_sha256.is_zero() ||
-            !artifacts::is_portable_revengine_path(compatibility.evidence_path) ||
+            !artifacts::is_portable_vehicleengine_path(compatibility.evidence_path) ||
             !unique_paths.insert(compatibility.evidence_path).second) {
             return error(
                 ErrorCode::invalid_identity,
@@ -767,14 +767,14 @@ encode_descriptor(const std::string_view engine_id,
     std::string output;
     output.reserve(512U);
     output.append("{\n");
-    append_string_field(output, 2U, "schema", artifacts::kRevenginePackageSchema);
+    append_string_field(output, 2U, "schema", artifacts::kVehicleEnginePackageSchema);
     append_integer_field(output, 2U, "version",
-                         artifacts::kRevenginePackageSchemaVersion);
+                         artifacts::kVehicleEnginePackageSchemaVersion);
     append_string_field(output, 2U, "engine_id", engine_id);
     append_key(output, 2U, "runtime");
     output.append("{\n");
     append_string_field(output, 4U, "kind",
-                        artifacts::kRevengineResponsiveAudioRuntimeKind);
+                        artifacts::kVehicleEngineResponsiveAudioRuntimeKind);
     append_string_field(output, 4U, "manifest_path", kResponsiveRuntimePathV1);
     append_string_field(output, 4U, "manifest_sha256", digest_hex(runtime_sha256),
                         false);
@@ -853,15 +853,15 @@ encode_report(const NativeResponsivePackageInputV2 &input,
     }
     append_string_field(output, 2U, "runtime_manifest_sha256",
                         digest_hex(runtime_sha256));
-    append_string_field(output, 2U, "revengine_descriptor_sha256",
+    append_string_field(output, 2U, "vehicleengine_descriptor_sha256",
                         digest_hex(descriptor_sha256));
     append_bool_field(output, 2U, "completed", true, false);
     output.append("}\n");
     return output;
 }
 
-[[nodiscard]] Error pack_error(const artifacts::RevengineContainerError &failure) {
-    return error(ErrorCode::pack_failure, "native-responsive-revengine-pack-failed",
+[[nodiscard]] Error pack_error(const artifacts::VehicleEngineContainerError &failure) {
+    return error(ErrorCode::pack_failure, "native-responsive-vehicleengine-pack-failed",
                  failure.path, failure.message);
 }
 
@@ -893,7 +893,7 @@ build_native_responsive_package_v2(NativeResponsivePackageInputV2 input,
     auto cache_identity =
         std::get<EncodedNativeResponsiveBakeIdentityV1>(std::move(cache_result));
 
-    if (input.payload_members.size() > artifacts::kRevengineMaximumEntryCountV1 - 3U) {
+    if (input.payload_members.size() > artifacts::kVehicleEngineMaximumEntryCountV1 - 3U) {
         return error(
             ErrorCode::resource_limit, "native-responsive-package-entry-limit-exceeded",
             "", "responsive payload leaves no room for generated package manifests");
@@ -904,8 +904,8 @@ build_native_responsive_package_v2(NativeResponsivePackageInputV2 input,
             return cancelled_error();
         }
         const auto &member = input.payload_members[index];
-        if (!artifacts::is_portable_revengine_path(member.path) ||
-            member.path == artifacts::kRevenginePackageDescriptorPath ||
+        if (!artifacts::is_portable_vehicleengine_path(member.path) ||
+            member.path == artifacts::kVehicleEnginePackageDescriptorPath ||
             member.path == kResponsiveRuntimePathV1 ||
             member.path == kNativeResponsiveBakeReportPathV2) {
             return error(
@@ -913,7 +913,7 @@ build_native_responsive_package_v2(NativeResponsivePackageInputV2 input,
                 "native-responsive-package-member-path-invalid", member.path,
                 "payload path is nonportable or reserved for a generated manifest");
         }
-        if (member.bytes.size() > artifacts::kRevengineMaximumEntryByteCountV1 ||
+        if (member.bytes.size() > artifacts::kVehicleEngineMaximumEntryByteCountV1 ||
             member.bytes.size() >
                 kNativeResponsiveMaximumPackagePayloadBytes - payload_bytes) {
             return error(
@@ -973,7 +973,7 @@ build_native_responsive_package_v2(NativeResponsivePackageInputV2 input,
     input.payload_members.push_back(
         {std::string{kResponsiveRuntimePathV1}, std::move(runtime_bytes)});
     input.payload_members.push_back(
-        {std::string{artifacts::kRevenginePackageDescriptorPath},
+        {std::string{artifacts::kVehicleEnginePackageDescriptorPath},
          std::move(descriptor_bytes)});
     input.payload_members.push_back(
         {std::string{kNativeResponsiveBakeReportPathV2}, std::move(report_bytes)});
@@ -981,7 +981,7 @@ build_native_responsive_package_v2(NativeResponsivePackageInputV2 input,
         input.payload_members.begin(), input.payload_members.end(),
         [](const auto &left, const auto &right) { return left.path < right.path; });
 
-    std::vector<artifacts::RevenginePackEntry> entries;
+    std::vector<artifacts::VehicleEnginePackEntry> entries;
     entries.reserve(input.payload_members.size());
     for (const auto &member : input.payload_members) {
         if (stop_token.stop_requested()) {
@@ -989,9 +989,9 @@ build_native_responsive_package_v2(NativeResponsivePackageInputV2 input,
         }
         entries.push_back({member.path, member.bytes});
     }
-    auto package_validation = artifacts::validate_revengine_package_tree(entries);
+    auto package_validation = artifacts::validate_vehicleengine_package_tree(entries);
     if (const auto *failure =
-            std::get_if<artifacts::RevenginePackageError>(&package_validation)) {
+            std::get_if<artifacts::VehicleEnginePackageError>(&package_validation)) {
         return error(ErrorCode::pack_failure,
                      "native-responsive-package-tree-validation-failed", failure->path,
                      failure->message);
@@ -999,9 +999,9 @@ build_native_responsive_package_v2(NativeResponsivePackageInputV2 input,
     if (stop_token.stop_requested()) {
         return cancelled_error();
     }
-    auto packed = artifacts::pack_revengine_v1(entries);
+    auto packed = artifacts::pack_vehicleengine_v1(entries);
     if (const auto *failure =
-            std::get_if<artifacts::RevengineContainerError>(&packed)) {
+            std::get_if<artifacts::VehicleEngineContainerError>(&packed)) {
         return pack_error(*failure);
     }
     auto carrier = std::get<std::vector<std::byte>>(std::move(packed));

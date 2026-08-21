@@ -6,14 +6,14 @@ import { pathToFileURL } from "node:url";
 
 if (process.argv.length !== 4) {
   throw new Error(
-    "usage: node installed_revengine_playback_test.mjs " +
-      "<installed-revengine-audio-engine.js> <carrier.revengine>",
+    "usage: node installed_vehicleengine_playback_test.mjs " +
+      "<installed-vehicleengine-audio-engine.js> <carrier.vehicleengine>",
   );
 }
 
 const modulePath = await realpath(path.resolve(process.argv[2]));
 const carrierPath = await realpath(path.resolve(process.argv[3]));
-const { RevengineAudioEngine } = await import(pathToFileURL(modulePath).href);
+const { VehicleEngineAudioEngine } = await import(pathToFileURL(modulePath).href);
 const carrier = await readFile(carrierPath);
 const SESSION_SEED = "736234";
 
@@ -54,7 +54,7 @@ function controlPoint(engine, ordinal, count) {
 }
 
 async function load() {
-  return RevengineAudioEngine.load(carrier, {
+  return VehicleEngineAudioEngine.load(carrier, {
     crypto: webcrypto,
     sessionSeed: SESSION_SEED,
   });
@@ -137,7 +137,7 @@ assert.deepEqual(
 const corrupted = Uint8Array.from(carrier);
 corrupted[corrupted.length - 1] ^= 0x01;
 await assert.rejects(
-  RevengineAudioEngine.load(corrupted, {
+  VehicleEngineAudioEngine.load(corrupted, {
     crypto: webcrypto,
     sessionSeed: SESSION_SEED,
   }),

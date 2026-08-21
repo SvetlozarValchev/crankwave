@@ -1,4 +1,4 @@
-#include "engine_sim_offline/artifacts/revengine_container.hpp"
+#include "engine_sim_offline/artifacts/vehicleengine_container.hpp"
 
 #include <algorithm>
 #include <array>
@@ -28,8 +28,8 @@ constexpr std::size_t kContainerSizeOffset = 56;
 constexpr std::size_t kIndexDigestOffset = 64;
 constexpr std::size_t kPayloadDigestOffset = 96;
 
-[[nodiscard]] RevengineContainerError
-error(RevengineContainerErrorCode code, std::string message, std::string path = {}) {
+[[nodiscard]] VehicleEngineContainerError
+error(VehicleEngineContainerErrorCode code, std::string message, std::string path = {}) {
     return {code, std::move(path), std::move(message)};
 }
 
@@ -118,8 +118,8 @@ struct OrderedPackEntry {
 
 } // namespace
 
-bool is_portable_revengine_path(const std::string_view path) noexcept {
-    if (path.empty() || path.size() > kRevengineMaximumPathByteCountV1 ||
+bool is_portable_vehicleengine_path(const std::string_view path) noexcept {
+    if (path.empty() || path.size() > kVehicleEngineMaximumPathByteCountV1 ||
         path.front() == '/' || path.back() == '/') {
         return false;
     }
@@ -130,7 +130,7 @@ bool is_portable_revengine_path(const std::string_view path) noexcept {
         const auto segment_end = slash == std::string_view::npos ? path.size() : slash;
         const auto segment = path.substr(segment_start, segment_end - segment_start);
         if (segment.empty() ||
-            segment.size() > kRevengineMaximumPathSegmentByteCountV1 ||
+            segment.size() > kVehicleEngineMaximumPathSegmentByteCountV1 ||
             !is_lower_ascii_alnum(segment.front()) ||
             !is_lower_ascii_alnum(segment.back()) ||
             is_reserved_portable_segment(segment)) {
@@ -150,27 +150,27 @@ bool is_portable_revengine_path(const std::string_view path) noexcept {
     return true;
 }
 
-RevenginePackResult
-pack_revengine_v1(const std::span<const RevenginePackEntry> entries) {
+VehicleEnginePackResult
+pack_vehicleengine_v1(const std::span<const VehicleEnginePackEntry> entries) {
     if (entries.empty()) {
-        return error(RevengineContainerErrorCode::invalid_argument,
-                     "a REVENGINE container requires at least one entry");
+        return error(VehicleEngineContainerErrorCode::invalid_argument,
+                     "a VEHICLEENGINE container requires at least one entry");
     }
-    if (entries.size() > kRevengineMaximumEntryCountV1) {
-        return error(RevengineContainerErrorCode::resource_limit,
-                     "REVENGINE entry count exceeds the v1 limit");
+    if (entries.size() > kVehicleEngineMaximumEntryCountV1) {
+        return error(VehicleEngineContainerErrorCode::resource_limit,
+                     "VEHICLEENGINE entry count exceeds the v1 limit");
     }
 
     std::vector<OrderedPackEntry> ordered;
     ordered.reserve(entries.size());
     for (const auto &entry : entries) {
-        if (!is_portable_revengine_path(entry.path)) {
-            return error(RevengineContainerErrorCode::invalid_path,
+        if (!is_portable_vehicleengine_path(entry.path)) {
+            return error(VehicleEngineContainerErrorCode::invalid_path,
                          "entry path is not a canonical portable relative path",
                          entry.path);
         }
-        if (entry.payload.size() > kRevengineMaximumEntryByteCountV1) {
-            return error(RevengineContainerErrorCode::resource_limit,
+        if (entry.payload.size() > kVehicleEngineMaximumEntryByteCountV1) {
+            return error(VehicleEngineContainerErrorCode::resource_limit,
                          "entry payload exceeds the v1 byte limit", entry.path);
         }
         ordered.push_back({entry.path, entry.payload, {}});
@@ -180,7 +180,7 @@ pack_revengine_v1(const std::span<const RevenginePackEntry> entries) {
     });
     for (std::size_t index = 1; index < ordered.size(); ++index) {
         if (ordered[index - 1].path == ordered[index].path) {
-            return error(RevengineContainerErrorCode::duplicate_path,
+            return error(VehicleEngineContainerErrorCode::duplicate_path,
                          "duplicate entry path", std::string{ordered[index].path});
         }
     }
@@ -190,24 +190,24 @@ pack_revengine_v1(const std::span<const RevenginePackEntry> entries) {
     for (const auto &entry : ordered) {
         std::uint64_t next_index_size = 0;
         if (!checked_add(index_byte_count,
-                         kRevengineIndexEntryPrefixByteCountV1 + entry.path.size(),
+                         kVehicleEngineIndexEntryPrefixByteCountV1 + entry.path.size(),
                          next_index_size) ||
             !checked_add(payload_byte_count, entry.payload.size(),
                          payload_byte_count)) {
-            return error(RevengineContainerErrorCode::resource_limit,
-                         "REVENGINE container size overflow");
+            return error(VehicleEngineContainerErrorCode::resource_limit,
+                         "VEHICLEENGINE container size overflow");
         }
         index_byte_count = next_index_size;
     }
 
     std::uint64_t payload_offset = 0;
     std::uint64_t container_byte_count = 0;
-    if (!checked_add(kRevengineHeaderByteCountV1, index_byte_count, payload_offset) ||
+    if (!checked_add(kVehicleEngineHeaderByteCountV1, index_byte_count, payload_offset) ||
         !checked_add(payload_offset, payload_byte_count, container_byte_count) ||
-        container_byte_count > kRevengineMaximumContainerByteCountV1 ||
+        container_byte_count > kVehicleEngineMaximumContainerByteCountV1 ||
         container_byte_count > std::numeric_limits<std::size_t>::max()) {
-        return error(RevengineContainerErrorCode::resource_limit,
-                     "REVENGINE container exceeds the v1 byte limit");
+        return error(VehicleEngineContainerErrorCode::resource_limit,
+                     "VEHICLEENGINE container exceeds the v1 byte limit");
     }
 
     // Payload bytes are deliberately untouched until every path, duplicate, entry,
@@ -221,22 +221,22 @@ pack_revengine_v1(const std::span<const RevenginePackEntry> entries) {
     std::copy(kMagic.begin(), kMagic.end(), bytes.begin());
     const auto mutable_bytes = std::span<std::byte>{bytes};
     write_le<std::uint16_t>(mutable_bytes, kVersionOffset,
-                            kRevengineContainerVersionV1);
+                            kVehicleEngineContainerVersionV1);
     write_le<std::uint16_t>(mutable_bytes, kHeaderSizeOffset,
-                            static_cast<std::uint16_t>(kRevengineHeaderByteCountV1));
+                            static_cast<std::uint16_t>(kVehicleEngineHeaderByteCountV1));
     write_le<std::uint32_t>(mutable_bytes, kFlagsOffset, 0);
     write_le<std::uint32_t>(mutable_bytes, kEntryCountOffset,
                             static_cast<std::uint32_t>(ordered.size()));
     write_le<std::uint32_t>(mutable_bytes, kEntryPrefixSizeOffset,
-                            kRevengineIndexEntryPrefixByteCountV1);
+                            kVehicleEngineIndexEntryPrefixByteCountV1);
     write_le<std::uint64_t>(mutable_bytes, kIndexOffsetOffset,
-                            kRevengineHeaderByteCountV1);
+                            kVehicleEngineHeaderByteCountV1);
     write_le<std::uint64_t>(mutable_bytes, kIndexSizeOffset, index_byte_count);
     write_le<std::uint64_t>(mutable_bytes, kPayloadOffsetOffset, payload_offset);
     write_le<std::uint64_t>(mutable_bytes, kPayloadSizeOffset, payload_byte_count);
     write_le<std::uint64_t>(mutable_bytes, kContainerSizeOffset, container_byte_count);
 
-    std::uint64_t index_cursor = kRevengineHeaderByteCountV1;
+    std::uint64_t index_cursor = kVehicleEngineHeaderByteCountV1;
     std::uint64_t payload_cursor = payload_offset;
     for (const auto &entry : ordered) {
         const auto index = static_cast<std::size_t>(index_cursor);
@@ -247,19 +247,19 @@ pack_revengine_v1(const std::span<const RevenginePackEntry> entries) {
         write_le<std::uint64_t>(mutable_bytes, index + 8U, payload_cursor);
         write_le<std::uint64_t>(mutable_bytes, index + 16U, entry.payload.size());
         write_digest(mutable_bytes, index + 24U, entry.payload_sha256);
-        std::memcpy(bytes.data() + index + kRevengineIndexEntryPrefixByteCountV1,
+        std::memcpy(bytes.data() + index + kVehicleEngineIndexEntryPrefixByteCountV1,
                     entry.path.data(), entry.path.size());
         if (!entry.payload.empty()) {
             std::memcpy(bytes.data() + static_cast<std::size_t>(payload_cursor),
                         entry.payload.data(), entry.payload.size());
         }
-        index_cursor += kRevengineIndexEntryPrefixByteCountV1 + entry.path.size();
+        index_cursor += kVehicleEngineIndexEntryPrefixByteCountV1 + entry.path.size();
         payload_cursor += entry.payload.size();
     }
 
     const auto immutable_bytes = std::span<const std::byte>{bytes};
     const auto index_digest = contract::sha256(
-        immutable_bytes.subspan(static_cast<std::size_t>(kRevengineHeaderByteCountV1),
+        immutable_bytes.subspan(static_cast<std::size_t>(kVehicleEngineHeaderByteCountV1),
                                 static_cast<std::size_t>(index_byte_count)));
     const auto payload_digest = contract::sha256(
         immutable_bytes.subspan(static_cast<std::size_t>(payload_offset),
@@ -269,24 +269,24 @@ pack_revengine_v1(const std::span<const RevenginePackEntry> entries) {
     return bytes;
 }
 
-RevengineInspectResult inspect_revengine(const std::span<const std::byte> container) {
-    if (container.size() < kRevengineHeaderByteCountV1) {
-        return error(RevengineContainerErrorCode::malformed_header,
-                     "REVENGINE header is truncated");
+VehicleEngineInspectResult inspect_vehicleengine(const std::span<const std::byte> container) {
+    if (container.size() < kVehicleEngineHeaderByteCountV1) {
+        return error(VehicleEngineContainerErrorCode::malformed_header,
+                     "VEHICLEENGINE header is truncated");
     }
-    if (container.size() > kRevengineMaximumContainerByteCountV1) {
-        return error(RevengineContainerErrorCode::resource_limit,
-                     "REVENGINE container exceeds the v1 byte limit");
+    if (container.size() > kVehicleEngineMaximumContainerByteCountV1) {
+        return error(VehicleEngineContainerErrorCode::resource_limit,
+                     "VEHICLEENGINE container exceeds the v1 byte limit");
     }
     if (!std::equal(kMagic.begin(), kMagic.end(), container.begin())) {
-        return error(RevengineContainerErrorCode::malformed_header,
-                     "REVENGINE magic is invalid");
+        return error(VehicleEngineContainerErrorCode::malformed_header,
+                     "VEHICLEENGINE magic is invalid");
     }
 
     const auto version = read_le<std::uint16_t>(container, kVersionOffset);
-    if (version != kRevengineContainerVersionV1) {
-        return error(RevengineContainerErrorCode::unsupported_version,
-                     "REVENGINE container version is unsupported");
+    if (version != kVehicleEngineContainerVersionV1) {
+        return error(VehicleEngineContainerErrorCode::unsupported_version,
+                     "VEHICLEENGINE container version is unsupported");
     }
     const auto header_size = read_le<std::uint16_t>(container, kHeaderSizeOffset);
     const auto flags = read_le<std::uint32_t>(container, kFlagsOffset);
@@ -301,15 +301,15 @@ RevengineInspectResult inspect_revengine(const std::span<const std::byte> contai
     const auto expected_index_digest = read_digest(container, kIndexDigestOffset);
     const auto expected_payload_digest = read_digest(container, kPayloadDigestOffset);
 
-    if (header_size != kRevengineHeaderByteCountV1 || flags != 0 ||
-        entry_prefix_size != kRevengineIndexEntryPrefixByteCountV1 ||
-        index_offset != kRevengineHeaderByteCountV1) {
-        return error(RevengineContainerErrorCode::malformed_header,
-                     "REVENGINE v1 fixed header fields are noncanonical");
+    if (header_size != kVehicleEngineHeaderByteCountV1 || flags != 0 ||
+        entry_prefix_size != kVehicleEngineIndexEntryPrefixByteCountV1 ||
+        index_offset != kVehicleEngineHeaderByteCountV1) {
+        return error(VehicleEngineContainerErrorCode::malformed_header,
+                     "VEHICLEENGINE v1 fixed header fields are noncanonical");
     }
-    if (entry_count == 0 || entry_count > kRevengineMaximumEntryCountV1) {
-        return error(RevengineContainerErrorCode::resource_limit,
-                     "REVENGINE entry count is outside the v1 bounds");
+    if (entry_count == 0 || entry_count > kVehicleEngineMaximumEntryCountV1) {
+        return error(VehicleEngineContainerErrorCode::resource_limit,
+                     "VEHICLEENGINE entry count is outside the v1 bounds");
     }
     std::uint64_t expected_payload_offset = 0;
     std::uint64_t expected_container_size = 0;
@@ -318,27 +318,27 @@ RevengineInspectResult inspect_revengine(const std::span<const std::byte> contai
         payload_offset != expected_payload_offset ||
         container_size != expected_container_size ||
         container_size != container.size()) {
-        return error(RevengineContainerErrorCode::malformed_header,
-                     "REVENGINE declared ranges do not cover the exact container");
+        return error(VehicleEngineContainerErrorCode::malformed_header,
+                     "VEHICLEENGINE declared ranges do not cover the exact container");
     }
     const auto minimum_index_size = static_cast<std::uint64_t>(entry_count) *
-                                    (kRevengineIndexEntryPrefixByteCountV1 + 1U);
+                                    (kVehicleEngineIndexEntryPrefixByteCountV1 + 1U);
     if (index_size < minimum_index_size ||
         index_size > static_cast<std::uint64_t>(entry_count) *
-                         (kRevengineIndexEntryPrefixByteCountV1 +
-                          kRevengineMaximumPathByteCountV1)) {
-        return error(RevengineContainerErrorCode::resource_limit,
-                     "REVENGINE index size is inconsistent with its entry count");
+                         (kVehicleEngineIndexEntryPrefixByteCountV1 +
+                          kVehicleEngineMaximumPathByteCountV1)) {
+        return error(VehicleEngineContainerErrorCode::resource_limit,
+                     "VEHICLEENGINE index size is inconsistent with its entry count");
     }
 
     const auto index_bytes = bounded_span(container, index_offset, index_size);
     if (index_bytes.size() != index_size ||
         contract::sha256(index_bytes) != expected_index_digest) {
-        return error(RevengineContainerErrorCode::index_hash_mismatch,
-                     "REVENGINE index SHA-256 does not match its header");
+        return error(VehicleEngineContainerErrorCode::index_hash_mismatch,
+                     "VEHICLEENGINE index SHA-256 does not match its header");
     }
 
-    RevengineContainerIndex result;
+    VehicleEngineContainerIndex result;
     result.version = version;
     result.container_byte_count = container_size;
     result.index_byte_count = index_size;
@@ -353,10 +353,10 @@ RevengineInspectResult inspect_revengine(const std::span<const std::byte> contai
     std::string previous_path;
     for (std::uint32_t ordinal = 0; ordinal < entry_count; ++ordinal) {
         std::uint64_t prefix_end = 0;
-        if (!checked_add(cursor, kRevengineIndexEntryPrefixByteCountV1, prefix_end) ||
+        if (!checked_add(cursor, kVehicleEngineIndexEntryPrefixByteCountV1, prefix_end) ||
             prefix_end > payload_offset) {
-            return error(RevengineContainerErrorCode::malformed_index,
-                         "REVENGINE index entry prefix is truncated");
+            return error(VehicleEngineContainerErrorCode::malformed_index,
+                         "VEHICLEENGINE index entry prefix is truncated");
         }
         const auto prefix = static_cast<std::size_t>(cursor);
         const auto path_size = read_le<std::uint16_t>(container, prefix);
@@ -365,10 +365,10 @@ RevengineInspectResult inspect_revengine(const std::span<const std::byte> contai
         const auto entry_offset = read_le<std::uint64_t>(container, prefix + 8U);
         const auto entry_size = read_le<std::uint64_t>(container, prefix + 16U);
         const auto entry_digest = read_digest(container, prefix + 24U);
-        if (path_size == 0 || path_size > kRevengineMaximumPathByteCountV1 ||
+        if (path_size == 0 || path_size > kVehicleEngineMaximumPathByteCountV1 ||
             entry_flags != 0 || reserved != 0) {
-            return error(RevengineContainerErrorCode::malformed_index,
-                         "REVENGINE index entry fields are invalid");
+            return error(VehicleEngineContainerErrorCode::malformed_index,
+                         "VEHICLEENGINE index entry fields are invalid");
         }
         std::uint64_t entry_end = 0;
         std::uint64_t path_end = 0;
@@ -376,12 +376,12 @@ RevengineInspectResult inspect_revengine(const std::span<const std::byte> contai
             path_end > payload_offset ||
             !checked_add(entry_offset, entry_size, entry_end) ||
             entry_offset != expected_entry_offset || entry_end > container_size) {
-            return error(RevengineContainerErrorCode::malformed_index,
-                         "REVENGINE index entry ranges are not contiguous");
+            return error(VehicleEngineContainerErrorCode::malformed_index,
+                         "VEHICLEENGINE index entry ranges are not contiguous");
         }
-        if (entry_size > kRevengineMaximumEntryByteCountV1) {
-            return error(RevengineContainerErrorCode::resource_limit,
-                         "REVENGINE entry payload exceeds the v1 byte limit");
+        if (entry_size > kVehicleEngineMaximumEntryByteCountV1) {
+            return error(VehicleEngineContainerErrorCode::resource_limit,
+                         "VEHICLEENGINE entry payload exceeds the v1 byte limit");
         }
 
         std::string path;
@@ -390,17 +390,17 @@ RevengineInspectResult inspect_revengine(const std::span<const std::byte> contai
             path.push_back(static_cast<char>(std::to_integer<unsigned char>(
                 container[static_cast<std::size_t>(prefix_end) + index])));
         }
-        if (!is_portable_revengine_path(path)) {
-            return error(RevengineContainerErrorCode::invalid_path,
+        if (!is_portable_vehicleengine_path(path)) {
+            return error(VehicleEngineContainerErrorCode::invalid_path,
                          "indexed path is not a canonical portable relative path",
                          path);
         }
         if (!previous_path.empty() && path <= previous_path) {
             return error(
-                path == previous_path ? RevengineContainerErrorCode::duplicate_path
-                                      : RevengineContainerErrorCode::noncanonical_index,
-                path == previous_path ? "REVENGINE index contains a duplicate path"
-                                      : "REVENGINE index paths are not strictly sorted",
+                path == previous_path ? VehicleEngineContainerErrorCode::duplicate_path
+                                      : VehicleEngineContainerErrorCode::noncanonical_index,
+                path == previous_path ? "VEHICLEENGINE index contains a duplicate path"
+                                      : "VEHICLEENGINE index paths are not strictly sorted",
                 path);
         }
         previous_path = path;
@@ -410,31 +410,31 @@ RevengineInspectResult inspect_revengine(const std::span<const std::byte> contai
         expected_entry_offset = entry_end;
     }
     if (cursor != payload_offset || expected_entry_offset != container_size) {
-        return error(RevengineContainerErrorCode::noncanonical_index,
-                     "REVENGINE index or payload contains undeclared bytes");
+        return error(VehicleEngineContainerErrorCode::noncanonical_index,
+                     "VEHICLEENGINE index or payload contains undeclared bytes");
     }
     return result;
 }
 
-RevengineInspectResult verify_revengine(const std::span<const std::byte> container) {
-    auto inspected = inspect_revengine(container);
-    if (const auto *failure = std::get_if<RevengineContainerError>(&inspected)) {
+VehicleEngineInspectResult verify_vehicleengine(const std::span<const std::byte> container) {
+    auto inspected = inspect_vehicleengine(container);
+    if (const auto *failure = std::get_if<VehicleEngineContainerError>(&inspected)) {
         return *failure;
     }
-    auto result = std::get<RevengineContainerIndex>(std::move(inspected));
+    auto result = std::get<VehicleEngineContainerIndex>(std::move(inspected));
     const auto payload =
         bounded_span(container, result.payload_offset, result.payload_byte_count);
     if (payload.size() != result.payload_byte_count ||
         contract::sha256(payload) != result.payload_sha256) {
-        return error(RevengineContainerErrorCode::payload_hash_mismatch,
-                     "REVENGINE aggregate payload SHA-256 does not match its header");
+        return error(VehicleEngineContainerErrorCode::payload_hash_mismatch,
+                     "VEHICLEENGINE aggregate payload SHA-256 does not match its header");
     }
     for (const auto &entry : result.entries) {
-        const auto bytes = revengine_entry_payload(container, entry);
+        const auto bytes = vehicleengine_entry_payload(container, entry);
         if (bytes.size() != entry.payload_byte_count ||
             contract::sha256(bytes) != entry.payload_sha256) {
-            return error(RevengineContainerErrorCode::entry_hash_mismatch,
-                         "REVENGINE entry SHA-256 does not match its index",
+            return error(VehicleEngineContainerErrorCode::entry_hash_mismatch,
+                         "VEHICLEENGINE entry SHA-256 does not match its index",
                          entry.path);
         }
     }
@@ -442,8 +442,8 @@ RevengineInspectResult verify_revengine(const std::span<const std::byte> contain
 }
 
 std::span<const std::byte>
-revengine_entry_payload(const std::span<const std::byte> container,
-                        const RevengineIndexedEntry &entry) noexcept {
+vehicleengine_entry_payload(const std::span<const std::byte> container,
+                        const VehicleEngineIndexedEntry &entry) noexcept {
     return bounded_span(container, entry.payload_offset, entry.payload_byte_count);
 }
 

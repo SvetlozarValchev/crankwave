@@ -31,7 +31,7 @@ contains the lowercase SHA-256 of `release.json` followed by one LF. The manifes
 also records the Git revision, the renderer source-closure digest, the exact
 installed tools/runtime/assets input-closure digest, native renderer hash, optional
 WebAssembly loader/module hashes and its independently observed source-closure
-digest, and the bound REVENGINE bake workflow contract. Release cleanliness is
+digest, and the bound VEHICLEENGINE bake workflow contract. Release cleanliness is
 scoped to those product inputs: unrelated workbench/harness files and private notes
 do not contaminate it, while a changed, untracked, or index-hidden selected input
 fails the immutable-release classification.
@@ -57,7 +57,7 @@ binding; unmanifested files in a staging prefix are excluded. Member order,
 timestamps, numeric ownership, permissions, and tar format are normalized so two
 assemblies from the same installed closure are byte-identical.
 
-The installed `contracts/revengine-bake-workflow.v1.json` freezes the public adapter
+The installed `contracts/vehicleengine-bake-workflow.v1.json` freezes the public adapter
 sequence: responsive bake, deterministic pack, then full verification. All three
 steps receive the same absolute `deadline_unix_ms`; the native steps request their
 stable JSON result envelope. Its default bake omits `--profile` and therefore binds

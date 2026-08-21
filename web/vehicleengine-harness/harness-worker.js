@@ -3,7 +3,7 @@ import {
   PcmRingProducer,
   PcmRingProducerState,
 } from "/runtime/pcm-ring-buffer.js";
-import { RevengineAudioEngine } from "/runtime/revengine-audio-engine.js";
+import { VehicleEngineAudioEngine } from "/runtime/vehicleengine-audio-engine.js";
 
 const MAXIMUM_CARRIER_BYTES = 2 ** 32;
 const PUMP_RENDER_BUDGET = 4;
@@ -53,7 +53,7 @@ function event(type, value = {}) {
 }
 
 function requireEngine() {
-  if (engine === null) throw new Error("Load a REVENGINE package first.");
+  if (engine === null) throw new Error("Load a VEHICLEENGINE package first.");
   return engine;
 }
 
@@ -139,7 +139,7 @@ function rms(samples) {
   let squareSum = 0;
   for (const sample of samples) {
     if (!Number.isFinite(sample)) {
-      throw new RangeError("REVENGINE output contains a non-finite sample.");
+      throw new RangeError("VEHICLEENGINE output contains a non-finite sample.");
     }
     squareSum += sample * sample;
   }
@@ -197,7 +197,7 @@ function pump() {
       const current = requireEngine();
       const canonical = current.render(current.blockFrames);
       if (!(canonical instanceof Float32Array)) {
-        throw new TypeError("REVENGINE render output must be mono Float32 PCM.");
+        throw new TypeError("VEHICLEENGINE render output must be mono Float32 PCM.");
       }
       rendered += 1;
       if (canonical.length === 0) continue;
@@ -237,9 +237,9 @@ async function loadPackage(message) {
     throw new TypeError("load-package requires a transferred ArrayBuffer.");
   }
   if (bytes.byteLength === 0 || bytes.byteLength > MAXIMUM_CARRIER_BYTES) {
-    throw new RangeError("REVENGINE carrier size is outside the v1 bounds.");
+    throw new RangeError("VEHICLEENGINE carrier size is outside the v1 bounds.");
   }
-  const loaded = await RevengineAudioEngine.load(bytes);
+  const loaded = await VehicleEngineAudioEngine.load(bytes);
   engine = loaded;
   return metadata();
 }
@@ -250,7 +250,7 @@ function attachOutput(message) {
     throw new TypeError("attach-output requires a SharedArrayBuffer.");
   }
   if (message.channelCount !== 1) {
-    throw new RangeError("The REVENGINE harness requires mono output.");
+    throw new RangeError("The VEHICLEENGINE harness requires mono output.");
   }
   if (
     !Number.isSafeInteger(message.outputSampleRate) ||

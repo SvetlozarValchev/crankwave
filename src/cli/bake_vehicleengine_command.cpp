@@ -1,13 +1,13 @@
-#include "bake_revengine_command.hpp"
+#include "bake_vehicleengine_command.hpp"
 
-#include "bake_revengine_command_support.hpp"
+#include "bake_vehicleengine_command_support.hpp"
 #include "native_input_files.hpp"
 #include "native_input_files_support.hpp"
 #include "native_responsive_bake_identity.hpp"
 
 #include "contract/sha256_stream.hpp"
 #include "determinism/renderer_determinism_envelope.hpp"
-#include "engine_sim_offline/artifacts/revengine_container.hpp"
+#include "engine_sim_offline/artifacts/vehicleengine_container.hpp"
 #include "engine_sim_offline/authoring/json.hpp"
 #include "engine_sim_offline/c_api.h"
 #include "engine_sim_offline/compile.hpp"
@@ -51,8 +51,8 @@
 namespace engine_sim_offline::cli {
 namespace {
 
-using Error = BakeRevengineError;
-using ErrorKind = BakeRevengineErrorKind;
+using Error = BakeVehicleEngineError;
+using ErrorKind = BakeVehicleEngineErrorKind;
 
 [[nodiscard]] Error error(ErrorKind kind, std::string code, std::string stage,
                           std::string message, std::filesystem::path path = {}) {
@@ -66,7 +66,7 @@ using ErrorKind = BakeRevengineErrorKind;
 }
 
 [[nodiscard]] Error cancelled(const std::string_view stage) {
-    return error(ErrorKind::cancelled, "bake-revengine-cancelled", std::string{stage},
+    return error(ErrorKind::cancelled, "bake-vehicleengine-cancelled", std::string{stage},
                  "native responsive bake was cancelled");
 }
 
@@ -665,7 +665,7 @@ using InstalledSharedStarterResult = std::variant<InstalledSharedStarter, Error>
     const auto payload_sha256 = audio.find("payload_sha256").string();
     if (!schema || *schema != "engine-sim-offline/shared-recorded-starter" || !id ||
         *id != "shared-recorded-starter-licensed" || !relative_path || !byte_count ||
-        !payload_sha256 || !artifacts::is_portable_revengine_path(*relative_path) ||
+        !payload_sha256 || !artifacts::is_portable_vehicleengine_path(*relative_path) ||
         !relative_path->starts_with("audio/") || *byte_count < 1.0 ||
         *byte_count > static_cast<double>(UINT64_C(1) << 32U) ||
         std::floor(*byte_count) != *byte_count || payload_sha256->size() != 64U ||
@@ -709,27 +709,27 @@ using InstalledSharedStarterResult = std::variant<InstalledSharedStarter, Error>
 } // namespace
 
 std::string_view
-bake_revengine_error_kind_label(const BakeRevengineErrorKind kind) noexcept {
+bake_vehicleengine_error_kind_label(const BakeVehicleEngineErrorKind kind) noexcept {
     switch (kind) {
-    case BakeRevengineErrorKind::data_error:
+    case BakeVehicleEngineErrorKind::data_error:
         return "data-error";
-    case BakeRevengineErrorKind::no_input:
+    case BakeVehicleEngineErrorKind::no_input:
         return "no-input";
-    case BakeRevengineErrorKind::unavailable:
+    case BakeVehicleEngineErrorKind::unavailable:
         return "unavailable";
-    case BakeRevengineErrorKind::software:
+    case BakeVehicleEngineErrorKind::software:
         return "software-error";
-    case BakeRevengineErrorKind::cant_create:
+    case BakeVehicleEngineErrorKind::cant_create:
         return "cant-create";
-    case BakeRevengineErrorKind::temporary_failure:
+    case BakeVehicleEngineErrorKind::temporary_failure:
         return "temporary-failure";
-    case BakeRevengineErrorKind::cancelled:
+    case BakeVehicleEngineErrorKind::cancelled:
         return "cancelled";
     }
     return "software-error";
 }
 
-BakeRevengineResult bake_revengine_native(const BakeRevengineRequest &request,
+BakeVehicleEngineResult bake_vehicleengine_native(const BakeVehicleEngineRequest &request,
                                           const std::stop_token stop_token) {
     if (stop_token.stop_requested()) {
         return cancelled("request admission");
@@ -1017,21 +1017,21 @@ BakeRevengineResult bake_revengine_native(const BakeRevengineRequest &request,
         {std::move(identity), std::move(attached), std::nullopt}, stop_token);
     if (auto *failure =
             std::get_if<responsive::NativeResponsivePackageError>(&built_result)) {
-        return package_error("REVENGINE package construction", *failure);
+        return package_error("VEHICLEENGINE package construction", *failure);
     }
     auto built =
         std::get<responsive::NativeResponsiveCookedPackageV2>(std::move(built_result));
     const auto member_count = built.package.members.size();
     const auto cache_identity_sha256 = built.package.cache_identity.sha256;
-    auto publication_result = responsive::publish_native_revengine_atomic(
+    auto publication_result = responsive::publish_native_vehicleengine_atomic(
         built.package, canonical_output, stop_token);
     if (auto *failure = std::get_if<responsive::NativeResponsivePackageError>(
             &publication_result)) {
-        return package_error("REVENGINE publication", *failure);
+        return package_error("VEHICLEENGINE publication", *failure);
     }
     auto publication = std::get<responsive::NativeResponsiveCarrierPublication>(
         std::move(publication_result));
-    return BakedRevengineFile{
+    return BakedVehicleEngineFile{
         std::move(publication.path),
         std::string{engine.id()},
         profile.id,

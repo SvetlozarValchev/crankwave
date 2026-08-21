@@ -1,14 +1,14 @@
-# REVENGINE audio bridge
+# VEHICLEENGINE audio bridge
 
-`web/runtime/revengine-audio-engine.js` is the small consumer-facing playback
+`web/runtime/vehicleengine-audio-engine.js` is the small consumer-facing playback
 boundary for a packaged responsive engine. It deliberately does not import the
 engine simulator, C API, browser workbench runtime, engine/scenario JSON, or a WASM
 renderer.
 
 ```js
-import { RevengineAudioEngine } from "./runtime/revengine-audio-engine.js";
+import { VehicleEngineAudioEngine } from "./runtime/vehicleengine-audio-engine.js";
 
-const engine = await RevengineAudioEngine.load(revengineBytes);
+const engine = await VehicleEngineAudioEngine.load(vehicleengineBytes);
 engine.setOperatingPoint({
   rpm: 2_500,
   throttle01: 0.4,
@@ -71,7 +71,7 @@ not hidden behavior in the three-input contract.
 Run:
 
 ```bash
-node scripts/serve-revengine-harness.mjs
+node scripts/serve-vehicleengine-harness.mjs
 ```
 
 and open `http://127.0.0.1:4173/`. The server exposes only the harness and the audio

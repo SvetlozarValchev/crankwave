@@ -1,4 +1,4 @@
-#include "bake_revengine_command_support.hpp"
+#include "bake_vehicleengine_command_support.hpp"
 
 #include <array>
 #include <atomic>
@@ -13,8 +13,8 @@
 
 namespace {
 
-using engine_sim_offline::cli::BakeRevengineError;
-using engine_sim_offline::cli::BakeRevengineErrorKind;
+using engine_sim_offline::cli::BakeVehicleEngineError;
+using engine_sim_offline::cli::BakeVehicleEngineErrorKind;
 
 void expect(const bool condition, const std::string_view message) {
     if (!condition) {
@@ -22,9 +22,9 @@ void expect(const bool condition, const std::string_view message) {
     }
 }
 
-[[nodiscard]] BakeRevengineError failure(std::string code) {
-    BakeRevengineError result;
-    result.kind = BakeRevengineErrorKind::software;
+[[nodiscard]] BakeVehicleEngineError failure(std::string code) {
+    BakeVehicleEngineError result;
+    result.kind = BakeVehicleEngineErrorKind::software;
     result.code = std::move(code);
     result.stage = "worker-order-test";
     result.message = "planned worker failure";
@@ -35,13 +35,13 @@ void test_native_output_failure_classification() {
     using engine_sim_offline::cli::NativeOutputErrorKind;
     using engine_sim_offline::cli::detail::bake_output_error_kind;
     expect(bake_output_error_kind(NativeOutputErrorKind::cant_create) ==
-               BakeRevengineErrorKind::cant_create,
+               BakeVehicleEngineErrorKind::cant_create,
            "permanent output failure lost cant-create classification");
     expect(bake_output_error_kind(NativeOutputErrorKind::temp_fail) ==
-               BakeRevengineErrorKind::temporary_failure,
+               BakeVehicleEngineErrorKind::temporary_failure,
            "temporary output failure was not preserved for exit 75");
-    expect(engine_sim_offline::cli::bake_revengine_error_kind_label(
-               BakeRevengineErrorKind::temporary_failure) == "temporary-failure",
+    expect(engine_sim_offline::cli::bake_vehicleengine_error_kind_label(
+               BakeVehicleEngineErrorKind::temporary_failure) == "temporary-failure",
            "temporary output failure lost its stable label");
 }
 
@@ -53,7 +53,7 @@ void test_lowest_ordinal_failure_is_schedule_independent() {
         engine_sim_offline::cli::detail::parallel_map_ordered_with_workers<int>(
             std::span<const int>{inputs}, "worker-order-test", {}, 3U,
             [&](const int ordinal, const std::stop_token stop_token)
-                -> std::variant<int, BakeRevengineError> {
+                -> std::variant<int, BakeVehicleEngineError> {
                 if (ordinal == 2) {
                     higher_ordinal_failed.store(true, std::memory_order_release);
                     return failure("higher-ordinal-failure");
@@ -70,7 +70,7 @@ void test_lowest_ordinal_failure_is_schedule_independent() {
                 }
                 return ordinal;
             });
-    const auto *reported = std::get_if<BakeRevengineError>(&result);
+    const auto *reported = std::get_if<BakeVehicleEngineError>(&result);
     expect(reported != nullptr && reported->code == "lowest-ordinal-failure",
            "worker scheduling changed the reported concrete failure");
     expect(!worker_token_was_stopped.load(std::memory_order_relaxed),
@@ -83,7 +83,7 @@ void test_success_results_retain_input_order() {
         engine_sim_offline::cli::detail::parallel_map_ordered_with_workers<int>(
             std::span<const int>{inputs}, "worker-order-test", {}, 4U,
             [](const int value,
-               const std::stop_token) -> std::variant<int, BakeRevengineError> {
+               const std::stop_token) -> std::variant<int, BakeVehicleEngineError> {
                 for (int count = 0; count < value * 16; ++count) {
                     std::this_thread::yield();
                 }
@@ -102,7 +102,7 @@ int main() {
         test_lowest_ordinal_failure_is_schedule_independent();
         test_success_results_retain_input_order();
     } catch (const std::exception &error) {
-        std::cerr << "bake REVENGINE command test failure: " << error.what() << '\n';
+        std::cerr << "bake VEHICLEENGINE command test failure: " << error.what() << '\n';
         return 1;
     }
     return 0;

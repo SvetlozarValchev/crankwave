@@ -1,4 +1,4 @@
-#include "revengine_cli_support.hpp"
+#include "vehicleengine_cli_support.hpp"
 
 #include "artifacts/secure_filesystem_support.hpp"
 
@@ -23,14 +23,14 @@
 namespace engine_sim_offline::cli {
 namespace {
 
-[[nodiscard]] RevengineCliError failure(RevengineCliErrorKind kind,
+[[nodiscard]] VehicleEngineCliError failure(VehicleEngineCliErrorKind kind,
                                         std::string message) {
     return {kind, std::move(message)};
 }
 
-[[nodiscard]] RevengineCliError cancelled() {
-    return failure(RevengineCliErrorKind::cancelled,
-                   "REVENGINE operation was cancelled");
+[[nodiscard]] VehicleEngineCliError cancelled() {
+    return failure(VehicleEngineCliErrorKind::cancelled,
+                   "VEHICLEENGINE operation was cancelled");
 }
 
 [[nodiscard]] std::string contextual_message(const std::string_view prefix,
@@ -47,18 +47,18 @@ namespace {
     return result;
 }
 
-[[nodiscard]] RevengineCliError
-container_failure(const artifacts::RevengineContainerError &error) {
+[[nodiscard]] VehicleEngineCliError
+container_failure(const artifacts::VehicleEngineContainerError &error) {
     return failure(
-        RevengineCliErrorKind::data_error,
-        contextual_message("invalid REVENGINE container", error.path, error.message));
+        VehicleEngineCliErrorKind::data_error,
+        contextual_message("invalid VEHICLEENGINE container", error.path, error.message));
 }
 
-[[nodiscard]] RevengineCliError
-package_failure(const artifacts::RevenginePackageError &error) {
+[[nodiscard]] VehicleEngineCliError
+package_failure(const artifacts::VehicleEnginePackageError &error) {
     return failure(
-        RevengineCliErrorKind::data_error,
-        contextual_message("invalid REVENGINE package", error.path, error.message));
+        VehicleEngineCliErrorKind::data_error,
+        contextual_message("invalid VEHICLEENGINE package", error.path, error.message));
 }
 
 [[nodiscard]] bool path_is_within(const std::filesystem::path &candidate,
@@ -78,7 +78,7 @@ struct OwnedEntry {
     std::vector<std::byte> bytes;
 };
 
-using ReadFileResult = std::variant<std::vector<std::byte>, RevengineCliError>;
+using ReadFileResult = std::variant<std::vector<std::byte>, VehicleEngineCliError>;
 
 [[nodiscard]] ReadFileResult read_regular_file(const std::filesystem::path &path,
                                                const std::uint64_t maximum_byte_count,
@@ -89,32 +89,32 @@ using ReadFileResult = std::variant<std::vector<std::byte>, RevengineCliError>;
     std::error_code status_error;
     const auto status = std::filesystem::symlink_status(path, status_error);
     if (status_error || !std::filesystem::exists(status)) {
-        return failure(RevengineCliErrorKind::no_input,
+        return failure(VehicleEngineCliErrorKind::no_input,
                        "input file does not exist or cannot be inspected: " +
                            path.string());
     }
     if (std::filesystem::is_symlink(status) ||
         !std::filesystem::is_regular_file(status)) {
-        return failure(RevengineCliErrorKind::data_error,
+        return failure(VehicleEngineCliErrorKind::data_error,
                        "input must be a regular non-symlink file: " + path.string());
     }
     std::error_code size_error;
     const auto file_size = std::filesystem::file_size(path, size_error);
     if (size_error) {
-        return failure(RevengineCliErrorKind::unavailable,
+        return failure(VehicleEngineCliErrorKind::unavailable,
                        "input file size cannot be read: " + path.string());
     }
     if (file_size > maximum_byte_count ||
         file_size > std::numeric_limits<std::size_t>::max() ||
         file_size >
             static_cast<std::uint64_t>(std::numeric_limits<std::streamsize>::max())) {
-        return failure(RevengineCliErrorKind::data_error,
+        return failure(VehicleEngineCliErrorKind::data_error,
                        "input file exceeds its byte limit: " + path.string());
     }
 
     std::ifstream stream{path, std::ios::binary};
     if (!stream) {
-        return failure(RevengineCliErrorKind::no_input,
+        return failure(VehicleEngineCliErrorKind::no_input,
                        "input file cannot be opened: " + path.string());
     }
     std::vector<std::byte> bytes(static_cast<std::size_t>(file_size));
@@ -128,21 +128,21 @@ using ReadFileResult = std::variant<std::vector<std::byte>, RevengineCliError>;
         stream.read(reinterpret_cast<char *>(bytes.data() + offset),
                     static_cast<std::streamsize>(count));
         if (stream.gcount() != static_cast<std::streamsize>(count)) {
-            return failure(RevengineCliErrorKind::unavailable,
+            return failure(VehicleEngineCliErrorKind::unavailable,
                            "input file changed or could not be read completely: " +
                                path.string());
         }
         offset += count;
     }
     if (stream.peek() != std::char_traits<char>::eof()) {
-        return failure(RevengineCliErrorKind::unavailable,
+        return failure(VehicleEngineCliErrorKind::unavailable,
                        "input file changed while it was being read: " + path.string());
     }
     return stop_token.stop_requested() ? ReadFileResult{cancelled()}
                                        : ReadFileResult{std::move(bytes)};
 }
 
-[[nodiscard]] std::variant<std::vector<OwnedEntry>, RevengineCliError>
+[[nodiscard]] std::variant<std::vector<OwnedEntry>, VehicleEngineCliError>
 read_package_tree(const std::filesystem::path &root, const std::stop_token stop_token) {
     if (stop_token.stop_requested()) {
         return cancelled();
@@ -150,13 +150,13 @@ read_package_tree(const std::filesystem::path &root, const std::stop_token stop_
     std::error_code status_error;
     const auto root_status = std::filesystem::symlink_status(root, status_error);
     if (status_error || !std::filesystem::exists(root_status)) {
-        return failure(RevengineCliErrorKind::no_input,
+        return failure(VehicleEngineCliErrorKind::no_input,
                        "package directory does not exist or cannot be inspected: " +
                            root.string());
     }
     if (std::filesystem::is_symlink(root_status) ||
         !std::filesystem::is_directory(root_status)) {
-        return failure(RevengineCliErrorKind::data_error,
+        return failure(VehicleEngineCliErrorKind::data_error,
                        "package root must be a non-symlink directory: " +
                            root.string());
     }
@@ -165,7 +165,7 @@ read_package_tree(const std::filesystem::path &root, const std::stop_token stop_
     std::filesystem::recursive_directory_iterator iterator{
         root, std::filesystem::directory_options::none, iterator_error};
     if (iterator_error) {
-        return failure(RevengineCliErrorKind::unavailable,
+        return failure(VehicleEngineCliErrorKind::unavailable,
                        "package directory cannot be traversed: " + root.string());
     }
 
@@ -180,64 +180,64 @@ read_package_tree(const std::filesystem::path &root, const std::stop_token stop_
         std::error_code entry_status_error;
         const auto status = std::filesystem::symlink_status(path, entry_status_error);
         if (entry_status_error) {
-            return failure(RevengineCliErrorKind::unavailable,
+            return failure(VehicleEngineCliErrorKind::unavailable,
                            "package entry cannot be inspected: " + path.string());
         }
         const auto relative = path.lexically_relative(root).generic_string();
-        if (!artifacts::is_portable_revengine_path(relative)) {
-            return failure(RevengineCliErrorKind::data_error,
+        if (!artifacts::is_portable_vehicleengine_path(relative)) {
+            return failure(VehicleEngineCliErrorKind::data_error,
                            "package entry has a nonportable relative path: " +
                                relative);
         }
         if (std::filesystem::is_symlink(status)) {
-            return failure(RevengineCliErrorKind::data_error,
+            return failure(VehicleEngineCliErrorKind::data_error,
                            "package tree contains a symlink: " + relative);
         }
         if (std::filesystem::is_directory(status)) {
             iterator.increment(iterator_error);
             if (iterator_error) {
-                return failure(RevengineCliErrorKind::unavailable,
+                return failure(VehicleEngineCliErrorKind::unavailable,
                                "package directory traversal failed");
             }
             continue;
         }
         if (!std::filesystem::is_regular_file(status)) {
-            return failure(RevengineCliErrorKind::data_error,
+            return failure(VehicleEngineCliErrorKind::data_error,
                            "package tree contains a nonregular entry: " + relative);
         }
-        if (entries.size() >= artifacts::kRevengineMaximumEntryCountV1) {
-            return failure(RevengineCliErrorKind::data_error,
-                           "package tree exceeds the REVENGINE entry limit");
+        if (entries.size() >= artifacts::kVehicleEngineMaximumEntryCountV1) {
+            return failure(VehicleEngineCliErrorKind::data_error,
+                           "package tree exceeds the VEHICLEENGINE entry limit");
         }
         auto read = read_regular_file(
-            path, artifacts::kRevengineMaximumEntryByteCountV1, stop_token);
-        if (const auto *error = std::get_if<RevengineCliError>(&read)) {
+            path, artifacts::kVehicleEngineMaximumEntryByteCountV1, stop_token);
+        if (const auto *error = std::get_if<VehicleEngineCliError>(&read)) {
             return *error;
         }
         auto payload = std::get<std::vector<std::byte>>(std::move(read));
         if (payload.size() >
-            artifacts::kRevengineMaximumContainerByteCountV1 - total_payload_bytes) {
-            return failure(RevengineCliErrorKind::data_error,
-                           "package tree exceeds the REVENGINE container limit");
+            artifacts::kVehicleEngineMaximumContainerByteCountV1 - total_payload_bytes) {
+            return failure(VehicleEngineCliErrorKind::data_error,
+                           "package tree exceeds the VEHICLEENGINE container limit");
         }
         total_payload_bytes += payload.size();
         entries.push_back({relative, std::move(payload)});
 
         iterator.increment(iterator_error);
         if (iterator_error) {
-            return failure(RevengineCliErrorKind::unavailable,
+            return failure(VehicleEngineCliErrorKind::unavailable,
                            "package directory traversal failed");
         }
     }
     return stop_token.stop_requested()
-               ? std::variant<std::vector<OwnedEntry>, RevengineCliError>{cancelled()}
-               : std::variant<std::vector<OwnedEntry>, RevengineCliError>{
+               ? std::variant<std::vector<OwnedEntry>, VehicleEngineCliError>{cancelled()}
+               : std::variant<std::vector<OwnedEntry>, VehicleEngineCliError>{
                      std::move(entries)};
 }
 
-[[nodiscard]] std::vector<artifacts::RevenginePackEntry>
+[[nodiscard]] std::vector<artifacts::VehicleEnginePackEntry>
 entry_views(const std::vector<OwnedEntry> &entries) {
-    std::vector<artifacts::RevenginePackEntry> views;
+    std::vector<artifacts::VehicleEnginePackEntry> views;
     views.reserve(entries.size());
     for (const auto &entry : entries) {
         views.push_back({entry.path, entry.bytes});
@@ -245,27 +245,27 @@ entry_views(const std::vector<OwnedEntry> &entries) {
     return views;
 }
 
-[[nodiscard]] std::variant<std::monostate, RevengineCliError>
+[[nodiscard]] std::variant<std::monostate, VehicleEngineCliError>
 write_new_file(const std::filesystem::path &output,
                const std::span<const std::byte> bytes,
                const std::stop_token stop_token) {
     if (stop_token.stop_requested()) {
         return cancelled();
     }
-    if (output.extension() != ".revengine") {
-        return failure(RevengineCliErrorKind::cant_create,
-                       "output file must use the .revengine extension");
+    if (output.extension() != ".vehicleengine") {
+        return failure(VehicleEngineCliErrorKind::cant_create,
+                       "output file must use the .vehicleengine extension");
     }
     std::error_code output_status_error;
     const auto output_status =
         std::filesystem::symlink_status(output, output_status_error);
     if (!output_status_error && std::filesystem::exists(output_status)) {
-        return failure(RevengineCliErrorKind::cant_create,
+        return failure(VehicleEngineCliErrorKind::cant_create,
                        "output file already exists: " + output.string());
     }
     if (output_status_error &&
         output_status_error != std::errc::no_such_file_or_directory) {
-        return failure(RevengineCliErrorKind::cant_create,
+        return failure(VehicleEngineCliErrorKind::cant_create,
                        "output path cannot be inspected: " + output.string());
     }
     const auto parent =
@@ -275,7 +275,7 @@ write_new_file(const std::filesystem::path &output,
         std::filesystem::symlink_status(parent, parent_status_error);
     if (parent_status_error || std::filesystem::is_symlink(parent_status) ||
         !std::filesystem::is_directory(parent_status)) {
-        return failure(RevengineCliErrorKind::cant_create,
+        return failure(VehicleEngineCliErrorKind::cant_create,
                        "output parent must be an existing non-symlink directory");
     }
 
@@ -284,7 +284,7 @@ write_new_file(const std::filesystem::path &output,
     FileDescriptor parent_descriptor{
         ::open(parent.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)};
     if (!parent_descriptor.valid()) {
-        return failure(RevengineCliErrorKind::cant_create,
+        return failure(VehicleEngineCliErrorKind::cant_create,
                        artifacts::detail::errno_message(
                            "output parent cannot be securely opened", errno));
     }
@@ -301,14 +301,14 @@ write_new_file(const std::filesystem::path &output,
         }
         if (errno != EEXIST) {
             return failure(
-                RevengineCliErrorKind::cant_create,
+                VehicleEngineCliErrorKind::cant_create,
                 artifacts::detail::errno_message(
-                    "private REVENGINE temporary file cannot be created", errno));
+                    "private VEHICLEENGINE temporary file cannot be created", errno));
         }
     }
     if (!temporary_descriptor.valid()) {
-        return failure(RevengineCliErrorKind::cant_create,
-                       "private REVENGINE temporary name allocation was exhausted");
+        return failure(VehicleEngineCliErrorKind::cant_create,
+                       "private VEHICLEENGINE temporary name allocation was exhausted");
     }
 
     struct TemporaryCleanup {
@@ -339,9 +339,9 @@ write_new_file(const std::filesystem::path &output,
         if (count == -1 && errno == EINTR) {
             continue;
         }
-        return failure(RevengineCliErrorKind::cant_create,
+        return failure(VehicleEngineCliErrorKind::cant_create,
                        artifacts::detail::errno_message(
-                           "REVENGINE bytes could not be written completely", errno));
+                           "VEHICLEENGINE bytes could not be written completely", errno));
     }
     while (::fsync(temporary_descriptor.get()) == -1) {
         if (errno == EINTR) {
@@ -351,9 +351,9 @@ write_new_file(const std::filesystem::path &output,
             continue;
         }
         return failure(
-            RevengineCliErrorKind::cant_create,
+            VehicleEngineCliErrorKind::cant_create,
             artifacts::detail::errno_message(
-                "REVENGINE temporary file could not be synchronized", errno));
+                "VEHICLEENGINE temporary file could not be synchronized", errno));
     }
     if (stop_token.stop_requested()) {
         return cancelled();
@@ -363,18 +363,18 @@ write_new_file(const std::filesystem::path &output,
     if (::linkat(parent_descriptor.get(), temporary_name.c_str(),
                  parent_descriptor.get(), output_name.c_str(), 0) == -1) {
         const auto error_number = errno;
-        return failure(RevengineCliErrorKind::cant_create,
+        return failure(VehicleEngineCliErrorKind::cant_create,
                        artifacts::detail::errno_message(
-                           "REVENGINE output could not be published without overwrite",
+                           "VEHICLEENGINE output could not be published without overwrite",
                            error_number));
     }
 
     if (::unlinkat(parent_descriptor.get(), temporary_name.c_str(), 0) == -1) {
         const auto cleanup_error = errno;
         static_cast<void>(::unlinkat(parent_descriptor.get(), output_name.c_str(), 0));
-        return failure(RevengineCliErrorKind::cant_create,
+        return failure(VehicleEngineCliErrorKind::cant_create,
                        artifacts::detail::errno_message(
-                           "published REVENGINE temporary link could not be removed",
+                           "published VEHICLEENGINE temporary link could not be removed",
                            cleanup_error));
     }
     cleanup.active = false;
@@ -387,16 +387,16 @@ write_new_file(const std::filesystem::path &output,
         const auto sync_error = errno;
         static_cast<void>(::unlinkat(parent_descriptor.get(), output_name.c_str(), 0));
         return failure(
-            RevengineCliErrorKind::cant_create,
+            VehicleEngineCliErrorKind::cant_create,
             artifacts::detail::errno_message(
-                "REVENGINE output directory could not be synchronized", sync_error));
+                "VEHICLEENGINE output directory could not be synchronized", sync_error));
     }
     return std::monostate{};
 #else
     static_cast<void>(bytes);
     return failure(
-        RevengineCliErrorKind::unavailable,
-        "secure no-replace REVENGINE publication is unavailable on this platform");
+        VehicleEngineCliErrorKind::unavailable,
+        "secure no-replace VEHICLEENGINE publication is unavailable on this platform");
 #endif
 }
 
@@ -413,8 +413,8 @@ std::string sha256_lower_hex(const contract::Sha256Digest &digest) {
     return result;
 }
 
-PackRevengineFileResult
-pack_revengine_package_directory(const std::filesystem::path &package_directory,
+PackVehicleEngineFileResult
+pack_vehicleengine_package_directory(const std::filesystem::path &package_directory,
                                  const std::filesystem::path &new_output_file,
                                  const std::stop_token stop_token) {
     if (stop_token.stop_requested()) {
@@ -424,7 +424,7 @@ pack_revengine_package_directory(const std::filesystem::path &package_directory,
     const auto canonical_root =
         std::filesystem::canonical(package_directory, canonical_error);
     if (canonical_error) {
-        return failure(RevengineCliErrorKind::no_input,
+        return failure(VehicleEngineCliErrorKind::no_input,
                        "package directory cannot be resolved");
     }
     const auto output_parent = new_output_file.has_parent_path()
@@ -433,18 +433,18 @@ pack_revengine_package_directory(const std::filesystem::path &package_directory,
     const auto canonical_output_parent =
         std::filesystem::canonical(output_parent, canonical_error);
     if (canonical_error) {
-        return failure(RevengineCliErrorKind::cant_create,
+        return failure(VehicleEngineCliErrorKind::cant_create,
                        "output parent directory cannot be resolved");
     }
     const auto canonical_output =
         (canonical_output_parent / new_output_file.filename()).lexically_normal();
     if (path_is_within(canonical_output, canonical_root)) {
-        return failure(RevengineCliErrorKind::cant_create,
-                       "REVENGINE output must be outside the package directory");
+        return failure(VehicleEngineCliErrorKind::cant_create,
+                       "VEHICLEENGINE output must be outside the package directory");
     }
 
     auto read = read_package_tree(package_directory, stop_token);
-    if (const auto *error = std::get_if<RevengineCliError>(&read)) {
+    if (const auto *error = std::get_if<VehicleEngineCliError>(&read)) {
         return *error;
     }
     auto entries = std::get<std::vector<OwnedEntry>>(std::move(read));
@@ -452,17 +452,17 @@ pack_revengine_package_directory(const std::filesystem::path &package_directory,
         return cancelled();
     }
     const auto views = entry_views(entries);
-    const auto tree_validation = artifacts::validate_revengine_package_tree(views);
+    const auto tree_validation = artifacts::validate_vehicleengine_package_tree(views);
     if (const auto *error =
-            std::get_if<artifacts::RevenginePackageError>(&tree_validation)) {
+            std::get_if<artifacts::VehicleEnginePackageError>(&tree_validation)) {
         return package_failure(*error);
     }
     if (stop_token.stop_requested()) {
         return cancelled();
     }
 
-    auto packed = artifacts::pack_revengine_v1(views);
-    if (const auto *error = std::get_if<artifacts::RevengineContainerError>(&packed)) {
+    auto packed = artifacts::pack_vehicleengine_v1(views);
+    if (const auto *error = std::get_if<artifacts::VehicleEngineContainerError>(&packed)) {
         return container_failure(*error);
     }
     auto container = std::get<std::vector<std::byte>>(std::move(packed));
@@ -474,10 +474,10 @@ pack_revengine_package_directory(const std::filesystem::path &package_directory,
         return cancelled();
     }
     const auto write = write_new_file(new_output_file, container, stop_token);
-    if (const auto *error = std::get_if<RevengineCliError>(&write)) {
+    if (const auto *error = std::get_if<VehicleEngineCliError>(&write)) {
         return *error;
     }
-    return PackedRevengineFile{
+    return PackedVehicleEngineFile{
         new_output_file,
         container.size(),
         static_cast<std::uint32_t>(views.size()),
@@ -485,32 +485,32 @@ pack_revengine_package_directory(const std::filesystem::path &package_directory,
     };
 }
 
-LoadRevengineFileResult inspect_revengine_file(const std::filesystem::path &input_file,
+LoadVehicleEngineFileResult inspect_vehicleengine_file(const std::filesystem::path &input_file,
                                                const bool verify_payloads,
                                                const std::stop_token stop_token) {
     if (stop_token.stop_requested()) {
         return cancelled();
     }
     auto read = read_regular_file(
-        input_file, artifacts::kRevengineMaximumContainerByteCountV1, stop_token);
-    if (const auto *error = std::get_if<RevengineCliError>(&read)) {
+        input_file, artifacts::kVehicleEngineMaximumContainerByteCountV1, stop_token);
+    if (const auto *error = std::get_if<VehicleEngineCliError>(&read)) {
         return *error;
     }
     auto container = std::get<std::vector<std::byte>>(std::move(read));
     if (stop_token.stop_requested()) {
         return cancelled();
     }
-    auto inspected = verify_payloads ? artifacts::verify_revengine(container)
-                                     : artifacts::inspect_revengine(container);
+    auto inspected = verify_payloads ? artifacts::verify_vehicleengine(container)
+                                     : artifacts::inspect_vehicleengine(container);
     if (const auto *error =
-            std::get_if<artifacts::RevengineContainerError>(&inspected)) {
+            std::get_if<artifacts::VehicleEngineContainerError>(&inspected)) {
         return container_failure(*error);
     }
-    auto index = std::get<artifacts::RevengineContainerIndex>(std::move(inspected));
+    auto index = std::get<artifacts::VehicleEngineContainerIndex>(std::move(inspected));
     if (stop_token.stop_requested()) {
         return cancelled();
     }
-    LoadedRevengineFile result{
+    LoadedVehicleEngineFile result{
         std::move(index), contract::sha256(container), verify_payloads, {}};
     if (stop_token.stop_requested()) {
         return cancelled();
@@ -519,22 +519,22 @@ LoadRevengineFileResult inspect_revengine_file(const std::filesystem::path &inpu
         return result;
     }
 
-    std::vector<artifacts::RevenginePackEntry> views;
+    std::vector<artifacts::VehicleEnginePackEntry> views;
     views.reserve(result.index.entries.size());
     for (const auto &entry : result.index.entries) {
         views.push_back(
-            {entry.path, artifacts::revengine_entry_payload(container, entry)});
+            {entry.path, artifacts::vehicleengine_entry_payload(container, entry)});
     }
-    auto tree_validation = artifacts::validate_revengine_package_tree(views);
+    auto tree_validation = artifacts::validate_vehicleengine_package_tree(views);
     if (const auto *error =
-            std::get_if<artifacts::RevenginePackageError>(&tree_validation)) {
+            std::get_if<artifacts::VehicleEnginePackageError>(&tree_validation)) {
         return package_failure(*error);
     }
     if (stop_token.stop_requested()) {
         return cancelled();
     }
     result.package =
-        std::get<artifacts::RevenginePackageDescriptor>(std::move(tree_validation));
+        std::get<artifacts::VehicleEnginePackageDescriptor>(std::move(tree_validation));
     return result;
 }
 

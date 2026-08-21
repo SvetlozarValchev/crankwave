@@ -16,7 +16,7 @@
     "native_cli",
     "browser_playback",
     "telemetry_contract",
-    "revengine_bake_workflow",
+    "vehicleengine_bake_workflow",
     "files"
   ],
   "properties": {
@@ -54,10 +54,10 @@
         "commands": {
           "const": [
             "render",
-            "bake-revengine",
-            "pack-revengine",
-            "inspect-revengine",
-            "verify-revengine",
+            "bake-vehicleengine",
+            "pack-vehicleengine",
+            "inspect-vehicleengine",
+            "verify-vehicleengine",
             "inspect-ir-catalog"
           ]
         }
@@ -74,7 +74,7 @@
       }
     },
     "telemetry_contract": {"$ref": "#/$defs/telemetry"},
-    "revengine_bake_workflow": {"$ref": "#/$defs/binding"},
+    "vehicleengine_bake_workflow": {"$ref": "#/$defs/binding"},
     "files": {
       "type": "array",
       "minItems": 1,

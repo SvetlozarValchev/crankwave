@@ -17,20 +17,20 @@ const FORBIDDEN_REQUEST_FRAGMENTS = Object.freeze([
 
 function usage() {
   return (
-    "usage: node web/tests/integration/revengine-harness.integration.mjs " +
-    "<harness-url> <carrier.revengine> [chrome-executable]"
+    "usage: node web/tests/integration/vehicleengine-harness.integration.mjs " +
+    "<harness-url> <carrier.vehicleengine> [chrome-executable]"
   );
 }
 
 async function requireCarrier(filePath) {
   const absolute = path.resolve(filePath);
   const metadata = await fs.stat(absolute);
-  assert.ok(metadata.isFile(), `REVENGINE carrier is not a file: ${absolute}`);
-  assert.ok(metadata.size > 0, `REVENGINE carrier is empty: ${absolute}`);
+  assert.ok(metadata.isFile(), `VEHICLEENGINE carrier is not a file: ${absolute}`);
+  assert.ok(metadata.size > 0, `VEHICLEENGINE carrier is empty: ${absolute}`);
   assert.equal(
     path.extname(absolute).toLowerCase(),
-    ".revengine",
-    `REVENGINE carrier must use the .revengine extension: ${absolute}`,
+    ".vehicleengine",
+    `VEHICLEENGINE carrier must use the .vehicleengine extension: ${absolute}`,
   );
   return absolute;
 }
@@ -333,7 +333,7 @@ function fakeAudioBootstrap() {
         configurable: true,
         value: DisabledAudioWorkletNode
       },
-      __revengineHarnessTestAudio: {
+      __vehicleengineHarnessTestAudio: {
         configurable: false,
         value: stats
       }
@@ -374,7 +374,7 @@ async function pageState(cdp) {
       playDisabled: document.querySelector("#play-button")?.disabled ?? true,
       errorMessages: [...document.querySelectorAll(".message.is-error")]
         .map((element) => element.textContent.trim()),
-      fakeAudio: globalThis.__revengineHarnessTestAudio ?? null
+      fakeAudio: globalThis.__vehicleengineHarnessTestAudio ?? null
     };
   })()`);
 }
@@ -521,7 +521,7 @@ async function main() {
   const carrierPath = await requireCarrier(process.argv[3]);
   const chromeExecutable = process.argv[4] ?? "google-chrome";
   const profile = await fs.mkdtemp(
-    path.join(os.tmpdir(), "revengine-harness-chrome-"),
+    path.join(os.tmpdir(), "vehicleengine-harness-chrome-"),
   );
   const chrome = spawn(
     chromeExecutable,
@@ -578,7 +578,7 @@ async function main() {
         state.isolated &&
         state.secure &&
         state.security === "Isolated audio ready",
-      "the isolated REVENGINE harness",
+      "the isolated VEHICLEENGINE harness",
       30_000,
     );
     assert.deepEqual(admitted.errorMessages, []);
@@ -622,7 +622,7 @@ async function main() {
           meterPercent > 0
         );
       },
-      "nonzero buffered REVENGINE audio",
+      "nonzero buffered VEHICLEENGINE audio",
       PLAYBACK_TIMEOUT_MS,
     );
     assert.deepEqual(running.errorMessages, []);
@@ -709,6 +709,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  process.stderr.write(`REVENGINE harness integration failure: ${error.stack}\n`);
+  process.stderr.write(`VEHICLEENGINE harness integration failure: ${error.stack}\n`);
   process.exitCode = 1;
 });

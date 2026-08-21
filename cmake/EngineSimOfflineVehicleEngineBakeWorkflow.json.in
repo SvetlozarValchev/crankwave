@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/revengine-bake-workflow.v1",
+  "schema": "engine-sim-offline/vehicleengine-bake-workflow.v1",
   "release_identity": "@ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@",
   "path_base": "distribution_root",
   "responsive_profile_selection": {
@@ -17,7 +17,7 @@
     "path": "telemetry/engine-telemetry.v1.ndjson",
     "schema": "engine-sim-offline.engine-telemetry.ndjson.v1",
     "originating_commit": "c8d672b59e3046654ad5f818f31725798aef7ffa",
-    "included_in_revengine_workflow": false
+    "included_in_vehicleengine_workflow": false
   },
   "placeholders": {
     "engine_json": "absolute path to the admitted engine document",
@@ -26,7 +26,7 @@
     "cache_directory": "absolute path to the caller-owned reusable cache",
     "worker_count": "decimal integer in [1,32]",
     "deadline_unix_ms": "positive Unix epoch deadline in milliseconds",
-    "new_revengine_file": "absolute .revengine path that does not exist"
+    "new_vehicleengine_file": "absolute .vehicleengine path that does not exist"
   },
   "steps": [
     {
@@ -45,7 +45,7 @@
         "--deadline-unix-ms",
         "{deadline_unix_ms}"
       ],
-      "required_output": "{new_package_directory}/revengine.json",
+      "required_output": "{new_package_directory}/vehicleengine.json",
       "required_stdout_record": {
         "schema": "engine-sim-offline/responsive-audio-bake-plan-v1",
         "release_identity": "@ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@",
@@ -57,27 +57,27 @@
       "id": "pack",
       "executable": "@CMAKE_INSTALL_BINDIR@/engine-sim-offline",
       "arguments": [
-        "pack-revengine",
+        "pack-vehicleengine",
         "--package-directory",
         "{new_package_directory}",
         "--output",
-        "{new_revengine_file}",
+        "{new_vehicleengine_file}",
         "--deadline-unix-ms",
         "{deadline_unix_ms}",
         "--result-format",
         "json"
       ],
-      "required_output": "{new_revengine_file}",
+      "required_output": "{new_vehicleengine_file}",
       "required_stdout_record": {
         "schema": "engine-sim-offline.cli-result.v1",
         "release_identity": "@ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@",
-        "command": "pack-revengine",
+        "command": "pack-vehicleengine",
         "ok": true,
         "code": "success",
         "exit_code": 0
       },
       "required_result_fields": {
-        "output_file": "{new_revengine_file}"
+        "output_file": "{new_vehicleengine_file}"
       }
     },
     {
@@ -85,9 +85,9 @@
       "id": "verify",
       "executable": "@CMAKE_INSTALL_BINDIR@/engine-sim-offline",
       "arguments": [
-        "verify-revengine",
+        "verify-vehicleengine",
         "--input",
-        "{new_revengine_file}",
+        "{new_vehicleengine_file}",
         "--deadline-unix-ms",
         "{deadline_unix_ms}",
         "--result-format",
@@ -96,7 +96,7 @@
       "required_stdout_record": {
         "schema": "engine-sim-offline.cli-result.v1",
         "release_identity": "@ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@",
-        "command": "verify-revengine",
+        "command": "verify-vehicleengine",
         "ok": true,
         "code": "success",
         "exit_code": 0
