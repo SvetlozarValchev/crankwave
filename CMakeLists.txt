@@ -620,6 +620,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_WASM)
             "SHELL:-sMODULARIZE=1"
             "SHELL:-sEXPORT_ES6=1"
             "SHELL:-sENVIRONMENT=web,worker,node"
+            "SHELL:-sINCOMING_MODULE_JS_API=['locateFile','wasmBinary']"
             "SHELL:-sFILESYSTEM=0"
             "SHELL:-sALLOW_MEMORY_GROWTH=0"
             "SHELL:-sINITIAL_MEMORY=134217728"
