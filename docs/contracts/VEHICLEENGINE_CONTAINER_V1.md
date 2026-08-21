@@ -39,7 +39,7 @@ trailing bytes.
 
 | Offset | Bytes | Field | v1 value or meaning |
 |---:|---:|---|---|
-| 0 | 8 | magic | ASCII `REVENG01` |
+| 0 | 8 | magic | ASCII `VEHENG01` |
 | 8 | 2 | version | `1` |
 | 10 | 2 | header byte count | `128` |
 | 12 | 4 | flags | `0` |

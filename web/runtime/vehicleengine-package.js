@@ -4,7 +4,7 @@ import {
   resolveSharedRecordedStarterManifestUrl,
 } from "./shared-recorded-starter-runtime.js";
 
-const MAGIC = new TextEncoder().encode("REVENG01");
+const MAGIC = new TextEncoder().encode("VEHENG01");
 const CONTAINER_VERSION = 1;
 const HEADER_BYTES = 128;
 const INDEX_ENTRY_PREFIX_BYTES = 56;

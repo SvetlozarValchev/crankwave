@@ -11,7 +11,7 @@ namespace engine_sim_offline::artifacts {
 namespace {
 
 constexpr std::array<std::byte, 8> kMagic{
-    std::byte{'R'}, std::byte{'E'}, std::byte{'V'}, std::byte{'E'},
+    std::byte{'V'}, std::byte{'E'}, std::byte{'H'}, std::byte{'E'},
     std::byte{'N'}, std::byte{'G'}, std::byte{'0'}, std::byte{'1'},
 };
 

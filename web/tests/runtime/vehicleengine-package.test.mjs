@@ -10,7 +10,7 @@ import {
 } from "../../runtime/vehicleengine-package.js";
 
 const encoder = new TextEncoder();
-const MAGIC = encoder.encode("REVENG01");
+const MAGIC = encoder.encode("VEHENG01");
 const HEADER_BYTES = 128;
 const PREFIX_BYTES = 56;
 
