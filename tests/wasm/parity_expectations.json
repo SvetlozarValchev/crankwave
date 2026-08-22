@@ -10,12 +10,12 @@
   },
   "semantic_sha256": "cfa562577ff0d42da60f30b6b010626cb85ceccc48d0863342b600d241b17286",
   "native": {
-    "telemetry_f64le_sha256": "3147ed9cdab7d5ddab6ee40ccd9f54aee9479505836fec68eb8e11455778067c",
-    "audition_f32le_sha256": "931eee3179dad3336d45b7879d37ce6f04fc1b6cf0635f69996126d83e308592"
+    "telemetry_f64le_sha256": "35297cbf66600f325f49a8f0237e80b0cd01e30e9e8b714f1b069ebba304c524",
+    "audition_f32le_sha256": "6250ed471d8c1aa567013d7f71350f56fefedc111502411cf0fa03a6687192fd"
   },
   "wasm": {
-    "telemetry_f64le_sha256": "98ff4c0645bf5cbc842431a3b0a50d587d6794e5a664801ef7d6df343ea0199d",
-    "audition_f32le_sha256": "ede3c34fc94cd25c32329e37ee84cdd80f6093f1f2a3c36e055be71e55dc4610"
+    "telemetry_f64le_sha256": "a3d956d71d363c2d8f6fd300bbad4a52521547c7fde0c97feba320539e3c3783",
+    "audition_f32le_sha256": "254a6d75638c2dd132c60ee18799e3aeba4b070aa53668a26da6ae280d5ac337"
   },
   "bounds": {
     "telemetry_maximum_absolute_error": 0.005,
