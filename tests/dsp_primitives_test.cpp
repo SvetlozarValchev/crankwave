@@ -13,7 +13,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::dsp;
+using namespace crankwave::dsp;
 
 void expect(bool condition, const char *message) {
     if (!condition) {

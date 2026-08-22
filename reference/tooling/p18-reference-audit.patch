@@ -175,7 +175,7 @@ index e3d4cb6c290220ad1d22a4058ecd4a6f8185ec01..fcb55a9de65d808be0ff68df86b8cf89
 +
 +std::string referenceAuditPath(const char *filename) {
 +    const char *directory =
-+        std::getenv("ENGINE_SIM_OFFLINE_REFERENCE_FIXTURE_DIR");
++        std::getenv("CRANKWAVE_REFERENCE_FIXTURE_DIR");
 +    if (directory == nullptr || directory[0] == '\0') {
 +        return {};
 +    }
@@ -766,7 +766,7 @@ index 2b8b7a5b5ddb76d7851ebc0cb67339c80ae6e839..aa16cbba5353c37986be32ed753dcc65
 +    const engine_sim_random::ComponentSeeds &seeds)
 +{
 +    const char *directory =
-+        std::getenv("ENGINE_SIM_OFFLINE_REFERENCE_FIXTURE_DIR");
++        std::getenv("CRANKWAVE_REFERENCE_FIXTURE_DIR");
 +    if (directory == nullptr || directory[0] == '\0') return;
 +
 +    const fs::path root =
@@ -864,7 +864,7 @@ index 2b8b7a5b5ddb76d7851ebc0cb67339c80ae6e839..aa16cbba5353c37986be32ed753dcc65
 +#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
 +        const char *referenceFixtureDirectory =
 +            std::getenv(
-+                "ENGINE_SIM_OFFLINE_REFERENCE_FIXTURE_DIR");
++                "CRANKWAVE_REFERENCE_FIXTURE_DIR");
 +        if (referenceFixtureDirectory != nullptr
 +            && referenceFixtureDirectory[0] != '\0') {
 +            constexpr const char *RequiredCapture =

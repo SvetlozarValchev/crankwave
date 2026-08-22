@@ -22,9 +22,9 @@
 
 namespace {
 
-using namespace engine_sim_offline::contract;
-using namespace engine_sim_offline::simulation;
-using engine_sim_offline::test::AuthoredEngineFixture;
+using namespace crankwave::contract;
+using namespace crankwave::simulation;
+using crankwave::test::AuthoredEngineFixture;
 
 constexpr double kPreparationEndS = 0.22;
 constexpr double kBrakeReleaseS = 0.221;
@@ -75,7 +75,7 @@ make_free_vehicle_request(const AuthoredEngineFixture &canonical) {
     expect(inertial != nullptr,
            "canonical authored scenario lost inertial-dyno ownership");
 
-    const auto &core = engine_sim_offline::test::operating_profile(request.engine).core;
+    const auto &core = crankwave::test::operating_profile(request.engine).core;
     auto mechanism_plan_result =
         compile_mechanism_kinematics_plan(request.engine, core);
     if (const auto *report =
@@ -219,14 +219,14 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
     const auto extent = LowOrderExecutionExtent::finite_scenario(kTotalFrameCount);
     auto capture_plan = require_capture_plan(
         compile_low_order_capture_plan(request.engine, request.scenario, extent));
-    const auto random_plan = engine_sim_offline::test::compile_fixture_random_plan(
+    const auto random_plan = crankwave::test::compile_fixture_random_plan(
         request, request.engine, request.scenario);
     auto runtime = require_dynamic_runtime(compile_low_order_dynamic_crank_runtime(
         request.engine, request.scenario, capture_plan, nonzero_request_identity(),
         mechanism_plan, extent));
     auto core = require_core_runtime(compile_low_order_engine_core_v1_runtime(
         request.engine, request.scenario,
-        engine_sim_offline::test::operating_profile(request.engine).core, random_plan,
+        crankwave::test::operating_profile(request.engine).core, random_plan,
         mechanism_plan, extent));
 
     const auto initial = runtime.free_vehicle_state();
@@ -238,10 +238,10 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
             initial->clutch_engagement_01 == 1.0 &&
             initial->service_brake_application_01 == 1.0 &&
             initial->clutch_disposition ==
-                engine_sim_offline::simulation::detail::
+                crankwave::simulation::detail::
                     BoundedClutchCouplingDisposition::neutral &&
             initial->road_load_disposition ==
-                engine_sim_offline::simulation::detail::
+                crankwave::simulation::detail::
                     ForwardVehicleRoadLoadDisposition::held_at_rest,
         "initial simulation-internal FreeVehicle snapshot is incomplete");
 
@@ -280,10 +280,10 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
                        state->applied_average_clutch_torque_on_engine_nm < 0.0 &&
                        state->applied_average_road_load_force_n > 0.0 &&
                        state->clutch_disposition !=
-                           engine_sim_offline::simulation::detail::
+                           crankwave::simulation::detail::
                                BoundedClutchCouplingDisposition::neutral &&
                        state->clutch_disposition !=
-                           engine_sim_offline::simulation::detail::
+                           crankwave::simulation::detail::
                                BoundedClutchCouplingDisposition::disengaged,
                    "service brake did not hold the first released clutch step");
             expect(step->capture_torque.actuator.availability ==
@@ -302,7 +302,7 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
                        state->vehicle_speed_m_s > 0.0 &&
                        state->vehicle_distance_m > 0.0 &&
                        state->road_load_disposition ==
-                           engine_sim_offline::simulation::detail::
+                           crankwave::simulation::detail::
                                ForwardVehicleRoadLoadDisposition::moving,
                    "BMW did not launch after the authored service-brake release");
             checked_launch = true;
@@ -360,14 +360,14 @@ void test_locked_first_gear_ignition_off_remains_admitted_through_rest(
     const auto extent = LowOrderExecutionExtent::finite_scenario(kShutdownFrameCount);
     auto capture_plan = require_capture_plan(
         compile_low_order_capture_plan(request.engine, scenario, extent));
-    const auto random_plan = engine_sim_offline::test::compile_fixture_random_plan(
+    const auto random_plan = crankwave::test::compile_fixture_random_plan(
         request, request.engine, scenario);
     auto runtime = require_dynamic_runtime(compile_low_order_dynamic_crank_runtime(
         request.engine, scenario, capture_plan, nonzero_request_identity(),
         mechanism_plan, extent));
     auto core = require_core_runtime(compile_low_order_engine_core_v1_runtime(
         request.engine, scenario,
-        engine_sim_offline::test::operating_profile(request.engine).core, random_plan,
+        crankwave::test::operating_profile(request.engine).core, random_plan,
         mechanism_plan, extent));
 
     bool observed_stall = false;
@@ -438,7 +438,7 @@ void test_capture_session_selects_free_vehicle(const AuthoredEngineFixture &cano
     const auto &request = compiled_request.authored;
     auto session = require_capture_session(compile_low_order_capture_session(
         request.engine, request.scenario,
-        engine_sim_offline::test::compile_fixture_random_plan(request, request.engine,
+        crankwave::test::compile_fixture_random_plan(request, request.engine,
                                                               request.scenario),
         nonzero_request_identity(),
         LowOrderExecutionExtent::finite_scenario(kTotalFrameCount)));
@@ -486,7 +486,7 @@ int main(int argc, char **argv) {
                 "usage: low_order_free_vehicle_runtime_test <repository-root>"};
         }
         const auto canonical =
-            engine_sim_offline::test::load_canonical_authored_engine_fixture(
+            crankwave::test::load_canonical_authored_engine_fixture(
                 std::filesystem::path{argv[1]});
         test_bmw_launch_shift_and_internal_state(canonical);
         test_locked_first_gear_ignition_off_remains_admitted_through_rest(canonical);

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 inline constexpr double kLegacyGasConstantJPerMolK = 8.31446261815324;
 inline constexpr double kLegacyAirMolarMassKgPerMol = 0.02897;
@@ -190,4 +190,4 @@ void legacy_apply_gas_velocity_decay(LegacyGasCell &cell, double step_s,
 // Call sites retain ownership of their model-specified ordering.
 void legacy_floor_negative_gas_thermal_energy(LegacyGasCell &cell) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

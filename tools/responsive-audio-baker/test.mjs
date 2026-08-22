@@ -21,7 +21,7 @@ import {
   createBakeProcessSupervisor,
   createBakeReport,
   createExecutionRuntimeIdentity,
-  createVehicleEngineDescriptor,
+  createCrankwaveDescriptor,
   deriveResponsiveBakeProfile,
   createSanitizedChildEnvironment,
   main,
@@ -33,11 +33,11 @@ import {
 } from "./bake.mjs";
 import {
   compareCodeUnits,
-  isPortableVehicleEnginePath,
+  isPortableCrankwavePath,
   portableArtifactToken,
   rendererFileIdentity,
   reusablePriorPhaseAlignment,
-  validateVehicleEnginePackageTree,
+  validateCrankwavePackageTree,
 } from "./internal/bake-contract.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -56,7 +56,7 @@ function trackedEnginePaths(root) {
       paths.push(...trackedEnginePaths(entryPath));
     } else if (/^engine(?:-[a-z0-9-]+)?\.json$/u.test(entry.name)) {
       const candidate = json(entryPath);
-      if (candidate.schema === "engine-sim-offline/engine") {
+      if (candidate.schema === "crankwave/engine") {
         paths.push(entryPath);
       }
     }
@@ -162,12 +162,12 @@ test("renderer children receive only an allowlisted environment", async () => {
     NODE_OPTIONS: "--require=/private/inject.cjs",
   };
   const environment = createSanitizedChildEnvironment({
-    ESO_RESPONSIVE_BAKE_OUTPUT: "/tmp/controlled-output",
+    CRANKWAVE_RESPONSIVE_BAKE_OUTPUT: "/tmp/controlled-output",
   }, inherited);
   assert.deepEqual(
     Object.keys(environment).sort(),
     [
-      "ESO_RESPONSIVE_BAKE_OUTPUT",
+      "CRANKWAVE_RESPONSIVE_BAKE_OUTPUT",
       "LANG",
       "LC_ALL",
       "PATH",
@@ -182,7 +182,7 @@ test("renderer children receive only an allowlisted environment", async () => {
       { environment, stdout: "capture", stderr: "capture" },
     );
     const observed = JSON.parse(result.stdout);
-    assert.equal(observed.ESO_RESPONSIVE_BAKE_OUTPUT, "/tmp/controlled-output");
+    assert.equal(observed.CRANKWAVE_RESPONSIVE_BAKE_OUTPUT, "/tmp/controlled-output");
     assert.equal(observed.LANG, "C");
     assert.equal(observed.LC_ALL, "C");
     assert.equal(observed.TZ, "UTC");
@@ -207,7 +207,7 @@ test("renderer children receive only an allowlisted environment", async () => {
 test("termination reaches the complete renderer child process group", {
   skip: process.platform !== "linux",
 }, async () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-child-tree-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "crankwave-child-tree-"));
   const pidFile = path.join(temporary, "pids.json");
   const controller = new AbortController();
   const supervisor = createBakeProcessSupervisor({
@@ -281,7 +281,7 @@ test("termination reaches the complete renderer child process group", {
 test("a failed renderer leader cannot orphan its process group", {
   skip: process.platform !== "linux",
 }, async () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-failed-tree-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "crankwave-failed-tree-"));
   const pidFile = path.join(temporary, "pids.json");
   const supervisor = createBakeProcessSupervisor({ terminationGraceMs: 25 });
   let pids = null;
@@ -426,7 +426,7 @@ test("the automatic profile preserves the accepted 6500 RPM reference", () => {
   assert.deepEqual(automatic.lifecycle, explicit.lifecycle);
   assert.equal(
     automaticProfileSha256(automatic),
-    "3ccec50bec6a04558f94de10edc17e4ddb7c2f0bddeae37e4118405b74932201",
+    "619e66a7dc4bc81de8c2f0677f53c856a264eca594d4320cbc6f1014783709e5",
   );
   assert.doesNotThrow(() =>
     validateEngineProfileCompatibility(engine, automatic)
@@ -454,7 +454,7 @@ test("the automatic profile deterministically covers low and high redlines", () 
   assert.equal(radial.lifecycle.elevated_shutdown.rpm, 1576.271186);
   assert.equal(
     automaticProfileSha256(radial),
-    "5ba6d677d122c8d81eceb61e24801085c0246cba40644386f19b923f12ffcbaa",
+    "16bbf868899732efd1a3085b6d8f96bf843fa7e8c4de17785db1af9e406ab80b",
   );
 
   const honda = deriveResponsiveBakeProfile(json(path.join(
@@ -477,7 +477,7 @@ test("the automatic profile deterministically covers low and high redlines", () 
   assert.equal(honda.lifecycle.elevated_shutdown.rpm, 3772.881356);
   assert.equal(
     automaticProfileSha256(honda),
-    "e5d922f8504b5000dd06d2c6f0a15309ec48961411a738412bf030b964da3292",
+    "9489e16162ff2fa7829f6f3a5139ae45820a72b566f2f701672dccbf5b1090b4",
   );
   assert.notEqual(JSON.stringify(radial), JSON.stringify(honda));
 });
@@ -575,10 +575,10 @@ test("artifact tokens are portable and do not inherit slug collisions", () => {
   const dotted = portableArtifactToken("route", "front.left_dry");
   const dashed = portableArtifactToken("route", "front-left-dry");
   assert.notEqual(dotted, dashed);
-  assert.equal(isPortableVehicleEnginePath(`audio/${dotted}.f32le`), true);
-  assert.equal(isPortableVehicleEnginePath("Upper/audio.f32le"), false);
-  assert.equal(isPortableVehicleEnginePath("con.bin"), false);
-  assert.equal(isPortableVehicleEnginePath(`${"a".repeat(128)}.bin`), false);
+  assert.equal(isPortableCrankwavePath(`audio/${dotted}.f32le`), true);
+  assert.equal(isPortableCrankwavePath("Upper/audio.f32le"), false);
+  assert.equal(isPortableCrankwavePath("con.bin"), false);
+  assert.equal(isPortableCrankwavePath(`${"a".repeat(128)}.bin`), false);
 });
 
 test("code-unit ordering and execution runtime identity are explicit", () => {
@@ -635,10 +635,10 @@ test("code-unit ordering and execution runtime identity are explicit", () => {
 });
 
 test("renderer and prior-phase identities include every reuse boundary", () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-renderer-id-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "crankwave-renderer-id-"));
   try {
-    const loader = path.join(temporary, "engine-sim-offline.js");
-    const wasm = path.join(temporary, "engine-sim-offline.wasm");
+    const loader = path.join(temporary, "crankwave.js");
+    const wasm = path.join(temporary, "crankwave.wasm");
     fs.writeFileSync(loader, "export default 1;\n");
     fs.writeFileSync(wasm, Buffer.from([0, 97, 115, 109]));
     const first = rendererFileIdentity(loader, wasm);
@@ -685,9 +685,9 @@ test("generic inventory derives routes and authored assets without engine branch
   );
 });
 
-test("VEHICLEENGINE descriptor binds the exact responsive runtime bytes", () => {
+test("CRANKWAVE descriptor binds the exact responsive runtime bytes", () => {
   const bytes = Buffer.from("{\"engine\":\"example\"}\n");
-  const descriptor = createVehicleEngineDescriptor("example-engine", bytes);
+  const descriptor = createCrankwaveDescriptor("example-engine", bytes);
   assert.equal(descriptor.version, 1);
   assert.equal(descriptor.runtime.manifest_path, "runtime.json");
   assert.equal(
@@ -697,44 +697,44 @@ test("VEHICLEENGINE descriptor binds the exact responsive runtime bytes", () => 
 });
 
 test("package-tree preflight enforces the carrier path and manifest binding", () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-tree-check-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "crankwave-tree-check-"));
   try {
     const runtimeBytes = Buffer.from("not-json-but-bound\n");
     fs.writeFileSync(path.join(temporary, "runtime.json"), runtimeBytes);
     fs.writeFileSync(
-      path.join(temporary, "vehicleengine.json"),
-      `${JSON.stringify(createVehicleEngineDescriptor("example-engine", runtimeBytes))}\n`,
+      path.join(temporary, "crankwave.json"),
+      `${JSON.stringify(createCrankwaveDescriptor("example-engine", runtimeBytes))}\n`,
     );
-    const report = validateVehicleEnginePackageTree(temporary);
+    const report = validateCrankwavePackageTree(temporary);
     assert.equal(report.entry_count, 2);
 
     const validDescriptor = fs.readFileSync(
-      path.join(temporary, "vehicleengine.json"),
+      path.join(temporary, "crankwave.json"),
       "utf8",
     );
     fs.writeFileSync(
-      path.join(temporary, "vehicleengine.json"),
+      path.join(temporary, "crankwave.json"),
       validDescriptor.replace(
-        '"schema":"engine-sim-offline/vehicleengine-package"',
-        '"schema":"engine-sim-offline/vehicleengine-package",' +
-          '"sch\\u0065ma":"engine-sim-offline/vehicleengine-package"',
+        '"schema":"crankwave/crankwave-package"',
+        '"schema":"crankwave/crankwave-package",' +
+          '"sch\\u0065ma":"crankwave/crankwave-package"',
       ),
     );
     assert.throws(
-      () => validateVehicleEnginePackageTree(temporary),
+      () => validateCrankwavePackageTree(temporary),
       /repeats object member schema/u,
     );
-    fs.writeFileSync(path.join(temporary, "vehicleengine.json"), validDescriptor);
+    fs.writeFileSync(path.join(temporary, "crankwave.json"), validDescriptor);
 
     fs.writeFileSync(path.join(temporary, "Upper.bin"), "x");
     assert.throws(
-      () => validateVehicleEnginePackageTree(temporary),
+      () => validateCrankwavePackageTree(temporary),
       /nonportable relative path/u,
     );
     fs.rmSync(path.join(temporary, "Upper.bin"));
     fs.symlinkSync("runtime.json", path.join(temporary, "linked.bin"));
     assert.throws(
-      () => validateVehicleEnginePackageTree(temporary),
+      () => validateCrankwavePackageTree(temporary),
       /symlink/u,
     );
   } finally {
@@ -743,7 +743,7 @@ test("package-tree preflight enforces the carrier path and manifest binding", ()
 });
 
 test("package-tree scanning rejects the first entry beyond the carrier bound", () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-tree-bound-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "crankwave-tree-bound-"));
   try {
     const first = path.join(temporary, "entry-00000.bin");
     fs.writeFileSync(first, "");
@@ -754,8 +754,8 @@ test("package-tree scanning rejects the first entry beyond the carrier bound", (
       );
     }
     assert.throws(
-      () => validateVehicleEnginePackageTree(temporary),
-      /entry count is outside the VEHICLEENGINE v1 bounds/u,
+      () => validateCrankwavePackageTree(temporary),
+      /entry count is outside the CRANKWAVE v1 bounds/u,
     );
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
@@ -763,7 +763,7 @@ test("package-tree scanning rejects the first entry beyond the carrier bound", (
 });
 
 test("engine, profile, and catalog JSON reads are bounded before parsing", async () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-json-bound-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "crankwave-json-bound-"));
   const oversizedEngine = path.join(temporary, "engine.json");
   const oversizedProfile = path.join(temporary, "profile.json");
   const bundle = path.join(temporary, "builtin-assets");
@@ -819,7 +819,7 @@ test("engine, profile, and catalog JSON reads are bounded before parsing", async
 test("cache locks reject live owners and reap only same-scope dead owners", {
   skip: process.platform !== "linux",
 }, () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-cache-lock-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "crankwave-cache-lock-"));
   try {
     const release = acquireCacheLock(temporary);
     const registry = path.join(temporary, ".active");
@@ -875,7 +875,7 @@ test("cache locks reject live owners and reap only same-scope dead owners", {
 });
 
 test("successful-publication cleanup removes only lifecycle run scratch", () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-run-cleanup-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "crankwave-run-cleanup-"));
   try {
     const runs = path.join(temporary, "lifecycle/runs/run-1");
     const candidate = path.join(temporary, "lifecycle/candidate/runtime.json");
@@ -918,7 +918,7 @@ test("packaged bake reports contain portable runtime identity but no host paths"
     ],
     starterIdentity: { aggregate_sha256: digest, entries: [] },
     runtimeManifestSha256: digest,
-    vehicleengineDescriptorSha256: digest,
+    crankwaveDescriptorSha256: digest,
   });
   const text = JSON.stringify(report);
   assert.doesNotMatch(text, /\/tmp\/private/u);
@@ -968,7 +968,7 @@ test("the shared capture scheduler honors one global worker bound", async () => 
 });
 
 test("plan mode is renderer-free and has no filesystem side effects", async () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-bake-plan-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "crankwave-bake-plan-"));
   const cache = path.join(temporary, "cache");
   const output = path.join(temporary, "output");
   const bundle = path.join(temporary, "builtin-assets");
@@ -1039,7 +1039,7 @@ test("release identity extraction is bounded and validates semantic text", () =>
 });
 
 test("an expired command deadline fails before creating cache or output", async () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-past-deadline-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "crankwave-past-deadline-"));
   const output = path.join(temporary, "output");
   const cache = path.join(temporary, "cache");
   try {
@@ -1065,13 +1065,13 @@ test("an expired command deadline fails before creating cache or output", async 
 test("failed renderer work removes every incomplete output staging tree", {
   skip: process.platform === "win32",
 }, async () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-bake-cleanup-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "crankwave-bake-cleanup-"));
   const output = path.join(temporary, "responsive-output");
   const cache = path.join(temporary, "cache");
   const bundle = path.join(temporary, "builtin-assets");
   const rendererRoot = path.join(temporary, "renderer");
-  const modulePath = path.join(rendererRoot, "engine-sim-offline.js");
-  const wasmPath = path.join(rendererRoot, "engine-sim-offline.wasm");
+  const modulePath = path.join(rendererRoot, "crankwave.js");
+  const wasmPath = path.join(rendererRoot, "crankwave.wasm");
   const irDumper = path.join(temporary, "dump-ir-spectrum");
   try {
     assembleTestBundle(bundle, json(enginePath));
@@ -1139,12 +1139,12 @@ test("failed renderer work removes every incomplete output staging tree", {
 test("SIGTERM is reported and cleans an in-flight command output", {
   skip: process.platform === "win32",
 }, async () => {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "eso-bake-sigterm-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "crankwave-bake-sigterm-"));
   const output = path.join(temporary, "responsive-output");
   const cache = path.join(temporary, "cache");
   const bundle = path.join(temporary, "builtin-assets");
   const rendererRoot = path.join(temporary, "renderer");
-  const modulePath = path.join(rendererRoot, "engine-sim-offline.js");
+  const modulePath = path.join(rendererRoot, "crankwave.js");
   const irDumper = path.join(temporary, "dump-ir-spectrum");
   let child = null;
   try {
@@ -1156,7 +1156,7 @@ test("SIGTERM is reported and cleans an in-flight command output", {
         "await new Promise(()=>setInterval(()=>{},1000));}\n",
     );
     fs.writeFileSync(
-      path.join(rendererRoot, "engine-sim-offline.wasm"),
+      path.join(rendererRoot, "crankwave.wasm"),
       Buffer.from([0, 97, 115, 109]),
     );
     fs.writeFileSync(

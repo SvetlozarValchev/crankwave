@@ -1,6 +1,6 @@
 #include "manifest_encoder_impl.hpp"
 
-namespace engine_sim_offline::artifacts::detail {
+namespace crankwave::artifacts::detail {
 namespace {
 
 bool write_source_route_kind(CanonicalJsonWriter &writer,
@@ -264,4 +264,4 @@ bool write_artifact_records(CanonicalJsonWriter &writer,
     return writer.end_array();
 }
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace crankwave::artifacts::detail

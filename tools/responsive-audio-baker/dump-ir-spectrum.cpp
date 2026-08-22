@@ -16,8 +16,8 @@
 #include <variant>
 #include <vector>
 
-#ifndef ENGINE_SIM_OFFLINE_VERSION_LABEL
-#error "ENGINE_SIM_OFFLINE_VERSION_LABEL must be supplied by the product build"
+#ifndef CRANKWAVE_VERSION_LABEL
+#error "CRANKWAVE_VERSION_LABEL must be supplied by the product build"
 #endif
 
 namespace {
@@ -50,7 +50,7 @@ void write_u64le(std::ofstream &output, std::uint64_t value) {
 
 int main(int argc, char **argv) try {
     if (argc == 2 && std::string_view{argv[1]} == "--version") {
-        std::cout << "dump-ir-spectrum " << ENGINE_SIM_OFFLINE_VERSION_LABEL << '\n';
+        std::cout << "dump-ir-spectrum " << CRANKWAVE_VERSION_LABEL << '\n';
         return 0;
     }
     if (argc != 4) {
@@ -65,16 +65,16 @@ int main(int argc, char **argv) try {
     }
     const auto ir_bytes = read_bytes(argv[1]);
     const auto decoded_result =
-        engine_sim_offline::presentation::decode_pcm16_ir_wave(ir_bytes);
+        crankwave::presentation::decode_pcm16_ir_wave(ir_bytes);
     const auto *decoded =
-        std::get_if<engine_sim_offline::presentation::DecodedPcm16Ir>(&decoded_result);
+        std::get_if<crankwave::presentation::DecodedPcm16Ir>(&decoded_result);
     if (decoded == nullptr)
         throw std::runtime_error{"IR decoder rejected fixture"};
-    auto coefficients = engine_sim_offline::dsp::convert_static_ir(
+    auto coefficients = crankwave::dsp::convert_static_ir(
         decoded->samples, decoded->meaningful_support_frames, configured_gain);
     coefficients.resize(
-        engine_sim_offline::dsp::FixedConvolutionKernel::coefficient_count, 0.0);
-    const engine_sim_offline::dsp::FixedConvolutionKernel kernel{coefficients};
+        crankwave::dsp::FixedConvolutionKernel::coefficient_count, 0.0);
+    const crankwave::dsp::FixedConvolutionKernel kernel{coefficients};
     std::ofstream output{argv[3], std::ios::binary | std::ios::trunc};
     if (!output)
         throw std::runtime_error{"cannot create spectrum output"};

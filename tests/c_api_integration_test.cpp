@@ -1,4 +1,4 @@
-#include "engine_sim_offline/c_api.h"
+#include "crankwave/c_api.h"
 
 #include <algorithm>
 #include <array>
@@ -60,10 +60,10 @@ void expect(const bool condition, const std::string_view message) {
     }
 }
 
-[[nodiscard]] std::string digest_hex(const eso_sha256_digest_t &digest) {
+[[nodiscard]] std::string digest_hex(const crankwave_sha256_digest_t &digest) {
     static constexpr char kHex[] = "0123456789abcdef";
     std::string result;
-    result.reserve(ESO_SHA256_DIGEST_SIZE * 2U);
+    result.reserve(CRANKWAVE_SHA256_DIGEST_SIZE * 2U);
     for (const auto byte : digest.bytes) {
         result.push_back(kHex[byte >> 4U]);
         result.push_back(kHex[byte & 0x0fU]);
@@ -84,11 +84,11 @@ void expect(const bool condition, const std::string_view message) {
     return {text.begin(), text.end()};
 }
 
-[[nodiscard]] eso_utf8_view_t view(const std::string &value) noexcept {
+[[nodiscard]] crankwave_utf8_view_t view(const std::string &value) noexcept {
     return {value.data(), value.size()};
 }
 
-[[nodiscard]] eso_byte_view_t view(const std::vector<std::uint8_t> &value) noexcept {
+[[nodiscard]] crankwave_byte_view_t view(const std::vector<std::uint8_t> &value) noexcept {
     return {value.data(), value.size()};
 }
 
@@ -98,32 +98,32 @@ template <class Value> [[nodiscard]] bool bytes_are_zero(const Value &value) noe
                        [](const unsigned char byte) { return byte == 0U; });
 }
 
-[[nodiscard]] eso_session_telemetry_t process_to_first_audible_block(
-    eso_context_t *context, const eso_session_handle_t session,
-    const eso_session_descriptor_t &descriptor, const std::string_view label) {
-    std::vector<eso_completed_cycle_evidence_t> cycles(
+[[nodiscard]] crankwave_session_telemetry_t process_to_first_audible_block(
+    crankwave_context_t *context, const crankwave_session_handle_t session,
+    const crankwave_session_descriptor_t &descriptor, const std::string_view label) {
+    std::vector<crankwave_completed_cycle_evidence_t> cycles(
         descriptor.maximum_cycle_evidence_per_process_call);
     bool saw_completed_cycle = false;
     for (std::uint64_t block = 0U; block <= descriptor.preparation_block_count;
          ++block) {
-        eso_session_telemetry_t telemetry{};
-        eso_process_info_t process{};
-        expect(eso_session_process(context, session, nullptr, 0U, &telemetry, 1U,
+        crankwave_session_telemetry_t telemetry{};
+        crankwave_process_info_t process{};
+        expect(crankwave_session_process(context, session, nullptr, 0U, &telemetry, 1U,
                                    cycles.data(), cycles.size(),
-                                   &process) == ESO_STATUS_OK,
+                                   &process) == CRANKWAVE_STATUS_OK,
                std::string{label} + " failed before its first audible block");
-        expect(process.kind == ESO_PROCESS_BLOCK && process.block_ordinal == block &&
+        expect(process.kind == CRANKWAVE_PROCESS_BLOCK && process.block_ordinal == block &&
                    process.telemetry_written == 1U &&
                    process.cycle_evidence_written <= cycles.size(),
                std::string{label} + " returned a discontinuous block");
         for (std::size_t index = 0; index < process.cycle_evidence_written; ++index) {
             const auto &cycle = cycles[index];
-            const auto known_state_flags = ESO_ENGINE_CYCLE_STATE_IGNITION_ENABLED |
-                                           ESO_ENGINE_CYCLE_STATE_FUEL_ENABLED |
-                                           ESO_ENGINE_CYCLE_STATE_STARTER_ENABLED |
-                                           ESO_ENGINE_CYCLE_STATE_DYNO_ENABLED |
-                                           ESO_ENGINE_CYCLE_STATE_LIMITER_ENABLED |
-                                           ESO_ENGINE_CYCLE_STATE_LIMITER_CUT_ACTIVE;
+            const auto known_state_flags = CRANKWAVE_ENGINE_CYCLE_STATE_IGNITION_ENABLED |
+                                           CRANKWAVE_ENGINE_CYCLE_STATE_FUEL_ENABLED |
+                                           CRANKWAVE_ENGINE_CYCLE_STATE_STARTER_ENABLED |
+                                           CRANKWAVE_ENGINE_CYCLE_STATE_DYNO_ENABLED |
+                                           CRANKWAVE_ENGINE_CYCLE_STATE_LIMITER_ENABLED |
+                                           CRANKWAVE_ENGINE_CYCLE_STATE_LIMITER_CUT_ACTIVE;
             expect(cycle.end_boundary.cycle_ordinal ==
                            cycle.start_boundary.cycle_ordinal + 1 &&
                        cycle.start_boundary.left_physics_frame <=
@@ -145,7 +145,7 @@ template <class Value> [[nodiscard]] bool bytes_are_zero(const Value &value) noe
                        " returned malformed exact completed-cycle evidence");
             saw_completed_cycle = true;
         }
-        if (process.block_phase == ESO_BLOCK_PREPARATION) {
+        if (process.block_phase == CRANKWAVE_BLOCK_PREPARATION) {
             expect(telemetry.has_held_dyno == 0U && telemetry.has_free_vehicle == 0U &&
                        bytes_are_zero(telemetry.held_dyno) &&
                        bytes_are_zero(telemetry.free_vehicle),
@@ -153,7 +153,7 @@ template <class Value> [[nodiscard]] bool bytes_are_zero(const Value &value) noe
                        " published or dirtied an absent preparation sidecar");
             continue;
         }
-        expect(process.block_phase == ESO_BLOCK_AUDIBLE &&
+        expect(process.block_phase == CRANKWAVE_BLOCK_AUDIBLE &&
                    block == descriptor.preparation_block_count && saw_completed_cycle,
                std::string{label} + " released at the wrong block");
         return telemetry;
@@ -161,82 +161,82 @@ template <class Value> [[nodiscard]] bool bytes_are_zero(const Value &value) noe
     throw std::runtime_error{std::string{label} + " has no audible block"};
 }
 
-[[nodiscard]] std::string copy_engine_id(eso_context_t *context,
-                                         const eso_engine_handle_t engine) {
+[[nodiscard]] std::string copy_engine_id(crankwave_context_t *context,
+                                         const crankwave_engine_handle_t engine) {
     std::size_t size = 0;
-    expect(eso_engine_copy_id(context, engine, {nullptr, 0U}, &size) == ESO_STATUS_OK,
+    expect(crankwave_engine_copy_id(context, engine, {nullptr, 0U}, &size) == CRANKWAVE_STATUS_OK,
            "engine ID size query failed");
     std::string result(size, '\0');
     std::vector<char> buffer(size + 1U);
-    expect(eso_engine_copy_id(context, engine, {buffer.data(), buffer.size()}, &size) ==
-               ESO_STATUS_OK,
+    expect(crankwave_engine_copy_id(context, engine, {buffer.data(), buffer.size()}, &size) ==
+               CRANKWAVE_STATUS_OK,
            "engine ID copy failed");
     result.assign(buffer.data(), size);
     return result;
 }
 
-void test_diagnostic_surface(eso_context_t *context) {
+void test_diagnostic_surface(crankwave_context_t *context) {
     const std::string malformed = "{";
-    eso_engine_handle_t engine = ESO_INVALID_HANDLE;
-    expect(eso_compile_engine_json(context, view(malformed), nullptr, 0U, &engine) ==
-               ESO_STATUS_ENGINE_PARSE_FAILED,
+    crankwave_engine_handle_t engine = CRANKWAVE_INVALID_HANDLE;
+    expect(crankwave_compile_engine_json(context, view(malformed), nullptr, 0U, &engine) ==
+               CRANKWAVE_STATUS_ENGINE_PARSE_FAILED,
            "malformed JSON did not fail at parse time");
 
-    eso_error_info_t error{};
-    expect(eso_context_get_last_error(context, &error) == ESO_STATUS_OK &&
-               error.stage == ESO_ERROR_STAGE_ENGINE_PARSE &&
-               error.code == ESO_ERROR_AUTHORING_DIAGNOSTICS &&
+    crankwave_error_info_t error{};
+    expect(crankwave_context_get_last_error(context, &error) == CRANKWAVE_STATUS_OK &&
+               error.stage == CRANKWAVE_ERROR_STAGE_ENGINE_PARSE &&
+               error.code == CRANKWAVE_ERROR_AUTHORING_DIAGNOSTICS &&
                error.diagnostic_count != 0U,
            "parse failure lost its structured error record");
 
-    eso_diagnostic_info_t info{};
-    expect(eso_context_get_diagnostic(context, 0U, &info) == ESO_STATUS_OK &&
-               info.severity == ESO_DIAGNOSTIC_ERROR,
+    crankwave_diagnostic_info_t info{};
+    expect(crankwave_context_get_diagnostic(context, 0U, &info) == CRANKWAVE_STATUS_OK &&
+               info.severity == CRANKWAVE_DIAGNOSTIC_ERROR,
            "parse failure lost its first diagnostic");
     std::vector<char> path(info.json_pointer_utf8_bytes + 1U);
     std::vector<char> message(info.message_utf8_bytes + 1U);
-    eso_diagnostic_text_buffers_t buffers{
+    crankwave_diagnostic_text_buffers_t buffers{
         {path.data(), path.size()},
         {nullptr, 0U},
         {nullptr, 0U},
         {message.data(), message.size()},
     };
-    expect(eso_context_copy_diagnostic_text(context, 0U, &buffers) == ESO_STATUS_OK &&
+    expect(crankwave_context_copy_diagnostic_text(context, 0U, &buffers) == CRANKWAVE_STATUS_OK &&
                !std::string_view{message.data()}.empty(),
            "diagnostic text could not be copied into caller storage");
 }
 
-[[nodiscard]] std::uint32_t audition_bus(eso_context_t *context,
-                                         const eso_session_handle_t session,
+[[nodiscard]] std::uint32_t audition_bus(crankwave_context_t *context,
+                                         const crankwave_session_handle_t session,
                                          const std::uint32_t bus_count) {
     for (std::uint32_t index = 0; index < bus_count; ++index) {
-        eso_audio_bus_descriptor_t bus{};
-        expect(eso_session_get_audio_bus_descriptor(context, session, index, &bus) ==
-                   ESO_STATUS_OK,
+        crankwave_audio_bus_descriptor_t bus{};
+        expect(crankwave_session_get_audio_bus_descriptor(context, session, index, &bus) ==
+                   CRANKWAVE_STATUS_OK,
                "audio bus descriptor query failed");
         const bool source_route_bus =
-            bus.kind == ESO_AUDIO_BUS_SOURCE_ROUTE_DRY ||
-            bus.kind == ESO_AUDIO_BUS_SOURCE_ROUTE_CONFIGURED_TRANSFER ||
-            bus.kind == ESO_AUDIO_BUS_SOURCE_ROUTE_SELECTED;
+            bus.kind == CRANKWAVE_AUDIO_BUS_SOURCE_ROUTE_DRY ||
+            bus.kind == CRANKWAVE_AUDIO_BUS_SOURCE_ROUTE_CONFIGURED_TRANSFER ||
+            bus.kind == CRANKWAVE_AUDIO_BUS_SOURCE_ROUTE_SELECTED;
         const auto expected_signal_disposition =
-            bus.source_route_kind == ESO_SOURCE_ROUTE_EXHAUST_OUTLET
-                ? ESO_AUDIO_SIGNAL_ACTIVE
-            : source_route_bus ? ESO_AUDIO_SIGNAL_DECLARED_SILENT
-                               : ESO_AUDIO_SIGNAL_ACTIVE;
+            bus.source_route_kind == CRANKWAVE_SOURCE_ROUTE_EXHAUST_OUTLET
+                ? CRANKWAVE_AUDIO_SIGNAL_ACTIVE
+            : source_route_bus ? CRANKWAVE_AUDIO_SIGNAL_DECLARED_SILENT
+                               : CRANKWAVE_AUDIO_SIGNAL_ACTIVE;
         expect(source_route_bus
                    ? bus.has_route_id == 1U && bus.route_id != 0U &&
-                         bus.source_route_kind != ESO_SOURCE_ROUTE_UNSPECIFIED &&
+                         bus.source_route_kind != CRANKWAVE_SOURCE_ROUTE_UNSPECIFIED &&
                          bus.signal_disposition == expected_signal_disposition
                    : bus.has_route_id == 0U && bus.route_id == 0U &&
-                         bus.source_route_kind == ESO_SOURCE_ROUTE_UNSPECIFIED &&
+                         bus.source_route_kind == CRANKWAVE_SOURCE_ROUTE_UNSPECIFIED &&
                          bus.signal_disposition == expected_signal_disposition,
                "audio bus route identity, source kind, and signal disposition "
                "disagree");
-        if (bus.kind == ESO_AUDIO_BUS_ENGINE_AUDITION_MASTER) {
+        if (bus.kind == CRANKWAVE_AUDIO_BUS_ENGINE_AUDITION_MASTER) {
             std::vector<char> id(bus.id_utf8_bytes + 1U);
-            expect(eso_session_copy_audio_bus_id(context, session, index,
+            expect(crankwave_session_copy_audio_bus_id(context, session, index,
                                                  {id.data(), id.size()}) ==
-                           ESO_STATUS_OK &&
+                           CRANKWAVE_STATUS_OK &&
                        !std::string_view{id.data()}.empty(),
                    "audition bus ID copy failed");
             return index;
@@ -245,40 +245,40 @@ void test_diagnostic_surface(eso_context_t *context) {
     throw std::runtime_error{"session descriptor has no audition master"};
 }
 
-void enqueue_live_batch(eso_context_t *context, const eso_session_handle_t session,
+void enqueue_live_batch(crankwave_context_t *context, const crankwave_session_handle_t session,
                         const std::uint64_t first_live_frame,
                         const bool require_no_allocation = false) {
-    const eso_control_command_t controls[] = {
-        {first_live_frame, 1U, ESO_CONTROL_THROTTLE, 0U, 0.75, 0U, 0U},
-        {first_live_frame, 2U, ESO_CONTROL_IGNITION_ENABLED, 1U, 0.0, 0U, 0U},
-        {first_live_frame, 3U, ESO_CONTROL_FUEL_ENABLED, 1U, 0.0, 0U, 0U},
+    const crankwave_control_command_t controls[] = {
+        {first_live_frame, 1U, CRANKWAVE_CONTROL_THROTTLE, 0U, 0.75, 0U, 0U},
+        {first_live_frame, 2U, CRANKWAVE_CONTROL_IGNITION_ENABLED, 1U, 0.0, 0U, 0U},
+        {first_live_frame, 3U, CRANKWAVE_CONTROL_FUEL_ENABLED, 1U, 0.0, 0U, 0U},
     };
-    eso_control_rejection_t rejection{};
+    crankwave_control_rejection_t rejection{};
     allocation_probe::reject.store(require_no_allocation, std::memory_order_relaxed);
     const auto status =
-        eso_session_enqueue_controls(context, session, controls, 3U, &rejection);
+        crankwave_session_enqueue_controls(context, session, controls, 3U, &rejection);
     allocation_probe::reject.store(false, std::memory_order_relaxed);
-    expect(status == ESO_STATUS_OK && rejection.code == ESO_ERROR_NONE,
+    expect(status == CRANKWAVE_STATUS_OK && rejection.code == CRANKWAVE_ERROR_NONE,
            "typed live-control batch was rejected");
 }
 
-void enqueue_free_live_batch(eso_context_t *context, const eso_session_handle_t session,
+void enqueue_free_live_batch(crankwave_context_t *context, const crankwave_session_handle_t session,
                              const std::uint64_t first_live_frame) {
-    const eso_control_command_t controls[] = {
-        {first_live_frame, 1U, ESO_CONTROL_THROTTLE, 0U, 1.0, 0U, 0U},
-        {first_live_frame, 2U, ESO_CONTROL_IGNITION_ENABLED, 1U, 0.0, 0U, 0U},
-        {first_live_frame, 3U, ESO_CONTROL_FUEL_ENABLED, 1U, 0.0, 0U, 0U},
-        {first_live_frame, 4U, ESO_CONTROL_LIMITER_ENABLED, 0U, 0.0, 0U, 0U},
-        {first_live_frame, 5U, ESO_CONTROL_EXTERNAL_RESISTING_TORQUE, 0U, 0.0, 0U, 0U},
+    const crankwave_control_command_t controls[] = {
+        {first_live_frame, 1U, CRANKWAVE_CONTROL_THROTTLE, 0U, 1.0, 0U, 0U},
+        {first_live_frame, 2U, CRANKWAVE_CONTROL_IGNITION_ENABLED, 1U, 0.0, 0U, 0U},
+        {first_live_frame, 3U, CRANKWAVE_CONTROL_FUEL_ENABLED, 1U, 0.0, 0U, 0U},
+        {first_live_frame, 4U, CRANKWAVE_CONTROL_LIMITER_ENABLED, 0U, 0.0, 0U, 0U},
+        {first_live_frame, 5U, CRANKWAVE_CONTROL_EXTERNAL_RESISTING_TORQUE, 0U, 0.0, 0U, 0U},
     };
-    eso_control_rejection_t rejection{};
-    expect(eso_session_enqueue_controls(context, session, controls, 5U, &rejection) ==
-                   ESO_STATUS_OK &&
-               rejection.code == ESO_ERROR_NONE,
+    crankwave_control_rejection_t rejection{};
+    expect(crankwave_session_enqueue_controls(context, session, controls, 5U, &rejection) ==
+                   CRANKWAVE_STATUS_OK &&
+               rejection.code == CRANKWAVE_ERROR_NONE,
            "free-engine C session rejected an advertised live control");
 }
 
-void test_motion_contract_surface(eso_context_t *context,
+void test_motion_contract_surface(crankwave_context_t *context,
                                   const std::filesystem::path &repository_root) {
     const auto engine_json =
         read_text(repository_root / "data/engines/bmw-m52tub28-cleanroom/engine.json");
@@ -290,49 +290,49 @@ void test_motion_contract_surface(eso_context_t *context,
                                     "free-vehicle-launch-first-second.json");
     const auto ir = read_bytes(
         repository_root /
-        "reference/fixtures/engine-sim-ir-library/presentation/smooth_39.wav");
+        "reference/fixtures/crankwave-ir-library/presentation/smooth_39.wav");
     const auto accessory =
         read_bytes(repository_root /
                    "data/profiles/bmw-m52tub28-cleanroom/accessory-configurations/"
                    "bmw-m52tub28-cleanroom-warm-generic-accessories-v1.json");
     const std::string ir_id = "smooth-39";
     const std::string accessory_id = "warm-generic-accessories";
-    const eso_asset_payload_t assets[] = {
-        {ESO_ASSET_AUDIO, view(ir_id), view(ir)},
-        {ESO_ASSET_ACCESSORY_CONFIGURATION, view(accessory_id), view(accessory)},
+    const crankwave_asset_payload_t assets[] = {
+        {CRANKWAVE_ASSET_AUDIO, view(ir_id), view(ir)},
+        {CRANKWAVE_ASSET_ACCESSORY_CONFIGURATION, view(accessory_id), view(accessory)},
     };
 
-    eso_engine_handle_t engine = ESO_INVALID_HANDLE;
-    expect(eso_compile_engine_json(context, view(engine_json), assets, 2U, &engine) ==
-               ESO_STATUS_OK,
+    crankwave_engine_handle_t engine = CRANKWAVE_INVALID_HANDLE;
+    expect(crankwave_compile_engine_json(context, view(engine_json), assets, 2U, &engine) ==
+               CRANKWAVE_STATUS_OK,
            "M52TU engine compilation through C ABI v9 failed");
 
-    eso_sha256_digest_t engine_provenance{};
-    expect(eso_engine_copy_provenance_sha256(context, engine, nullptr) ==
-               ESO_STATUS_INVALID_ARGUMENT,
+    crankwave_sha256_digest_t engine_provenance{};
+    expect(crankwave_engine_copy_provenance_sha256(context, engine, nullptr) ==
+               CRANKWAVE_STATUS_INVALID_ARGUMENT,
            "engine provenance admitted a null output digest");
     engine_provenance.bytes[0] = 0xa5U;
-    expect(eso_engine_copy_provenance_sha256(context, ESO_INVALID_HANDLE,
+    expect(crankwave_engine_copy_provenance_sha256(context, CRANKWAVE_INVALID_HANDLE,
                                              &engine_provenance) ==
-                   ESO_STATUS_INVALID_HANDLE &&
+                   CRANKWAVE_STATUS_INVALID_HANDLE &&
                engine_provenance.bytes[0] == 0xa5U,
            "engine provenance lost invalid-handle or transactional output behavior");
-    expect(eso_engine_copy_provenance_sha256(context, engine, &engine_provenance) ==
-               ESO_STATUS_OK,
+    expect(crankwave_engine_copy_provenance_sha256(context, engine, &engine_provenance) ==
+               CRANKWAVE_STATUS_OK,
            "C ABI could not copy compiled-engine provenance");
     const auto engine_provenance_hex = digest_hex(engine_provenance);
     constexpr std::string_view kExpectedEngineProvenance =
-        "3918d17dc709292fa6d61681b08889647f92f6bcf1b3209cbdc5d70c91c0fa5e";
+        "d47d239c0a8767af26b6f805306ccd140e5c821de1b02389246ae0a286fc2491";
     if (engine_provenance_hex != kExpectedEngineProvenance) {
         throw std::runtime_error{
             "C ABI engine provenance differs from the compiled bundle SHA-256: " +
             engine_provenance_hex};
     }
 
-    eso_sha256_digest_t renderer_source{};
+    crankwave_sha256_digest_t renderer_source{};
     const auto renderer_status =
-        eso_renderer_copy_source_closure_sha256(context, &renderer_source);
-    if (renderer_status == ESO_STATUS_OK) {
+        crankwave_renderer_copy_source_closure_sha256(context, &renderer_source);
+    if (renderer_status == CRANKWAVE_STATUS_OK) {
         const auto renderer_hex = digest_hex(renderer_source);
         expect(renderer_hex.size() == 64U &&
                    renderer_hex.find_first_not_of("0123456789abcdef") ==
@@ -340,58 +340,58 @@ void test_motion_contract_surface(eso_context_t *context,
                    renderer_hex.find_first_not_of('0') != std::string::npos,
                "C ABI renderer source closure is not a canonical SHA-256");
     } else {
-        eso_error_info_t error{};
-        expect(renderer_status == ESO_STATUS_NOT_AVAILABLE &&
-                   eso_context_get_last_error(context, &error) == ESO_STATUS_OK &&
-                   error.code == ESO_ERROR_RENDERER_SOURCE_STAMP_UNAVAILABLE,
+        crankwave_error_info_t error{};
+        expect(renderer_status == CRANKWAVE_STATUS_NOT_AVAILABLE &&
+                   crankwave_context_get_last_error(context, &error) == CRANKWAVE_STATUS_OK &&
+                   error.code == CRANKWAVE_ERROR_RENDERER_SOURCE_STAMP_UNAVAILABLE,
                "an inadmissible renderer stamp did not fail closed");
     }
-    eso_scenario_handle_t held_dyno_scenario = ESO_INVALID_HANDLE;
-    eso_scenario_handle_t free_vehicle_scenario = ESO_INVALID_HANDLE;
-    expect(eso_compile_scenario_json(context, engine, view(held_dyno_json),
-                                     &held_dyno_scenario) == ESO_STATUS_OK &&
-               eso_compile_scenario_json(context, engine, view(free_vehicle_json),
-                                         &free_vehicle_scenario) == ESO_STATUS_OK,
+    crankwave_scenario_handle_t held_dyno_scenario = CRANKWAVE_INVALID_HANDLE;
+    crankwave_scenario_handle_t free_vehicle_scenario = CRANKWAVE_INVALID_HANDLE;
+    expect(crankwave_compile_scenario_json(context, engine, view(held_dyno_json),
+                                     &held_dyno_scenario) == CRANKWAVE_STATUS_OK &&
+               crankwave_compile_scenario_json(context, engine, view(free_vehicle_json),
+                                         &free_vehicle_scenario) == CRANKWAVE_STATUS_OK,
            "C ABI v9 motion-scenario compilation failed");
 
-    eso_session_handle_t held_dyno_session = ESO_INVALID_HANDLE;
-    eso_session_handle_t free_vehicle_session = ESO_INVALID_HANDLE;
-    expect(eso_create_session(context, held_dyno_scenario,
-                              ESO_SESSION_EXECUTION_OPEN_ENDED,
-                              &held_dyno_session) == ESO_STATUS_OK &&
-               eso_create_session(context, free_vehicle_scenario,
-                                  ESO_SESSION_EXECUTION_OPEN_ENDED,
-                                  &free_vehicle_session) == ESO_STATUS_OK,
+    crankwave_session_handle_t held_dyno_session = CRANKWAVE_INVALID_HANDLE;
+    crankwave_session_handle_t free_vehicle_session = CRANKWAVE_INVALID_HANDLE;
+    expect(crankwave_create_session(context, held_dyno_scenario,
+                              CRANKWAVE_SESSION_EXECUTION_OPEN_ENDED,
+                              &held_dyno_session) == CRANKWAVE_STATUS_OK &&
+               crankwave_create_session(context, free_vehicle_scenario,
+                                  CRANKWAVE_SESSION_EXECUTION_OPEN_ENDED,
+                                  &free_vehicle_session) == CRANKWAVE_STATUS_OK,
            "C ABI v9 open operating-bench session creation failed");
 
-    constexpr auto kCoreLiveControls = ESO_LIVE_CONTROL_CAPABILITY_THROTTLE |
-                                       ESO_LIVE_CONTROL_CAPABILITY_IGNITION_ENABLED |
-                                       ESO_LIVE_CONTROL_CAPABILITY_FUEL_ENABLED;
+    constexpr auto kCoreLiveControls = CRANKWAVE_LIVE_CONTROL_CAPABILITY_THROTTLE |
+                                       CRANKWAVE_LIVE_CONTROL_CAPABILITY_IGNITION_ENABLED |
+                                       CRANKWAVE_LIVE_CONTROL_CAPABILITY_FUEL_ENABLED;
     constexpr auto kHeldDynoLiveControls =
-        kCoreLiveControls | ESO_LIVE_CONTROL_CAPABILITY_HELD_DYNO_TARGET_ENGINE_SPEED |
-        ESO_LIVE_CONTROL_CAPABILITY_HELD_DYNO_MAXIMUM_ABSORBING_TORQUE |
-        ESO_LIVE_CONTROL_CAPABILITY_HELD_DYNO_MAXIMUM_DRIVING_TORQUE;
+        kCoreLiveControls | CRANKWAVE_LIVE_CONTROL_CAPABILITY_HELD_DYNO_TARGET_ENGINE_SPEED |
+        CRANKWAVE_LIVE_CONTROL_CAPABILITY_HELD_DYNO_MAXIMUM_ABSORBING_TORQUE |
+        CRANKWAVE_LIVE_CONTROL_CAPABILITY_HELD_DYNO_MAXIMUM_DRIVING_TORQUE;
     constexpr auto kFreeVehicleLiveControls =
-        kCoreLiveControls | ESO_LIVE_CONTROL_CAPABILITY_LIMITER_ENABLED |
-        ESO_LIVE_CONTROL_CAPABILITY_STARTER_ENABLED |
-        ESO_LIVE_CONTROL_CAPABILITY_VEHICLE_SELECTED_FORWARD_GEAR |
-        ESO_LIVE_CONTROL_CAPABILITY_VEHICLE_CLUTCH_ENGAGEMENT |
-        ESO_LIVE_CONTROL_CAPABILITY_VEHICLE_SERVICE_BRAKE_APPLICATION;
+        kCoreLiveControls | CRANKWAVE_LIVE_CONTROL_CAPABILITY_LIMITER_ENABLED |
+        CRANKWAVE_LIVE_CONTROL_CAPABILITY_STARTER_ENABLED |
+        CRANKWAVE_LIVE_CONTROL_CAPABILITY_VEHICLE_SELECTED_FORWARD_GEAR |
+        CRANKWAVE_LIVE_CONTROL_CAPABILITY_VEHICLE_CLUTCH_ENGAGEMENT |
+        CRANKWAVE_LIVE_CONTROL_CAPABILITY_VEHICLE_SERVICE_BRAKE_APPLICATION;
 
-    eso_session_descriptor_t held_descriptor{};
-    eso_session_descriptor_t vehicle_descriptor{};
-    expect(eso_session_get_descriptor(context, held_dyno_session, &held_descriptor) ==
-                   ESO_STATUS_OK &&
-               held_descriptor.motion_mode == ESO_MOTION_HELD_DYNO &&
-               held_descriptor.execution_kind == ESO_SESSION_EXECUTION_OPEN_ENDED &&
+    crankwave_session_descriptor_t held_descriptor{};
+    crankwave_session_descriptor_t vehicle_descriptor{};
+    expect(crankwave_session_get_descriptor(context, held_dyno_session, &held_descriptor) ==
+                   CRANKWAVE_STATUS_OK &&
+               held_descriptor.motion_mode == CRANKWAVE_MOTION_HELD_DYNO &&
+               held_descriptor.execution_kind == CRANKWAVE_SESSION_EXECUTION_OPEN_ENDED &&
                held_descriptor.total_block_count == 0U &&
                held_descriptor.forward_gear_count == 0U &&
                held_descriptor.live_control_capabilities == kHeldDynoLiveControls,
            "held-dyno C descriptor lost its exact motion contract");
-    expect(eso_session_get_descriptor(context, free_vehicle_session,
-                                      &vehicle_descriptor) == ESO_STATUS_OK &&
-               vehicle_descriptor.motion_mode == ESO_MOTION_FREE_VEHICLE &&
-               vehicle_descriptor.execution_kind == ESO_SESSION_EXECUTION_OPEN_ENDED &&
+    expect(crankwave_session_get_descriptor(context, free_vehicle_session,
+                                      &vehicle_descriptor) == CRANKWAVE_STATUS_OK &&
+               vehicle_descriptor.motion_mode == CRANKWAVE_MOTION_FREE_VEHICLE &&
+               vehicle_descriptor.execution_kind == CRANKWAVE_SESSION_EXECUTION_OPEN_ENDED &&
                vehicle_descriptor.total_block_count == 0U &&
                vehicle_descriptor.forward_gear_count == 5U &&
                vehicle_descriptor.live_control_capabilities == kFreeVehicleLiveControls,
@@ -403,9 +403,9 @@ void test_motion_contract_surface(eso_context_t *context,
     std::array<std::uint32_t, 5U> stable_gear_ids{};
     for (std::uint32_t index = 0U; index < vehicle_descriptor.forward_gear_count;
          ++index) {
-        eso_forward_gear_descriptor_t gear{};
-        expect(eso_session_get_forward_gear_descriptor(context, free_vehicle_session,
-                                                       index, &gear) == ESO_STATUS_OK &&
+        crankwave_forward_gear_descriptor_t gear{};
+        expect(crankwave_session_get_forward_gear_descriptor(context, free_vehicle_session,
+                                                       index, &gear) == CRANKWAVE_STATUS_OK &&
                    gear.gear_id != 0U && gear.authored_ordinal == index + 1U &&
                    gear.ratio == kExpectedGearRatios[index] &&
                    gear.semantic_id_utf8_bytes ==
@@ -416,135 +416,135 @@ void test_motion_contract_surface(eso_context_t *context,
                          gear.gear_id) == stable_gear_ids.begin() + index,
                "C forward-gear stable IDs are not unique");
         std::vector<char> semantic_id(gear.semantic_id_utf8_bytes + 1U);
-        expect(eso_session_copy_forward_gear_semantic_id(
+        expect(crankwave_session_copy_forward_gear_semantic_id(
                    context, free_vehicle_session, index,
-                   {semantic_id.data(), semantic_id.size()}) == ESO_STATUS_OK &&
+                   {semantic_id.data(), semantic_id.size()}) == CRANKWAVE_STATUS_OK &&
                    std::string_view{semantic_id.data()} ==
                        kExpectedGearSemanticIds[index],
                "C forward-gear semantic ID copy changed");
     }
-    eso_forward_gear_descriptor_t invalid_gear_descriptor{};
-    expect(eso_session_get_forward_gear_descriptor(
+    crankwave_forward_gear_descriptor_t invalid_gear_descriptor{};
+    expect(crankwave_session_get_forward_gear_descriptor(
                context, free_vehicle_session, vehicle_descriptor.forward_gear_count,
-               &invalid_gear_descriptor) == ESO_STATUS_INVALID_ARGUMENT,
+               &invalid_gear_descriptor) == CRANKWAVE_STATUS_INVALID_ARGUMENT,
            "C forward-gear query admitted an out-of-inventory index");
 
     const auto held_first_live_frame = held_descriptor.preparation_block_count *
                                        held_descriptor.delivery_frames_per_block;
-    eso_control_rejection_t rejection{};
-    const eso_control_command_t target_with_discrete_payload{
+    crankwave_control_rejection_t rejection{};
+    const crankwave_control_command_t target_with_discrete_payload{
         held_first_live_frame,
         1U,
-        ESO_CONTROL_HELD_DYNO_TARGET_ENGINE_SPEED,
+        CRANKWAVE_CONTROL_HELD_DYNO_TARGET_ENGINE_SPEED,
         0U,
         1750.0,
         1U,
         0U};
-    expect(eso_session_enqueue_controls(context, held_dyno_session,
+    expect(crankwave_session_enqueue_controls(context, held_dyno_session,
                                         &target_with_discrete_payload, 1U,
-                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+                                        &rejection) == CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_INVALID_PAYLOAD,
            "C dyno scalar admitted a nonzero discrete payload");
-    const eso_control_command_t target_with_reserved_payload{
+    const crankwave_control_command_t target_with_reserved_payload{
         held_first_live_frame,
         1U,
-        ESO_CONTROL_HELD_DYNO_TARGET_ENGINE_SPEED,
+        CRANKWAVE_CONTROL_HELD_DYNO_TARGET_ENGINE_SPEED,
         0U,
         1750.0,
         0U,
         1U};
-    expect(eso_session_enqueue_controls(context, held_dyno_session,
+    expect(crankwave_session_enqueue_controls(context, held_dyno_session,
                                         &target_with_reserved_payload, 1U,
-                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+                                        &rejection) == CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_INVALID_PAYLOAD,
            "C dyno scalar admitted a nonzero reserved field");
-    const eso_control_command_t zero_target{held_first_live_frame,
+    const crankwave_control_command_t zero_target{held_first_live_frame,
                                             1U,
-                                            ESO_CONTROL_HELD_DYNO_TARGET_ENGINE_SPEED,
+                                            CRANKWAVE_CONTROL_HELD_DYNO_TARGET_ENGINE_SPEED,
                                             0U,
                                             0.0,
                                             0U,
                                             0U};
-    expect(eso_session_enqueue_controls(context, held_dyno_session, &zero_target, 1U,
-                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+    expect(crankwave_session_enqueue_controls(context, held_dyno_session, &zero_target, 1U,
+                                        &rejection) == CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_INVALID_PAYLOAD,
            "C held dyno admitted a zero target engine speed");
 
     constexpr double kCommandedDynoTargetRpm = 1750.0;
     constexpr double kCommandedMaximumAbsorbingTorqueNm = 333.0;
     constexpr double kCommandedMaximumDrivingTorqueNm = 17.0;
-    const eso_control_command_t held_controls[] = {
-        {held_first_live_frame, 1U, ESO_CONTROL_HELD_DYNO_TARGET_ENGINE_SPEED, 0U,
+    const crankwave_control_command_t held_controls[] = {
+        {held_first_live_frame, 1U, CRANKWAVE_CONTROL_HELD_DYNO_TARGET_ENGINE_SPEED, 0U,
          kCommandedDynoTargetRpm, 0U, 0U},
-        {held_first_live_frame, 2U, ESO_CONTROL_HELD_DYNO_MAXIMUM_ABSORBING_TORQUE, 0U,
+        {held_first_live_frame, 2U, CRANKWAVE_CONTROL_HELD_DYNO_MAXIMUM_ABSORBING_TORQUE, 0U,
          kCommandedMaximumAbsorbingTorqueNm, 0U, 0U},
-        {held_first_live_frame, 3U, ESO_CONTROL_HELD_DYNO_MAXIMUM_DRIVING_TORQUE, 0U,
+        {held_first_live_frame, 3U, CRANKWAVE_CONTROL_HELD_DYNO_MAXIMUM_DRIVING_TORQUE, 0U,
          kCommandedMaximumDrivingTorqueNm, 0U, 0U},
     };
-    expect(eso_session_enqueue_controls(context, held_dyno_session, held_controls, 3U,
-                                        &rejection) == ESO_STATUS_OK,
+    expect(crankwave_session_enqueue_controls(context, held_dyno_session, held_controls, 3U,
+                                        &rejection) == CRANKWAVE_STATUS_OK,
            "C held dyno rejected its advertised controls");
 
     const auto vehicle_first_live_frame = vehicle_descriptor.preparation_block_count *
                                           vehicle_descriptor.delivery_frames_per_block;
-    const eso_control_command_t gear_with_boolean_payload{
+    const crankwave_control_command_t gear_with_boolean_payload{
         vehicle_first_live_frame,
         1U,
-        ESO_CONTROL_VEHICLE_SELECTED_FORWARD_GEAR,
+        CRANKWAVE_CONTROL_VEHICLE_SELECTED_FORWARD_GEAR,
         1U,
         0.0,
         2U,
         0U};
-    expect(eso_session_enqueue_controls(context, free_vehicle_session,
+    expect(crankwave_session_enqueue_controls(context, free_vehicle_session,
                                         &gear_with_boolean_payload, 1U,
-                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+                                        &rejection) == CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_INVALID_PAYLOAD,
            "C gear control admitted a boolean payload");
-    const eso_control_command_t gear_with_signed_zero{
+    const crankwave_control_command_t gear_with_signed_zero{
         vehicle_first_live_frame,
         1U,
-        ESO_CONTROL_VEHICLE_SELECTED_FORWARD_GEAR,
+        CRANKWAVE_CONTROL_VEHICLE_SELECTED_FORWARD_GEAR,
         0U,
         -0.0,
         2U,
         0U};
-    expect(eso_session_enqueue_controls(context, free_vehicle_session,
+    expect(crankwave_session_enqueue_controls(context, free_vehicle_session,
                                         &gear_with_signed_zero, 1U,
-                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+                                        &rejection) == CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_INVALID_PAYLOAD,
            "C gear control admitted signed negative zero");
-    const eso_control_command_t out_of_inventory_gear{
+    const crankwave_control_command_t out_of_inventory_gear{
         vehicle_first_live_frame,
         1U,
-        ESO_CONTROL_VEHICLE_SELECTED_FORWARD_GEAR,
+        CRANKWAVE_CONTROL_VEHICLE_SELECTED_FORWARD_GEAR,
         0U,
         0.0,
         vehicle_descriptor.forward_gear_count + 1U,
         0U};
-    expect(eso_session_enqueue_controls(context, free_vehicle_session,
+    expect(crankwave_session_enqueue_controls(context, free_vehicle_session,
                                         &out_of_inventory_gear, 1U,
-                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+                                        &rejection) == CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_INVALID_PAYLOAD,
            "C gear control admitted an ordinal outside its descriptor");
 
     constexpr std::uint32_t kCommandedGearOrdinal = 2U;
     constexpr double kCommandedClutchEngagement = 0.5;
     constexpr double kCommandedServiceBrakeApplication = 0.5;
-    const eso_control_command_t vehicle_controls[] = {
-        {vehicle_first_live_frame, 1U, ESO_CONTROL_VEHICLE_SELECTED_FORWARD_GEAR, 0U,
+    const crankwave_control_command_t vehicle_controls[] = {
+        {vehicle_first_live_frame, 1U, CRANKWAVE_CONTROL_VEHICLE_SELECTED_FORWARD_GEAR, 0U,
          0.0, kCommandedGearOrdinal, 0U},
-        {vehicle_first_live_frame, 2U, ESO_CONTROL_VEHICLE_CLUTCH_ENGAGEMENT, 0U,
+        {vehicle_first_live_frame, 2U, CRANKWAVE_CONTROL_VEHICLE_CLUTCH_ENGAGEMENT, 0U,
          kCommandedClutchEngagement, 0U, 0U},
-        {vehicle_first_live_frame, 3U, ESO_CONTROL_VEHICLE_SERVICE_BRAKE_APPLICATION,
+        {vehicle_first_live_frame, 3U, CRANKWAVE_CONTROL_VEHICLE_SERVICE_BRAKE_APPLICATION,
          0U, kCommandedServiceBrakeApplication, 0U, 0U},
     };
-    expect(eso_session_enqueue_controls(context, free_vehicle_session, vehicle_controls,
-                                        3U, &rejection) == ESO_STATUS_OK,
+    expect(crankwave_session_enqueue_controls(context, free_vehicle_session, vehicle_controls,
+                                        3U, &rejection) == CRANKWAVE_STATUS_OK,
            "C FreeVehicle rejected its advertised controls");
 
-    expect(eso_destroy_scenario(context, held_dyno_scenario) == ESO_STATUS_OK &&
-               eso_destroy_scenario(context, free_vehicle_scenario) == ESO_STATUS_OK &&
-               eso_destroy_engine(context, engine) == ESO_STATUS_OK,
+    expect(crankwave_destroy_scenario(context, held_dyno_scenario) == CRANKWAVE_STATUS_OK &&
+               crankwave_destroy_scenario(context, free_vehicle_scenario) == CRANKWAVE_STATUS_OK &&
+               crankwave_destroy_engine(context, engine) == CRANKWAVE_STATUS_OK,
            "C motion sessions failed to retain their compiled parents");
 
     const auto held_telemetry = process_to_first_audible_block(
@@ -560,9 +560,9 @@ void test_motion_contract_surface(eso_context_t *context,
                    kCommandedMaximumDrivingTorqueNm &&
                std::isfinite(held_telemetry.held_dyno.required_actuator_torque_nm) &&
                std::isfinite(held_telemetry.held_dyno.applied_actuator_torque_nm) &&
-               held_telemetry.held_dyno.disposition >= ESO_HELD_DYNO_TRACKING &&
+               held_telemetry.held_dyno.disposition >= CRANKWAVE_HELD_DYNO_TRACKING &&
                held_telemetry.held_dyno.disposition <=
-                   ESO_HELD_DYNO_DRIVING_TORQUE_LIMITED,
+                   CRANKWAVE_HELD_DYNO_DRIVING_TORQUE_LIMITED,
            "C held-dyno telemetry did not preserve its complete sidecar");
 
     const auto vehicle_telemetry = process_to_first_audible_block(
@@ -580,22 +580,22 @@ void test_motion_contract_surface(eso_context_t *context,
                 kCommandedServiceBrakeApplication &&
             vehicle_telemetry.free_vehicle.has_final_clutch_slip == 1U &&
             std::isfinite(vehicle_telemetry.free_vehicle.final_clutch_slip_rad_s) &&
-            vehicle_telemetry.free_vehicle.clutch_disposition >= ESO_CLUTCH_NEUTRAL &&
-            vehicle_telemetry.free_vehicle.clutch_disposition <= ESO_CLUTCH_TRACKING &&
+            vehicle_telemetry.free_vehicle.clutch_disposition >= CRANKWAVE_CLUTCH_NEUTRAL &&
+            vehicle_telemetry.free_vehicle.clutch_disposition <= CRANKWAVE_CLUTCH_TRACKING &&
             vehicle_telemetry.free_vehicle.road_load_disposition >=
-                ESO_ROAD_LOAD_MOVING &&
+                CRANKWAVE_ROAD_LOAD_MOVING &&
             vehicle_telemetry.free_vehicle.road_load_disposition <=
-                ESO_ROAD_LOAD_HELD_AT_REST,
+                CRANKWAVE_ROAD_LOAD_HELD_AT_REST,
         "C FreeVehicle telemetry did not preserve its complete sidecar");
 
-    expect(eso_destroy_session(context, held_dyno_session) == ESO_STATUS_OK &&
-               eso_destroy_session(context, free_vehicle_session) == ESO_STATUS_OK,
+    expect(crankwave_destroy_session(context, held_dyno_session) == CRANKWAVE_STATUS_OK &&
+               crankwave_destroy_session(context, free_vehicle_session) == CRANKWAVE_STATUS_OK,
            "C ABI v9 motion-session teardown failed");
 }
 
 void run(const std::filesystem::path &repository_root) {
-    eso_context_t *context = nullptr;
-    expect(eso_context_create(ESO_C_API_VERSION, &context) == ESO_STATUS_OK &&
+    crankwave_context_t *context = nullptr;
+    expect(crankwave_context_create(CRANKWAVE_C_API_VERSION, &context) == CRANKWAVE_STATUS_OK &&
                context != nullptr,
            "C API context creation failed");
 
@@ -618,20 +618,20 @@ void run(const std::filesystem::path &repository_root) {
                           "bmw-m52b28-warm-stock-accessories-v1.json");
     const std::string ir_id = "smooth-39";
     const std::string accessory_id = "warm-stock-accessories";
-    const eso_asset_payload_t assets[] = {
-        {ESO_ASSET_AUDIO, view(ir_id), view(ir)},
-        {ESO_ASSET_ACCESSORY_CONFIGURATION, view(accessory_id), view(accessory)},
+    const crankwave_asset_payload_t assets[] = {
+        {CRANKWAVE_ASSET_AUDIO, view(ir_id), view(ir)},
+        {CRANKWAVE_ASSET_ACCESSORY_CONFIGURATION, view(accessory_id), view(accessory)},
     };
 
-    eso_engine_handle_t engine = ESO_INVALID_HANDLE;
-    expect(eso_compile_engine_json(context, view(engine_json), assets, 2U, &engine) ==
-                   ESO_STATUS_OK &&
-               engine != ESO_INVALID_HANDLE,
+    crankwave_engine_handle_t engine = CRANKWAVE_INVALID_HANDLE;
+    expect(crankwave_compile_engine_json(context, view(engine_json), assets, 2U, &engine) ==
+                   CRANKWAVE_STATUS_OK &&
+               engine != CRANKWAVE_INVALID_HANDLE,
            "BMW engine compilation through the C ABI failed");
     expect(copy_engine_id(context, engine) == "bmw-m52b28",
            "compiled-engine identity changed at the C boundary");
-    eso_error_info_t no_error{};
-    expect(eso_context_get_last_error(context, &no_error) == ESO_STATUS_NOT_AVAILABLE,
+    crankwave_error_info_t no_error{};
+    expect(crankwave_context_get_last_error(context, &no_error) == CRANKWAVE_STATUS_NOT_AVAILABLE,
            "successful engine compilation did not clear an older diagnostic");
 
     // The compiler must retain asset content, not caller byte views.
@@ -640,86 +640,86 @@ void run(const std::filesystem::path &repository_root) {
     accessory.clear();
     accessory.shrink_to_fit();
 
-    eso_scenario_handle_t scenario = ESO_INVALID_HANDLE;
-    expect(eso_compile_scenario_json(context, engine, view(scenario_json), &scenario) ==
-                   ESO_STATUS_OK &&
-               scenario != ESO_INVALID_HANDLE,
+    crankwave_scenario_handle_t scenario = CRANKWAVE_INVALID_HANDLE;
+    expect(crankwave_compile_scenario_json(context, engine, view(scenario_json), &scenario) ==
+                   CRANKWAVE_STATUS_OK &&
+               scenario != CRANKWAVE_INVALID_HANDLE,
            "BMW scenario compilation through the C ABI failed");
-    eso_scenario_handle_t free_scenario = ESO_INVALID_HANDLE;
-    expect(eso_compile_scenario_json(context, engine, view(free_scenario_json),
-                                     &free_scenario) == ESO_STATUS_OK &&
-               free_scenario != ESO_INVALID_HANDLE,
+    crankwave_scenario_handle_t free_scenario = CRANKWAVE_INVALID_HANDLE;
+    expect(crankwave_compile_scenario_json(context, engine, view(free_scenario_json),
+                                     &free_scenario) == CRANKWAVE_STATUS_OK &&
+               free_scenario != CRANKWAVE_INVALID_HANDLE,
            "BMW free-engine scenario compilation through the C ABI failed");
 
     // Kind bits prevent accidental cross-resource use even though C handle aliases
     // have one fixed integer representation.
-    expect(eso_destroy_scenario(context, engine) == ESO_STATUS_INVALID_HANDLE,
+    expect(crankwave_destroy_scenario(context, engine) == CRANKWAVE_STATUS_INVALID_HANDLE,
            "engine handle was accepted as a scenario handle");
 
-    eso_session_handle_t invalid_execution_session = UINT64_C(123);
-    expect(eso_create_session(context, scenario, 0U, &invalid_execution_session) ==
-                   ESO_STATUS_INVALID_ARGUMENT &&
-               invalid_execution_session == ESO_INVALID_HANDLE,
+    crankwave_session_handle_t invalid_execution_session = UINT64_C(123);
+    expect(crankwave_create_session(context, scenario, 0U, &invalid_execution_session) ==
+                   CRANKWAVE_STATUS_INVALID_ARGUMENT &&
+               invalid_execution_session == CRANKWAVE_INVALID_HANDLE,
            "unknown session execution kind was not rejected atomically");
 
-    eso_session_handle_t stale = ESO_INVALID_HANDLE;
-    expect(eso_create_session(context, scenario, ESO_SESSION_EXECUTION_FINITE_SCENARIO,
-                              &stale) == ESO_STATUS_OK &&
-               eso_destroy_session(context, stale) == ESO_STATUS_OK,
+    crankwave_session_handle_t stale = CRANKWAVE_INVALID_HANDLE;
+    expect(crankwave_create_session(context, scenario, CRANKWAVE_SESSION_EXECUTION_FINITE_SCENARIO,
+                              &stale) == CRANKWAVE_STATUS_OK &&
+               crankwave_destroy_session(context, stale) == CRANKWAVE_STATUS_OK,
            "throwaway session lifecycle failed");
-    eso_session_handle_t session_a = ESO_INVALID_HANDLE;
-    eso_session_handle_t session_b = ESO_INVALID_HANDLE;
-    eso_session_handle_t free_session = ESO_INVALID_HANDLE;
-    expect(eso_create_session(context, scenario, ESO_SESSION_EXECUTION_FINITE_SCENARIO,
-                              &session_a) == ESO_STATUS_OK &&
-               eso_create_session(context, scenario,
-                                  ESO_SESSION_EXECUTION_FINITE_SCENARIO,
-                                  &session_b) == ESO_STATUS_OK &&
-               eso_create_session(context, free_scenario,
-                                  ESO_SESSION_EXECUTION_FINITE_SCENARIO,
-                                  &free_session) == ESO_STATUS_OK &&
+    crankwave_session_handle_t session_a = CRANKWAVE_INVALID_HANDLE;
+    crankwave_session_handle_t session_b = CRANKWAVE_INVALID_HANDLE;
+    crankwave_session_handle_t free_session = CRANKWAVE_INVALID_HANDLE;
+    expect(crankwave_create_session(context, scenario, CRANKWAVE_SESSION_EXECUTION_FINITE_SCENARIO,
+                              &session_a) == CRANKWAVE_STATUS_OK &&
+               crankwave_create_session(context, scenario,
+                                  CRANKWAVE_SESSION_EXECUTION_FINITE_SCENARIO,
+                                  &session_b) == CRANKWAVE_STATUS_OK &&
+               crankwave_create_session(context, free_scenario,
+                                  CRANKWAVE_SESSION_EXECUTION_FINITE_SCENARIO,
+                                  &free_session) == CRANKWAVE_STATUS_OK &&
                session_a != stale,
            "generation-checked session slot was not recycled safely");
-    eso_session_descriptor_t stale_descriptor{};
-    expect(eso_session_get_descriptor(context, stale, &stale_descriptor) ==
-               ESO_STATUS_INVALID_HANDLE,
+    crankwave_session_descriptor_t stale_descriptor{};
+    expect(crankwave_session_get_descriptor(context, stale, &stale_descriptor) ==
+               CRANKWAVE_STATUS_INVALID_HANDLE,
            "destroyed session handle remained usable");
 
-    eso_session_descriptor_t descriptor{};
+    crankwave_session_descriptor_t descriptor{};
     constexpr auto kInertialDynoLiveControls =
-        ESO_LIVE_CONTROL_CAPABILITY_THROTTLE |
-        ESO_LIVE_CONTROL_CAPABILITY_IGNITION_ENABLED |
-        ESO_LIVE_CONTROL_CAPABILITY_FUEL_ENABLED;
-    expect(eso_session_get_descriptor(context, session_a, &descriptor) ==
-                   ESO_STATUS_OK &&
+        CRANKWAVE_LIVE_CONTROL_CAPABILITY_THROTTLE |
+        CRANKWAVE_LIVE_CONTROL_CAPABILITY_IGNITION_ENABLED |
+        CRANKWAVE_LIVE_CONTROL_CAPABILITY_FUEL_ENABLED;
+    expect(crankwave_session_get_descriptor(context, session_a, &descriptor) ==
+                   CRANKWAVE_STATUS_OK &&
                descriptor.physics_frames_per_block == 400U &&
                descriptor.maximum_cycle_evidence_per_process_call == 400U &&
                descriptor.delivery_frames_per_block == 3840U &&
                descriptor.audio_bus_count == 8U &&
                descriptor.live_control_capabilities == kInertialDynoLiveControls &&
-               descriptor.execution_kind == ESO_SESSION_EXECUTION_FINITE_SCENARIO &&
-               descriptor.motion_mode == ESO_MOTION_INERTIAL_DYNO &&
+               descriptor.execution_kind == CRANKWAVE_SESSION_EXECUTION_FINITE_SCENARIO &&
+               descriptor.motion_mode == CRANKWAVE_MOTION_INERTIAL_DYNO &&
                descriptor.forward_gear_count == 0U,
            "C session descriptor differs from the executable method");
-    eso_session_descriptor_t free_descriptor{};
+    crankwave_session_descriptor_t free_descriptor{};
     constexpr auto kFreeEngineLiveControls =
-        kInertialDynoLiveControls | ESO_LIVE_CONTROL_CAPABILITY_LIMITER_ENABLED |
-        ESO_LIVE_CONTROL_CAPABILITY_EXTERNAL_RESISTING_TORQUE |
-        ESO_LIVE_CONTROL_CAPABILITY_STARTER_ENABLED;
-    expect(eso_session_get_descriptor(context, free_session, &free_descriptor) ==
-                   ESO_STATUS_OK &&
+        kInertialDynoLiveControls | CRANKWAVE_LIVE_CONTROL_CAPABILITY_LIMITER_ENABLED |
+        CRANKWAVE_LIVE_CONTROL_CAPABILITY_EXTERNAL_RESISTING_TORQUE |
+        CRANKWAVE_LIVE_CONTROL_CAPABILITY_STARTER_ENABLED;
+    expect(crankwave_session_get_descriptor(context, free_session, &free_descriptor) ==
+                   CRANKWAVE_STATUS_OK &&
                free_descriptor.live_control_capabilities == kFreeEngineLiveControls &&
-               free_descriptor.motion_mode == ESO_MOTION_FREE_ENGINE &&
+               free_descriptor.motion_mode == CRANKWAVE_MOTION_FREE_ENGINE &&
                free_descriptor.forward_gear_count == 0U,
            "C free-engine descriptor lost its exact live-control capabilities");
     std::vector<char> engine_id(descriptor.engine_id_utf8_bytes + 1U);
     std::vector<char> scenario_id(descriptor.scenario_id_utf8_bytes + 1U);
-    eso_session_identity_buffers_t identities{
+    crankwave_session_identity_buffers_t identities{
         {engine_id.data(), engine_id.size()},
         {scenario_id.data(), scenario_id.size()},
     };
-    expect(eso_session_copy_identity(context, session_a, &identities) ==
-                   ESO_STATUS_OK &&
+    expect(crankwave_session_copy_identity(context, session_a, &identities) ==
+                   CRANKWAVE_STATUS_OK &&
                std::string_view{engine_id.data()} == "bmw-m52b28" &&
                std::string_view{scenario_id.data()} ==
                    "bmw-m52b28-inertial-dyno-1500-6500rpm",
@@ -731,64 +731,64 @@ void run(const std::filesystem::path &repository_root) {
     const auto free_first_live_frame = free_descriptor.preparation_block_count *
                                        free_descriptor.delivery_frames_per_block;
 
-    const eso_control_command_t preparation_control{
-        0U, 1U, ESO_CONTROL_THROTTLE, 0U, 0.5, 0U, 0U};
-    eso_control_rejection_t rejection{};
-    expect(eso_session_enqueue_controls(context, session_a, nullptr, 0U, &rejection) ==
-                   ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+    const crankwave_control_command_t preparation_control{
+        0U, 1U, CRANKWAVE_CONTROL_THROTTLE, 0U, 0.5, 0U, 0U};
+    crankwave_control_rejection_t rejection{};
+    expect(crankwave_session_enqueue_controls(context, session_a, nullptr, 0U, &rejection) ==
+                   CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_INVALID_PAYLOAD,
            "C session admitted an empty live-control batch");
-    expect(eso_session_enqueue_controls(context, session_a, &preparation_control, 1U,
-                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_UNAVAILABLE_DURING_PREPARATION,
+    expect(crankwave_session_enqueue_controls(context, session_a, &preparation_control, 1U,
+                                        &rejection) == CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_UNAVAILABLE_DURING_PREPARATION,
            "preparation control was not rejected with its typed reason");
 
-    const eso_control_command_t unsupported_controls[] = {
-        {first_live_frame, 1U, ESO_CONTROL_THROTTLE, 0U, 0.5, 0U, 0U},
-        {first_live_frame, 2U, ESO_CONTROL_LIMITER_ENABLED, 1U, 0.0, 0U, 0U},
+    const crankwave_control_command_t unsupported_controls[] = {
+        {first_live_frame, 1U, CRANKWAVE_CONTROL_THROTTLE, 0U, 0.5, 0U, 0U},
+        {first_live_frame, 2U, CRANKWAVE_CONTROL_LIMITER_ENABLED, 1U, 0.0, 0U, 0U},
     };
-    expect(eso_session_enqueue_controls(context, session_a, unsupported_controls, 2U,
-                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_UNSUPPORTED_FOR_OPERATING_MODE &&
+    expect(crankwave_session_enqueue_controls(context, session_a, unsupported_controls, 2U,
+                                        &rejection) == CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_UNSUPPORTED_FOR_OPERATING_MODE &&
                rejection.command_index == 1U,
            "C capability rejection lost the first unsupported command index");
 
-    const eso_control_command_t noncanonical_boolean{
-        free_first_live_frame, 1U, ESO_CONTROL_LIMITER_ENABLED, 1U, 0.5, 0U, 0U};
-    expect(eso_session_enqueue_controls(context, free_session, &noncanonical_boolean,
+    const crankwave_control_command_t noncanonical_boolean{
+        free_first_live_frame, 1U, CRANKWAVE_CONTROL_LIMITER_ENABLED, 1U, 0.5, 0U, 0U};
+    expect(crankwave_session_enqueue_controls(context, free_session, &noncanonical_boolean,
                                         1U,
-                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+                                        &rejection) == CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_INVALID_PAYLOAD,
            "C boundary admitted a boolean control with a scalar payload");
-    const eso_control_command_t signed_zero_boolean{
-        free_first_live_frame, 1U, ESO_CONTROL_LIMITER_ENABLED, 1U, -0.0, 0U, 0U};
-    expect(eso_session_enqueue_controls(context, free_session, &signed_zero_boolean, 1U,
-                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+    const crankwave_control_command_t signed_zero_boolean{
+        free_first_live_frame, 1U, CRANKWAVE_CONTROL_LIMITER_ENABLED, 1U, -0.0, 0U, 0U};
+    expect(crankwave_session_enqueue_controls(context, free_session, &signed_zero_boolean, 1U,
+                                        &rejection) == CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_INVALID_PAYLOAD,
            "C boundary admitted signed negative zero as canonical scalar zero");
-    const eso_control_command_t noncanonical_scalar{
+    const crankwave_control_command_t noncanonical_scalar{
         free_first_live_frame,
         1U,
-        ESO_CONTROL_EXTERNAL_RESISTING_TORQUE,
+        CRANKWAVE_CONTROL_EXTERNAL_RESISTING_TORQUE,
         1U,
         18.0,
         0U,
         0U};
-    expect(eso_session_enqueue_controls(context, free_session, &noncanonical_scalar, 1U,
-                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+    expect(crankwave_session_enqueue_controls(context, free_session, &noncanonical_scalar, 1U,
+                                        &rejection) == CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_INVALID_PAYLOAD,
            "C boundary admitted a scalar control with a boolean payload");
-    const eso_control_command_t negative_resistance{
+    const crankwave_control_command_t negative_resistance{
         free_first_live_frame,
         1U,
-        ESO_CONTROL_EXTERNAL_RESISTING_TORQUE,
+        CRANKWAVE_CONTROL_EXTERNAL_RESISTING_TORQUE,
         0U,
         -1.0,
         0U,
         0U};
-    expect(eso_session_enqueue_controls(context, free_session, &negative_resistance, 1U,
-                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
-               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+    expect(crankwave_session_enqueue_controls(context, free_session, &negative_resistance, 1U,
+                                        &rejection) == CRANKWAVE_STATUS_CONTROL_REJECTED &&
+               rejection.code == CRANKWAVE_ERROR_CONTROL_INVALID_PAYLOAD,
            "C boundary admitted negative external resisting torque");
 
     enqueue_live_batch(context, session_a, first_live_frame, true);
@@ -796,52 +796,52 @@ void run(const std::filesystem::path &repository_root) {
     enqueue_free_live_batch(context, free_session, free_first_live_frame);
 
     // A live session owns the shared immutable scenario/engine it needs.
-    expect(eso_destroy_scenario(context, scenario) == ESO_STATUS_OK &&
-               eso_destroy_scenario(context, free_scenario) == ESO_STATUS_OK &&
-               eso_destroy_engine(context, engine) == ESO_STATUS_OK,
+    expect(crankwave_destroy_scenario(context, scenario) == CRANKWAVE_STATUS_OK &&
+               crankwave_destroy_scenario(context, free_scenario) == CRANKWAVE_STATUS_OK &&
+               crankwave_destroy_engine(context, engine) == CRANKWAVE_STATUS_OK,
            "compiled parent handles could not be released after session creation");
 
     std::vector<float> pcm_a(descriptor.delivery_frames_per_block);
     std::vector<float> pcm_b(descriptor.delivery_frames_per_block);
-    eso_audio_copy_buffer_t short_buffer{bus, pcm_a.data(), pcm_a.size() - 1U, 99U};
-    eso_session_telemetry_t telemetry_a{};
-    eso_process_info_t process_a{};
-    std::vector<eso_completed_cycle_evidence_t> cycle_evidence_a(
+    crankwave_audio_copy_buffer_t short_buffer{bus, pcm_a.data(), pcm_a.size() - 1U, 99U};
+    crankwave_session_telemetry_t telemetry_a{};
+    crankwave_process_info_t process_a{};
+    std::vector<crankwave_completed_cycle_evidence_t> cycle_evidence_a(
         descriptor.maximum_cycle_evidence_per_process_call);
-    std::vector<eso_completed_cycle_evidence_t> cycle_evidence_b(
+    std::vector<crankwave_completed_cycle_evidence_t> cycle_evidence_b(
         descriptor.maximum_cycle_evidence_per_process_call);
-    expect(eso_session_process(context, session_a, nullptr, 0U, &telemetry_a, 1U,
+    expect(crankwave_session_process(context, session_a, nullptr, 0U, &telemetry_a, 1U,
                                nullptr, 1U,
-                               &process_a) == ESO_STATUS_INVALID_ARGUMENT &&
+                               &process_a) == CRANKWAVE_STATUS_INVALID_ARGUMENT &&
                process_a.kind == 0U,
            "null cycle-evidence pointer with nonzero capacity was admitted");
-    expect(eso_session_process(context, session_a, nullptr, 0U, &telemetry_a, 1U,
+    expect(crankwave_session_process(context, session_a, nullptr, 0U, &telemetry_a, 1U,
                                cycle_evidence_a.data(), cycle_evidence_a.size() - 1U,
-                               &process_a) == ESO_STATUS_BUFFER_TOO_SMALL &&
+                               &process_a) == CRANKWAVE_STATUS_BUFFER_TOO_SMALL &&
                process_a.kind == 0U,
            "short cycle-evidence buffer advanced or published a session block");
-    expect(eso_session_process(context, session_a, &short_buffer, 1U, &telemetry_a, 1U,
+    expect(crankwave_session_process(context, session_a, &short_buffer, 1U, &telemetry_a, 1U,
                                nullptr, 0U,
-                               &process_a) == ESO_STATUS_BUFFER_TOO_SMALL &&
+                               &process_a) == CRANKWAVE_STATUS_BUFFER_TOO_SMALL &&
                short_buffer.samples_written == 0U,
            "short PCM buffer advanced or partially published a session block");
 
-    eso_audio_copy_buffer_t audio_a{bus, pcm_a.data(), pcm_a.size(), 0U};
-    eso_audio_copy_buffer_t audio_b{bus, pcm_b.data(), pcm_b.size(), 0U};
-    eso_session_telemetry_t telemetry_b{};
-    eso_process_info_t process_b{};
+    crankwave_audio_copy_buffer_t audio_a{bus, pcm_a.data(), pcm_a.size(), 0U};
+    crankwave_audio_copy_buffer_t audio_b{bus, pcm_b.data(), pcm_b.size(), 0U};
+    crankwave_session_telemetry_t telemetry_b{};
+    crankwave_process_info_t process_b{};
     allocation_probe::reject.store(true, std::memory_order_relaxed);
-    const auto process_a_status = eso_session_process(
+    const auto process_a_status = crankwave_session_process(
         context, session_a, &audio_a, 1U, &telemetry_a, 1U, cycle_evidence_a.data(),
         cycle_evidence_a.size(), &process_a);
     allocation_probe::reject.store(false, std::memory_order_relaxed);
-    const auto process_b_status = eso_session_process(
+    const auto process_b_status = crankwave_session_process(
         context, session_b, &audio_b, 1U, &telemetry_b, 1U, cycle_evidence_b.data(),
         cycle_evidence_b.size(), &process_b);
-    expect(process_a_status == ESO_STATUS_OK && process_b_status == ESO_STATUS_OK,
+    expect(process_a_status == CRANKWAVE_STATUS_OK && process_b_status == CRANKWAVE_STATUS_OK,
            "C API could not process the first session block");
-    expect(process_a.kind == ESO_PROCESS_BLOCK &&
-               process_a.block_phase == ESO_BLOCK_PREPARATION &&
+    expect(process_a.kind == CRANKWAVE_PROCESS_BLOCK &&
+               process_a.block_phase == CRANKWAVE_BLOCK_PREPARATION &&
                process_a.block_ordinal == 0U && process_a.telemetry_written == 1U &&
                process_a.cycle_evidence_written == process_b.cycle_evidence_written &&
                process_a.block_ordinal == process_b.block_ordinal &&
@@ -866,12 +866,12 @@ void run(const std::filesystem::path &repository_root) {
                                             free_descriptor.physics_frames_per_block;
     double free_wot_crossing_time_s = -1.0;
     while (free_wot_crossing_time_s < 0.0) {
-        eso_session_telemetry_t free_telemetry{};
-        eso_process_info_t free_process{};
-        expect(eso_session_process(context, free_session, nullptr, 0U, &free_telemetry,
-                                   1U, nullptr, 0U, &free_process) == ESO_STATUS_OK,
+        crankwave_session_telemetry_t free_telemetry{};
+        crankwave_process_info_t free_process{};
+        expect(crankwave_session_process(context, free_session, nullptr, 0U, &free_telemetry,
+                                   1U, nullptr, 0U, &free_process) == CRANKWAVE_STATUS_OK,
                "free-engine RPM trajectory session failed");
-        expect(free_process.kind == ESO_PROCESS_BLOCK,
+        expect(free_process.kind == CRANKWAVE_PROCESS_BLOCK,
                "free-engine completed before its 7,000-rpm WOT crossing");
         if (free_telemetry.engine.engine_speed_rpm >= 7000.0) {
             expect(free_telemetry.physics_step_end >= free_release_physics_frame,
@@ -888,13 +888,13 @@ void run(const std::filesystem::path &repository_root) {
            "BMW interactive FreeEngine WOT smoke trajectory regressed outside "
            "its scenario-specific envelope");
 
-    expect(eso_destroy_session(context, session_a) == ESO_STATUS_OK &&
-               eso_destroy_session(context, session_b) == ESO_STATUS_OK &&
-               eso_destroy_session(context, free_session) == ESO_STATUS_OK,
+    expect(crankwave_destroy_session(context, session_a) == CRANKWAVE_STATUS_OK &&
+               crankwave_destroy_session(context, session_b) == CRANKWAVE_STATUS_OK &&
+               crankwave_destroy_session(context, free_session) == CRANKWAVE_STATUS_OK,
            "C API baseline-session teardown failed");
 
     test_motion_contract_surface(context, repository_root);
-    expect(eso_context_destroy(context) == ESO_STATUS_OK,
+    expect(crankwave_context_destroy(context) == CRANKWAVE_STATUS_OK,
            "C API context teardown failed");
 }
 

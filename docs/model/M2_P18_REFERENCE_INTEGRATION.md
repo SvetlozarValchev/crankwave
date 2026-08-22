@@ -10,7 +10,7 @@ new engine physics or offline-fidelity replacements begin.
 
 ## Boundary
 
-`ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS` is off by default. When enabled it builds
+`CRANKWAVE_BUILD_REFERENCE_TOOLS` is off by default. When enabled it builds
 one executable. Fixture readers, fixture preflight, the audit-to-excitation adapter,
 the immutable comparator catalog, and reference-manifest construction remain private
 to that opt-in integration. The stateful presentation session is a separate

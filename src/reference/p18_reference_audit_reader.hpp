@@ -8,7 +8,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::reference {
+namespace crankwave::reference {
 
 inline constexpr std::size_t kP18ReferenceAuditHeaderBytes = 64;
 inline constexpr std::size_t kP18ReferenceAuditRecordBytes = 128;
@@ -56,7 +56,7 @@ struct P18ReferenceAuditDecodeError {
 };
 
 // Reference-only raw lanes. The values remain uncalibrated
-// engine_sim_source_unit and are ordered exactly as fixture bus 0 then bus 1.
+// crankwave_source_unit and are ordered exactly as fixture bus 0 then bus 1.
 // The separately identified M2 adapter owns conversion to presentation types.
 struct P18ReferenceAuditBusFrame {
     std::array<double, kP18ReferenceAuditBusCount> pre_dsp_buses{};
@@ -81,4 +81,4 @@ using P18ReferenceAuditDecodeResult =
 [[nodiscard]] P18ReferenceAuditDecodeResult
 decode_p18_reference_audit(std::span<const std::byte> bytes);
 
-} // namespace engine_sim_offline::reference
+} // namespace crankwave::reference

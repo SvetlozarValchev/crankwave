@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "radial-5-cleanroom-held-dyno-1500-2800rpm-10khz-preview",
   "engine": "radial-5-cleanroom",
   "fuel": "gasoline-default",

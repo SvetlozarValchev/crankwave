@@ -1,8 +1,8 @@
 #pragma once
 
-#include "engine_sim_offline/contract/capture.hpp"
-#include "engine_sim_offline/contract/result.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/capture.hpp"
+#include "crankwave/contract/result.hpp"
+#include "crankwave/contract/scenario.hpp"
 #include "simulation/kinematic_scenario_schedule.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 #include "simulation/live_control.hpp"
@@ -15,7 +15,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 namespace detail {
 struct LowOrderEngineCoreV1RuntimeFactory;
@@ -192,4 +192,4 @@ class LegacyLowOrderMechanicsSession final {
     friend struct detail::LowOrderEngineCoreV1RuntimeFactory;
 };
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

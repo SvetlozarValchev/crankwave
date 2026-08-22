@@ -1,12 +1,12 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <cstddef>
 #include <string_view>
 #include <vector>
 
-namespace engine_sim_offline::cli {
+namespace crankwave::cli {
 
 inline constexpr std::string_view kNativeResponsiveCaptureSchedulerV1 =
     "bounded-six-worker-canonical-result-order-cancel-drain-v1";
@@ -27,4 +27,4 @@ struct NativeResponsiveBakeAuthorityV1 {
 [[nodiscard]] NativeResponsiveBakeAuthorityV1
 native_responsive_bake_authority_v1();
 
-} // namespace engine_sim_offline::cli
+} // namespace crankwave::cli

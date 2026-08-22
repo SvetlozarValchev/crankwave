@@ -36,7 +36,7 @@ round-to-nearest/ties-to-even, without contraction, reassociation, or fast-math.
 Statement and loop order are part of the result.
 
 The source stage reproduces one narrow legacy presentation behavior. Its values remain
-in uncalibrated `engine_sim_source_unit`; they are not microphone pressure, physical
+in uncalibrated `crankwave_source_unit`; they are not microphone pressure, physical
 outlet pressure, or a new higher-fidelity source model.
 
 ## 2. Typed seam and block contract

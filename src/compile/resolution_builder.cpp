@@ -8,13 +8,13 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 namespace {
 
 constexpr std::string_view kProvenanceSchema =
-    "engine-sim-offline.compiler-resolution-provenance";
+    "crankwave.compiler-resolution-provenance";
 constexpr std::string_view kProvenanceDigestGrammar =
-    "engine-sim-offline.compiler-resolution-provenance-digest";
+    "crankwave.compiler-resolution-provenance-digest";
 
 [[nodiscard]] std::string scoped_id(std::string_view scope, std::string_view suffix) {
     return "compiler." + std::string{scope} + "." + std::string{suffix};
@@ -189,4 +189,4 @@ ProvenanceBuildResult ResolutionProvenanceBuilder::finish() && noexcept {
     }
 }
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

@@ -14,7 +14,7 @@ standard_error=$5
 output_parent=$6
 signal_name=$7
 
-"$cli" pack-vehicleengine \
+"$cli" pack-crankwave \
     --package-directory "$package_directory" \
     --output "$output" \
     --result-format json >"$standard_out" 2>"$standard_error" &
@@ -22,7 +22,7 @@ child=$!
 
 stage_observed=false
 for ((attempt = 0; attempt < 30000; ++attempt)); do
-    if compgen -G "$output_parent/.engine-sim-offline-stage-*" >/dev/null; then
+    if compgen -G "$output_parent/.crankwave-stage-*" >/dev/null; then
         stage_observed=true
         break
     fi

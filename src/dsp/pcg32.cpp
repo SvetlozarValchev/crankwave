@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-namespace engine_sim_offline::dsp {
+namespace crankwave::dsp {
 namespace {
 
 constexpr std::uint64_t kPcg32Multiplier = UINT64_C(6364136223846793005);
@@ -52,4 +52,4 @@ std::uint64_t Pcg32::increment() const noexcept {
     return increment_;
 }
 
-} // namespace engine_sim_offline::dsp
+} // namespace crankwave::dsp

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/publication.hpp"
+#include "crankwave/publication.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -12,7 +12,7 @@
 
 #if defined(__linux__)
 
-namespace engine_sim_offline::artifacts::detail {
+namespace crankwave::artifacts::detail {
 
 class FileDescriptor {
   public:
@@ -58,6 +58,6 @@ open_file_beneath(int stage_fd, std::string_view relative_path);
 [[nodiscard]] int rename_noreplace(int parent_fd, const char *source,
                                    const char *destination);
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace crankwave::artifacts::detail
 
 #endif

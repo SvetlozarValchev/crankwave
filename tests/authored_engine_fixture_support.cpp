@@ -2,8 +2,8 @@
 
 #include "compile/compiled_scenario_view.hpp"
 #include "compile/scenario_resolver.hpp"
-#include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/authoring/parse.hpp"
+#include "crankwave/compile.hpp"
 
 #include <fstream>
 #include <iterator>
@@ -15,7 +15,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::test {
+namespace crankwave::test {
 namespace {
 
 struct OwnedAsset {
@@ -220,4 +220,4 @@ operating_profile(const contract::EngineSpec &engine) {
     return *profile;
 }
 
-} // namespace engine_sim_offline::test
+} // namespace crankwave::test

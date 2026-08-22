@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/engine",
+  "schema": "crankwave/engine",
   "engine": {
     "identity": {
       "id": "harley-evolution-1340-cleanroom",
@@ -342,7 +342,7 @@
       {
         "id": "warm-generic-accessories",
         "uri": "../../profiles/harley-evolution-1340-cleanroom/accessory-configurations/harley-evolution-1340-cleanroom-warm-generic-accessories-v1.json",
-        "sha256": "ca8dcf90b501d0f621efdd0137412af629b9710eca41cfb9de63667d4a98adcb"
+        "sha256": "22a458bb5a2b768403637d36dc8e60af0519050187ee524c9131d796eba93355"
       }
     ],
     "losses": {
@@ -420,7 +420,7 @@
       {
         "id": "mild-exhaust",
         "kind": "impulse_response",
-        "uri": "../../../reference/fixtures/engine-sim-ir-library/presentation/mild_exhaust.wav",
+        "uri": "../../../reference/fixtures/crankwave-ir-library/presentation/mild_exhaust.wav",
         "sha256": "f2875947eba2ed98a15f45a5d62f6ae7b607b0a56389bad5882d75748ad374b9"
       }
     ],

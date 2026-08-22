@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/artifacts/directory_render_sink.hpp"
+#include "crankwave/artifacts/directory_render_sink.hpp"
 
 #include "contract/sha256_stream.hpp"
 #include "secure_filesystem_support.hpp"
@@ -15,7 +15,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 
 class DirectoryRenderSink::Implementation {
   public:
@@ -96,4 +96,4 @@ class DirectoryRenderSink::Implementation {
 #endif
 };
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

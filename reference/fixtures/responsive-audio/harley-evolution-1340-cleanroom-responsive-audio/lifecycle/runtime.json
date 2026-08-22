@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "schema": "crankwave/responsive-audio-lifecycle",
   "id": "harley-evolution-1340-cleanroom-lifecycle-preview",
   "engine": "harley-evolution-1340-cleanroom",
   "audio": {
@@ -125,7 +125,7 @@
     "quiet_rms_threshold": 0.0006100315228178836
   },
   "startup_admission": {
-    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "schema": "crankwave/continuous-startup-admission-v1",
     "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
     "admission_lane_coordinate": "authored-throttle-01",
     "blend": "constant-power",
@@ -159,8 +159,8 @@
     "evidence": {
       "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
       "path": "evidence/startup-admission.json",
-      "sha256": "1a91d68b4beb1fd48399fcabc970b10969f2871d60f1d3d03406ba970489662a",
-      "corrected_held_manifest_sha256": "fea71eca64aa25d4de28e4145e781feb44a9ad26ece2ffe950afbc6c004ace45"
+      "sha256": "a19e15dae81ee75cd926ca3f8456ea66cf62a7473519a334e3f503ca5d3c9e8e",
+      "corrected_held_manifest_sha256": "3484fae4e36a0fabe8d3aed8beeddba0194eda3f85fd906f370e32c3cde72cc2"
     }
   },
   "provenance": {
@@ -169,7 +169,7 @@
       "sha256": "a21033e0ebe6813a63c1212d429936f1cc17e4f6de0a2b206406e7cb6fd92647"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
@@ -184,27 +184,27 @@
         "canonical_source_id": "harley-evolution-1340-cleanroom-lifecycle-starter-candidate",
         "derived_id": "harley-evolution-1340-cleanroom-lifecycle-starter-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/starter-10khz.json",
-        "sha256": "e94a86b7505114a7a53e3ebb969341b07815d9b5711208c24a51ceb543590d4e",
+        "sha256": "7e9da861271719764aad8d8ac2bbb157e715eca4ba11c9ba71a7bce818744069",
         "evidence_path": "evidence/starter.json",
-        "evidence_sha256": "87295c57c7fdb337525228faca62e6415a5bf313c95b4e33b996b223413bc83d"
+        "evidence_sha256": "bf405618e79d2dc0a23411ee293147328e022bebc103ef5bc08194f2a582f1e1"
       },
       {
         "role": "startup",
         "canonical_source_id": "harley-evolution-1340-cleanroom-lifecycle-startup-candidate",
         "derived_id": "harley-evolution-1340-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/startup-10khz.json",
-        "sha256": "47e4a333027be7b4cba5edef57b3c40517c761ebd86323b85f50708e92b0312e",
+        "sha256": "864f23004db756489603fd6fad08193a869f87175a1c5cce4619c96f89d1c171",
         "evidence_path": "evidence/startup.json",
-        "evidence_sha256": "ceaab75b8c0d49dfa22b14e1acdd9c0516a5a473ebfab2effa8f2e7dadcd502a"
+        "evidence_sha256": "2071fc0a60d7f271c10538907dc9a1949912e775dfdd6b8995dd3b59e7430dae"
       },
       {
         "role": "shutdown",
         "canonical_source_id": "harley-evolution-1340-cleanroom-lifecycle-shutdown-candidate",
         "derived_id": "harley-evolution-1340-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/shutdown-10khz.json",
-        "sha256": "de7a024933da3111503466218046766522cbddda6c4a23f8fae984fa9ff1db1a",
+        "sha256": "98bdf7055689ccf49d1678eb6c7c4daf55a7dd7e73fa626d1ea6a13876aaa2f4",
         "evidence_path": "evidence/shutdown.json",
-        "evidence_sha256": "975003d5bb60129b85ec4b9d1cb3b0d10a77fe51e11ab12cba6057d53484a1fd"
+        "evidence_sha256": "4a8120d842ae76b0ace23e8319d8b528a78eca79ade6a028ca44bf2ffcb746d9"
       }
     ]
   }

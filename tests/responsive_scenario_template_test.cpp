@@ -1,6 +1,6 @@
-#include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/responsive/profile.hpp"
-#include "engine_sim_offline/responsive/scenario_template.hpp"
+#include "crankwave/authoring/parse.hpp"
+#include "crankwave/responsive/profile.hpp"
+#include "crankwave/responsive/scenario_template.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -12,7 +12,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 [[nodiscard]] std::string read_text(const std::filesystem::path &path) {
     std::ifstream input(path, std::ios::binary);

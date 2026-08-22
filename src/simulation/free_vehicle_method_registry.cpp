@@ -3,7 +3,7 @@
 #include <span>
 #include <string>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 [[nodiscard]] consteval bool
@@ -20,7 +20,7 @@ canonical_lf_descriptor(std::string_view descriptor) noexcept {
 }
 
 constexpr std::string_view kForwardVehicleRoadLoadDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=forward-vehicle-road-load-v1
 version=1
 operation=forward-only-linear-vehicle-passive-road-load-and-service-brake-step
@@ -36,7 +36,7 @@ binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-no-daz
 )method";
 
 constexpr std::string_view kBoundedClutchCouplingDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=bounded-forward-clutch-coupling-v1
 version=1
 operation=two-inertia-forward-gear-relative-speed-constraint
@@ -54,7 +54,7 @@ binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-no-daz
 )method";
 
 constexpr std::string_view kBoundedForwardVehicleDrivetrainDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=bounded-forward-vehicle-drivetrain-pgs-v1
 version=1
 operation=coupled-engine-clutch-forward-vehicle-road-load-step
@@ -134,4 +134,4 @@ const contract::MethodIdentity &bounded_forward_vehicle_drivetrain_method_identi
     return identity;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

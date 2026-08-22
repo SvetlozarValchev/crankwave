@@ -1,8 +1,8 @@
 #pragma once
 
 #include "artifacts/audition_wav_encoder.hpp"
-#include "engine_sim_offline/publication.hpp"
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/publication.hpp"
+#include "crankwave/session.hpp"
 #include "execution/linux_execution_facts.hpp"
 #include "presentation/presentation_method_registry.hpp"
 
@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::render_detail {
+namespace crankwave::render_detail {
 
 inline constexpr std::size_t kNativePresentationArtifactsPerRoute = 3;
 inline constexpr std::size_t kNativePresentationMasterArtifactCount = 2;
@@ -213,4 +213,4 @@ class NativePresentationPublisher final {
     std::unique_ptr<Implementation> implementation_;
 };
 
-} // namespace engine_sim_offline::render_detail
+} // namespace crankwave::render_detail

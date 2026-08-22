@@ -9,7 +9,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 namespace {
 
 constexpr double kLegacyPi = 3.14159265359;
@@ -195,4 +195,4 @@ AssembledContracts assemble_contracts(const ModelContext &context,
     return result;
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

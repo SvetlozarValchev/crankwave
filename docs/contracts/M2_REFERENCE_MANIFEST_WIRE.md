@@ -2,7 +2,7 @@
 
 Status: normative canonical encoding for a completed reference-presentation manifest
 
-Wire schema ID: `engine-sim-offline.render-manifest.reference-presentation.v2`
+Wire schema ID: `crankwave.render-manifest.reference-presentation.v2`
 
 Machine schema:
 [`schemas/render_manifest_reference_presentation_v2.cddl`](../../schemas/render_manifest_reference_presentation_v2.cddl)
@@ -23,7 +23,7 @@ The root is exactly:
 
 ```text
 {
-  "wire_schema": "engine-sim-offline.render-manifest.reference-presentation.v2",
+  "wire_schema": "crankwave.render-manifest.reference-presentation.v2",
   "content": <RenderManifestContent>,
   "execution": <ExecutionFacts>
 }

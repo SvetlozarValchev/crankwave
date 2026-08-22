@@ -4,7 +4,7 @@
 #include <bit>
 #include <cmath>
 
-namespace engine_sim_offline::simulation::detail {
+namespace crankwave::simulation::detail {
 namespace {
 
 constexpr std::uint32_t kProjectionPassCount = 128U;
@@ -227,4 +227,4 @@ CoupledFreeVehicleDrivetrainCalculation advance_coupled_free_vehicle_drivetrain(
     };
 }
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace crankwave::simulation::detail

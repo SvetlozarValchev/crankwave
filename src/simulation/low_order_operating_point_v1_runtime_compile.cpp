@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 using contract::ContractIssueCode;
@@ -458,4 +458,4 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

@@ -1,11 +1,11 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <cstdint>
 #include <string_view>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 inline constexpr std::string_view kRigidCrankZohWorkEnergyMethodId =
     "rigid-crank-zoh-work-energy-v1";
@@ -26,4 +26,4 @@ rigid_crank_zoh_work_energy_method_identity();
 [[nodiscard]] const contract::MethodIdentity &
 piecewise_linear_positive_speed_passive_brake_method_identity();
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

@@ -25,9 +25,9 @@ canonical model at every requested point.
 - source tree: `d8f47171ae31291cd6b3f0a1f2e1ee6abe5d7a37`
 - branch: `clean-room/bmw-baseline`
 - build: Release, Clang `21.1.8`, target
-  `engine_sim_offline_m4_bmw_torque_sweep`
+  `crankwave_m4_bmw_torque_sweep`
 - command:
-  `./build-m4-listening-clang/engine-sim-offline-m4-bmw-torque-sweep artifacts/bmw-m52b28-m4-torque-sweep-v1-attempt-1`
+  `./build-m4-listening-clang/crankwave-m4-bmw-torque-sweep artifacts/bmw-m52b28-m4-torque-sweep-v1-attempt-1`
 - observed wall time: `5.92 s`
 - publication check: command status `1`; the requested output directory did not exist
   after failure
@@ -146,7 +146,7 @@ The frozen diagnostic was executed from clean source commit
 build. The command was:
 
 ```text
-./build-m4-listening-clang/engine-sim-offline-m4-bmw-held-settling-diagnostic
+./build-m4-listening-clang/crankwave-m4-bmw-held-settling-diagnostic
 ```
 
 The complete deterministic report is reproducible from that command. It contains all
@@ -259,7 +259,7 @@ The diagnostic was executed from clean source commit
 build. The command was:
 
 ```text
-./build-m4-listening-clang/engine-sim-offline-m4-bmw-held-settling-diagnostic
+./build-m4-listening-clang/crankwave-m4-bmw-held-settling-diagnostic
 ```
 
 It completed all 18 required fresh sessions in `9.62 s` wall time with `25696 KiB`

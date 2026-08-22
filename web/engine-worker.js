@@ -46,7 +46,7 @@ async function initialize(message) {
   try {
     admitRingSchema(message.ringHeaderSchema);
     const moduleUrl = new URL(
-      message.moduleUrl ?? "./engine-sim-offline.js",
+      message.moduleUrl ?? "./crankwave.js",
       import.meta.url,
     );
     runtime = await BrowserEngineRuntime.create({

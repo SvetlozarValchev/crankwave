@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "harley-evolution-1340-cleanroom-held-idle-region-800rpm",
   "engine": "harley-evolution-1340-cleanroom",
   "fuel": "regular-unleaded-gasoline",

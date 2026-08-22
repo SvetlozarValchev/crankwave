@@ -1,4 +1,4 @@
-#include "engine_sim_offline/artifacts/directory_render_sink.hpp"
+#include "crankwave/artifacts/directory_render_sink.hpp"
 
 #include "directory_render_sink_impl.hpp"
 
@@ -6,7 +6,7 @@
 #include <optional>
 #include <utility>
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 
 DirectoryRenderSink::DirectoryRenderSink(std::filesystem::path publication_root,
                                          std::string publication_name)
@@ -59,4 +59,4 @@ DirectoryRenderSink::manifest_payload_sha256() const noexcept {
     return implementation_->manifest_payload_sha256();
 }
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

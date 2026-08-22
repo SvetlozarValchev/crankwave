@@ -1,4 +1,4 @@
-#include "engine_sim_offline/atlas_capture.hpp"
+#include "crankwave/atlas_capture.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -10,7 +10,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline {
+namespace crankwave {
 namespace {
 
 [[nodiscard]] AtlasMovingLaneCaptureResult
@@ -478,4 +478,4 @@ AtlasMovingLaneCaptureResult capture_atlas_moving_lane(
     }
 }
 
-} // namespace engine_sim_offline
+} // namespace crankwave

@@ -16,8 +16,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::presentation;
+using namespace crankwave;
+using namespace crankwave::presentation;
 
 constexpr std::size_t kBmwRouteCount = 2;
 constexpr std::array kCanonicalRouteIds{
@@ -163,7 +163,7 @@ void process_with_continuous_components(CausalReconstruction &reconstruction,
                 conditioners[route]
                     .process(reconstructed[frame * packed_route_count + route],
                              activity)
-                    .conditioned_engine_sim_source_unit;
+                    .conditioned_crankwave_source_unit;
         }
     }
 }

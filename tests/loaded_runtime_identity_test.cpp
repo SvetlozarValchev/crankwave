@@ -10,7 +10,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::determinism;
+using namespace crankwave::determinism;
 
 #if defined(__SANITIZE_ADDRESS__)
 constexpr bool kAddressSanitized = true;
@@ -217,7 +217,7 @@ void test_preloaded_math_interposition_is_rejected() {
            "preloaded tan interposer returned the wrong typed rejection");
 }
 
-#if defined(ENGINE_SIM_OFFLINE_TEST_STATIC_RUNTIME)
+#if defined(CRANKWAVE_TEST_STATIC_RUNTIME)
 void test_static_standard_runtime_is_rejected() {
     const auto result = loaded_runtime_identity();
     const auto *failure = std::get_if<LoadedRuntimeError>(&result);
@@ -232,11 +232,11 @@ void test_static_standard_runtime_is_rejected() {
 } // namespace
 
 int main() {
-#if defined(ENGINE_SIM_OFFLINE_TEST_STATIC_RUNTIME)
+#if defined(CRANKWAVE_TEST_STATIC_RUNTIME)
     test_static_standard_runtime_is_rejected();
     return 0;
 #endif
-    if (std::getenv("ENGINE_SIM_OFFLINE_TEST_EXPECT_TAN_INTERPOSITION") != nullptr) {
+    if (std::getenv("CRANKWAVE_TEST_EXPECT_TAN_INTERPOSITION") != nullptr) {
         test_preloaded_math_interposition_is_rejected();
         return 0;
     }

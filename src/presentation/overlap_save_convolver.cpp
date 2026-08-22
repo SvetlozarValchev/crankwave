@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 namespace {
 
 [[nodiscard]] std::shared_ptr<const dsp::FixedConvolutionKernel>
@@ -215,4 +215,4 @@ void CausalConfiguredIrConvolver::process(std::span<const double> input,
                implementation_);
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

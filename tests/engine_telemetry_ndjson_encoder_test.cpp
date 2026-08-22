@@ -1,4 +1,4 @@
-#include "engine_sim_offline/artifacts/engine_telemetry_ndjson_encoder.hpp"
+#include "crankwave/artifacts/engine_telemetry_ndjson_encoder.hpp"
 
 #include <algorithm>
 #include <array>
@@ -18,8 +18,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::artifacts;
+using namespace crankwave;
+using namespace crankwave::artifacts;
 
 // These exact-arity structured bindings deliberately make a public telemetry field
 // addition a compile failure until schema v1 is consciously revised or versioned.
@@ -354,17 +354,26 @@ void test_canonical_complete_stream() {
     const auto first = encode_complete_stream();
     const auto second = encode_complete_stream();
     const contract::Sha256Digest expected_golden_sha256{{
-        0x16U, 0x92U, 0x96U, 0xe0U, 0x88U, 0xa9U, 0xdeU, 0xe3U, 0xc5U, 0x13U, 0x34U,
-        0xa2U, 0x6aU, 0xbcU, 0x4fU, 0x80U, 0xbfU, 0x6dU, 0x74U, 0x51U, 0xcaU, 0xcfU,
-        0xd6U, 0xf7U, 0xb0U, 0xbfU, 0xd9U, 0xbeU, 0x29U, 0x21U, 0xb5U, 0xc9U,
+        0x6aU, 0x80U, 0x2cU, 0x30U, 0xf1U, 0xfaU, 0x27U, 0xb5U, 0xe3U, 0xfbU, 0xdbU,
+        0x38U, 0xa6U, 0x8cU, 0x07U, 0x71U, 0x22U, 0x7cU, 0xbcU, 0x23U, 0x42U, 0x33U,
+        0xc9U, 0x6bU, 0xb1U, 0x2cU, 0xb2U, 0xfeU, 0x38U, 0xf4U, 0xd6U, 0xa0U,
     }};
-    expect(first == second && contract::sha256(first) == expected_golden_sha256 &&
+    const auto actual_golden_sha256 = contract::sha256(first);
+    if (actual_golden_sha256 != expected_golden_sha256) {
+        constexpr std::string_view digits = "0123456789abcdef";
+        std::cerr << "engine telemetry NDJSON SHA-256: ";
+        for (const auto byte : actual_golden_sha256.bytes) {
+            std::cerr << digits[byte >> 4U] << digits[byte & UINT8_C(0x0f)];
+        }
+        std::cerr << '\n';
+    }
+    expect(first == second && actual_golden_sha256 == expected_golden_sha256 &&
                contract::sha256(second) == expected_golden_sha256,
            "identical inputs did not produce identical bytes and SHA-256");
     const auto encoded = text(first);
     expect(
         encoded.starts_with(
-            "{\"record_type\":\"header\",\"schema\":\"engine-sim-offline."
+            "{\"record_type\":\"header\",\"schema\":\"crankwave."
             "engine-telemetry.ndjson.v1\",\"schema_version\":1,") &&
             encoded.find("\"motion_mode\":\"free_vehicle\"") != std::string::npos &&
             encoded.find("\"audition_frame_range\":null,") != std::string::npos &&
@@ -397,11 +406,20 @@ void test_held_dyno_sidecar_golden() {
     // Filled from the canonical bytes below; this is intentionally a separate
     // mode-consistent golden from the FreeVehicle carrier above.
     const contract::Sha256Digest expected_golden_sha256{{
-        0xb3U, 0x23U, 0xe0U, 0x43U, 0x65U, 0x22U, 0xabU, 0xebU, 0xdaU, 0x17U, 0x61U,
-        0x92U, 0x42U, 0xdeU, 0xcaU, 0xafU, 0x9bU, 0xd4U, 0x9fU, 0xb8U, 0x7dU, 0x88U,
-        0x72U, 0xfeU, 0x4bU, 0xa5U, 0xf3U, 0x4cU, 0x2fU, 0x0dU, 0x07U, 0x7aU,
+        0x7fU, 0x4dU, 0x34U, 0x3aU, 0xacU, 0xa3U, 0x9dU, 0xb1U, 0x17U, 0xf5U, 0xddU,
+        0x76U, 0xd7U, 0xf7U, 0x8fU, 0x02U, 0xe0U, 0xa9U, 0x61U, 0xa2U, 0xc8U, 0xc4U,
+        0xdfU, 0x75U, 0xbbU, 0x16U, 0x3bU, 0xf9U, 0x76U, 0xadU, 0x74U, 0xc3U,
     }};
-    expect(first == second && contract::sha256(first) == expected_golden_sha256 &&
+    const auto actual_golden_sha256 = contract::sha256(first);
+    if (actual_golden_sha256 != expected_golden_sha256) {
+        constexpr std::string_view digits = "0123456789abcdef";
+        std::cerr << "held-dyno telemetry NDJSON SHA-256: ";
+        for (const auto byte : actual_golden_sha256.bytes) {
+            std::cerr << digits[byte >> 4U] << digits[byte & UINT8_C(0x0f)];
+        }
+        std::cerr << '\n';
+    }
+    expect(first == second && actual_golden_sha256 == expected_golden_sha256 &&
                contract::sha256(second) == expected_golden_sha256,
            "held-dyno sidecar bytes or SHA-256 changed");
     const auto encoded = text(first);

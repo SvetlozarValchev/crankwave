@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/engine",
+  "schema": "crankwave/engine",
   "engine": {
     "identity": {
       "id": "raspy-muscle-620-cleanroom",
@@ -504,7 +504,7 @@
       {
         "id": "warm-generic-accessories",
         "uri": "../../profiles/raspy-muscle-620-cleanroom/accessory-configurations/raspy-muscle-620-cleanroom-warm-generic-accessories-v1.json",
-        "sha256": "55125069f43e48b52a5842649d899d9d250fc94808b8dbe59360e790aa0bebd4"
+        "sha256": "87d514d95c85d847d961908249dff0e18789b90fab522c5ef9d9f5dee334e62e"
       }
     ],
     "losses": {

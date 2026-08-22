@@ -1,29 +1,29 @@
-const SCHEMA = "engine-sim-offline/shared-recorded-starter";
+const SCHEMA = "crankwave/shared-recorded-starter";
 const KIND = "shared-recorded-starter";
 const SAMPLE_RATE = 192_000;
-const EXPECTED_ID = "shared-recorded-starter-licensed";
+const EXPECTED_ID = "shared-recorded-starter-cc0-v1";
 const EXPECTED_MANIFEST_SHA256 =
-  "1fb698a9c304ecee323361b059dbfc615ab82c06357e01b815faa8f3a008365e";
-const EXPECTED_MANIFEST_BYTE_COUNT = 3_120;
+  "73110090f07df4523081fac3452ee1cc0b3aab6b0b8a356186ca18db3c011bc2";
+const EXPECTED_MANIFEST_BYTE_COUNT = 3_560;
 const EXPECTED_SOURCE_SHA256 =
-  "8edcfa21f846098472dd3f57236f23367a7667f4458f7452b565370062635a81";
+  "818adef5e4737957ddb2ca061a50b05666776ce50c06d866fcc72e9c42767df8";
 const EXPECTED_PAYLOAD_SHA256 =
-  "1949863ca58aef11146d4a842609ef217f6b7df4ba6db38f478eb918cef2964a";
-const EXPECTED_FRAME_COUNT = 259_318;
+  "b25b6277e375d5dd92cec98e7d33765a6898461e00597935cd526c850db8c0be";
+const EXPECTED_FRAME_COUNT = 1_470_912;
 const EXPECTED_BYTE_COUNT = EXPECTED_FRAME_COUNT * Float32Array.BYTES_PER_ELEMENT;
 const RIGHTS_NOTICE =
-  "Commissioned original recording licensed to SvetlozarValchev; " +
-  "modification and redistribution are authorized.";
-const LICENSEE = "SvetlozarValchev";
+  "Car not starting.wav by Ika.Komura is dedicated to the public domain " +
+  "under CC0 1.0.";
+const SOURCE_CREATOR = "Ika.Komura";
 const CHILD_MANIFEST_PATH =
   /^([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)\/runtime\.json$/u;
 const SIBLING_MANIFEST_PATH =
   /^\.\.\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)\/runtime\.json$/u;
 
 const EXPECTED_MARKERS = Object.freeze({
-  repeatInFrame: 82_969,
-  repeatOutFrame: 255_843,
-  cutFrame: 259_318,
+  repeatInFrame: 910_464,
+  repeatOutFrame: 1_432_512,
+  cutFrame: 1_470_912,
   seamCrossfadeFrames: 9_600,
 });
 
@@ -32,8 +32,8 @@ const EXPECTED_SETTINGS = Object.freeze({
   sourceGain: 0.5,
   speedUpStartRpm: 500,
   speedUpEndRpm: 760,
-  basePlaybackRate: 0.8,
-  catchPlaybackRate: 1.05,
+  basePlaybackRate: 1,
+  catchPlaybackRate: 1,
   speedUpCurve: 1.6,
   rpmSmoothingMilliseconds: 0,
   attackMilliseconds: 8,
@@ -321,15 +321,21 @@ function acceptedSettings(manifest) {
   return Object.freeze(result);
 }
 
-function validateLicensedProvenance(manifest) {
+function validateCc0Provenance(manifest) {
   const rights = object(manifest.rights, "manifest.rights");
-  exact(rights.status, "licensed", "manifest.rights.status");
+  exact(rights.status, "cc0-1.0", "manifest.rights.status");
+  exact(rights.basis, "public-domain-dedication", "manifest.rights.basis");
+  exact(rights.creator, SOURCE_CREATOR, "manifest.rights.creator");
   exact(
-    rights.basis,
-    "commissioned-original-recording",
-    "manifest.rights.basis",
+    rights.source_url,
+    "https://freesound.org/people/Ika.Komura/sounds/520773/",
+    "manifest.rights.source_url",
   );
-  exact(rights.licensee, LICENSEE, "manifest.rights.licensee");
+  exact(
+    rights.license_url,
+    "https://creativecommons.org/publicdomain/zero/1.0/",
+    "manifest.rights.license_url",
+  );
   exact(rights.audition_only, false, "manifest.rights.audition_only");
   exact(
     rights.modification_authorized,
@@ -341,23 +347,12 @@ function validateLicensedProvenance(manifest) {
     true,
     "manifest.rights.redistribution_authorized",
   );
-  exact(rights.attested_by, LICENSEE, "manifest.rights.attested_by");
-  exact(
-    rights.attestation_date,
-    "2026-08-06",
-    "manifest.rights.attestation_date",
-  );
   exact(rights.notice, RIGHTS_NOTICE, "manifest.rights.notice");
   const provenance = object(manifest.provenance, "manifest.provenance");
-  exact(
-    provenance.accepted_engine_audio_lab_layer_commit,
-    "976a67cfb36853fdf92bb325444a7cb161ea93d9",
-    "manifest.provenance.accepted_engine_audio_lab_layer_commit",
-  );
   const source = object(provenance.source, "manifest.provenance.source");
   exact(
     source.origin,
-    "commissioned-original-recording",
+    "freesound-cc0-via-pixabay-mp3",
     "manifest.provenance.source.origin",
   );
   exact(
@@ -367,24 +362,46 @@ function validateLicensedProvenance(manifest) {
   );
   exact(
     source.asset_file,
-    "recorded-starter-source.mp3",
+    "freesound_community-car-not-starting-40006.mp3",
     "manifest.provenance.source.asset_file",
+  );
+  exact(source.creator, SOURCE_CREATOR, "manifest.provenance.source.creator");
+  exact(
+    source.freesound_sound_id,
+    520_773,
+    "manifest.provenance.source.freesound_sound_id",
+  );
+  exact(
+    source.freesound_url,
+    "https://freesound.org/people/Ika.Komura/sounds/520773/",
+    "manifest.provenance.source.freesound_url",
+  );
+  exact(
+    source.download_page_url,
+    "https://pixabay.com/sound-effects/city-car-not-starting-40006/",
+    "manifest.provenance.source.download_page_url",
+  );
+  exact(source.license, "CC0-1.0", "manifest.provenance.source.license");
+  exact(
+    source.license_url,
+    "https://creativecommons.org/publicdomain/zero/1.0/",
+    "manifest.provenance.source.license_url",
   );
   exact(
     source.byte_count,
-    1_456_169,
+    314_880,
     "manifest.provenance.source.byte_count",
   );
   exact(source.codec, "mp3", "manifest.provenance.source.codec");
   exact(
     source.sample_rate_hz,
-    44_100,
+    48_000,
     "manifest.provenance.source.sample_rate_hz",
   );
-  exact(source.channels, 2, "manifest.provenance.source.channels");
+  exact(source.channels, 1, "manifest.provenance.source.channels");
   exact(
     source.channel_relationship,
-    "dual mono; FFmpeg decode is bit-identical and Chromium decode differs by at most one PCM16 LSB",
+    "mono",
     "manifest.provenance.source.channel_relationship",
   );
   const selection = object(
@@ -393,28 +410,28 @@ function validateLicensedProvenance(manifest) {
   );
   exact(
     selection.description,
-    "user-auditioned accepted starter and handoff settings",
+    "user-selected continuous crank bed from the complete CC0 source; initial EQ and level are matched to the replaced runtime asset",
     "manifest.provenance.selection.description",
   );
   exact(
-    selection.accepted_date,
-    "2026-07-20",
-    "manifest.provenance.selection.accepted_date",
+    selection.prepared_date,
+    "2026-08-22",
+    "manifest.provenance.selection.prepared_date",
   );
   exact(
     selection.repeat_bed_start_frame,
-    21_456,
+    227_616,
     "manifest.provenance.selection.repeat_bed_start_frame",
   );
   exact(
     selection.repeat_bed_end_frame,
-    61_163,
+    358_128,
     "manifest.provenance.selection.repeat_bed_end_frame",
   );
   exact(
-    selection.seam_crossfade_frames_at_44100hz,
-    2_205,
-    "manifest.provenance.selection.seam_crossfade_frames_at_44100hz",
+    selection.seam_crossfade_frames_at_48000hz,
+    2_400,
+    "manifest.provenance.selection.seam_crossfade_frames_at_48000hz",
   );
   const canonicalization = object(
     provenance.canonicalization,
@@ -422,18 +439,21 @@ function validateLicensedProvenance(manifest) {
   );
   const expectedCanonicalization = {
     method:
-      "decode-left-dual-mono-then-exact-source-frame-crop-then-soxr-resample",
-    source_channel: 0,
-    source_crop_begin_frame_inclusive: 2_399,
-    source_crop_end_frame_exclusive: 61_961,
-    source_crop_frames: 59_562,
+      "decode-mono-then-exact-source-frame-crop-static-eq-rms-match-soxr-resample-and-exact-output-trim",
+    source_crop_begin_frame_inclusive: 0,
+    source_crop_end_frame_exclusive: 367_728,
+    source_crop_frames: 367_728,
     output_sample_rate_hz: SAMPLE_RATE,
     output_frames: EXPECTED_FRAME_COUNT,
-    marker_mapping: "round(relative_source_frame * 192000 / 44100)",
+    marker_mapping: "relative_source_frame * 4",
     ffmpeg_version: "6.1.1-3ubuntu5",
     filter_graph:
-      "pan=mono|c0=c0,atrim=start_sample=2399:end_sample=61961," +
-      "aresample=192000:resampler=soxr:precision=33:cheby=0:dither_method=none",
+      "atrim=start_sample=0:end_sample=367728,asetpts=PTS-STARTPTS," +
+      "highpass=f=35:poles=2,equalizer=f=180:t=q:w=0.7:g=3," +
+      "equalizer=f=350:t=q:w=0.8:g=-3,equalizer=f=2800:t=q:w=0.8:g=-3.5," +
+      "equalizer=f=7000:t=q:w=0.7:g=1,volume=-6.966715dB," +
+      "aresample=192000:resampler=soxr:precision=33:cheby=0:" +
+      "dither_method=none,atrim=end_sample=1470912",
   };
   for (const [name, expected] of Object.entries(expectedCanonicalization)) {
     exact(
@@ -488,7 +508,7 @@ export async function loadSharedRecordedStarterRuntime(
     "shared-source-a-and-b-lifecycle-layer",
     "manifest.purpose",
   );
-  validateLicensedProvenance(manifest);
+  validateCc0Provenance(manifest);
   const markers = acceptedMarkers(manifest);
   const settings = acceptedSettings(manifest);
 
@@ -518,11 +538,11 @@ export async function loadSharedRecordedStarterRuntime(
   );
   exact(
     audio.duration_seconds,
-    1.3506145833333334,
+    7.661,
     "manifest.audio.duration_seconds",
   );
-  exact(audio.peak, 0.3043845593929291, "manifest.audio.peak");
-  exact(audio.rms, 0.05258075265253623, "manifest.audio.rms");
+  exact(audio.peak, 0.35322460532188416, "manifest.audio.peak");
+  exact(audio.rms, 0.058424785359228425, "manifest.audio.rms");
   const payloadUrl = relativeUrl(
     manifestUrl,
     audio.relative_path,
@@ -558,7 +578,7 @@ export async function loadSharedRecordedStarterRuntime(
     defaultEnabled: settings.defaultEnabled,
     manifestSha256: EXPECTED_MANIFEST_SHA256,
     rightsNotice: RIGHTS_NOTICE,
-    licensee: LICENSEE,
+    sourceCreator: SOURCE_CREATOR,
     sourceSha256: EXPECTED_SOURCE_SHA256,
     payloadSha256: EXPECTED_PAYLOAD_SHA256,
   });
@@ -1036,9 +1056,9 @@ export class SharedRecordedStarterCursor {
       id: EXPECTED_ID,
       configured: true,
       loaded: true,
-      licenseStatus: "licensed",
-      licenseBasis: "commissioned-original-recording",
-      licensee: LICENSEE,
+      licenseStatus: "cc0-1.0",
+      licenseBasis: "public-domain-dedication",
+      sourceCreator: SOURCE_CREATOR,
       auditionOnly: false,
       modificationAuthorized: true,
       redistributionAuthorized: true,

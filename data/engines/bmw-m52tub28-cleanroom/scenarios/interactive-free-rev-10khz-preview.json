@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "bmw-m52tub28-cleanroom-interactive-free-rev-10khz-preview",
   "engine": "bmw-m52tub28-cleanroom",
   "fuel": "premium-unleaded-gasoline",

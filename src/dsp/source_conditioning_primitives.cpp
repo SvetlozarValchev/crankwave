@@ -3,7 +3,7 @@
 #include <cmath>
 #include <stdexcept>
 
-namespace engine_sim_offline::dsp {
+namespace crankwave::dsp {
 namespace {
 
 void require_finite(double value, const char *message) {
@@ -148,4 +148,4 @@ float publish_calibrated_float32(double sample, double calibration_gain_linear) 
     return output;
 }
 
-} // namespace engine_sim_offline::dsp
+} // namespace crankwave::dsp

@@ -6,7 +6,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::contract::test {
+namespace crankwave::contract::test {
 namespace {
 
 template <class Mutation>
@@ -530,4 +530,4 @@ void run_parity_model_contract_tests() {
         });
 }
 
-} // namespace engine_sim_offline::contract::test
+} // namespace crankwave::contract::test

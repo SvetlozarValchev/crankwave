@@ -15,7 +15,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 namespace {
 
 using SourceBlock = std::array<double, kSourceFramesPerMethodBlock>;
@@ -546,4 +546,4 @@ bool PresentationAudioSession::terminal_failed() const noexcept {
     return implementation_->terminal_failed();
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

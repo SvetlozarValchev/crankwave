@@ -21,7 +21,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 inline constexpr std::size_t kStepCount = 802U;
 inline constexpr double kRpm = 2400.0;

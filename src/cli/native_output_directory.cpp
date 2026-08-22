@@ -3,7 +3,7 @@
 #include <new>
 #include <utility>
 
-namespace engine_sim_offline::cli::detail {
+namespace crankwave::cli::detail {
 
 bool valid_portable_component(std::string_view component) noexcept {
     if (component.empty() || component.size() > 255U || component == "." ||
@@ -56,9 +56,9 @@ NativeOutputError output_error(NativeOutputErrorKind kind,
     return {kind, code, std::move(path), std::move(message)};
 }
 
-} // namespace engine_sim_offline::cli::detail
+} // namespace crankwave::cli::detail
 
-namespace engine_sim_offline::cli {
+namespace crankwave::cli {
 
 NativeOutputDirectoryResult preflight_native_output_directory(
     const std::filesystem::path &output_directory) {
@@ -150,4 +150,4 @@ NativeOutputDirectoryResult preflight_native_output_directory(
     }
 }
 
-} // namespace engine_sim_offline::cli
+} // namespace crankwave::cli

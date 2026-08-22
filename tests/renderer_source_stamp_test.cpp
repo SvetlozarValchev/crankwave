@@ -6,7 +6,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::determinism;
+using namespace crankwave::determinism;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {

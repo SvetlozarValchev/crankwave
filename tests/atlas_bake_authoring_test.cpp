@@ -1,4 +1,4 @@
-#include "engine_sim_offline/authoring/parse.hpp"
+#include "crankwave/authoring/parse.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -14,7 +14,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::authoring;
+using namespace crankwave::authoring;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {

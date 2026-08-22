@@ -5,10 +5,10 @@ import {
 } from "./c-api-abi.js";
 import { withWasmAllocations } from "./wasm-heap.js";
 
-export class EngineSimRuntimeError extends Error {
+export class CrankwaveRuntimeError extends Error {
   constructor(message, detail = {}) {
     super(message);
-    this.name = "EngineSimRuntimeError";
+    this.name = "CrankwaveRuntimeError";
     Object.assign(this, detail);
   }
 
@@ -44,7 +44,7 @@ function readStringSet(heap, sizes, layout, invoke) {
     }
     const status = invoke(bufferPointer);
     if (status !== 0) {
-      throw new EngineSimRuntimeError(
+      throw new CrankwaveRuntimeError(
         `copying structured C API error text failed with ${statusName(status)}`,
         { status, statusName: statusName(status) },
       );
@@ -61,14 +61,14 @@ function readRelatedDiagnostic(module, heap, context, diagnosticIndex, relatedIn
     heap,
     [{ bytes: info.size, purpose: "related diagnostic metadata" }],
     ([infoPointer]) => {
-      const status = module._eso_context_get_related_diagnostic(
+      const status = module._crankwave_context_get_related_diagnostic(
         context,
         diagnosticIndex,
         relatedIndex,
         infoPointer,
       );
       if (status !== 0) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           `reading related diagnostic failed with ${statusName(status)}`,
           { status, statusName: statusName(status) },
         );
@@ -105,7 +105,7 @@ function readRelatedDiagnostic(module, heap, context, diagnosticIndex, relatedIn
         sizes,
         Layout.diagnosticTextBuffers,
         (buffers) =>
-          module._eso_context_copy_related_diagnostic_text(
+          module._crankwave_context_copy_related_diagnostic_text(
             context,
             diagnosticIndex,
             relatedIndex,
@@ -129,13 +129,13 @@ function readDiagnostic(module, heap, context, diagnosticIndex) {
     heap,
     [{ bytes: info.size, purpose: "diagnostic metadata" }],
     ([infoPointer]) => {
-      const status = module._eso_context_get_diagnostic(
+      const status = module._crankwave_context_get_diagnostic(
         context,
         diagnosticIndex,
         infoPointer,
       );
       if (status !== 0) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           `reading diagnostic failed with ${statusName(status)}`,
           { status, statusName: statusName(status) },
         );
@@ -186,7 +186,7 @@ function readDiagnostic(module, heap, context, diagnosticIndex) {
         sizes,
         Layout.diagnosticTextBuffers,
         (buffers) =>
-          module._eso_context_copy_diagnostic_text(
+          module._crankwave_context_copy_diagnostic_text(
             context,
             diagnosticIndex,
             buffers,
@@ -216,9 +216,9 @@ export function readContextError(module, heap, context, operation, fallbackStatu
     heap,
     [{ bytes: info.size, purpose: "C API error metadata" }],
     ([infoPointer]) => {
-      const inspectStatus = module._eso_context_get_last_error(context, infoPointer);
+      const inspectStatus = module._crankwave_context_get_last_error(context, infoPointer);
       if (inspectStatus !== 0) {
-        return new EngineSimRuntimeError(
+        return new CrankwaveRuntimeError(
           `${operation} failed with ${statusName(fallbackStatus)}`,
           {
             operation,
@@ -256,13 +256,13 @@ export function readContextError(module, heap, context, operation, fallbackStatu
         ],
         Layout.errorTextBuffers,
         (buffers) =>
-          module._eso_context_copy_last_error_text(context, buffers),
+          module._crankwave_context_copy_last_error_text(context, buffers),
       );
       const diagnostics = [];
       for (let index = 0; index < diagnosticCount; ++index) {
         diagnostics.push(readDiagnostic(module, heap, context, index));
       }
-      return new EngineSimRuntimeError(
+      return new CrankwaveRuntimeError(
         message || `${operation} failed with ${statusName(status)}`,
         {
           operation,

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/render_manifest.hpp"
+#include "crankwave/contract/render_manifest.hpp"
 
 #include <array>
 #include <chrono>
@@ -12,7 +12,7 @@
 #include <string_view>
 #include <variant>
 
-namespace engine_sim_offline::execution {
+namespace crankwave::execution {
 
 enum class LinuxExecutionFactsErrorCode : std::uint8_t {
     unsupported_platform,
@@ -162,4 +162,4 @@ parse_process_thread_count(std::string_view process_status,
 peak_resident_bytes_from_linux_kib(long maximum_resident_kib);
 
 } // namespace detail
-} // namespace engine_sim_offline::execution
+} // namespace crankwave::execution

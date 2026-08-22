@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <variant>
 
-namespace engine_sim_offline::simulation::detail {
+namespace crankwave::simulation::detail {
 
 struct PositiveSpeedRigidCrankState {
     double theta_rad = 0.0;
@@ -238,4 +238,4 @@ using NonnegativeSpeedConfigurationDependentCrankZohCalculation =
 advance_nonnegative_speed_configuration_dependent_crank_zoh(
     const NonnegativeSpeedConfigurationDependentCrankZohInput &input) noexcept;
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace crankwave::simulation::detail

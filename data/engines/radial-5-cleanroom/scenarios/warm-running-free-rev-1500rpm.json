@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "radial-5-cleanroom-warm-running-free-rev-1500rpm",
   "engine": "radial-5-cleanroom",
   "fuel": "gasoline-default",

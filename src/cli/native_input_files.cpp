@@ -4,7 +4,7 @@
 
 #include <new>
 
-namespace engine_sim_offline::cli {
+namespace crankwave::cli {
 
 std::string_view native_input_error_code_label(NativeInputErrorCode code) noexcept {
     switch (code) {
@@ -148,4 +148,4 @@ load_native_scenario_input(const std::filesystem::path &scenario_path,
     }
 }
 
-} // namespace engine_sim_offline::cli
+} // namespace crankwave::cli

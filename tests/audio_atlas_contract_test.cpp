@@ -1,5 +1,5 @@
-#include "engine_sim_offline/artifacts/audio_atlas_manifest_encoder.hpp"
-#include "engine_sim_offline/contract/audio_atlas.hpp"
+#include "crankwave/artifacts/audio_atlas_manifest_encoder.hpp"
+#include "crankwave/contract/audio_atlas.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -15,7 +15,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -225,7 +225,7 @@ void test_responsive_manifest_is_admitted_and_encoded() {
     expect(bytes != nullptr, "valid responsive audio atlas was not encoded");
     const auto json = std::string{
         reinterpret_cast<const char *>(bytes->bytes.data()), bytes->bytes.size()};
-    expect(json.find(R"json("schema":"engine-sim-offline/audio-atlas")json") !=
+    expect(json.find(R"json("schema":"crankwave/audio-atlas")json") !=
                std::string::npos,
            "encoded atlas omitted the sole current schema");
     expect(json.find(R"json("phase_texture")json") != std::string::npos &&

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/session.hpp"
 #include "excitation/captured_source_excitation.hpp"
 #include "presentation/presentation_audio_session.hpp"
 #include "presentation/presentation_calibration_compiler.hpp"
@@ -13,7 +13,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::session_detail {
+namespace crankwave::session_detail {
 
 struct BuiltSessionComponents {
     compile::CompiledScenario compiled_scenario;
@@ -37,4 +37,4 @@ build_session_components(const compile::CompiledScenario &scenario,
                          EngineSessionExecutionKind execution_kind,
                          std::span<const std::string_view> projected_dry_bus_ids = {});
 
-} // namespace engine_sim_offline::session_detail
+} // namespace crankwave::session_detail

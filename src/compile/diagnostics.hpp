@@ -1,12 +1,12 @@
 #pragma once
 
-#include "engine_sim_offline/authoring/diagnostic.hpp"
+#include "crankwave/authoring/diagnostic.hpp"
 
 #include <string>
 #include <string_view>
 #include <utility>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 
 [[nodiscard]] inline authoring::DiagnosticReport
 diagnostic(authoring::DiagnosticCode code, std::string_view path, std::string message) {
@@ -29,4 +29,4 @@ internal_failure(std::string_view operation) {
                       "unexpected failure while " + std::string{operation});
 }
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

@@ -22,12 +22,12 @@ docker run --rm \
             -S . \
             -B .work/browser-workbench/build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DENGINE_SIM_OFFLINE_BUILD_TESTS=OFF \
-            -DENGINE_SIM_OFFLINE_BUILD_CLI=OFF \
-            -DENGINE_SIM_OFFLINE_BUILD_WASM=ON &&
+            -DCRANKWAVE_BUILD_TESTS=OFF \
+            -DCRANKWAVE_BUILD_CLI=OFF \
+            -DCRANKWAVE_BUILD_WASM=ON &&
         cmake \
             --build .work/browser-workbench/build \
-            --target engine_sim_offline_web_workbench \
+            --target crankwave_web_workbench \
             --parallel 4
     '
 

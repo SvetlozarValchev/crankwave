@@ -1,4 +1,4 @@
-#include "simulation/engine_sim_v1_transient_friction.hpp"
+#include "simulation/crankwave_transient_friction.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 #include "simulation/one_level_master_rod_configuration_inertia.hpp"
 #include "simulation/one_level_master_rod_coupled_reaction.hpp"
@@ -18,8 +18,8 @@
 
 namespace {
 
-using namespace engine_sim_offline::contract;
-using namespace engine_sim_offline::simulation;
+using namespace crankwave::contract;
+using namespace crankwave::simulation;
 
 static_assert(
     !std::is_copy_assignable_v<CompiledOneLevelMasterRodArticulatedMechanism>);
@@ -291,16 +291,16 @@ void expect_stage_issue(const OneLevelMasterRodFrictionStageCalculation &calcula
     expect(error != nullptr && error->issue == expected, message);
 }
 
-[[nodiscard]] EngineSimV1PistonWallFrictionStage
-require_direct_stage(const EngineSimV1PistonWallFrictionCalculation &calculation) {
-    const auto *result = std::get_if<EngineSimV1PistonWallFrictionStage>(&calculation);
+[[nodiscard]] CrankwavePistonWallFrictionStage
+require_direct_stage(const CrankwavePistonWallFrictionCalculation &calculation) {
+    const auto *result = std::get_if<CrankwavePistonWallFrictionStage>(&calculation);
     expect(result != nullptr, "valid direct friction stage was rejected");
     return *result;
 }
 
-[[nodiscard]] EngineSimV1PistonWallReaction
-require_direct_reaction(const EngineSimV1PistonWallReactionCalculation &calculation) {
-    const auto *result = std::get_if<EngineSimV1PistonWallReaction>(&calculation);
+[[nodiscard]] CrankwavePistonWallReaction
+require_direct_reaction(const CrankwavePistonWallReactionCalculation &calculation) {
+    const auto *result = std::get_if<CrankwavePistonWallReaction>(&calculation);
     expect(result != nullptr, "valid direct wall reaction was rejected");
     return *result;
 }
@@ -355,14 +355,14 @@ void test_direct_root_reduces_to_existing_centered_reaction() {
             require_reaction(calculate_one_level_master_rod_coupled_reactions(
                 compiled, state, sample.omega, sample.alpha, reaction_workspace));
 
-        const EngineSimV1PistonWallCylinderPlan direct_plan{
+        const CrankwavePistonWallCylinderPlan direct_plan{
             piston_area_m2,    crank_radius_m,
             rod_length_m,      center_fraction * rod_length_m,
             piston_mass_kg,    rod_mass_kg,
             rod_inertia_kg_m2, crankcase_pressure_pa,
         };
         const auto &direct_stage =
-            require_direct_stage(stage_engine_sim_v1_piston_wall_friction({
+            require_direct_stage(stage_crankwave_piston_wall_friction({
                 direct_plan,
                 sample.theta,
                 sample.omega,
@@ -370,7 +370,7 @@ void test_direct_root_reduces_to_existing_centered_reaction() {
                 sample.retained_wall,
             }));
         const auto &direct_result =
-            require_direct_reaction(calculate_engine_sim_v1_next_piston_wall_reaction(
+            require_direct_reaction(calculate_crankwave_next_piston_wall_reaction(
                 direct_stage, sample.alpha));
         const auto &radial_reaction = radial_result.cylinders.front();
 

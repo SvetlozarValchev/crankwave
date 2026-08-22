@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "schema": "crankwave/responsive-audio-lifecycle",
   "id": "radial-5-cleanroom-lifecycle-preview",
   "engine": "radial-5-cleanroom",
   "audio": {
@@ -125,7 +125,7 @@
     "quiet_rms_threshold": 0.0007406619469247545
   },
   "startup_admission": {
-    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "schema": "crankwave/continuous-startup-admission-v1",
     "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
     "admission_lane_coordinate": "authored-throttle-01",
     "blend": "constant-power",
@@ -159,8 +159,8 @@
     "evidence": {
       "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
       "path": "evidence/startup-admission.json",
-      "sha256": "a7d85ac758b4e2409ef7bed98fc75434ee459f39cb7a553643ad21a9fb21bc87",
-      "corrected_held_manifest_sha256": "9ecddb119cf2787d47a2264d0df7f2610a41c68ec18f453192d38e3c0cdbab03"
+      "sha256": "3c9bc2958e8e1313514abec567105901f83e1679f40f542b1eadfa9ce95562dc",
+      "corrected_held_manifest_sha256": "4a7486164a52ba73ffe9aab3defd564f1bc316b250301ba41bd276bed4dd0dbe"
     }
   },
   "provenance": {
@@ -169,7 +169,7 @@
       "sha256": "6acf480746b42014f0abff3bcb79a331f0af30a8918e3d645b72da5cf93a16dd"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
@@ -184,27 +184,27 @@
         "canonical_source_id": "radial-5-cleanroom-lifecycle-starter-candidate",
         "derived_id": "radial-5-cleanroom-lifecycle-starter-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/starter-10khz.json",
-        "sha256": "8087d735f00c266f682f666c68707aa4754b0496e5a55ad5ead8ac90a1f3fccd",
+        "sha256": "c5498654f01b205636b8fe4199e407a5c00f06e39c5d6ec5ca20849a4869c46f",
         "evidence_path": "evidence/starter.json",
-        "evidence_sha256": "f902f21171bec56d6aa710927699109b3e4ac1319bea7a9fd58cc3f5045ec820"
+        "evidence_sha256": "f951cb2da4fd1e4e9f0cb031ff248ac4a7af35e1b26a7049f4a03f4d6fc7d2b4"
       },
       {
         "role": "startup",
         "canonical_source_id": "radial-5-cleanroom-lifecycle-startup-candidate",
         "derived_id": "radial-5-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/startup-10khz.json",
-        "sha256": "ee0099d84df25b4637360189ed6771452a008692cd6a2a4cfe8cc53c3d65cbcd",
+        "sha256": "fc98e94b5dc44fedf887fd643bad213abbe7f6d234d74b9c1807c02f22982d93",
         "evidence_path": "evidence/startup.json",
-        "evidence_sha256": "8a3c32afbeb3aaa67c2dd506fe10bb5b9c3191a844efcd69663a67b65fe07164"
+        "evidence_sha256": "82103986c44ac51dc70c8f069e3dd38b3bf2a8dd976bc4c0d7210676c3e2c160"
       },
       {
         "role": "shutdown",
         "canonical_source_id": "radial-5-cleanroom-lifecycle-shutdown-candidate",
         "derived_id": "radial-5-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/shutdown-10khz.json",
-        "sha256": "0091e66f4ae2e069a19fc298232948efa6b97bf4d0ea3b33f3c5a29c17d7f928",
+        "sha256": "0ff884a97103aae3bf239c66d23074e7cd3ed9d4325ab320049954c506153b07",
         "evidence_path": "evidence/shutdown.json",
-        "evidence_sha256": "0721333b5604ec57c4b789115bc70bddb2e356970664d322606eae88d20fee09"
+        "evidence_sha256": "636ce6303f320bf7929800f61f64b5d244b892674cd4e9de5cb76283c97d30a5"
       }
     ]
   }

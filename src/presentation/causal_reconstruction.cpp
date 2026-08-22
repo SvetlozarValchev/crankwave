@@ -5,7 +5,7 @@
 #include <limits>
 #include <stdexcept>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 CausalReconstruction::CausalReconstruction(std::size_t route_count,
                                            std::uint64_t input_rate_hz)
@@ -174,4 +174,4 @@ void CausalReconstruction::process(std::span<const double> input_frame_major,
     }
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

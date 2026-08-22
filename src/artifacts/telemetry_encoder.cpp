@@ -1,4 +1,4 @@
-#include "engine_sim_offline/artifacts/telemetry_encoder.hpp"
+#include "crankwave/artifacts/telemetry_encoder.hpp"
 
 #include "telemetry_encoder_support.hpp"
 
@@ -9,7 +9,7 @@
 #include <ranges>
 #include <utility>
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 namespace {
 
 TelemetryEncodingError error(TelemetryEncodingErrorCode code, std::string path,
@@ -433,4 +433,4 @@ TelemetryEncoderResult make_telemetry_encoder(const contract::CaptureLayoutView 
     };
 }
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

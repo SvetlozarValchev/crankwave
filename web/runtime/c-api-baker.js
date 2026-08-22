@@ -1,32 +1,32 @@
 import {
   AssetKind,
-  ESO_C_API_VERSION,
+  CRANKWAVE_C_API_VERSION,
   Layout,
   Status,
   WASM32_ABI_WORDS,
   statusName,
 } from "./c-api-abi.js";
-import { EngineSimRuntimeError, readContextError } from "./c-api-errors.js";
+import { CrankwaveRuntimeError, readContextError } from "./c-api-errors.js";
 import { WasmHeap, asUint8Array, withWasmAllocations } from "./wasm-heap.js";
 
 const REQUIRED_EXPORTS = Object.freeze([
   "_malloc",
   "_free",
-  "_eso_api_version",
-  "_eso_get_abi_layout",
-  "_eso_context_create",
-  "_eso_context_destroy",
-  "_eso_context_get_last_error",
-  "_eso_context_copy_last_error_text",
-  "_eso_context_get_diagnostic",
-  "_eso_context_copy_diagnostic_text",
-  "_eso_context_get_related_diagnostic",
-  "_eso_context_copy_related_diagnostic_text",
-  "_eso_bake_vehicleengine",
-  "_eso_destroy_vehicleengine",
-  "_eso_vehicleengine_get_descriptor",
-  "_eso_vehicleengine_copy_identity",
-  "_eso_vehicleengine_copy_bytes",
+  "_crankwave_api_version",
+  "_crankwave_get_abi_layout",
+  "_crankwave_context_create",
+  "_crankwave_context_destroy",
+  "_crankwave_context_get_last_error",
+  "_crankwave_context_copy_last_error_text",
+  "_crankwave_context_get_diagnostic",
+  "_crankwave_context_copy_diagnostic_text",
+  "_crankwave_context_get_related_diagnostic",
+  "_crankwave_context_copy_related_diagnostic_text",
+  "_crankwave_bake_package",
+  "_crankwave_destroy_package",
+  "_crankwave_package_get_descriptor",
+  "_crankwave_package_copy_identity",
+  "_crankwave_package_copy_bytes",
 ]);
 
 function requireText(value, label) {
@@ -80,7 +80,7 @@ function hex(bytes) {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export class EngineSimVehicleEngineBaker {
+export class CrankwaveBaker {
   #module;
   #heap;
   #context = 0;
@@ -89,7 +89,7 @@ export class EngineSimVehicleEngineBaker {
   constructor(module) {
     for (const name of REQUIRED_EXPORTS) {
       if (typeof module?.[name] !== "function") {
-        throw new EngineSimRuntimeError(`required baker WASM export ${name} is missing`, {
+        throw new CrankwaveRuntimeError(`required baker WASM export ${name} is missing`, {
           operation: "initialize-baker",
           detailCode: "browser-baker-wasm-export-missing",
           diagnostics: [],
@@ -101,16 +101,16 @@ export class EngineSimVehicleEngineBaker {
     this.#admitAbi();
     const output = this.#heap.allocate(4, "baker C API context pointer");
     try {
-      const status = module._eso_context_create(ESO_C_API_VERSION, output);
+      const status = module._crankwave_context_create(CRANKWAVE_C_API_VERSION, output);
       if (status !== Status.ok) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           `creating the baker context failed with ${statusName(status)}`,
           { operation: "initialize-baker", status, statusName: statusName(status) },
         );
       }
       this.#context = this.#heap.view.getUint32(output, true);
       if (this.#context === 0) {
-        throw new EngineSimRuntimeError("the baker returned a null context", {
+        throw new CrankwaveRuntimeError("the baker returned a null context", {
           operation: "initialize-baker",
         });
       }
@@ -147,8 +147,8 @@ export class EngineSimVehicleEngineBaker {
         bytes: normalizedAssets.length * Layout.assetPayload.size,
         purpose: "bake asset descriptors",
       },
-      { bytes: Layout.vehicleEngineBakeInputs.size, purpose: "bake inputs" },
-      { bytes: 8, purpose: "VEHICLEENGINE output handle" },
+      { bytes: Layout.crankwaveBakeInputs.size, purpose: "bake inputs" },
+      { bytes: 8, purpose: "CRANKWAVE output handle" },
     ];
     for (const [index, asset] of normalizedAssets.entries()) {
       allocations.push({ bytes: this.#heap.encodeUtf8(asset.id).byteLength, purpose: `asset ${index} ID` });
@@ -179,7 +179,7 @@ export class EngineSimVehicleEngineBaker {
         view.setUint32(descriptor + Layout.assetPayload.payloadBytes, asset.bytes.byteLength, true);
       }
 
-      const layout = Layout.vehicleEngineBakeInputs;
+      const layout = Layout.crankwaveBakeInputs;
       writeView(view, inputsPointer, layout.engineJsonData, layout.engineJsonBytes,
         { pointer: enginePointer, byteLength: encodedEngine.byteLength });
       view.setUint32(inputsPointer + layout.assets, assetArrayPointer, true);
@@ -193,7 +193,7 @@ export class EngineSimVehicleEngineBaker {
       heap.bytes.set(moduleDigest, inputsPointer + layout.wasmModuleSha256);
       heap.bytes.set(catalogDigest, inputsPointer + layout.assetCatalogSha256);
 
-      const status = this.#module._eso_bake_vehicleengine(
+      const status = this.#module._crankwave_bake_package(
         this.#context,
         inputsPointer,
         outputPointer,
@@ -203,29 +203,29 @@ export class EngineSimVehicleEngineBaker {
           this.#module,
           this.#heap,
           this.#context,
-          "bake VEHICLEENGINE",
+          "bake CRANKWAVE",
           status,
         );
       }
-      const vehicleEngine = this.#heap.view.getBigUint64(outputPointer, true);
-      if (vehicleEngine === 0n) {
-        throw new EngineSimRuntimeError("the baker returned an invalid handle", {
-          operation: "bake VEHICLEENGINE",
+      const crankwaveHandle = this.#heap.view.getBigUint64(outputPointer, true);
+      if (crankwaveHandle === 0n) {
+        throw new CrankwaveRuntimeError("the baker returned an invalid handle", {
+          operation: "bake CRANKWAVE",
         });
       }
       try {
-        return this.#copyResult(vehicleEngine);
+        return this.#copyResult(crankwaveHandle);
       } finally {
-        const destroyStatus = this.#module._eso_destroy_vehicleengine(
+        const destroyStatus = this.#module._crankwave_destroy_package(
           this.#context,
-          vehicleEngine,
+          crankwaveHandle,
         );
         if (destroyStatus !== Status.ok) {
           throw readContextError(
             this.#module,
             this.#heap,
             this.#context,
-            "destroy VEHICLEENGINE",
+            "destroy CRANKWAVE",
             destroyStatus,
           );
         }
@@ -237,10 +237,10 @@ export class EngineSimVehicleEngineBaker {
     if (this.#disposed) return;
     this.#disposed = true;
     if (this.#context !== 0) {
-      const status = this.#module._eso_context_destroy(this.#context);
+      const status = this.#module._crankwave_context_destroy(this.#context);
       this.#context = 0;
       if (status !== Status.ok) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           `destroying the baker context failed with ${statusName(status)}`,
           { operation: "dispose-baker", status, statusName: statusName(status) },
         );
@@ -248,25 +248,25 @@ export class EngineSimVehicleEngineBaker {
     }
   }
 
-  #copyResult(vehicleEngine) {
-    const descriptorLayout = Layout.vehicleEngineDescriptor;
+  #copyResult(crankwaveHandle) {
+    const descriptorLayout = Layout.crankwaveDescriptor;
     return withWasmAllocations(
       this.#heap,
-      [{ bytes: descriptorLayout.size, purpose: "VEHICLEENGINE descriptor" }],
+      [{ bytes: descriptorLayout.size, purpose: "CRANKWAVE descriptor" }],
       ([descriptorPointer]) => {
-        let status = this.#module._eso_vehicleengine_get_descriptor(
+        let status = this.#module._crankwave_package_get_descriptor(
           this.#context,
-          vehicleEngine,
+          crankwaveHandle,
           descriptorPointer,
         );
         if (status !== Status.ok) {
           throw readContextError(this.#module, this.#heap, this.#context,
-            "read VEHICLEENGINE descriptor", status);
+            "read CRANKWAVE descriptor", status);
         }
         const view = this.#heap.view;
         const byteCount = safeNumber(
           view.getBigUint64(descriptorPointer + descriptorLayout.containerBytes, true),
-          "VEHICLEENGINE byte count",
+          "CRANKWAVE byte count",
         );
         const engineIdBytes = view.getUint32(
           descriptorPointer + descriptorLayout.engineIdBytes,
@@ -296,42 +296,42 @@ export class EngineSimVehicleEngineBaker {
           [
             { bytes: engineIdBytes + 1, purpose: "baked engine ID" },
             { bytes: profileIdBytes + 1, purpose: "bake profile ID" },
-            { bytes: Layout.vehicleEngineIdentityBuffers.size, purpose: "bake identity buffers" },
-            { bytes: byteCount, purpose: "VEHICLEENGINE carrier copy" },
-            { bytes: 4, purpose: "VEHICLEENGINE byte count output" },
+            { bytes: Layout.crankwaveIdentityBuffers.size, purpose: "bake identity buffers" },
+            { bytes: byteCount, purpose: "CRANKWAVE carrier copy" },
+            { bytes: 4, purpose: "CRANKWAVE byte count output" },
           ],
           ([engineIdPointer, profileIdPointer, identityPointer, bytesPointer,
             byteCountPointer]) => {
-            const identity = Layout.vehicleEngineIdentityBuffers;
+            const identity = Layout.crankwaveIdentityBuffers;
             const currentView = this.#heap.view;
             currentView.setUint32(identityPointer + identity.engineIdData, engineIdPointer, true);
             currentView.setUint32(identityPointer + identity.engineIdCapacity, engineIdBytes + 1, true);
             currentView.setUint32(identityPointer + identity.profileIdData, profileIdPointer, true);
             currentView.setUint32(identityPointer + identity.profileIdCapacity, profileIdBytes + 1, true);
-            status = this.#module._eso_vehicleengine_copy_identity(
+            status = this.#module._crankwave_package_copy_identity(
               this.#context,
-              vehicleEngine,
+              crankwaveHandle,
               identityPointer,
             );
             if (status !== Status.ok) {
               throw readContextError(this.#module, this.#heap, this.#context,
-                "copy VEHICLEENGINE identity", status);
+                "copy CRANKWAVE identity", status);
             }
-            status = this.#module._eso_vehicleengine_copy_bytes(
+            status = this.#module._crankwave_package_copy_bytes(
               this.#context,
-              vehicleEngine,
+              crankwaveHandle,
               bytesPointer,
               byteCount,
               byteCountPointer,
             );
             if (status !== Status.ok) {
               throw readContextError(this.#module, this.#heap, this.#context,
-                "copy VEHICLEENGINE carrier", status);
+                "copy CRANKWAVE carrier", status);
             }
             const written = this.#heap.view.getUint32(byteCountPointer, true);
             if (written !== byteCount) {
-              throw new EngineSimRuntimeError("the baker copied an incomplete carrier", {
-                operation: "copy VEHICLEENGINE carrier",
+              throw new CrankwaveRuntimeError("the baker copied an incomplete carrier", {
+                operation: "copy CRANKWAVE carrier",
               });
             }
             return Object.freeze({
@@ -347,20 +347,20 @@ export class EngineSimVehicleEngineBaker {
   }
 
   #admitAbi() {
-    if (this.#module._eso_api_version() !== ESO_C_API_VERSION) {
-      throw new EngineSimRuntimeError("the baker C API version is incompatible", {
+    if (this.#module._crankwave_api_version() !== CRANKWAVE_C_API_VERSION) {
+      throw new CrankwaveRuntimeError("the baker C API version is incompatible", {
         operation: "initialize-baker",
       });
     }
     const pointer = this.#heap.allocate(Layout.abiLayout.size, "baker ABI layout");
     try {
-      const status = this.#module._eso_get_abi_layout(pointer);
+      const status = this.#module._crankwave_get_abi_layout(pointer);
       const words = Array.from(
         this.#module.HEAPU32.subarray(pointer >>> 2, (pointer >>> 2) + 12),
       );
       if (status !== Status.ok ||
           words.some((word, index) => word !== WASM32_ABI_WORDS[index])) {
-        throw new EngineSimRuntimeError("the baker wasm32 ABI layout is incompatible", {
+        throw new CrankwaveRuntimeError("the baker wasm32 ABI layout is incompatible", {
           operation: "initialize-baker",
         });
       }
@@ -371,8 +371,8 @@ export class EngineSimVehicleEngineBaker {
 
   #assertAlive() {
     if (this.#disposed || this.#context === 0) {
-      throw new EngineSimRuntimeError("the VEHICLEENGINE baker is disposed", {
-        operation: "bake VEHICLEENGINE",
+      throw new CrankwaveRuntimeError("the CRANKWAVE baker is disposed", {
+        operation: "bake CRANKWAVE",
       });
     }
   }

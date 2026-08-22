@@ -1,9 +1,9 @@
 #pragma once
 
-#include "engine_sim_offline/authoring/diagnostic.hpp"
-#include "engine_sim_offline/c_api.h"
-#include "engine_sim_offline/compile.hpp"
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/authoring/diagnostic.hpp"
+#include "crankwave/c_api.h"
+#include "crankwave/compile.hpp"
+#include "crankwave/session.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -16,13 +16,13 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::c_api {
+namespace crankwave::c_api {
 
 enum class HandleKind : std::uint8_t {
     engine = 1,
     scenario = 2,
     session = 3,
-    vehicleengine = 4,
+    crankwave = 4,
 };
 
 inline constexpr std::uint64_t kHandleSlotMask = UINT64_C(0x000fffff);
@@ -33,9 +33,9 @@ inline constexpr std::uint32_t kHandleGenerationShift = 44U;
 inline constexpr std::uint32_t kMaximumHandleGeneration = 0x000fffffU;
 
 struct ErrorRecord {
-    eso_status_t status = ESO_STATUS_OK;
-    eso_error_stage_t stage = ESO_ERROR_STAGE_NONE;
-    eso_error_code_t code = ESO_ERROR_NONE;
+    crankwave_status_t status = CRANKWAVE_STATUS_OK;
+    crankwave_error_stage_t stage = CRANKWAVE_ERROR_STAGE_NONE;
+    crankwave_error_code_t code = CRANKWAVE_ERROR_NONE;
     std::string detail_code;
     std::string message;
     std::vector<authoring::Diagnostic> diagnostics;
@@ -55,7 +55,7 @@ struct SessionEntry {
     bool terminal = false;
 };
 
-struct VehicleEngineEntry {
+struct CrankwaveEntry {
     std::vector<std::byte> bytes;
     std::string engine_id;
     std::string profile_id;
@@ -161,7 +161,7 @@ template <class Value, HandleKind Kind> class HandleRegistry {
 
     [[nodiscard]] std::optional<DecodedHandle>
     decode(const std::uint64_t handle) const noexcept {
-        if (handle == ESO_INVALID_HANDLE) {
+        if (handle == CRANKWAVE_INVALID_HANDLE) {
             return std::nullopt;
         }
         const auto kind =
@@ -182,86 +182,86 @@ template <class Value, HandleKind Kind> class HandleRegistry {
     std::vector<Slot> slots_;
 };
 
-[[nodiscard]] bool valid(eso_utf8_view_t view) noexcept;
-[[nodiscard]] bool valid(eso_byte_view_t view) noexcept;
+[[nodiscard]] bool valid(crankwave_utf8_view_t view) noexcept;
+[[nodiscard]] bool valid(crankwave_byte_view_t view) noexcept;
 
-void clear_error(eso_context &context) noexcept;
+void clear_error(crankwave_context &context) noexcept;
 
-[[nodiscard]] eso_status_t set_error(eso_context &context, eso_status_t status,
-                                     eso_error_stage_t stage, eso_error_code_t code,
+[[nodiscard]] crankwave_status_t set_error(crankwave_context &context, crankwave_status_t status,
+                                     crankwave_error_stage_t stage, crankwave_error_code_t code,
                                      std::string detail_code, std::string message);
 
-[[nodiscard]] eso_status_t set_diagnostics(eso_context &context, eso_status_t status,
-                                           eso_error_stage_t stage,
+[[nodiscard]] crankwave_status_t set_diagnostics(crankwave_context &context, crankwave_status_t status,
+                                           crankwave_error_stage_t stage,
                                            std::string detail_code, std::string message,
                                            authoring::DiagnosticReport report);
 
-void set_unexpected_error_noexcept(eso_context &context, bool resource) noexcept;
+void set_unexpected_error_noexcept(crankwave_context &context, bool resource) noexcept;
 
 template <class Operation>
-[[nodiscard]] eso_status_t boundary(eso_context &context,
+[[nodiscard]] crankwave_status_t boundary(crankwave_context &context,
                                     Operation &&operation) noexcept {
     try {
         return std::forward<Operation>(operation)();
     } catch (const std::bad_alloc &) {
         set_unexpected_error_noexcept(context, true);
-        return ESO_STATUS_RESOURCE_EXHAUSTED;
+        return CRANKWAVE_STATUS_RESOURCE_EXHAUSTED;
     } catch (...) {
         set_unexpected_error_noexcept(context, false);
-        return ESO_STATUS_INTERNAL_ERROR;
+        return CRANKWAVE_STATUS_INTERNAL_ERROR;
     }
 }
 
-[[nodiscard]] eso_status_t copy_text(std::string_view text,
-                                     eso_mutable_utf8_buffer_t buffer) noexcept;
+[[nodiscard]] crankwave_status_t copy_text(std::string_view text,
+                                     crankwave_mutable_utf8_buffer_t buffer) noexcept;
 
-[[nodiscard]] eso_diagnostic_severity_t
+[[nodiscard]] crankwave_diagnostic_severity_t
 diagnostic_severity(authoring::DiagnosticSeverity severity) noexcept;
-[[nodiscard]] eso_diagnostic_code_t
+[[nodiscard]] crankwave_diagnostic_code_t
 diagnostic_code(authoring::DiagnosticCode code) noexcept;
-[[nodiscard]] eso_error_code_t session_error_code(EngineSessionErrorCode code) noexcept;
-[[nodiscard]] eso_error_code_t
+[[nodiscard]] crankwave_error_code_t session_error_code(EngineSessionErrorCode code) noexcept;
+[[nodiscard]] crankwave_error_code_t
 control_error_code(EngineControlRejectionCode code) noexcept;
-[[nodiscard]] eso_audio_bus_kind_t audio_bus_kind(EngineAudioBusKind kind) noexcept;
-[[nodiscard]] eso_source_route_kind_t
+[[nodiscard]] crankwave_audio_bus_kind_t audio_bus_kind(EngineAudioBusKind kind) noexcept;
+[[nodiscard]] crankwave_source_route_kind_t
 source_route_kind(contract::SourceRouteKind kind) noexcept;
-[[nodiscard]] eso_audio_signal_disposition_t
+[[nodiscard]] crankwave_audio_signal_disposition_t
 audio_signal_disposition(EngineAudioSignalDisposition disposition) noexcept;
 
-[[nodiscard]] eso_quantity_value_t
+[[nodiscard]] crankwave_quantity_value_t
 quantity_value(const contract::QuantityValue &value) noexcept;
-[[nodiscard]] eso_torque_value_nm_t
+[[nodiscard]] crankwave_torque_value_nm_t
 torque_value(const contract::TorqueValueNm &value) noexcept;
-[[nodiscard]] eso_engine_telemetry_t
+[[nodiscard]] crankwave_engine_telemetry_t
 engine_telemetry(const contract::EngineCaptureSample &engine) noexcept;
-[[nodiscard]] eso_session_telemetry_t
+[[nodiscard]] crankwave_session_telemetry_t
 session_telemetry(const EngineTelemetryFrame &frame) noexcept;
-[[nodiscard]] eso_completed_cycle_evidence_t
+[[nodiscard]] crankwave_completed_cycle_evidence_t
 completed_cycle_evidence(const EngineCompletedCycleEvidence &cycle) noexcept;
 
-} // namespace engine_sim_offline::c_api
+} // namespace crankwave::c_api
 
-struct eso_context {
-    explicit eso_context(std::uint32_t tag)
-        : engines(tag), scenarios(tag), sessions(tag), vehicleengines(tag),
+struct crankwave_context {
+    explicit crankwave_context(std::uint32_t tag)
+        : engines(tag), scenarios(tag), sessions(tag), crankwaves(tag),
           context_tag(tag) {}
 
-    engine_sim_offline::c_api::HandleRegistry<
-        engine_sim_offline::compile::CompiledEngine,
-        engine_sim_offline::c_api::HandleKind::engine>
+    crankwave::c_api::HandleRegistry<
+        crankwave::compile::CompiledEngine,
+        crankwave::c_api::HandleKind::engine>
         engines;
-    engine_sim_offline::c_api::HandleRegistry<
-        engine_sim_offline::compile::CompiledScenario,
-        engine_sim_offline::c_api::HandleKind::scenario>
+    crankwave::c_api::HandleRegistry<
+        crankwave::compile::CompiledScenario,
+        crankwave::c_api::HandleKind::scenario>
         scenarios;
-    engine_sim_offline::c_api::HandleRegistry<
-        engine_sim_offline::c_api::SessionEntry,
-        engine_sim_offline::c_api::HandleKind::session>
+    crankwave::c_api::HandleRegistry<
+        crankwave::c_api::SessionEntry,
+        crankwave::c_api::HandleKind::session>
         sessions;
-    engine_sim_offline::c_api::HandleRegistry<
-        engine_sim_offline::c_api::VehicleEngineEntry,
-        engine_sim_offline::c_api::HandleKind::vehicleengine>
-        vehicleengines;
-    std::optional<engine_sim_offline::c_api::ErrorRecord> last_error;
+    crankwave::c_api::HandleRegistry<
+        crankwave::c_api::CrankwaveEntry,
+        crankwave::c_api::HandleKind::crankwave>
+        crankwaves;
+    std::optional<crankwave::c_api::ErrorRecord> last_error;
     std::uint32_t context_tag = 0U;
 };

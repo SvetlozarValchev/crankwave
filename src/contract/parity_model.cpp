@@ -1,6 +1,6 @@
-#include "engine_sim_offline/contract/parity_model.hpp"
+#include "crankwave/contract/parity_model.hpp"
 
-#include "engine_sim_offline/contract/engine.hpp"
+#include "crankwave/contract/engine.hpp"
 #include "physics_profile_support.hpp"
 #include "validation_support.hpp"
 
@@ -22,7 +22,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 namespace {
 
 constexpr double kLegacyPi = 3.14159265359;
@@ -2890,4 +2890,4 @@ ValidationReport validate(const ExecutablePhysicsProfile &profile,
     return report;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

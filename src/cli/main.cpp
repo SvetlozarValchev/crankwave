@@ -30,12 +30,12 @@ int main(int argc, char **argv) {
 
     const auto controlled_invocation =
         !arguments.empty() &&
-        (arguments.front() == "render" || arguments.front() == "bake-vehicleengine" ||
-         arguments.front() == "pack-vehicleengine" ||
-         arguments.front() == "inspect-vehicleengine" ||
-         arguments.front() == "verify-vehicleengine");
+        (arguments.front() == "render" || arguments.front() == "bake-crankwave" ||
+         arguments.front() == "pack-crankwave" ||
+         arguments.front() == "inspect-crankwave" ||
+         arguments.front() == "verify-crankwave");
     if (!controlled_invocation) {
-        return engine_sim_offline::cli::run_cli(arguments, std::cout, std::cerr);
+        return crankwave::cli::run_cli(arguments, std::cout, std::cerr);
     }
 
     termination_requested.clear(std::memory_order_relaxed);
@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
         }
     }};
 
-    const auto result = engine_sim_offline::cli::run_cli(
+    const auto result = crankwave::cli::run_cli(
         arguments, std::cout, std::cerr, termination.get_token());
     signal_bridge.request_stop();
     if (previous_interrupt != SIG_ERR) {

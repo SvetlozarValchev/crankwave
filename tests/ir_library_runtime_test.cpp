@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 #include "presentation/overlap_save_convolver.hpp"
 #include "presentation/pcm16_ir_decoder.hpp"
 #include "presentation/presentation_asset_compiler.hpp"
@@ -22,7 +22,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 void expect(bool condition, const char *message) {
     if (!condition) {

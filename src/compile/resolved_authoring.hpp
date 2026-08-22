@@ -1,14 +1,14 @@
 #pragma once
 
-#include "engine_sim_offline/contract/presentation.hpp"
-#include "engine_sim_offline/contract/source_matrix.hpp"
+#include "crankwave/contract/presentation.hpp"
+#include "crankwave/contract/source_matrix.hpp"
 
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 
 // Engine-owned scenario inputs retained after authoring resolution. Keeping these
 // descriptors beside both resolvers avoids a lossy translation layer and keeps the
@@ -100,4 +100,4 @@ struct ResolvedRigDescriptor {
                            const ResolvedRigDescriptor &) = default;
 };
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

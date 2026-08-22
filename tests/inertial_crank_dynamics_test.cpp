@@ -2,7 +2,7 @@
 #include "simulation/inertial_dyno_method_registry.hpp"
 #include "simulation/positive_speed_rigid_crank_zoh.hpp"
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <cmath>
 #include <cstdlib>
@@ -18,8 +18,8 @@
 
 namespace {
 
-using namespace engine_sim_offline::simulation;
-namespace crank_detail = engine_sim_offline::simulation::detail;
+using namespace crankwave::simulation;
+namespace crank_detail = crankwave::simulation::detail;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -190,14 +190,14 @@ void test_method_identities_bind_canonical_descriptors() {
 
     expect(crank.id == kRigidCrankZohWorkEnergyMethodId && crank.version == 1U &&
                crank.configuration_sha256 ==
-                   engine_sim_offline::contract::sha256(
+                   crankwave::contract::sha256(
                        std::as_bytes(std::span<const char>{crank_descriptor.data(),
                                                            crank_descriptor.size()})),
            "crank-dynamics identity is not bound to its canonical descriptor");
     expect(brake.id == kPiecewiseLinearPositiveSpeedPassiveBrakeMethodId &&
                brake.version == 1U &&
                brake.configuration_sha256 ==
-                   engine_sim_offline::contract::sha256(
+                   crankwave::contract::sha256(
                        std::as_bytes(std::span<const char>{brake_descriptor.data(),
                                                            brake_descriptor.size()})),
            "passive-brake identity is not bound to its canonical descriptor");

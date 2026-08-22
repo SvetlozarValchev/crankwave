@@ -1,7 +1,7 @@
 const ROOT_SCHEMA =
-  "engine-sim-offline/responsive-audio-held-texture";
+  "crankwave/responsive-audio-held-texture";
 const ROUTE_SCHEMA =
-  "engine-sim-offline/responsive-audio-held-route";
+  "crankwave/responsive-audio-held-route";
 const PACKAGE_KIND = "held-phase-texture-package";
 const SELECTION_ALGORITHM = "splitmix64-shuffled-bags-v1";
 const ALIGNMENT_METHOD =

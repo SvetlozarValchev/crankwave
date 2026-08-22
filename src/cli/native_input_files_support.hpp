@@ -5,7 +5,7 @@
 #include <optional>
 #include <system_error>
 
-namespace engine_sim_offline::cli::detail {
+namespace crankwave::cli::detail {
 
 class FileDescriptor {
   public:
@@ -100,4 +100,4 @@ open_asset_root(const std::filesystem::path &asset_root);
 [[nodiscard]] bool valid_portable_component(
     std::string_view component) noexcept;
 
-} // namespace engine_sim_offline::cli::detail
+} // namespace crankwave::cli::detail

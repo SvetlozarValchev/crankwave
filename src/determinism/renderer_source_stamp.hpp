@@ -1,12 +1,12 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <string>
 #include <string_view>
 #include <variant>
 
-namespace engine_sim_offline::determinism {
+namespace crankwave::determinism {
 
 enum class RendererSourceState {
     clean,
@@ -89,4 +89,4 @@ decode_renderer_source_closure(const EmbeddedRendererSourceStamp &embedded);
 decode_renderer_source_stamp(const EmbeddedRendererSourceStamp &embedded);
 
 } // namespace detail
-} // namespace engine_sim_offline::determinism
+} // namespace crankwave::determinism

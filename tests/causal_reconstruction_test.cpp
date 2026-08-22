@@ -14,7 +14,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::presentation;
+using namespace crankwave::presentation;
 
 constexpr std::size_t kBmwRouteCount = 2;
 constexpr std::size_t kCanonicalInputFrames = kExcitationFramesPerMethodBlock;

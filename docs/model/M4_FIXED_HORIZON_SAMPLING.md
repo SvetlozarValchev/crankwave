@@ -64,7 +64,7 @@ Its method ID is `fixed-horizon-trailing-complete-cycle-sample-v1`, version `1`.
 exact method descriptor is:
 
 ```text
-engine-sim-offline.simulation-method-configuration.v1
+crankwave.simulation-method-configuration.v1
 method=fixed-horizon-trailing-complete-cycle-sample-v1
 version=1
 operation=fixed-preparation-horizon-trailing-complete-cycle-sampling
@@ -255,9 +255,9 @@ There are no v1 factories. Provenance and request digests are regenerated from t
 new exact contracts.
 
 The torque-sweep evidence wire becomes
-`engine-sim-offline.bmw-m52b28-torque-sweep-evidence.v2`, its canonical grammar
+`crankwave.bmw-m52b28-torque-sweep-evidence.v2`, its canonical grammar
 becomes
-`engine-sim-offline.bmw-m52b28-torque-sweep-evidence-canonical-json.v2`, and its
+`crankwave.bmw-m52b28-torque-sweep-evidence-canonical-json.v2`, and its
 publication becomes `bmw-m52b28-m4-torque-sweep-v2.json` plus the same-name
 `.sha256` sidecar. It contains one sampled cycle range per point and removes A/B
 ranges, residuals, tolerances, and limiting-volume claims. The runner remains

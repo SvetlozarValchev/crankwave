@@ -1,4 +1,4 @@
-import { ESO_CANONICAL_SAMPLE_RATE } from "./c-api-abi.js";
+import { CRANKWAVE_CANONICAL_SAMPLE_RATE } from "./c-api-abi.js";
 
 export const SourceBakedComparisonMode = Object.freeze({
   source: "source-a",
@@ -80,7 +80,7 @@ export class SourceBakedComparisonMixer {
   }
 
   get sampleRate() {
-    return ESO_CANONICAL_SAMPLE_RATE;
+    return CRANKWAVE_CANONICAL_SAMPLE_RATE;
   }
 
   get channelCount() {
@@ -152,7 +152,7 @@ export class SourceBakedComparisonMixer {
     const source = publicSignalStatistics(this.#source, this.#frameCount);
     const baked = publicSignalStatistics(this.#baked, this.#frameCount);
     return Object.freeze({
-      sampleRate: ESO_CANONICAL_SAMPLE_RATE,
+      sampleRate: CRANKWAVE_CANONICAL_SAMPLE_RATE,
       channelCount: 2,
       mode: this.#mode,
       lastBlock: this.#lastBlock,

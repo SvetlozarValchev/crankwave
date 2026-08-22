@@ -1,11 +1,11 @@
 #pragma once
 
-#include "engine_sim_offline/contract/presentation.hpp"
+#include "crankwave/contract/presentation.hpp"
 
 #include <cstdint>
 #include <string_view>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 inline constexpr std::string_view kCausalReconstructionMethodId =
     "causal-kaiser-sinc-257tap-4096phase-10000-or-20000-to-192000-binary64-v4";
@@ -106,4 +106,4 @@ extended_presentation_method_identities();
 [[nodiscard]] contract::ValidationReport
 admit_implemented_presentation_methods(const contract::PresentationMethods &methods);
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

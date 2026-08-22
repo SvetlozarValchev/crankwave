@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://engine-sim-offline.dev/schemas/installed-distribution.v2.schema.json",
-  "title": "Engine Sim Offline installed distribution v2",
+  "$id": "https://crankwave.dev/schemas/installed-distribution.v2.schema.json",
+  "title": "Crankwave installed distribution v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -16,11 +16,11 @@
     "native_cli",
     "browser_playback",
     "telemetry_contract",
-    "vehicleengine_bake_workflow",
+    "crankwave_bake_workflow",
     "files"
   ],
   "properties": {
-    "schema": {"const": "engine-sim-offline/installed-distribution.v2"},
+    "schema": {"const": "crankwave/installed-distribution.v2"},
     "release_identity": {"$ref": "#/$defs/releaseIdentity"},
     "classification": {
       "enum": ["immutable_release", "incomplete_development_install"]
@@ -54,10 +54,10 @@
         "commands": {
           "const": [
             "render",
-            "bake-vehicleengine",
-            "pack-vehicleengine",
-            "inspect-vehicleengine",
-            "verify-vehicleengine",
+            "bake-crankwave",
+            "pack-crankwave",
+            "inspect-crankwave",
+            "verify-crankwave",
             "inspect-ir-catalog"
           ]
         }
@@ -74,7 +74,7 @@
       }
     },
     "telemetry_contract": {"$ref": "#/$defs/telemetry"},
-    "vehicleengine_bake_workflow": {"$ref": "#/$defs/binding"},
+    "crankwave_bake_workflow": {"$ref": "#/$defs/binding"},
     "files": {
       "type": "array",
       "minItems": 1,
@@ -149,7 +149,7 @@
         "role": "diagnostics.engine-telemetry.v1",
         "kind": "telemetry",
         "path": "telemetry/engine-telemetry.v1.ndjson",
-        "schema": "engine-sim-offline.engine-telemetry.ndjson.v1",
+        "schema": "crankwave.engine-telemetry.ndjson.v1",
         "originating_commit": "c8d672b59e3046654ad5f818f31725798aef7ffa"
       }
     },

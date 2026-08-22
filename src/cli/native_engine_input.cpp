@@ -4,7 +4,7 @@
 #include <limits>
 #include <utility>
 
-namespace engine_sim_offline::cli::detail {
+namespace crankwave::cli::detail {
 namespace {
 
 std::string bytes_to_string(const std::vector<std::byte> &bytes) {
@@ -163,4 +163,4 @@ NativeScenarioInputResult load_scenario_impl(
     return std::get<authoring::ScenarioDocument>(std::move(parsed));
 }
 
-} // namespace engine_sim_offline::cli::detail
+} // namespace crankwave::cli::detail

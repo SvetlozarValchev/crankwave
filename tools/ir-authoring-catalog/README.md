@@ -22,7 +22,7 @@ layout. Regenerate and verify with:
 ```sh
 node tools/ir-authoring-catalog/generate.mjs \
   --import \
-  --source-root /path/to/engine-sim/assets/sound-library
+  --source-root /path/to/crankwave/assets/sound-library
 node tools/ir-authoring-catalog/generate.mjs --check
 node tools/ir-authoring-catalog/test.mjs
 ```
@@ -113,8 +113,8 @@ the relative locator.
 The upstream repository's recorded `LICENSE` is MIT and covers redistribution of the
 imported exact-byte library subject to preservation of its copyright and permission
 notice. Every entry records that license path and SHA-256 and has
-`redistribution_status: permitted-with-license-notice`. ESO's installed distribution
-ships the required notice separately from ESO's proprietary project license.
+`redistribution_status: permitted-with-license-notice`. Crankwave's installed
+distribution ships the required notice separately from the project's MIT License.
 
 ## Runtime compatibility
 

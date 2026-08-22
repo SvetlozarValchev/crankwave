@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::determinism::detail::linux_detail {
+namespace crankwave::determinism::detail::linux_detail {
 namespace {
 
 constexpr std::uint64_t kMaximumProviderBytes = UINT64_C(256) * 1024U * 1024U;
@@ -334,4 +334,4 @@ ProviderFileResult identify_provider_file(const MappingRecord &mapping,
                                    file_size};
 }
 
-} // namespace engine_sim_offline::determinism::detail::linux_detail
+} // namespace crankwave::determinism::detail::linux_detail

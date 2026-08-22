@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::contract::test {
+namespace crankwave::contract::test {
 namespace {
 
 template <class T> AuthoredValue<T> authored(T value) {
@@ -675,4 +675,4 @@ void run_authored_profile_contract_tests() {
            "nonfinite authored journal phase was accepted");
 }
 
-} // namespace engine_sim_offline::contract::test
+} // namespace crankwave::contract::test

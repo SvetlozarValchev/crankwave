@@ -15,18 +15,18 @@ import {
   hashLabeledFiles,
   rendererBytesIdentity,
   sha256Hex,
-  validateVehicleEnginePackageTree,
+  validateCrankwavePackageTree,
 } from "./internal/bake-contract.mjs";
 
 export const PROFILE_SCHEMA =
-  "engine-sim-offline/responsive-audio-bake-profile-v1";
+  "crankwave/responsive-audio-bake-profile-v1";
 export const AUTOMATIC_PROFILE_POLICY_ID =
   "engine-redline-affine-v1";
 export const AUTOMATIC_PROFILE_ID =
   "interactive-preview-redline-v1";
 export const MAXIMUM_INPUT_JSON_BYTES = 4 * 1024 * 1024;
 export const RESPONSIVE_BAKE_FAILURE_SCHEMA =
-  "engine-sim-offline/responsive-audio-bake-failure-v1";
+  "crankwave/responsive-audio-bake-failure-v1";
 
 const RESPONSIVE_BAKE_EXIT_CODES = Object.freeze({
   invalid_invocation: 64,
@@ -144,7 +144,7 @@ export function createSanitizedChildEnvironment(
   environment.LC_ALL = "C";
   environment.TZ = "UTC";
   for (const [name, value] of Object.entries(overrides)) {
-    if (!/^ESO_[A-Z0-9_]+$/u.test(name) || typeof value !== "string") {
+    if (!/^CRANKWAVE_[A-Z0-9_]+$/u.test(name) || typeof value !== "string") {
       throw new TypeError(
         `child environment override ${name} is not an ESO text variable`,
       );
@@ -721,13 +721,13 @@ function lowercaseSha256(value, label) {
   return value;
 }
 
-function vehicleengineEngineId(value, label) {
+function crankwaveEngineId(value, label) {
   const id = string(value, label);
   if (
     id.length > 128 ||
     !/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u.test(id)
   ) {
-    fail(`${label} is not a portable VEHICLEENGINE engine identifier`);
+    fail(`${label} is not a portable CRANKWAVE engine identifier`);
   }
   return id;
 }
@@ -759,7 +759,7 @@ function loadBuiltinAssetBundle(bundleRoot) {
   const catalogBytes = catalogSnapshot.bytes;
   const catalog = catalogSnapshot.value;
   if (
-    catalog.schema !== "engine-sim-offline/builtin-asset-catalog.v1" ||
+    catalog.schema !== "crankwave/builtin-asset-catalog.v1" ||
     !Array.isArray(catalog.assets)
   ) {
     fail(`unsupported built-in asset catalog: ${catalogPath}`);
@@ -805,7 +805,7 @@ function loadBuiltinAssetBundle(bundleRoot) {
       );
       const runtimePath = path.join(starterRoot, "runtime.json");
       const runtime = readJson(runtimePath, "shared recorded starter");
-      if (runtime.schema !== "engine-sim-offline/shared-recorded-starter") {
+      if (runtime.schema !== "crankwave/shared-recorded-starter") {
         fail(`unsupported shared recorded starter: ${runtimePath}`);
       }
       const audio = object(runtime.audio, "shared recorded starter audio");
@@ -1179,7 +1179,7 @@ function scenarioTemplate(engine, profile) {
     fail("output crankshaft tdc_reference_angle must be finite");
   }
   return {
-    schema: "engine-sim-offline/scenario",
+    schema: "crankwave/scenario",
     id: `${engineId}-${profile.id}-template`,
     engine: engineId,
     fuel: engine.engine.default_fuel,
@@ -1273,7 +1273,7 @@ export function createBakeInventory({
     fail("engine source route IDs must be unique");
   }
   return {
-    schema_id: "engine-sim-offline.multi-engine-bake-inventory.v1",
+    schema_id: "crankwave.multi-engine-bake-inventory.v1",
     source_commit: "standalone-profile-input",
     engines: [{
       engine_id: engineId,
@@ -1327,7 +1327,7 @@ function usage() {
     "usage:",
     "  node tools/responsive-audio-baker/bake.mjs --engine ENGINE.json \\",
     "    [--profile PROFILE.json] --output NEW_DIRECTORY --cache DIRECTORY \\",
-    "    [--builtin-assets BUNDLE] [--module engine-sim-offline.js] \\",
+    "    [--builtin-assets BUNDLE] [--module crankwave.js] \\",
     "    [--jobs 1..32] [--deadline-unix-ms EPOCH_MS] [--plan]",
     "",
     "Without --profile, the versioned engine-redline-derived profile is used.",
@@ -1411,25 +1411,25 @@ export function parseArguments(argv) {
 }
 
 function discoverRendererModule() {
-  const environmentCandidate = process.env.ENGINE_SIM_OFFLINE_WASM_MODULE;
+  const environmentCandidate = process.env.CRANKWAVE_WASM_MODULE;
   const candidates = [
     ...(environmentCandidate ? [path.resolve(environmentCandidate)] : []),
-    path.join(repository, "build-wasm/engine-sim-offline.js"),
-    path.join(repository, "build/engine-sim-offline.js"),
+    path.join(repository, "build-wasm/crankwave.js"),
+    path.join(repository, "build/crankwave.js"),
   ];
   return candidates.find((candidate) =>
     fs.existsSync(candidate) &&
-    fs.existsSync(path.join(path.dirname(candidate), "engine-sim-offline.wasm"))
+    fs.existsSync(path.join(path.dirname(candidate), "crankwave.wasm"))
   ) ?? null;
 }
 
 function discoverBuiltinAssets(modulePath) {
-  const environmentCandidate = process.env.ENGINE_SIM_OFFLINE_BUILTIN_ASSETS;
+  const environmentCandidate = process.env.CRANKWAVE_BUILTIN_ASSETS;
   const candidates = [
     ...(environmentCandidate ? [path.resolve(environmentCandidate)] : []),
-    ...(modulePath ? [path.join(path.dirname(modulePath), "engine-sim-offline-assets")] : []),
-    path.join(repository, "build/generated/engine-sim-offline-assets"),
-    path.join(repository, "build/engine-sim-offline-assets"),
+    ...(modulePath ? [path.join(path.dirname(modulePath), "crankwave-assets")] : []),
+    path.join(repository, "build/generated/crankwave-assets"),
+    path.join(repository, "build/crankwave-assets"),
   ];
   return candidates.find((candidate) =>
     fs.existsSync(path.join(candidate, "catalog.v1.json")) &&
@@ -1587,7 +1587,7 @@ async function captureResponsiveSources({
   const anchors = new Set(profile.rpm.anchors);
   const jobs = capturePlanStates(
     heldPlan,
-    "engine-sim-offline/held-phase-texture-capture-plan",
+    "crankwave/held-phase-texture-capture-plan",
     engineId,
     profile.rpm.anchors.length * profile.capture.load_lanes.length,
     "held",
@@ -1617,7 +1617,7 @@ async function captureResponsiveSources({
   const directions = new Set(["rising", "falling"]);
   jobs.push(...capturePlanStates(
     directionalPlan,
-    "engine-sim-offline/directional-transient-capture-plan",
+    "crankwave/directional-transient-capture-plan",
     engineId,
     profile.capture.load_lanes.length * directions.size,
     "directional",
@@ -1758,7 +1758,7 @@ async function ensureIrDumper(
     supervisor,
   );
   const identity = sha256(Buffer.from(JSON.stringify({
-    schema: "engine-sim-offline/ir-spectrum-helper-build-v1",
+    schema: "crankwave/ir-spectrum-helper-build-v1",
     source_sha256: sourceIdentity,
     compiler_sha256: compilerSha256,
     flags: irDumperCompilerFlags,
@@ -2019,10 +2019,10 @@ export function cleanupPublishedLifecycleRuns(cacheNamespace) {
   return true;
 }
 
-export function createVehicleEngineDescriptor(engineId, runtimeBytes) {
-  const canonicalEngineId = vehicleengineEngineId(engineId, "engine identity id");
+export function createCrankwaveDescriptor(engineId, runtimeBytes) {
+  const canonicalEngineId = crankwaveEngineId(engineId, "engine identity id");
   return {
-    schema: "engine-sim-offline/vehicleengine-package",
+    schema: "crankwave/crankwave-package",
     version: 1,
     engine_id: canonicalEngineId,
     runtime: {
@@ -2050,7 +2050,7 @@ function snapshotRegularFile(filePath, label) {
 function snapshotRenderer(modulePath) {
   const wasmPath = path.join(
     path.dirname(modulePath),
-    "engine-sim-offline.wasm",
+    "crankwave.wasm",
   );
   const loader = snapshotRegularFile(modulePath, "renderer loader");
   const wasm = snapshotRegularFile(wasmPath, "renderer WASM");
@@ -2086,7 +2086,7 @@ export function createBakeCacheIdentity({
   executionRuntime,
 }) {
   return sha256(Buffer.from(JSON.stringify({
-    schema: "engine-sim-offline/responsive-audio-bake-cache-identity-v3",
+    schema: "crankwave/responsive-audio-bake-cache-identity-v3",
     engine_sha256: engineSha256,
     profile_sha256: profileSha256,
     baker_source_sha256: bakerSourceSha256,
@@ -2119,7 +2119,7 @@ export function createBakeReport({
   resolvedAssets,
   starterIdentity,
   runtimeManifestSha256,
-  vehicleengineDescriptorSha256,
+  crankwaveDescriptorSha256,
 }) {
   const assets = resolvedAssets.map(({ kind, id, sha256: digest }) => ({
     kind,
@@ -2127,7 +2127,7 @@ export function createBakeReport({
     sha256: digest,
   })).sort(compareAssetRecords);
   return {
-    schema: "engine-sim-offline/responsive-audio-bake-report-v1",
+    schema: "crankwave/responsive-audio-bake-report-v1",
     release_identity: releaseIdentity,
     engine: { id: engineId, sha256: engineSha256 },
     profile: { id: profileId, sha256: profileSha256 },
@@ -2158,7 +2158,7 @@ export function createBakeReport({
       scope: "held-and-directional-renderer-captures",
     },
     runtime_manifest_sha256: runtimeManifestSha256,
-    vehicleengine_descriptor_sha256: vehicleengineDescriptorSha256,
+    crankwave_descriptor_sha256: crankwaveDescriptorSha256,
     completed: true,
   };
 }
@@ -2188,7 +2188,7 @@ async function executeBake(options, supervisor) {
   supervisor.throwIfAborted();
   const engineSnapshot = readJsonSnapshot(options.enginePath, "engine");
   const engine = engineSnapshot.value;
-  if (engine.schema !== "engine-sim-offline/engine") {
+  if (engine.schema !== "crankwave/engine") {
     fail(`unsupported engine schema ${engine.schema}`);
   }
   const profileSnapshot = options.profilePath === null
@@ -2212,7 +2212,7 @@ async function executeBake(options, supervisor) {
   const sharedStarterSource = profile.lifecycle.shared_recorded_starter
     ? builtinAssets.sharedStarter()
     : null;
-  const engineId = vehicleengineEngineId(
+  const engineId = crankwaveEngineId(
     engine.engine?.identity?.id,
     "engine identity id",
   );
@@ -2289,12 +2289,12 @@ async function executeBake(options, supervisor) {
   const stagedRendererModulePath = path.join(
     workspace,
     "renderer",
-    "engine-sim-offline.js",
+    "crankwave.js",
   );
   const stagedRendererWasmPath = path.join(
     workspace,
     "renderer",
-    "engine-sim-offline.wasm",
+    "crankwave.wasm",
   );
   const stagedIrDumperPath = path.join(
     workspace,
@@ -2333,7 +2333,7 @@ async function executeBake(options, supervisor) {
   });
 
   const plan = {
-    schema: "engine-sim-offline/responsive-audio-bake-plan-v1",
+    schema: "crankwave/responsive-audio-bake-plan-v1",
     release_identity: options.releaseIdentity,
     engine: engineId,
     engine_sha256: engineSha256,
@@ -2426,14 +2426,14 @@ async function executeBake(options, supervisor) {
     writeJson(inventoryPath, inventory);
     fs.mkdirSync(stageOutput, { recursive: true });
     const environment = createSanitizedChildEnvironment({
-      ESO_RESPONSIVE_BAKE_INVENTORY: inventoryPath,
-      ESO_RESPONSIVE_BAKE_CACHE: cacheNamespace,
-      ESO_RESPONSIVE_BAKE_OUTPUT: stageOutput,
-      ESO_RESPONSIVE_BAKE_MODULE: stagedRendererModulePath,
-      ESO_RESPONSIVE_BAKE_WASM: stagedRendererWasmPath,
-      ESO_RESPONSIVE_BAKE_IR_DUMPER: stagedIrDumperPath,
-      ESO_HELD_CAPTURE_CONCURRENCY: String(options.jobs),
-      ESO_RESPONSIVE_BAKE_SHARED_STARTER:
+      CRANKWAVE_RESPONSIVE_BAKE_INVENTORY: inventoryPath,
+      CRANKWAVE_RESPONSIVE_BAKE_CACHE: cacheNamespace,
+      CRANKWAVE_RESPONSIVE_BAKE_OUTPUT: stageOutput,
+      CRANKWAVE_RESPONSIVE_BAKE_MODULE: stagedRendererModulePath,
+      CRANKWAVE_RESPONSIVE_BAKE_WASM: stagedRendererWasmPath,
+      CRANKWAVE_RESPONSIVE_BAKE_IR_DUMPER: stagedIrDumperPath,
+      CRANKWAVE_HELD_CAPTURE_CONCURRENCY: String(options.jobs),
+      CRANKWAVE_RESPONSIVE_BAKE_SHARED_STARTER:
         profile.lifecycle.shared_recorded_starter ? "1" : "0",
     });
 
@@ -2520,9 +2520,9 @@ async function executeBake(options, supervisor) {
     }
     const runtimeBytes = fs.readFileSync(runtimePath);
     const runtimeManifestSha256 = sha256(runtimeBytes);
-    const descriptorPath = path.join(stageOutput, "vehicleengine.json");
-    writeJson(descriptorPath, createVehicleEngineDescriptor(engineId, runtimeBytes));
-    const vehicleengineDescriptorSha256 = sha256(fs.readFileSync(descriptorPath));
+    const descriptorPath = path.join(stageOutput, "crankwave.json");
+    writeJson(descriptorPath, createCrankwaveDescriptor(engineId, runtimeBytes));
+    const crankwaveDescriptorSha256 = sha256(fs.readFileSync(descriptorPath));
     writeJson(
       path.join(stageOutput, "bake-report.json"),
       createBakeReport({
@@ -2540,10 +2540,10 @@ async function executeBake(options, supervisor) {
         resolvedAssets,
         starterIdentity: sharedStarterSource?.identity ?? null,
         runtimeManifestSha256,
-        vehicleengineDescriptorSha256,
+        crankwaveDescriptorSha256,
       }),
     );
-    validateVehicleEnginePackageTree(stageOutput);
+    validateCrankwavePackageTree(stageOutput);
     supervisor.throwIfAborted();
     fs.renameSync(stageOutput, options.outputPath);
     try {

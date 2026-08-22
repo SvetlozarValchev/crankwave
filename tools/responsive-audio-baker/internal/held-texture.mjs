@@ -10,11 +10,11 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
-  ESO_CANONICAL_SAMPLE_RATE,
+  CRANKWAVE_CANONICAL_SAMPLE_RATE,
   ProcessKind,
   SessionExecutionKind,
 } from "../../../web/runtime/c-api-abi.js";
-import { EngineSimCapiClient } from "../../../web/runtime/c-api-client.js";
+import { CrankwaveCapiClient } from "../../../web/runtime/c-api-client.js";
 import {
   compareCodeUnits,
   portableArtifactToken,
@@ -25,9 +25,9 @@ import {
 
 const experiment = import.meta.dirname;
 const repository = path.resolve(experiment, "../../..");
-const inventoryPath = requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_INVENTORY");
-const bakeCacheRoot = requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_CACHE");
-const responsiveOutputRoot = requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_OUTPUT");
+const inventoryPath = requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_INVENTORY");
+const bakeCacheRoot = requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_CACHE");
+const responsiveOutputRoot = requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_OUTPUT");
 const args = process.argv.slice(2);
 
 function requiredEnvironmentPath(name) {
@@ -69,7 +69,7 @@ if (!fs.existsSync(inventoryPath)) {
 }
 const inventory = readJson(inventoryPath);
 if (
-  inventory?.schema_id !== "engine-sim-offline.multi-engine-bake-inventory.v1" ||
+  inventory?.schema_id !== "crankwave.multi-engine-bake-inventory.v1" ||
   !Array.isArray(inventory.engines) ||
   inventory.engines.length === 0
 ) {
@@ -103,10 +103,10 @@ const packageDirectory = path.join(bakeCacheRoot, "held", "package");
 const reportPath = path.join(packageDirectory, "report.json");
 const stagingEngineDirectory = responsiveOutputRoot;
 const stagingHeldDirectory = path.join(stagingEngineDirectory, "held");
-const modulePath = requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_MODULE");
-const wasmPath = process.env.ESO_RESPONSIVE_BAKE_WASM === undefined
-  ? path.join(path.dirname(modulePath), "engine-sim-offline.wasm")
-  : requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_WASM");
+const modulePath = requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_MODULE");
+const wasmPath = process.env.CRANKWAVE_RESPONSIVE_BAKE_WASM === undefined
+  ? path.join(path.dirname(modulePath), "crankwave.wasm")
+  : requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_WASM");
 const rendererFilePairIdentity = rendererFileIdentity(modulePath, wasmPath);
 const enginePath = resolveInventoryPath(
   selectedInventory.engine_path,
@@ -168,7 +168,7 @@ const accessoryPath = resolveInventoryPath(
   `${ENGINE_ID}.accessory.path`,
 );
 const irSpectrumDumper = requiredEnvironmentPath(
-  "ESO_RESPONSIVE_BAKE_IR_DUMPER",
+  "CRANKWAVE_RESPONSIVE_BAKE_IR_DUMPER",
 );
 
 const authoredPresentation = engineDocument.presentation;
@@ -278,7 +278,7 @@ const routeTokens = uniqueArtifactTokens(
 const ROUTES = Object.freeze(routeIds.map((id, index) =>
   Object.freeze({ id, token: routeTokens[index] })
 ));
-const SAMPLE_RATE = ESO_CANONICAL_SAMPLE_RATE;
+const SAMPLE_RATE = CRANKWAVE_CANONICAL_SAMPLE_RATE;
 const PHYSICS_RATE = 10_000;
 const DURATION_ALIGNMENT_RATE = 50;
 const SAMPLES_PER_CYCLE = 4_096;
@@ -318,10 +318,10 @@ const GUARD_CYCLE_COUNT_AFTER = 4;
 const DURATION_MARGIN_SECONDS = 0.5;
 const RESIDUAL_TAPER_FRACTION_PER_EDGE = 1 / 16;
 const MAXIMUM_CAPTURE_CONCURRENCY = Number(
-  process.env.ESO_HELD_CAPTURE_CONCURRENCY ?? 3,
+  process.env.CRANKWAVE_HELD_CAPTURE_CONCURRENCY ?? 3,
 );
 const MAXIMUM_ENGINE_CONCURRENCY = Number(
-  option("--concurrency") ?? process.env.ESO_HELD_ENGINE_CONCURRENCY ?? 2,
+  option("--concurrency") ?? process.env.CRANKWAVE_HELD_ENGINE_CONCURRENCY ?? 2,
 );
 for (const [label, value] of [
   ["held capture concurrency", MAXIMUM_CAPTURE_CONCURRENCY],
@@ -492,7 +492,7 @@ function scenario(rpm, lane) {
   const totalDurationSeconds =
     totalDurationQuanta / DURATION_ALIGNMENT_RATE;
   return {
-    schema: "engine-sim-offline/scenario",
+    schema: "crankwave/scenario",
     id: `${ENGINE_ID}-held-texture-live-preview-${rpm}rpm-${lane.id}`,
     engine: ENGINE_ID,
     fuel: FUEL_ID,
@@ -951,7 +951,7 @@ async function captureState(rpm, lane) {
   const identity = captureIdentity(rpm);
   const sourceScenario = scenario(rpm, lane);
   const scenarioBytes = Buffer.from(`${JSON.stringify(sourceScenario)}\n`);
-  const client = await EngineSimCapiClient.create(pathToFileURL(modulePath));
+  const client = await CrankwaveCapiClient.create(pathToFileURL(modulePath));
   const routeResults = [];
   try {
     for (const route of ROUTES) {
@@ -991,7 +991,7 @@ async function captureState(rpm, lane) {
     client.dispose();
   }
   const result = {
-    schema: "engine-sim-offline/held-phase-texture-capture",
+    schema: "crankwave/held-phase-texture-capture",
     id: stateId(rpm, lane),
     rpm,
     lane: lane.id,
@@ -1811,7 +1811,7 @@ function buildPackage(captures, identity, phaseAlignment) {
     }
     const filename = `${routeDescriptor.token}.json`;
     const manifest = {
-      schema: "engine-sim-offline/responsive-audio-held-route",
+      schema: "crankwave/responsive-audio-held-route",
       id: `${ENGINE_ID}-exact-held-${routeDescriptor.token}-live-preview`,
       engine: ENGINE_ID,
       audio: {
@@ -1845,7 +1845,7 @@ function buildPackage(captures, identity, phaseAlignment) {
           sha256: captures[0].routes[0].engine_provenance_sha256,
         },
         renderer_build: {
-          id: "engine-sim-offline-renderer-build",
+          id: "crankwave-renderer-build",
           sha256: captures[0].routes[0].renderer_source_sha256,
         },
         capture_method: CAPTURE_METHOD_ID,
@@ -1912,7 +1912,7 @@ function buildPackage(captures, identity, phaseAlignment) {
     fail("held texture captures disagree about engine or renderer provenance");
   }
   const root = {
-    schema: "engine-sim-offline/responsive-audio-held-texture",
+    schema: "crankwave/responsive-audio-held-texture",
     id: `${ENGINE_ID}-exact-held-phase-texture-live-preview`,
     engine: ENGINE_ID,
     fidelity: {
@@ -1974,7 +1974,7 @@ function buildPackage(captures, identity, phaseAlignment) {
         sha256: [...engineProvenances][0],
       },
       renderer_build: {
-        id: "engine-sim-offline-renderer-build",
+        id: "crankwave-renderer-build",
         sha256: [...rendererProvenances][0],
       },
       capture_identity: identity,
@@ -2003,7 +2003,7 @@ function publishResponsiveRuntime(heldRoot) {
   {
     if (
       directional.schema !==
-        "engine-sim-offline/responsive-audio-directional-texture" ||
+        "crankwave/responsive-audio-directional-texture" ||
       directional.engine !== ENGINE_ID ||
       !Array.isArray(directional.dry_bus_ids) ||
       directional.dry_bus_ids.length !== ROUTES.length ||
@@ -2027,7 +2027,7 @@ function publishResponsiveRuntime(heldRoot) {
     }
   }
   const runtime = {
-    schema: "engine-sim-offline/responsive-audio-preview",
+    schema: "crankwave/responsive-audio-preview",
     id: `${ENGINE_ID}-responsive-audio`,
     engine: ENGINE_ID,
     fidelity: {
@@ -2146,7 +2146,7 @@ async function coordinator() {
     capture.routes.map((route) => route.telemetry),
   );
   const report = {
-    schema: "engine-sim-offline/held-phase-texture-package-report",
+    schema: "crankwave/held-phase-texture-package-report",
     package_directory: packageDirectory,
     package_manifest: path.join(packageDirectory, "package.json"),
     package_manifest_sha256: sha256(
@@ -2251,7 +2251,7 @@ if (args.includes("--print-capture-identity")) {
     }),
   );
   process.stdout.write(`${JSON.stringify({
-    schema: "engine-sim-offline/held-phase-texture-capture-plan",
+    schema: "crankwave/held-phase-texture-capture-plan",
     engine: ENGINE_ID,
     cached_state_count: states.filter(({ cached }) => cached).length,
     new_state_count: states.filter(({ cached }) => !cached).length,

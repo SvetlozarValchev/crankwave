@@ -27,7 +27,7 @@ endif()
 string(REPLACE "\n" ";" _input_paths "${_input_text}")
 set(_prior_input "")
 set(_canonical
-    "engine-sim-offline.installed-distribution-source-closure.v1\n")
+    "crankwave.installed-distribution-source-closure.v1\n")
 foreach(_relative_path IN LISTS _input_paths)
     if(NOT _relative_path MATCHES "^[A-Za-z0-9._+/@-]+$" OR
        _relative_path MATCHES "(^|/)\.\.(/|$)" OR

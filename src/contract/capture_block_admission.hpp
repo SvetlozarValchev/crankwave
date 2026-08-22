@@ -1,8 +1,8 @@
 #pragma once
 
-#include "engine_sim_offline/contract/capture.hpp"
+#include "crankwave/contract/capture.hpp"
 
-namespace engine_sim_offline::contract::detail {
+namespace crankwave::contract::detail {
 
 /**
  * Validate the block-varying portion of a capture view without allocating.
@@ -15,4 +15,4 @@ namespace engine_sim_offline::contract::detail {
 [[nodiscard]] bool
 valid_capture_block_after_layout_admission(const CaptureBlockView &block) noexcept;
 
-} // namespace engine_sim_offline::contract::detail
+} // namespace crankwave::contract::detail

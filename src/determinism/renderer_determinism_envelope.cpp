@@ -6,7 +6,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::determinism {
+namespace crankwave::determinism {
 namespace {
 
 class ErrnoRestore final {
@@ -164,4 +164,4 @@ RendererDeterminismEnvelopeResult renderer_determinism_envelope() {
         true);
 }
 
-} // namespace engine_sim_offline::determinism
+} // namespace crankwave::determinism

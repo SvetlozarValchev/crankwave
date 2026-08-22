@@ -10,7 +10,7 @@
 #include <numbers>
 #include <optional>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 constexpr double kBinary64CertificateGuard =
@@ -724,4 +724,4 @@ calculate_one_level_master_rod_full_cycle_geometry(
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

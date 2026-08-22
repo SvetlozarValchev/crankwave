@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/held_texture.hpp"
+#include "crankwave/responsive/held_texture.hpp"
 
 #include "identity_bytes.hpp"
 
@@ -13,7 +13,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 void require(contract::ValidationReport &report, const bool condition,
@@ -87,7 +87,7 @@ void require(contract::ValidationReport &report, const bool condition,
     result.preparation_block_count = preparation_quanta;
     result.total_block_count = total_quanta;
     result.scenario = request.scenario_template;
-    result.scenario.schema = "engine-sim-offline/scenario";
+    result.scenario.schema = "crankwave/scenario";
     result.scenario.id.value = result.scenario.engine.value +
                                "-held-texture-live-preview-" + rpm_token(rpm) + "rpm-" +
                                lane.id;
@@ -186,4 +186,4 @@ plan_held_state_scenarios(const HeldScenarioPlanRequest &request) {
     return result;
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

@@ -7,7 +7,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 inline constexpr std::uint32_t kConfiguredIrSampleRateHz = 44100;
 inline constexpr std::int32_t kMeaningfulSupportThreshold = 100;
@@ -94,4 +94,4 @@ decode_pcm16_ir_wave(std::span<const std::byte> wave_bytes);
 [[nodiscard]] PcmIrV2DecodeResult
 decode_pcm_ir_wave_v2(std::span<const std::byte> wave_bytes);
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

@@ -6,7 +6,7 @@
 #include <span>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct ChenFlynnCycleMeanLossPlan {
     double constant_fmep_bar = 0.0;
@@ -91,4 +91,4 @@ using ChenFlynnCycleMeanLossCalculation =
 calculate_chen_flynn_cycle_mean_loss(const ChenFlynnCycleMeanLossPlan &plan,
                                      const ChenFlynnCycleMeanLossInput &input) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

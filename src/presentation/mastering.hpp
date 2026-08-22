@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 // Immutable frame-domain settings for one audition render. Validation happens once
 // at construction so every subsequent frame and block call can share the same exact
@@ -56,4 +56,4 @@ struct Pcm24Quantization {
 // 24-bit range are rejected.
 [[nodiscard]] std::array<std::byte, 3> serialize_pcm24le(std::int32_t pcm24_sample);
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

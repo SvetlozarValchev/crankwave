@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/randomness.hpp"
+#include "crankwave/contract/randomness.hpp"
 
 #include <algorithm>
 #include <array>
@@ -15,8 +15,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::contract;
+using namespace crankwave;
+using namespace crankwave::contract;
 
 constexpr std::uint64_t kBmwPublicSeed = UINT64_C(0x00c0ffee);
 
@@ -28,28 +28,28 @@ struct ExpectedSeed {
 };
 
 constexpr std::array kBmwExpectedSeeds{
-    ExpectedSeed{"combustion", 0, UINT64_C(0x6ba3d060370e05fa),
-                 UINT64_C(0x3e13b1e68ef2f790)},
-    ExpectedSeed{"combustion", 1, UINT64_C(0xb1ab9b6c6217bdf3),
-                 UINT64_C(0x7681d4f9a6c78e3f)},
-    ExpectedSeed{"combustion", 2, UINT64_C(0x0c2447917cd77f40),
-                 UINT64_C(0x4c09e08d851104f5)},
-    ExpectedSeed{"combustion", 3, UINT64_C(0xfc83080b6c8b1a98),
-                 UINT64_C(0x686f68f85fd7d169)},
-    ExpectedSeed{"combustion", 4, UINT64_C(0x1f0c63f1d677237b),
-                 UINT64_C(0x3507d87731683125)},
-    ExpectedSeed{"combustion", 5, UINT64_C(0xad811f42fb6dafa3),
-                 UINT64_C(0x50900fae5afa96cf)},
-    ExpectedSeed{"synth_air_noise", 0, UINT64_C(0x75bc579d4c90a640),
-                 UINT64_C(0x7e4ef6200e7c70c1)},
-    ExpectedSeed{"synth_air_noise", 1, UINT64_C(0x208e57f73615bd95),
-                 UINT64_C(0x786d92e584c43b78)},
-    ExpectedSeed{"synth_jitter", 0, UINT64_C(0x9e2b91cd0dc51cfc),
-                 UINT64_C(0x1ae6ee3019603abb)},
-    ExpectedSeed{"synth_jitter", 1, UINT64_C(0xdb7540a0c8b54d74),
-                 UINT64_C(0x41ddcdeb066bf214)},
-    ExpectedSeed{"starter", 0, UINT64_C(0xb4ea1fd6d9786b65),
-                 UINT64_C(0x35db133a627daacd)},
+    ExpectedSeed{"combustion", 0, UINT64_C(0x638e648507353211),
+                 UINT64_C(0x09d037c702feb066)},
+    ExpectedSeed{"combustion", 1, UINT64_C(0x8378fa334d97535e),
+                 UINT64_C(0x45f2daf9901678c3)},
+    ExpectedSeed{"combustion", 2, UINT64_C(0xb7f998bfc604914e),
+                 UINT64_C(0x0ca67d0274c3a0a2)},
+    ExpectedSeed{"combustion", 3, UINT64_C(0x0d3eccc412acfd53),
+                 UINT64_C(0x1213a1f55f64b73e)},
+    ExpectedSeed{"combustion", 4, UINT64_C(0x74774e667b6044c3),
+                 UINT64_C(0x67c5e156e65edc4e)},
+    ExpectedSeed{"combustion", 5, UINT64_C(0x8ee0a57a30066164),
+                 UINT64_C(0x798f3346d42f6acd)},
+    ExpectedSeed{"synth_air_noise", 0, UINT64_C(0x0d172bd0b6609980),
+                 UINT64_C(0x40bb189b0ce745fe)},
+    ExpectedSeed{"synth_air_noise", 1, UINT64_C(0xfe16c9e3ea44a31a),
+                 UINT64_C(0x311ac0d4f16c0d57)},
+    ExpectedSeed{"synth_jitter", 0, UINT64_C(0xa7cd663a89695273),
+                 UINT64_C(0x0794616d5c2a0127)},
+    ExpectedSeed{"synth_jitter", 1, UINT64_C(0x0fcabae05f0d4195),
+                 UINT64_C(0x26228b61f534bb77)},
+    ExpectedSeed{"starter", 0, UINT64_C(0xf13ae40d86d32229),
+                 UINT64_C(0x615d43fd7f571709)},
 };
 
 void expect(bool condition, const char *message) {
@@ -99,8 +99,19 @@ require_error(const ComponentSeedDerivationResult &result,
 void test_exact_bmw_inventory() {
     const auto result = derive_component_seeds(bmw_request());
     const auto &derived = require_success(result, "BMW component seeds were rejected");
-    expect(digest_hex(derived.capture_random_key_sha256) ==
-               "272121adec1fe448dd149b05990e477a816a7e6191352854d7a1dafd92183f5d",
+    const auto capture_key = digest_hex(derived.capture_random_key_sha256);
+    if (capture_key !=
+        "f3252023e25e84e450b4727d390032f71f3664ccd766cc6cefeb906c2117400d") {
+        std::cerr << "BMW capture random key: " << capture_key << '\n';
+        for (const auto &actual : derived.ordered_components) {
+            std::cerr << actual.coordinate.domain_id << ' '
+                      << actual.coordinate.component_index << " 0x" << std::hex
+                      << actual.initialization.initial_state << " 0x"
+                      << actual.initialization.stream << std::dec << '\n';
+        }
+    }
+    expect(capture_key ==
+               "f3252023e25e84e450b4727d390032f71f3664ccd766cc6cefeb906c2117400d",
            "BMW capture random key changed");
     expect(derived.ordered_components.size() == kBmwExpectedSeeds.size(),
            "BMW component seed count changed");

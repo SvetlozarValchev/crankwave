@@ -1,6 +1,6 @@
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/scenario.hpp"
 
-#include "engine_sim_offline/contract/engine.hpp"
+#include "crankwave/contract/engine.hpp"
 #include "sha256_stream.hpp"
 #include "validation_support.hpp"
 
@@ -16,7 +16,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 
 const MethodIdentity &fixed_horizon_cycle_sampling_method_identity() {
     static const MethodIdentity identity{
@@ -1491,4 +1491,4 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
     return report;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

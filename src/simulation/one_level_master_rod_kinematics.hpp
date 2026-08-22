@@ -1,12 +1,12 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <cstddef>
 #include <limits>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 // Geometry shared by a direct master cylinder and each one-level slave attached to
 // that master rod. The journal phase is global/body-local, matching engine-sim's
@@ -158,4 +158,4 @@ calculate_one_level_master_rod_full_cycle_geometry(
     const OneLevelMasterRodDriver &driver,
     const OneLevelMasterRodCylinder &cylinder) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

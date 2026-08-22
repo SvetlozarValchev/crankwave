@@ -1,10 +1,10 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <cstdint>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 // Neutral per-physics-step overrides consumed by the simulation layer. Timeline
 // ordering, delivery-frame projection, and command ownership remain session policy.
@@ -66,4 +66,4 @@ struct LowOrderLiveControlProvider {
 
 } // namespace detail
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

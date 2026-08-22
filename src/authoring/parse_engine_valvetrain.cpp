@@ -3,7 +3,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::authoring::detail {
+namespace crankwave::authoring::detail {
 
 void parse_cam_lobe(DocumentReader &reader, JsonValue value, std::string_view path,
                     CamLobeDefinition &output) {
@@ -181,4 +181,4 @@ void parse_head(DocumentReader &reader, JsonValue value, std::string_view path,
                      pointer_member(path, "chamber_volume"), owner);
 }
 
-} // namespace engine_sim_offline::authoring::detail
+} // namespace crankwave::authoring::detail

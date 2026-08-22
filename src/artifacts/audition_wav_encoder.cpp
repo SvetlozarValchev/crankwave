@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 namespace {
 
 constexpr std::uint64_t kBytesPerPcm24Sample = 3;
@@ -464,4 +464,4 @@ make_audition_wave_encoder(const contract::AudioContract &audio,
     };
 }
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

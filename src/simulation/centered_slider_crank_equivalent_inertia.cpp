@@ -6,11 +6,11 @@
 #include <numbers>
 #include <span>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 constexpr std::string_view kMethodDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=centered-slider-crank-cycle-mean-equivalent-inertia-v2
 version=2
 operation=full-cycle-mean-crank-referred-kinetic-energy-equivalent-inertia
@@ -29,7 +29,7 @@ external_numeric_authority=renderer-build-source-standard-library-math-runtime-a
 )method";
 
 constexpr std::string_view kRigidGroupMethodDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=centered-slider-crank-rigid-group-cycle-mean-equivalent-inertia-v2
 version=2
 operation=full-cycle-mean-crank-referred-kinetic-energy-equivalent-inertia
@@ -469,4 +469,4 @@ evaluate_centered_slider_crank_configuration_inertia(
     return result;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

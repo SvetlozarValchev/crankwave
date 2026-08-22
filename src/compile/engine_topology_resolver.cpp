@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 
 void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emitter,
                              contract::EngineSpec &engine) {
@@ -279,4 +279,4 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
     }
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

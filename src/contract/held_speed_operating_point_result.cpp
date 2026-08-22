@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/result.hpp"
+#include "crankwave/contract/result.hpp"
 
 #include "validation_support.hpp"
 
@@ -14,7 +14,7 @@
 #include <string_view>
 #include <vector>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 namespace {
 
 constexpr double kFourStrokeCycleRadians = 4.0 * std::numbers::pi_v<double>;
@@ -1093,4 +1093,4 @@ validate(const HeldSpeedOperatingPointResult &operating_point,
     return report;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

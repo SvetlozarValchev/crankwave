@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/artifacts/telemetry_encoder.hpp"
+#include "crankwave/artifacts/telemetry_encoder.hpp"
 
 #include <array>
 #include <bit>
@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-namespace engine_sim_offline::artifacts::detail {
+namespace crankwave::artifacts::detail {
 
 class TelemetryByteEmitter {
   public:
@@ -57,4 +57,4 @@ validate_all_serialized_values_finite(const contract::CaptureBlockView &block);
                               std::uint64_t global_sample_index,
                               std::uint64_t timestamp_tick);
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace crankwave::artifacts::detail

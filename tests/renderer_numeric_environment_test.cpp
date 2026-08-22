@@ -14,7 +14,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::determinism;
+using namespace crankwave::determinism;
 
 static_assert(noexcept(observe_current_thread_renderer_numeric_environment()));
 static_assert(noexcept(

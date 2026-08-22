@@ -1,4 +1,4 @@
-#include "engine_sim_offline/authoring/parse.hpp"
+#include "crankwave/authoring/parse.hpp"
 
 #include "authoring/document_reader.hpp"
 #include "authoring/parse_engine_detail.hpp"
@@ -11,7 +11,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::authoring {
+namespace crankwave::authoring {
 namespace {
 
 using detail::DocumentReader;
@@ -260,9 +260,9 @@ void parse_engine_package(DocumentReader &reader, JsonValue value,
     }
     reader.reject_unknown(value, "", {"schema", "engine", "presentation", "rig"});
     reader.string(reader.required(value, "schema", ""), "/schema", output.schema);
-    if (!output.schema.empty() && output.schema != "engine-sim-offline/engine") {
+    if (!output.schema.empty() && output.schema != "crankwave/engine") {
         reader.add(DiagnosticCode::unsupported_schema, "/schema",
-                   "expected schema 'engine-sim-offline/engine'");
+                   "expected schema 'crankwave/engine'");
     }
     parse_engine_definition(reader, reader.required(value, "engine", ""), "/engine",
                             output.engine);
@@ -315,4 +315,4 @@ EngineDocumentParseResult parse_engine_document(std::string_view json,
     }
 }
 
-} // namespace engine_sim_offline::authoring
+} // namespace crankwave::authoring

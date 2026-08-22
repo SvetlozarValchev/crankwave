@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/directional_cook.hpp"
+#include "crankwave/responsive/directional_cook.hpp"
 
 #include "identity_bytes.hpp"
 
@@ -18,7 +18,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 void require(contract::ValidationReport &report, const bool condition,
@@ -623,4 +623,4 @@ assemble_directional_model(const ResponsiveBakeProfile &profile,
     return result;
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

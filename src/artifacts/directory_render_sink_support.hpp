@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/artifacts/directory_render_sink.hpp"
+#include "crankwave/artifacts/directory_render_sink.hpp"
 
 #include <algorithm>
 #include <optional>
@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::artifacts::detail {
+namespace crankwave::artifacts::detail {
 
 inline RenderSinkError protocol_error(std::string detail_code, std::string message) {
     return {
@@ -182,4 +182,4 @@ inline std::string digest_hex(const contract::Sha256Digest &digest) {
     return result;
 }
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace crankwave::artifacts::detail

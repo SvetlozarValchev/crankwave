@@ -10,7 +10,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 inline constexpr std::size_t kNoOneLevelMasterRodInertiaCylinder =
     std::numeric_limits<std::size_t>::max();
@@ -253,4 +253,4 @@ evaluate_one_level_master_rod_configuration_inertia(
     const OneLevelMasterRodMechanismKinematicsPlan &plan, double attached_inertia_kg_m2,
     double crank_angle_theta_rad) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

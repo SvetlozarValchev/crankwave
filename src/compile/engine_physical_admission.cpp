@@ -13,7 +13,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 namespace {
 
 void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
@@ -323,4 +323,4 @@ void admit_engine_physical_model(ModelContext &resolved,
     }
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

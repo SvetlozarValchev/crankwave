@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract.hpp"
+#include "crankwave/contract.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::contract::test {
+namespace crankwave::contract::test {
 
 inline void expect(bool condition, const char *message) {
     if (!condition) {
@@ -72,7 +72,7 @@ inline std::string test_compiler_runtime_identity() {
 
 struct InputBuilder {
     ProvenanceLedger provenance{
-        "engine-sim-offline.provenance.v1",
+        "crankwave.provenance.v1",
         {"bmw-m52b28-inputs-v1", digest(11)},
         {
             EvidenceSource{
@@ -930,4 +930,4 @@ void run_capture_contract_tests();
 void run_randomness_contract_tests();
 void run_scenario_manifest_contract_tests();
 
-} // namespace engine_sim_offline::contract::test
+} // namespace crankwave::contract::test

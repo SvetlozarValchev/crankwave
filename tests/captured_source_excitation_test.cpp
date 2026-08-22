@@ -22,9 +22,9 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::contract;
-using namespace engine_sim_offline::excitation;
+using namespace crankwave;
+using namespace crankwave::contract;
+using namespace crankwave::excitation;
 
 constexpr std::size_t kFrames = 400U;
 constexpr std::size_t kCylinders = 6U;
@@ -363,10 +363,10 @@ struct PublishedBlockCopy {
                intake.pressure_pa_abs().size() ==
                    intake.frame_count() * intake.route_count(),
            "intake pressure callback metadata or frame-major extent diverged");
-    expect(output.values_engine_sim_source_unit().data() ==
-                   diagnostic.route_bus_values_engine_sim_source_unit().data() &&
-               output.values_engine_sim_source_unit().size() ==
-                   diagnostic.route_bus_values_engine_sim_source_unit().size() &&
+    expect(output.values_crankwave_source_unit().data() ==
+                   diagnostic.route_bus_values_crankwave_source_unit().data() &&
+               output.values_crankwave_source_unit().size() ==
+                   diagnostic.route_bus_values_crankwave_source_unit().size() &&
                output.absolute_exhaust_valve_mass_flow_kg_s().size() ==
                    output.frame_count() * output.route_count(),
            "diagnostics did not expose the exact published route-value storage");
@@ -382,24 +382,24 @@ struct PublishedBlockCopy {
            "axial pressure-force metadata, order, or frame-major extent diverged");
     expect(diagnostic.cylinder_count() == diagnostic.cylinder_ids().size() &&
                diagnostic.route_count() == diagnostic.route_ids().size() &&
-               diagnostic.pre_delay_cylinder_values_engine_sim_source_unit().size() ==
+               diagnostic.pre_delay_cylinder_values_crankwave_source_unit().size() ==
                    diagnostic.frame_count() * diagnostic.cylinder_count() &&
-               diagnostic.post_delay_cylinder_values_engine_sim_source_unit().size() ==
+               diagnostic.post_delay_cylinder_values_crankwave_source_unit().size() ==
                    diagnostic.frame_count() * diagnostic.cylinder_count() &&
-               diagnostic.route_bus_values_engine_sim_source_unit().size() ==
+               diagnostic.route_bus_values_crankwave_source_unit().size() ==
                    diagnostic.frame_count() * diagnostic.route_count(),
            "dynamic excitation diagnostic spans are not complete frame-major matrices");
     for (std::size_t frame = 0; frame < output.frame_count(); ++frame) {
-        const auto frame_values = output.frame_values_engine_sim_source_unit(frame);
+        const auto frame_values = output.frame_values_crankwave_source_unit(frame);
         expect(frame_values.size() == output.route_count() &&
                    frame_values.data() ==
-                       output.values_engine_sim_source_unit().data() +
+                       output.values_crankwave_source_unit().data() +
                            frame * output.route_count(),
                "indexed excitation frame view does not match flat frame-major storage");
         for (std::size_t route = 0; route < output.route_count(); ++route) {
             expect_same_bits(
-                output.value_engine_sim_source_unit(frame, route),
-                output.values_engine_sim_source_unit()[frame * output.route_count() +
+                output.value_crankwave_source_unit(frame, route),
+                output.values_crankwave_source_unit()[frame * output.route_count() +
                                                        route],
                 "indexed excitation value does not match flat frame-major storage");
             expect_same_bits(
@@ -434,12 +434,12 @@ struct PublishedBlockCopy {
         output.frame_count(),
         {diagnostic.cylinder_ids().begin(), diagnostic.cylinder_ids().end()},
         {diagnostic.route_ids().begin(), diagnostic.route_ids().end()},
-        {diagnostic.pre_delay_cylinder_values_engine_sim_source_unit().begin(),
-         diagnostic.pre_delay_cylinder_values_engine_sim_source_unit().end()},
-        {diagnostic.post_delay_cylinder_values_engine_sim_source_unit().begin(),
-         diagnostic.post_delay_cylinder_values_engine_sim_source_unit().end()},
-        {output.values_engine_sim_source_unit().begin(),
-         output.values_engine_sim_source_unit().end()},
+        {diagnostic.pre_delay_cylinder_values_crankwave_source_unit().begin(),
+         diagnostic.pre_delay_cylinder_values_crankwave_source_unit().end()},
+        {diagnostic.post_delay_cylinder_values_crankwave_source_unit().begin(),
+         diagnostic.post_delay_cylinder_values_crankwave_source_unit().end()},
+        {output.values_crankwave_source_unit().begin(),
+         output.values_crankwave_source_unit().end()},
         {output.absolute_exhaust_valve_mass_flow_kg_s().begin(),
          output.absolute_exhaust_valve_mass_flow_kg_s().end()},
         reinterpret_cast<std::uintptr_t>(

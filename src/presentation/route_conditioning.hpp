@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 struct Pcg32Seed {
     std::uint64_t initial_state = 0;
@@ -17,9 +17,9 @@ struct Pcg32Seed {
 };
 
 struct ConditioningResult {
-    double jittered_engine_sim_source_unit = 0.0;
+    double jittered_crankwave_source_unit = 0.0;
     double filtered_air_noise = 0.0;
-    double conditioned_engine_sim_source_unit = 0.0;
+    double conditioned_crankwave_source_unit = 0.0;
 
     friend bool operator==(const ConditioningResult &,
                            const ConditioningResult &) = default;
@@ -50,7 +50,7 @@ class RouteConditioner {
                      RouteConditioningCalibration calibration);
 
     [[nodiscard]] ConditioningResult
-    process(double reconstructed_engine_sim_source_unit,
+    process(double reconstructed_crankwave_source_unit,
             double exhaust_flow_activity_01);
 
     [[nodiscard]] std::uint64_t jitter_rng_state() const noexcept;
@@ -70,4 +70,4 @@ class RouteConditioner {
     dsp::FourthOrderLowPass air_noise_filter_;
 };
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

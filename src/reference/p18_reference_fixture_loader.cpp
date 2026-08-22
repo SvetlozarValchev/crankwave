@@ -25,7 +25,7 @@
 #include <unistd.h>
 #endif
 
-namespace engine_sim_offline::reference {
+namespace crankwave::reference {
 namespace {
 
 [[nodiscard]] constexpr std::size_t
@@ -351,4 +351,4 @@ load_p18_reference_fixture(const std::filesystem::path &fixture_root) {
 #endif
 }
 
-} // namespace engine_sim_offline::reference
+} // namespace crankwave::reference

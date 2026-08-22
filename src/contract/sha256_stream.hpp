@@ -1,13 +1,13 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 
-namespace engine_sim_offline::contract::detail {
+namespace crankwave::contract::detail {
 
 // Project-owned bounded incremental SHA-256 used by subsystems that cannot retain a
 // complete payload in memory. The public one-shot helper remains the API boundary.
@@ -28,4 +28,4 @@ class Sha256Stream {
     std::uint64_t total_bytes_ = 0;
 };
 
-} // namespace engine_sim_offline::contract::detail
+} // namespace crankwave::contract::detail

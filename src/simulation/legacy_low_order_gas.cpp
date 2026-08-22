@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 enum class CellValidity {
@@ -929,4 +929,4 @@ std::uint64_t LegacyLowOrderGasSession::produced_sample_count() const noexcept {
     return produced_sample_count_;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

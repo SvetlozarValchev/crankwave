@@ -19,7 +19,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::reference;
+using namespace crankwave::reference;
 
 static_assert(!std::is_default_constructible_v<P18VerifiedReferenceLineage>);
 static_assert(!std::is_constructible_v<P18VerifiedReferenceLineage,
@@ -84,7 +84,7 @@ class IsolatedFixture {
   public:
     explicit IsolatedFixture(const std::filesystem::path &source_root) {
         constexpr std::string_view pattern =
-            "/tmp/engine-sim-offline-p18-fixture-XXXXXX";
+            "/tmp/crankwave-p18-fixture-XXXXXX";
         std::array<char, 64> writable{};
         expect(pattern.size() + 1 <= writable.size(),
                "temporary fixture template overflow");

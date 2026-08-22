@@ -1,8 +1,8 @@
 #pragma once
 
 #include "dsp/fixed_fft.hpp"
-#include "engine_sim_offline/contract/presentation.hpp"
-#include "engine_sim_offline/contract/result.hpp"
+#include "crankwave/contract/presentation.hpp"
+#include "crankwave/contract/result.hpp"
 #include "presentation/pcm16_ir_decoder.hpp"
 #include "presentation/presentation_method_registry.hpp"
 
@@ -13,7 +13,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 namespace detail {
 struct CompiledPresentationAssetFactory;
@@ -190,4 +190,4 @@ compile_presentation_convolution_kernel(
     const CompiledPresentationAsset &asset,
     const contract::MethodIdentity &convolution_method);
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

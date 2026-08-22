@@ -4,7 +4,7 @@
 #include <cmath>
 #include <numbers>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 constexpr double kPascalPerBar = 100000.0;
@@ -219,4 +219,4 @@ ChenFlynnCycleMeanLossCalculation calculate_chen_flynn_cycle_mean_loss(
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

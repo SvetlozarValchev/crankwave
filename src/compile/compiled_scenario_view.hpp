@@ -1,9 +1,9 @@
 #pragma once
 
 #include "compile/compiled_model_storage.hpp"
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/compile.hpp"
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 
 struct CompiledScenarioInputsView {
     const ResolvedEnginePackage &engine;
@@ -24,4 +24,4 @@ class CompiledScenarioViewAccess final {
     }
 };
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

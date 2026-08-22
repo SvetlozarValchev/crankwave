@@ -1,6 +1,6 @@
 #include "simulation/cycle_accounting_method_registry.hpp"
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 [[nodiscard]] consteval bool
@@ -17,7 +17,7 @@ canonical_lf_descriptor(std::string_view descriptor) noexcept {
 }
 
 constexpr std::string_view kFourStrokePiecewiseLinearCycleQuadratureDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=four-stroke-piecewise-linear-cycle-quadrature-v1
 version=1
 operation=indexed-four-stroke-piecewise-linear-torque-angle-quadrature
@@ -58,7 +58,7 @@ external_numeric_authority=renderer-build-source-standard-library-math-runtime-a
 )method";
 
 constexpr std::string_view kChenFlynnCycleMeanAggregateLossDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=chen-flynn-cycle-mean-aggregate-loss-v1
 version=1
 operation=cycle-mean-chen-flynn-aggregate-loss-from-displacement-weighted-absolute-peak-pressure
@@ -116,4 +116,4 @@ std::string_view chen_flynn_cycle_mean_aggregate_loss_method_descriptor() noexce
     return kChenFlynnCycleMeanAggregateLossDescriptor;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

@@ -1,4 +1,4 @@
-#include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
+#include "crankwave/artifacts/simulation_manifest_encoder.hpp"
 
 #include "manifest_encoder_impl.hpp"
 
@@ -8,7 +8,7 @@
 #include <string_view>
 #include <utility>
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 namespace detail {
 namespace {
 
@@ -116,4 +116,4 @@ encode_simulation_manifest_v10(const contract::RenderManifest &manifest) {
     }
 }
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

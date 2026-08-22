@@ -1,9 +1,9 @@
 # M2 render API and CLI shell
 
 Status: retired historical record; the current public native boundary is
-[`bake.hpp`](../../include/engine_sim_offline/bake.hpp) over
-[`session.hpp`](../../include/engine_sim_offline/session.hpp), with the retained sink
-protocol in [`publication.hpp`](../../include/engine_sim_offline/publication.hpp)
+[`bake.hpp`](../../include/crankwave/bake.hpp) over
+[`session.hpp`](../../include/crankwave/session.hpp), with the retained sink
+protocol in [`publication.hpp`](../../include/crankwave/publication.hpp)
 
 Applies to: resolved render-request ownership, preflight admission, typed rejection,
 sink transaction semantics, and the initial headless CLI
@@ -141,7 +141,7 @@ are recorded in [`M2_SCHEDULING.md`](M2_SCHEDULING.md).
 
 ## 4. CLI shell
 
-The executable name is `engine-sim-offline`. Its admitted surface is deliberately
+The executable name is `crankwave`. Its admitted surface is deliberately
 small:
 
 | Invocation | Result |

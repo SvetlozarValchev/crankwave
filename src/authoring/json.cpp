@@ -1,4 +1,4 @@
-#include "engine_sim_offline/authoring/json.hpp"
+#include "crankwave/authoring/json.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::authoring {
+namespace crankwave::authoring {
 namespace detail {
 
 struct JsonObjectMember {
@@ -893,4 +893,4 @@ JsonParseResult parse_json(std::string_view input, JsonParseLimits limits) noexc
     }
 }
 
-} // namespace engine_sim_offline::authoring
+} // namespace crankwave::authoring

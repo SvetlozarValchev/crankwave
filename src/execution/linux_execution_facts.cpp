@@ -26,7 +26,7 @@
 #include <unistd.h>
 #endif
 
-namespace engine_sim_offline::execution {
+namespace crankwave::execution {
 namespace {
 
 constexpr std::size_t kEntropyBytes = 16;
@@ -679,4 +679,4 @@ finish_single_job_linux_execution(LinuxExecutionFactsObservation &&observation) 
 #endif
 }
 
-} // namespace engine_sim_offline::execution
+} // namespace crankwave::execution

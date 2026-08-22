@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate the frozen BMW M52B28 P1.8 two-lane reference fixture.
 
-The validator intentionally has no dependency on engine-sim code.  It parses the
+The validator intentionally has no dependency on Crankwave code.  It parses the
 three little-endian fixture files, validates their closed schema, and independently
 replays every redundant audit value from the physical/reference-parity lane.
 """
@@ -233,8 +233,8 @@ EXPECTED_RANDOM_KEY = (
 )
 PUBLIC_SEED = 12_648_430
 SEED_DERIVATION = "sha256_length_prefixed_capture_component_pcg32_v1"
-RANDOM_KEY_DOMAIN = "engine-sim-offline-capture-random-key-v1"
-COMPONENT_SEED_DOMAIN = "engine-sim-offline-capture-component-seed-v1"
+RANDOM_KEY_DOMAIN = "crankwave-capture-random-key-v1"
+COMPONENT_SEED_DOMAIN = "crankwave-capture-component-seed-v1"
 CAPTURE_ID = "baked.loaded_acceleration"
 MAX_CANONICAL_STREAM = (1 << 63) - 1
 

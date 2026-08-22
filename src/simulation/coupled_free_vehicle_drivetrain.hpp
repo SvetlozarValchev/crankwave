@@ -7,7 +7,7 @@
 #include <optional>
 #include <variant>
 
-namespace engine_sim_offline::simulation::detail {
+namespace crankwave::simulation::detail {
 
 struct CoupledFreeVehicleDrivetrainInput {
     double engine_inertia_kg_m2 = 0.0;
@@ -82,4 +82,4 @@ using CoupledFreeVehicleDrivetrainCalculation =
 advance_coupled_free_vehicle_drivetrain(
     const CoupledFreeVehicleDrivetrainInput &input) noexcept;
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace crankwave::simulation::detail

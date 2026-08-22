@@ -1,7 +1,7 @@
 #pragma once
 
-#include "engine_sim_offline/contract/engine.hpp"
-#include "engine_sim_offline/contract/parity_model.hpp"
+#include "crankwave/contract/engine.hpp"
+#include "crankwave/contract/parity_model.hpp"
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 #include "simulation/one_level_master_rod_cycle_mean_inertia.hpp"
@@ -14,7 +14,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 // The immutable, executable geometry for one currently admitted direct-journal
 // cylinder. All low-order consumers use these exact binary64 fields instead of
@@ -149,4 +149,4 @@ one_level_master_rod_mechanism_kinematics_plan(
     const SharedMechanismKinematicsPlan &plan, const contract::EngineSpec &engine,
     const contract::LowOrderEngineCoreV1 &core) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/compile.hpp"
 
 #include <string_view>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 
 using SiQuantityResult = CompileResult<SiQuantity>;
 using SiRateResult = CompileResult<SiRate>;
@@ -17,4 +17,4 @@ convert_quantity_to_si(const authoring::Quantity &quantity,
 [[nodiscard]] SiRateResult convert_rate_to_si(const authoring::RationalRate &rate,
                                               std::string_view json_pointer) noexcept;
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

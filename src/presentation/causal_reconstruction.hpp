@@ -7,7 +7,7 @@
 #include <span>
 #include <vector>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 inline constexpr std::size_t kPreviewExcitationFramesPerMethodBlock = 200;
 inline constexpr std::size_t kExcitationFramesPerMethodBlock = 400;
@@ -83,4 +83,4 @@ class CausalReconstruction {
     std::uint64_t distance_to_next_output_ = 0;
 };
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

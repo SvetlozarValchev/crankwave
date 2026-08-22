@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "kohler-ch750-cleanroom-held-dyno-1000-3500rpm-10khz-preview",
   "engine": "kohler-ch750-cleanroom",
   "fuel": "gasoline-default",

@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 #include "numeric/target_extended_precision.hpp"
 #include "presentation/presentation_method_registry.hpp"
 
@@ -21,7 +21,7 @@ void expect(bool condition, const char *message) {
 } // namespace
 
 int main() {
-    using namespace engine_sim_offline;
+    using namespace crankwave;
 
     expect(numeric::target_extended_precision_format_is_admitted(),
            "wasm32 IEEE binary128 format was not admitted");

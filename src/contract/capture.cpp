@@ -1,7 +1,7 @@
-#include "engine_sim_offline/contract/capture.hpp"
+#include "crankwave/contract/capture.hpp"
 
 #include "capture_block_admission.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/scenario.hpp"
 #include "validation_support.hpp"
 
 #include <algorithm>
@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 namespace {
 
 constexpr CaptureValidityMask kKnownCaptureValidity =
@@ -1874,4 +1874,4 @@ ValidationReport validate(const CaptureBlockView &block, const EngineSpec &engin
     return report;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

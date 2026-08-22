@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/directional_cook.hpp"
+#include "crankwave/responsive/directional_cook.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -14,8 +14,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::responsive;
+using namespace crankwave;
+using namespace crankwave::responsive;
 
 int failures = 0;
 

@@ -64,7 +64,7 @@ test("browser build forwards explicit execution kind without mode inference", ()
 });
 
 test("Worker protocol v5 publishes the complete typed control vocabulary", () => {
-  assert.equal(WORKER_PROTOCOL_ID, "engine-sim-offline/browser-worker-v5");
+  assert.equal(WORKER_PROTOCOL_ID, "crankwave/browser-worker-v5");
   assert.deepEqual(
     LIVE_CONTROL_CAPABILITIES.map(({ kind }) => kind),
     [

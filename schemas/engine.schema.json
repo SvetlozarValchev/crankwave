@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://engine-sim-offline.dev/schemas/engine.schema.json",
-  "title": "Engine Sim Offline engine package document",
+  "$id": "https://crankwave.dev/schemas/engine.schema.json",
+  "title": "Crankwave engine package document",
   "$comment": "This is the single current authoring schema. Schema-valid capabilities may still be rejected by the compiler when their executable implementation is not available.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "engine", "presentation"],
   "properties": {
-    "schema": { "const": "engine-sim-offline/engine" },
+    "schema": { "const": "crankwave/engine" },
     "engine": { "$ref": "#/$defs/engine" },
     "presentation": { "$ref": "#/$defs/presentation" },
     "rig": {

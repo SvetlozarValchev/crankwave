@@ -6,7 +6,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 namespace detail {
 
 namespace {
@@ -171,4 +171,4 @@ bool write_audio_contract(CanonicalJsonWriter &writer,
 
 } // namespace detail
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

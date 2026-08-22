@@ -14,7 +14,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -80,21 +80,21 @@ struct MethodCase {
         {
             "four-stroke-piecewise-linear-cycle-quadrature-v1",
             1,
-            "57c9b1517deede3285b5c801cb66386a841d0b0dde08bece7eb05fae869a63ac",
+            "e7f512582e6dd5c7e7c4769866f2277ca141d098b386009ad5276e0641338550",
             simulation::four_stroke_piecewise_linear_cycle_quadrature_method_descriptor,
             simulation::four_stroke_piecewise_linear_cycle_quadrature_method_identity,
         },
         {
             "chen-flynn-cycle-mean-aggregate-loss-v1",
             1,
-            "6fa03e2d9eabfdc7af99dd3e2b2658808dbe388260391780dab4c80bc0c79489",
+            "714dfd4502269a3d45e733bfbf7309076f25e6185ab7dc7ac9859988e227a900",
             simulation::chen_flynn_cycle_mean_aggregate_loss_method_descriptor,
             simulation::chen_flynn_cycle_mean_aggregate_loss_method_identity,
         },
         {
             "chen-flynn-per-cylinder-piston-travel-cycle-mean-aggregate-loss-v1",
             1,
-            "6f2b6aeaff65da4c0cbc166a6d030f8085a594cf3c57427bb405c6eb6b27bcc1",
+            "a3cc7c0893093d87bd88c0b3c3274209e69476546bc09bdc6525fe03f9133a5d",
             simulation::
                 chen_flynn_per_cylinder_piston_travel_cycle_mean_aggregate_loss_method_descriptor,
             simulation::

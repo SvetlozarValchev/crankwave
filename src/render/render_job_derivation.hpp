@@ -1,7 +1,7 @@
 #pragma once
 
 #include "artifacts/audition_wav_encoder.hpp"
-#include "engine_sim_offline/contract/result.hpp"
+#include "crankwave/contract/result.hpp"
 #include "presentation/presentation_calibration_compiler.hpp"
 #include "render/native_presentation_publisher.hpp"
 
@@ -10,7 +10,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::render_detail {
+namespace crankwave::render_detail {
 
 enum class RenderJobDerivationErrorCode : std::uint8_t {
     invalid_artifact_role,
@@ -59,4 +59,4 @@ derive_audition_metadata(const contract::ResolvedRenderInputs &inputs,
     const contract::RenderRequestRecord &request,
     const presentation::AdmittedPresentationCalibration &calibration);
 
-} // namespace engine_sim_offline::render_detail
+} // namespace crankwave::render_detail

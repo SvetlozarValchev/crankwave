@@ -60,7 +60,7 @@ function canonicalFetch({ mutate, redirected = false, retarget = false } = {}) {
   return { calls, fetch };
 }
 
-test("canonical commissioned starter loads with exact identities and DSP", async () => {
+test("canonical CC0 starter loads with exact identities and DSP", async () => {
   const fixture = canonicalFetch();
   const package_ = await loadSharedRecordedStarterRuntime(MANIFEST_URL, {
     fetch: fixture.fetch,
@@ -68,28 +68,28 @@ test("canonical commissioned starter loads with exact identities and DSP", async
   });
 
   assert.equal(package_.kind, "shared-recorded-starter");
-  assert.equal(package_.manifest.id, "shared-recorded-starter-licensed");
-  assert.equal(package_.manifest.rights.status, "licensed");
+  assert.equal(package_.manifest.id, "shared-recorded-starter-cc0-v1");
+  assert.equal(package_.manifest.rights.status, "cc0-1.0");
   assert.equal(package_.manifest.rights.audition_only, false);
   assert.equal(package_.manifest.rights.modification_authorized, true);
   assert.equal(package_.manifest.rights.redistribution_authorized, true);
-  assert.equal(package_.licensee, "SvetlozarValchev");
-  assert.equal(package_.samples.length, 259_318);
+  assert.equal(package_.sourceCreator, "Ika.Komura");
+  assert.equal(package_.samples.length, 1_470_912);
   assert.equal(
     package_.manifestSha256,
-    "1fb698a9c304ecee323361b059dbfc615ab82c06357e01b815faa8f3a008365e",
+    "73110090f07df4523081fac3452ee1cc0b3aab6b0b8a356186ca18db3c011bc2",
   );
   assert.equal(
     package_.payloadSha256,
-    "1949863ca58aef11146d4a842609ef217f6b7df4ba6db38f478eb918cef2964a",
+    "b25b6277e375d5dd92cec98e7d33765a6898461e00597935cd526c850db8c0be",
   );
   assert.deepEqual(package_.settings, {
     defaultEnabled: true,
     sourceGain: 0.5,
     speedUpStartRpm: 500,
     speedUpEndRpm: 760,
-    basePlaybackRate: 0.8,
-    catchPlaybackRate: 1.05,
+    basePlaybackRate: 1,
+    catchPlaybackRate: 1,
     speedUpCurve: 1.6,
     rpmSmoothingMilliseconds: 0,
     attackMilliseconds: 8,
@@ -164,7 +164,7 @@ test("recorded starter ends its post-catch tail after the authored 160 ms", asyn
   assert.equal(cursor.diagnostics().starterGain, 0);
 });
 
-test("recorded starter cursor reports licensed availability and mixes A/B equally", async () => {
+test("recorded starter cursor reports CC0 availability and mixes A/B equally", async () => {
   const fixture = canonicalFetch();
   const package_ = await loadSharedRecordedStarterRuntime(MANIFEST_URL, {
     fetch: fixture.fetch,
@@ -187,7 +187,7 @@ test("recorded starter cursor reports licensed availability and mixes A/B equall
   assert.deepEqual(
     {
       licenseStatus: cursor.diagnostics().licenseStatus,
-      licensee: cursor.diagnostics().licensee,
+      sourceCreator: cursor.diagnostics().sourceCreator,
       auditionOnly: cursor.diagnostics().auditionOnly,
       modificationAuthorized: cursor.diagnostics().modificationAuthorized,
       redistributionAuthorized:
@@ -195,8 +195,8 @@ test("recorded starter cursor reports licensed availability and mixes A/B equall
       active: cursor.diagnostics().active,
     },
     {
-      licenseStatus: "licensed",
-      licensee: "SvetlozarValchev",
+      licenseStatus: "cc0-1.0",
+      sourceCreator: "Ika.Komura",
       auditionOnly: false,
       modificationAuthorized: true,
       redistributionAuthorized: true,
@@ -291,9 +291,9 @@ test("redirected or retargeted starter fetches fail closed", async () => {
 
 test("canonical fixture manifest digest is stable", async () => {
   const bytes = await fs.readFile(path.join(FIXTURE_ROOT, "runtime.json"));
-  assert.equal(bytes.length, 3_120);
+  assert.equal(bytes.length, 3_560);
   assert.equal(
     createHash("sha256").update(bytes).digest("hex"),
-    "1fb698a9c304ecee323361b059dbfc615ab82c06357e01b815faa8f3a008365e",
+    "73110090f07df4523081fac3452ee1cc0b3aab6b0b8a356186ca18db3c011bc2",
   );
 });

@@ -4,7 +4,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 namespace {
 
 static_assert(kCausalReconstructionMethodId != kRouteConditioningMethodId);
@@ -186,4 +186,4 @@ admit_implemented_presentation_methods(const contract::PresentationMethods &meth
     return report;
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

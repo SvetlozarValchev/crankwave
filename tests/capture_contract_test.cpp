@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract.hpp"
+#include "crankwave/contract.hpp"
 
 #include <algorithm>
 #include <array>
@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::contract::test {
+namespace crankwave::contract::test {
 namespace {
 
 void expect(bool condition, const char *message) {
@@ -648,4 +648,4 @@ void run_capture_contract_tests() {
            "unknown route kind entered CaptureBlock layout");
 }
 
-} // namespace engine_sim_offline::contract::test
+} // namespace crankwave::contract::test

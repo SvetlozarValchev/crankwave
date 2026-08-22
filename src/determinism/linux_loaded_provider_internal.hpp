@@ -13,7 +13,7 @@
 #include <string_view>
 #include <variant>
 
-namespace engine_sim_offline::determinism::detail::linux_detail {
+namespace crankwave::determinism::detail::linux_detail {
 
 struct BuildIdAccumulator {
     std::optional<GnuBuildId> value;
@@ -41,4 +41,4 @@ using ProviderFileResult = std::variant<DynamicProviderIdentity, LoadedRuntimeEr
     std::uintptr_t load_bias, std::string_view soname,
     const GnuBuildId &memory_build_id, std::string_view provider_component);
 
-} // namespace engine_sim_offline::determinism::detail::linux_detail
+} // namespace crankwave::determinism::detail::linux_detail

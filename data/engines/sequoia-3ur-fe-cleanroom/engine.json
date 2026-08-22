@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/engine",
+  "schema": "crankwave/engine",
   "engine": {
     "identity": {
       "id": "sequoia-3ur-fe-cleanroom",
@@ -409,7 +409,7 @@
       {
         "id": "warm-generic-accessories",
         "uri": "../../profiles/sequoia-3ur-fe-cleanroom/accessory-configurations/sequoia-3ur-fe-cleanroom-warm-generic-accessories-v1.json",
-        "sha256": "58feca2e7b011a72a910be8a76dde71bdf53d3beedce5cdd54dbee583135f224"
+        "sha256": "258a1d713ddaa4101a5d67c21264d3818eaf8cfb8917a73ccfeb2b569defa2f3"
       }
     ],
     "losses": {
@@ -519,7 +519,7 @@
       {
         "id": "smooth-39",
         "kind": "impulse_response",
-        "uri": "../../../reference/fixtures/engine-sim-ir-library/presentation/smooth_39.wav",
+        "uri": "../../../reference/fixtures/crankwave-ir-library/presentation/smooth_39.wav",
         "sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"
       }
     ],

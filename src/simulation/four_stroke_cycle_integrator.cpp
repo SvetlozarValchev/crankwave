@@ -4,7 +4,7 @@
 #include <limits>
 #include <numbers>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 constexpr double kFourStrokeCycleRadians = 4.0 * std::numbers::pi_v<double>;
@@ -377,4 +377,4 @@ FourStrokeCycleIntegratorCompileResult compile_four_stroke_cycle_integrator(
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

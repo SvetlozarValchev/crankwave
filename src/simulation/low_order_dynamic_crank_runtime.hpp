@@ -1,10 +1,10 @@
 #pragma once
 
-#include "engine_sim_offline/contract/result.hpp"
+#include "crankwave/contract/result.hpp"
 #include "simulation/bounded_dyno_constraint.hpp"
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/coupled_free_vehicle_drivetrain.hpp"
-#include "simulation/engine_sim_v1_transient_friction.hpp"
+#include "simulation/crankwave_transient_friction.hpp"
 #include "simulation/fixed_horizon_cycle_sampling.hpp"
 #include "simulation/kinematic_scenario_schedule.hpp"
 #include "simulation/low_order_capture_plan.hpp"
@@ -24,7 +24,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 namespace detail {
 struct LowOrderDynamicCrankRuntimeTestAccess;
@@ -32,7 +32,7 @@ struct LowOrderDynamicCrankRuntimeTestAccess;
 
 struct LowOrderDynamicCrankDirectCenteredPistonWallPlan {
     double geometric_tdc_rad = 0.0;
-    EngineSimV1PistonWallCylinderPlan friction;
+    CrankwavePistonWallCylinderPlan friction;
 
     friend bool
     operator==(const LowOrderDynamicCrankDirectCenteredPistonWallPlan &,
@@ -59,7 +59,7 @@ struct LowOrderDynamicCrankPistonWallCylinderPlan {
 // changing the written order of any direct-path arithmetic.
 struct LowOrderDynamicCrankDirectCenteredMechanismRuntime {
     CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan;
-    std::vector<EngineSimV1PistonWallFrictionStage> piston_wall_stages;
+    std::vector<CrankwavePistonWallFrictionStage> piston_wall_stages;
     std::vector<double> piston_wall_boundary_phase_rad;
     std::vector<double> next_piston_wall_boundary_phase_rad;
     double piston_wall_boundary_angular_speed_rad_s = 0.0;
@@ -355,4 +355,4 @@ using LowOrderDynamicCrankCompileResult =
     SharedMechanismKinematicsPlan mechanism_plan,
     LowOrderExecutionExtent execution_extent);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

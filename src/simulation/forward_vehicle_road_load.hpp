@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <variant>
 
-namespace engine_sim_offline::simulation::detail {
+namespace crankwave::simulation::detail {
 
 enum class ForwardVehicleRoadLoadDisposition : std::uint8_t {
     moving,
@@ -79,4 +79,4 @@ using ForwardVehicleRoadLoadCalculation =
 [[nodiscard]] ForwardVehicleRoadLoadCalculation
 advance_forward_vehicle_road_load(const ForwardVehicleRoadLoadInput &input) noexcept;
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace crankwave::simulation::detail

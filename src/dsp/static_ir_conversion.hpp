@@ -5,7 +5,7 @@
 #include <span>
 #include <vector>
 
-namespace engine_sim_offline::dsp {
+namespace crankwave::dsp {
 
 // Fixed method limits for configured impulse-response conversion. The converter
 // accepts the complete decoded PCM16 data so that it can verify the caller's
@@ -65,4 +65,4 @@ convert_static_ir_v2(std::span<const std::int32_t> decoded_pcm,
                      std::size_t meaningful_support_frame_count,
                      double configured_gain);
 
-} // namespace engine_sim_offline::dsp
+} // namespace crankwave::dsp

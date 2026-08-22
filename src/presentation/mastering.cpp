@@ -5,7 +5,7 @@
 #include <limits>
 #include <stdexcept>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 namespace {
 
 static_assert(sizeof(float) == 4);
@@ -140,4 +140,4 @@ std::array<std::byte, 3> serialize_pcm24le(std::int32_t pcm24_sample) {
     };
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

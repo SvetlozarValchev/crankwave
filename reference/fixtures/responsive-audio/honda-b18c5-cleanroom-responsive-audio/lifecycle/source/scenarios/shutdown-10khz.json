@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "honda-b18c5-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
   "engine": "honda-b18c5-cleanroom",
   "fuel": "gasoline-default",

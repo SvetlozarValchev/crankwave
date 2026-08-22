@@ -24,7 +24,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 namespace {
 
 using authoring::DiagnosticCode;
@@ -76,7 +76,7 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     DiagnosticReport report;
     const auto &engine = document.engine;
 
-    if (document.schema != "engine-sim-offline/engine") {
+    if (document.schema != "crankwave/engine") {
         add(report, DiagnosticCode::unsupported_schema, "/schema",
             "engine resolver accepts the current engine schema only");
     }
@@ -499,4 +499,4 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     return report;
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

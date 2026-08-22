@@ -1,5 +1,5 @@
 {
-  "schema_id": "engine-sim-offline.accessory-configuration.v1",
+  "schema_id": "crankwave.accessory-configuration.v1",
   "configuration_id": "sequoia-3ur-fe-cleanroom-warm-generic-accessories-v1",
   "engine_id": "sequoia-3ur-fe-cleanroom",
   "serialization": "utf-8-json-lf-with-one-final-lf-byte-identity-v1",

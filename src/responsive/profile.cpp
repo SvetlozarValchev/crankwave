@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/profile.hpp"
+#include "crankwave/responsive/profile.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 constexpr std::array<double, kResponsiveRpmAnchorCount> kReferenceAnchors{
@@ -251,4 +251,4 @@ derive_engine_redline_affine_profile(const authoring::EnginePackageDocument &eng
     return profile;
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

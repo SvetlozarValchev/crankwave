@@ -1,96 +1,96 @@
-add_executable(engine_sim_offline_cxx20_smoke cxx20_smoke.cpp)
+add_executable(crankwave_cxx20_smoke cxx20_smoke.cpp)
 
 target_link_libraries(
-    engine_sim_offline_cxx20_smoke
-    PRIVATE engine_sim_offline::build_options
+    crankwave_cxx20_smoke
+    PRIVATE crankwave::build_options
 )
 
 add_test(
     NAME foundation.cxx20
-    COMMAND engine_sim_offline_cxx20_smoke
+    COMMAND crankwave_cxx20_smoke
 )
 
 add_executable(
-    engine_sim_offline_responsive_directional_texture_tests
+    crankwave_responsive_directional_texture_tests
     responsive_directional_texture_test.cpp
 )
 target_link_libraries(
-    engine_sim_offline_responsive_directional_texture_tests
-    PRIVATE engine_sim_offline::responsive
+    crankwave_responsive_directional_texture_tests
+    PRIVATE crankwave::responsive
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_responsive_directional_texture_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_responsive_directional_texture_tests
 )
 add_test(
     NAME responsive.directional_texture
-    COMMAND engine_sim_offline_responsive_directional_texture_tests
+    COMMAND crankwave_responsive_directional_texture_tests
 )
 
 add_executable(
-    engine_sim_offline_responsive_directional_cook_tests
+    crankwave_responsive_directional_cook_tests
     responsive_directional_cook_test.cpp
 )
 target_link_libraries(
-    engine_sim_offline_responsive_directional_cook_tests
-    PRIVATE engine_sim_offline::responsive
+    crankwave_responsive_directional_cook_tests
+    PRIVATE crankwave::responsive
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_responsive_directional_cook_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_responsive_directional_cook_tests
 )
 add_test(
     NAME responsive.directional_cook
-    COMMAND engine_sim_offline_responsive_directional_cook_tests
+    COMMAND crankwave_responsive_directional_cook_tests
 )
 
 add_executable(
-    engine_sim_offline_responsive_profile_held_texture_tests
+    crankwave_responsive_profile_held_texture_tests
     responsive_profile_held_texture_test.cpp
 )
 target_link_libraries(
-    engine_sim_offline_responsive_profile_held_texture_tests
-    PRIVATE engine_sim_offline::responsive
+    crankwave_responsive_profile_held_texture_tests
+    PRIVATE crankwave::responsive
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_responsive_profile_held_texture_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_responsive_profile_held_texture_tests
 )
 add_test(
     NAME responsive.profile_held_texture
-    COMMAND engine_sim_offline_responsive_profile_held_texture_tests
+    COMMAND crankwave_responsive_profile_held_texture_tests
 )
 
 add_executable(
-    engine_sim_offline_responsive_scenario_template_tests
+    crankwave_responsive_scenario_template_tests
     responsive_scenario_template_test.cpp
 )
 target_link_libraries(
-    engine_sim_offline_responsive_scenario_template_tests
-    PRIVATE engine_sim_offline::responsive
+    crankwave_responsive_scenario_template_tests
+    PRIVATE crankwave::responsive
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_responsive_scenario_template_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_responsive_scenario_template_tests
 )
 add_test(
     NAME responsive.scenario_template
     COMMAND
-        engine_sim_offline_responsive_scenario_template_tests
+        crankwave_responsive_scenario_template_tests
         ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_responsive_finite_capture_tests
+    crankwave_responsive_finite_capture_tests
     responsive_finite_capture_test.cpp
 )
 target_link_libraries(
-    engine_sim_offline_responsive_finite_capture_tests
-    PRIVATE engine_sim_offline::responsive
+    crankwave_responsive_finite_capture_tests
+    PRIVATE crankwave::responsive
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_responsive_finite_capture_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_responsive_finite_capture_tests
 )
 add_test(
     NAME responsive.finite_capture
     COMMAND
-        engine_sim_offline_responsive_finite_capture_tests
+        crankwave_responsive_finite_capture_tests
         ${PROJECT_SOURCE_DIR}
 )
 set_tests_properties(
@@ -99,36 +99,36 @@ set_tests_properties(
 )
 
 add_executable(
-    engine_sim_offline_native_responsive_package_tests
+    crankwave_native_responsive_package_tests
     native_responsive_package_test.cpp
 )
 target_link_libraries(
-    engine_sim_offline_native_responsive_package_tests
-    PRIVATE engine_sim_offline::responsive
+    crankwave_native_responsive_package_tests
+    PRIVATE crankwave::responsive
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_native_responsive_package_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_native_responsive_package_tests
 )
 add_test(
     NAME responsive.native_package
-    COMMAND engine_sim_offline_native_responsive_package_tests
+    COMMAND crankwave_native_responsive_package_tests
 )
 
 add_executable(
-    engine_sim_offline_responsive_presentation_transfer_tests
+    crankwave_responsive_presentation_transfer_tests
     responsive_presentation_transfer_test.cpp
 )
 target_link_libraries(
-    engine_sim_offline_responsive_presentation_transfer_tests
-    PRIVATE engine_sim_offline::responsive
+    crankwave_responsive_presentation_transfer_tests
+    PRIVATE crankwave::responsive
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_responsive_presentation_transfer_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_responsive_presentation_transfer_tests
 )
 add_test(
     NAME responsive.presentation_transfer
     COMMAND
-        engine_sim_offline_responsive_presentation_transfer_tests
+        crankwave_responsive_presentation_transfer_tests
         ${PROJECT_SOURCE_DIR}
 )
 set_tests_properties(
@@ -137,36 +137,36 @@ set_tests_properties(
 )
 
 add_executable(
-    engine_sim_offline_responsive_package_children_tests
+    crankwave_responsive_package_children_tests
     responsive_package_children_test.cpp
 )
 target_link_libraries(
-    engine_sim_offline_responsive_package_children_tests
-    PRIVATE engine_sim_offline::responsive
+    crankwave_responsive_package_children_tests
+    PRIVATE crankwave::responsive
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_responsive_package_children_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_responsive_package_children_tests
 )
 add_test(
     NAME responsive.package_children
-    COMMAND engine_sim_offline_responsive_package_children_tests
+    COMMAND crankwave_responsive_package_children_tests
 )
 
 add_executable(
-    engine_sim_offline_responsive_lifecycle_tests
+    crankwave_responsive_lifecycle_tests
     responsive_lifecycle_test.cpp
 )
 target_link_libraries(
-    engine_sim_offline_responsive_lifecycle_tests
-    PRIVATE engine_sim_offline::responsive
+    crankwave_responsive_lifecycle_tests
+    PRIVATE crankwave::responsive
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_responsive_lifecycle_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_responsive_lifecycle_tests
 )
 add_test(
     NAME responsive.lifecycle
     COMMAND
-        engine_sim_offline_responsive_lifecycle_tests
+        crankwave_responsive_lifecycle_tests
         ${PROJECT_SOURCE_DIR}
 )
 set_tests_properties(
@@ -175,38 +175,38 @@ set_tests_properties(
 )
 
 add_executable(
-    engine_sim_offline_c_api_header_tests
+    crankwave_c_api_header_tests
     c_api_header_test.c
 )
 
 target_link_libraries(
-    engine_sim_offline_c_api_header_tests
-    PRIVATE engine_sim_offline::c_api
+    crankwave_c_api_header_tests
+    PRIVATE crankwave::c_api
 )
 
 add_test(
     NAME c_api.header_and_context
-    COMMAND engine_sim_offline_c_api_header_tests
+    COMMAND crankwave_c_api_header_tests
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(
-        engine_sim_offline_c_api_integration_tests
+        crankwave_c_api_integration_tests
         c_api_integration_test.cpp
     )
 
     target_link_libraries(
-        engine_sim_offline_c_api_integration_tests
-        PRIVATE engine_sim_offline::c_api
+        crankwave_c_api_integration_tests
+        PRIVATE crankwave::c_api
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_c_api_integration_tests
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_c_api_integration_tests
     )
 
     add_test(
         NAME c_api.integration
         COMMAND
-            engine_sim_offline_c_api_integration_tests
+            crankwave_c_api_integration_tests
             ${PROJECT_SOURCE_DIR}
     )
     set_tests_properties(
@@ -217,82 +217,82 @@ endif()
 
 if(EMSCRIPTEN)
     add_executable(
-        engine_sim_offline_wasm_numeric_contract_tests
+        crankwave_wasm_numeric_contract_tests
         wasm_numeric_contract_test.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_wasm_numeric_contract_tests
+        crankwave_wasm_numeric_contract_tests
         PRIVATE ${PROJECT_SOURCE_DIR}/src
     )
 
     target_link_libraries(
-        engine_sim_offline_wasm_numeric_contract_tests
+        crankwave_wasm_numeric_contract_tests
         PRIVATE
-            engine_sim_offline::contract
-            engine_sim_offline::presentation
+            crankwave::contract
+            crankwave::presentation
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_wasm_numeric_contract_tests
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_wasm_numeric_contract_tests
     )
-    engine_sim_offline_configure_wasm_numeric_target(
-        engine_sim_offline_wasm_numeric_contract_tests
+    crankwave_configure_wasm_numeric_target(
+        crankwave_wasm_numeric_contract_tests
     )
 
     add_test(
         NAME wasm.numeric_contract
-        COMMAND engine_sim_offline_wasm_numeric_contract_tests
+        COMMAND crankwave_wasm_numeric_contract_tests
     )
 endif()
 
 if(NOT EMSCRIPTEN)
     add_executable(
-        engine_sim_offline_wasm_parity_native
+        crankwave_wasm_parity_native
         wasm/native_parity_main.cpp
         wasm/parity_driver.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_wasm_parity_native
+        crankwave_wasm_parity_native
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/wasm
     )
 
     target_link_libraries(
-        engine_sim_offline_wasm_parity_native
+        crankwave_wasm_parity_native
         PRIVATE
-            engine_sim_offline::build_options
-            engine_sim_offline::c_api
+            crankwave::build_options
+            crankwave::c_api
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_wasm_parity_native
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_wasm_parity_native
     )
 endif()
 
-if(EMSCRIPTEN AND ENGINE_SIM_OFFLINE_BUILD_WASM)
+if(EMSCRIPTEN AND CRANKWAVE_BUILD_WASM)
     add_executable(
-        engine_sim_offline_wasm_parity_module
+        crankwave_wasm_parity_module
         wasm/parity_driver.cpp
     )
     set_target_properties(
-        engine_sim_offline_wasm_parity_module
+        crankwave_wasm_parity_module
         PROPERTIES
-            OUTPUT_NAME engine-sim-offline-wasm-parity
+            OUTPUT_NAME crankwave-wasm-parity
             SUFFIX ".mjs"
     )
 
     target_include_directories(
-        engine_sim_offline_wasm_parity_module
+        crankwave_wasm_parity_module
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/wasm
     )
 
     target_link_libraries(
-        engine_sim_offline_wasm_parity_module
+        crankwave_wasm_parity_module
         PRIVATE
-            engine_sim_offline::build_options
-            engine_sim_offline::c_api
+            crankwave::build_options
+            crankwave::c_api
     )
     target_link_options(
-        engine_sim_offline_wasm_parity_module
+        crankwave_wasm_parity_module
         PRIVATE
             --no-entry
             -fwasm-exceptions
@@ -308,209 +308,209 @@ if(EMSCRIPTEN AND ENGINE_SIM_OFFLINE_BUILD_WASM)
             "SHELL:-sSTRICT=1"
             "SHELL:-sWASM_BIGINT=1"
             "SHELL:-sEXPORTED_RUNTIME_METHODS=['HEAPU8','HEAPU32']"
-            "SHELL:-sEXPORTED_FUNCTIONS=['_malloc','_free','_eso_wasm_parity_run']"
+            "SHELL:-sEXPORTED_FUNCTIONS=['_malloc','_free','_crankwave_wasm_parity_run']"
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_wasm_parity_module
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_wasm_parity_module
     )
-    engine_sim_offline_configure_wasm_numeric_target(
-        engine_sim_offline_wasm_parity_module
+    crankwave_configure_wasm_numeric_target(
+        crankwave_wasm_parity_module
     )
 endif()
 
 add_library(
-    engine_sim_offline_authored_engine_fixture_support
+    crankwave_authored_engine_fixture_support
     STATIC
         authored_engine_fixture_support.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_authored_engine_fixture_support
+    crankwave_authored_engine_fixture_support
     PRIVATE ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_authored_engine_fixture_support
+    crankwave_authored_engine_fixture_support
     PUBLIC
-        engine_sim_offline::authoring
-        engine_sim_offline::compile
+        crankwave::authoring
+        crankwave::compile
 )
 
 add_executable(
-    engine_sim_offline_json_parser_tests
+    crankwave_json_parser_tests
     json_parser_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_json_parser_tests
-    PRIVATE engine_sim_offline::authoring
+    crankwave_json_parser_tests
+    PRIVATE crankwave::authoring
 )
 
 add_test(
     NAME authoring.json_parser
-    COMMAND engine_sim_offline_json_parser_tests
+    COMMAND crankwave_json_parser_tests
 )
 
 add_executable(
-    engine_sim_offline_authoring_document_tests
+    crankwave_authoring_document_tests
     authoring_document_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_authoring_document_tests
-    PRIVATE engine_sim_offline::authoring
+    crankwave_authoring_document_tests
+    PRIVATE crankwave::authoring
 )
 
 add_test(
     NAME authoring.document
-    COMMAND engine_sim_offline_authoring_document_tests
+    COMMAND crankwave_authoring_document_tests
 )
 
 add_executable(
-    engine_sim_offline_atlas_bake_authoring_tests
+    crankwave_atlas_bake_authoring_tests
     atlas_bake_authoring_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_atlas_bake_authoring_tests
-    PRIVATE engine_sim_offline::authoring
+    crankwave_atlas_bake_authoring_tests
+    PRIVATE crankwave::authoring
 )
 
 add_test(
     NAME authoring.atlas_bake
     COMMAND
-        engine_sim_offline_atlas_bake_authoring_tests
+        crankwave_atlas_bake_authoring_tests
         ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_audio_atlas_contract_tests
+    crankwave_audio_atlas_contract_tests
     audio_atlas_contract_test.cpp
     ${PROJECT_SOURCE_DIR}/src/artifacts/audio_atlas_manifest_encoder.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_audio_atlas_contract_tests
+    crankwave_audio_atlas_contract_tests
     PRIVATE
-        engine_sim_offline::contract
+        crankwave::contract
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_audio_atlas_contract_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_audio_atlas_contract_tests
 )
 
 add_test(
     NAME contract.audio_atlas
-    COMMAND engine_sim_offline_audio_atlas_contract_tests
+    COMMAND crankwave_audio_atlas_contract_tests
 )
 
 add_executable(
-    engine_sim_offline_compiler_foundation_tests
+    crankwave_compiler_foundation_tests
     compiler_foundation_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_compiler_foundation_tests
+    crankwave_compiler_foundation_tests
     PRIVATE ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_compiler_foundation_tests
-    PRIVATE engine_sim_offline::compile
+    crankwave_compiler_foundation_tests
+    PRIVATE crankwave::compile
 )
 
 add_test(
     NAME compiler.foundation
-    COMMAND engine_sim_offline_compiler_foundation_tests
+    COMMAND crankwave_compiler_foundation_tests
 )
 
 add_executable(
-    engine_sim_offline_scenario_resolver_tests
+    crankwave_scenario_resolver_tests
     scenario_resolver_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_scenario_resolver_tests
+    crankwave_scenario_resolver_tests
     PRIVATE ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_scenario_resolver_tests
-    PRIVATE engine_sim_offline::compile
+    crankwave_scenario_resolver_tests
+    PRIVATE crankwave::compile
 )
 
 add_test(
     NAME compiler.scenario_resolver
-    COMMAND engine_sim_offline_scenario_resolver_tests
+    COMMAND crankwave_scenario_resolver_tests
 )
 
 add_executable(
-    engine_sim_offline_compiler_integration_tests
+    crankwave_compiler_integration_tests
     compiler_integration_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_compiler_integration_tests
+    crankwave_compiler_integration_tests
     PRIVATE ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_compiler_integration_tests
+    crankwave_compiler_integration_tests
     PRIVATE
-        engine_sim_offline::compile
-        engine_sim_offline::request_identity
-        engine_sim_offline::session
+        crankwave::compile
+        crankwave::request_identity
+        crankwave::session
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_compiler_integration_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_compiler_integration_tests
 )
 
 add_test(
     NAME compiler.integration
-    COMMAND engine_sim_offline_compiler_integration_tests
+    COMMAND crankwave_compiler_integration_tests
 )
 
 add_executable(
-    engine_sim_offline_session_event_counters_tests
+    crankwave_session_event_counters_tests
     session_event_counters_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_session_event_counters_tests
+    crankwave_session_event_counters_tests
     PRIVATE ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_session_event_counters_tests
-    PRIVATE engine_sim_offline::session
+    crankwave_session_event_counters_tests
+    PRIVATE crankwave::session
 )
 
 add_test(
     NAME session.event_counters
-    COMMAND engine_sim_offline_session_event_counters_tests
+    COMMAND crankwave_session_event_counters_tests
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(
-        engine_sim_offline_engine_session_tests
+        crankwave_engine_session_tests
         engine_session_test.cpp
         bmw_m52b28_render_gate_support.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_engine_session_tests
+        crankwave_engine_session_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/src
     )
 
     target_link_libraries(
-        engine_sim_offline_engine_session_tests
+        crankwave_engine_session_tests
         PRIVATE
-            engine_sim_offline::compile
-            engine_sim_offline::presentation
-            engine_sim_offline::session
+            crankwave::compile
+            crankwave::presentation
+            crankwave::session
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_engine_session_tests
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_engine_session_tests
     )
 
     if(NOT CMAKE_CONFIGURATION_TYPES AND
@@ -518,7 +518,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         add_test(
             NAME session.engine_session
             COMMAND
-                engine_sim_offline_engine_session_tests
+                crankwave_engine_session_tests
                 ${PROJECT_SOURCE_DIR}
         )
         set_tests_properties(
@@ -528,205 +528,205 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     endif()
 
     add_executable(
-        engine_sim_offline_bmw_m52b28_authored_json_render_gate_tests
+        crankwave_bmw_m52b28_authored_json_render_gate_tests
         bmw_m52b28_authored_json_render_gate_test.cpp
         bmw_m52b28_render_gate_support.cpp
         bmw_m52b28_render_gate_wave.cpp
     )
 
     target_link_libraries(
-        engine_sim_offline_bmw_m52b28_authored_json_render_gate_tests
+        crankwave_bmw_m52b28_authored_json_render_gate_tests
         PRIVATE
-            engine_sim_offline::compile
-            engine_sim_offline::bake
+            crankwave::compile
+            crankwave::bake
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_bmw_m52b28_authored_json_render_gate_tests
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_bmw_m52b28_authored_json_render_gate_tests
     )
 
     if(NOT CMAKE_CONFIGURATION_TYPES AND
        CMAKE_BUILD_TYPE STREQUAL "Release")
         add_test(
-            NAME render.bmw_m52b28_authored_json_migration
+            NAME render.bmw_m52b28_authored_json
             COMMAND
-                engine_sim_offline_bmw_m52b28_authored_json_render_gate_tests
+                crankwave_bmw_m52b28_authored_json_render_gate_tests
                 ${PROJECT_SOURCE_DIR}
         )
         set_tests_properties(
-            render.bmw_m52b28_authored_json_migration
+            render.bmw_m52b28_authored_json
             PROPERTIES TIMEOUT 240
         )
     endif()
 endif()
 add_executable(
-    engine_sim_offline_renderer_source_stamp_tests
+    crankwave_renderer_source_stamp_tests
     renderer_source_stamp_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_renderer_source_stamp_tests
-    PRIVATE engine_sim_offline_renderer_determinism
+    crankwave_renderer_source_stamp_tests
+    PRIVATE crankwave_renderer_determinism
 )
 
 add_test(
     NAME determinism.renderer_source_stamp
-    COMMAND engine_sim_offline_renderer_source_stamp_tests
+    COMMAND crankwave_renderer_source_stamp_tests
 )
 
 add_executable(
-    engine_sim_offline_loaded_runtime_identity_tests
+    crankwave_loaded_runtime_identity_tests
     loaded_runtime_identity_test.cpp
 )
 
 target_link_options(
-    engine_sim_offline_loaded_runtime_identity_tests
+    crankwave_loaded_runtime_identity_tests
     PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--no-as-needed>
 )
 
 target_link_libraries(
-    engine_sim_offline_loaded_runtime_identity_tests
+    crankwave_loaded_runtime_identity_tests
     PRIVATE
-        engine_sim_offline_renderer_determinism
+        crankwave_renderer_determinism
         $<$<PLATFORM_ID:Linux>:m>
 )
 
 add_test(
     NAME determinism.loaded_runtime_identity
-    COMMAND engine_sim_offline_loaded_runtime_identity_tests
+    COMMAND crankwave_loaded_runtime_identity_tests
 )
 
-engine_sim_offline_renderer_numeric_policy_is_admitted(
-    _engine_sim_offline_numeric_policy_admitted
+crankwave_renderer_numeric_policy_is_admitted(
+    _crankwave_numeric_policy_admitted
 )
-if(_engine_sim_offline_numeric_policy_admitted)
+if(_crankwave_numeric_policy_admitted)
     find_package(Threads REQUIRED)
 
     add_executable(
-        engine_sim_offline_renderer_numeric_environment_tests
+        crankwave_renderer_numeric_environment_tests
         renderer_numeric_environment_test.cpp
     )
 
     target_link_libraries(
-        engine_sim_offline_renderer_numeric_environment_tests
-        PRIVATE engine_sim_offline_renderer_determinism
+        crankwave_renderer_numeric_environment_tests
+        PRIVATE crankwave_renderer_determinism
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_renderer_numeric_environment_tests
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_renderer_numeric_environment_tests
     )
 
     add_test(
         NAME determinism.renderer_numeric_environment
-        COMMAND engine_sim_offline_renderer_numeric_environment_tests
+        COMMAND crankwave_renderer_numeric_environment_tests
     )
 
     add_executable(
-        engine_sim_offline_renderer_determinism_envelope_tests
+        crankwave_renderer_determinism_envelope_tests
         renderer_determinism_envelope_test.cpp
     )
 
     target_link_options(
-        engine_sim_offline_renderer_determinism_envelope_tests
+        crankwave_renderer_determinism_envelope_tests
         PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--no-as-needed>
     )
 
     target_link_libraries(
-        engine_sim_offline_renderer_determinism_envelope_tests
+        crankwave_renderer_determinism_envelope_tests
         PRIVATE
-            engine_sim_offline_renderer_determinism
+            crankwave_renderer_determinism
             Threads::Threads
             $<$<PLATFORM_ID:Linux>:m>
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_renderer_determinism_envelope_tests
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_renderer_determinism_envelope_tests
     )
 
     add_test(
         NAME determinism.renderer_determinism_envelope
-        COMMAND engine_sim_offline_renderer_determinism_envelope_tests
+        COMMAND crankwave_renderer_determinism_envelope_tests
     )
 endif()
-unset(_engine_sim_offline_numeric_policy_admitted)
+unset(_crankwave_numeric_policy_admitted)
 
 add_executable(
-    engine_sim_offline_renderer_numeric_policy_consumer_tests
+    crankwave_renderer_numeric_policy_consumer_tests
     renderer_numeric_policy_consumer_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_renderer_numeric_policy_consumer_tests
-    PRIVATE engine_sim_offline::bake
+    crankwave_renderer_numeric_policy_consumer_tests
+    PRIVATE crankwave::bake
 )
 
 add_test(
     NAME determinism.renderer_numeric_policy_private
-    COMMAND engine_sim_offline_renderer_numeric_policy_consumer_tests
+    COMMAND crankwave_renderer_numeric_policy_consumer_tests
 )
 
 get_target_property(
-    _engine_sim_offline_numeric_flag_text
-    engine_sim_offline_renderer_numeric_policy
-    ENGINE_SIM_OFFLINE_NUMERIC_POLICY_FLAG_TEXT
+    _crankwave_numeric_flag_text
+    crankwave_renderer_numeric_policy
+    CRANKWAVE_NUMERIC_POLICY_FLAG_TEXT
 )
-set(ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_ADMITTED 0)
+set(CRANKWAVE_RENDERER_NUMERIC_POLICY_ADMITTED 0)
 set(
-    ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_FLAGS
-    "${_engine_sim_offline_numeric_flag_text}"
+    CRANKWAVE_RENDERER_NUMERIC_POLICY_FLAGS
+    "${_crankwave_numeric_flag_text}"
 )
 set(
-    _engine_sim_offline_unmarked_generated_directory
+    _crankwave_unmarked_generated_directory
     "${CMAKE_CURRENT_BINARY_DIR}/numeric-policy-unmarked/generated"
 )
 file(
     MAKE_DIRECTORY
-    "${_engine_sim_offline_unmarked_generated_directory}/engine_sim_offline_generated"
+    "${_crankwave_unmarked_generated_directory}/crankwave_generated"
 )
 configure_file(
     "${PROJECT_SOURCE_DIR}/cmake/RendererNumericPolicyGenerated.hpp.in"
-    "${_engine_sim_offline_unmarked_generated_directory}/engine_sim_offline_generated/renderer_numeric_policy_generated.hpp"
+    "${_crankwave_unmarked_generated_directory}/crankwave_generated/renderer_numeric_policy_generated.hpp"
     @ONLY
 )
 
 add_executable(
-    engine_sim_offline_renderer_numeric_policy_unmarked_tests
+    crankwave_renderer_numeric_policy_unmarked_tests
     renderer_numeric_policy_unmarked_test.cpp
     ${PROJECT_SOURCE_DIR}/src/determinism/renderer_numeric_environment.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_renderer_numeric_policy_unmarked_tests
+    crankwave_renderer_numeric_policy_unmarked_tests
     BEFORE PRIVATE
-        "${_engine_sim_offline_unmarked_generated_directory}"
+        "${_crankwave_unmarked_generated_directory}"
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_renderer_numeric_policy_unmarked_tests
-    PRIVATE engine_sim_offline::build_options
+    crankwave_renderer_numeric_policy_unmarked_tests
+    PRIVATE crankwave::build_options
 )
 
 add_test(
     NAME determinism.renderer_numeric_policy_unmarked
-    COMMAND engine_sim_offline_renderer_numeric_policy_unmarked_tests
+    COMMAND crankwave_renderer_numeric_policy_unmarked_tests
 )
 
-unset(_engine_sim_offline_numeric_flag_text)
-unset(_engine_sim_offline_unmarked_generated_directory)
-unset(ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_ADMITTED)
-unset(ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_FLAGS)
+unset(_crankwave_numeric_flag_text)
+unset(_crankwave_unmarked_generated_directory)
+unset(CRANKWAVE_RENDERER_NUMERIC_POLICY_ADMITTED)
+unset(CRANKWAVE_RENDERER_NUMERIC_POLICY_FLAGS)
 
-set(_engine_sim_offline_sanitized FALSE)
+set(_crankwave_sanitized FALSE)
 if(CMAKE_CXX_FLAGS MATCHES "-fsanitize=" OR
    CMAKE_CXX_FLAGS_RELEASE MATCHES "-fsanitize=" OR
    CMAKE_CXX_FLAGS_DEBUG MATCHES "-fsanitize=")
-    set(_engine_sim_offline_sanitized TRUE)
+    set(_crankwave_sanitized TRUE)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND
    CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$" AND
    CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$" AND
-   NOT _engine_sim_offline_sanitized)
+   NOT _crankwave_sanitized)
     add_library(
-        engine_sim_offline_loaded_runtime_tan_interposer
+        crankwave_loaded_runtime_tan_interposer
         SHARED loaded_runtime_tan_interposer.cpp
     )
 
@@ -734,23 +734,23 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND
         NAME determinism.loaded_runtime_interposition
         COMMAND
             ${CMAKE_COMMAND} -E env
-            "LD_PRELOAD=$<TARGET_FILE:engine_sim_offline_loaded_runtime_tan_interposer>"
-            ENGINE_SIM_OFFLINE_TEST_EXPECT_TAN_INTERPOSITION=1
-            $<TARGET_FILE:engine_sim_offline_loaded_runtime_identity_tests>
+            "LD_PRELOAD=$<TARGET_FILE:crankwave_loaded_runtime_tan_interposer>"
+            CRANKWAVE_TEST_EXPECT_TAN_INTERPOSITION=1
+            $<TARGET_FILE:crankwave_loaded_runtime_identity_tests>
     )
 
     add_executable(
-        engine_sim_offline_loaded_runtime_static_tests
+        crankwave_loaded_runtime_static_tests
         loaded_runtime_identity_test.cpp
     )
 
     target_compile_definitions(
-        engine_sim_offline_loaded_runtime_static_tests
-        PRIVATE ENGINE_SIM_OFFLINE_TEST_STATIC_RUNTIME=1
+        crankwave_loaded_runtime_static_tests
+        PRIVATE CRANKWAVE_TEST_STATIC_RUNTIME=1
     )
 
     target_link_options(
-        engine_sim_offline_loaded_runtime_static_tests
+        crankwave_loaded_runtime_static_tests
         PRIVATE
             -static-libstdc++
             -static-libgcc
@@ -758,15 +758,15 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND
     )
 
     target_link_libraries(
-        engine_sim_offline_loaded_runtime_static_tests
+        crankwave_loaded_runtime_static_tests
         PRIVATE
-            engine_sim_offline_renderer_determinism
+            crankwave_renderer_determinism
             m
     )
 
     add_test(
         NAME determinism.loaded_runtime_static_rejection
-        COMMAND engine_sim_offline_loaded_runtime_static_tests
+        COMMAND crankwave_loaded_runtime_static_tests
     )
 endif()
 
@@ -805,7 +805,7 @@ if(GIT_FOUND AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
 endif()
 
 add_executable(
-    engine_sim_offline_contract_tests
+    crankwave_contract_tests
     authored_profile_contract_test.cpp
     capture_contract_test.cpp
     contract_test_main.cpp
@@ -816,440 +816,440 @@ add_executable(
 )
 
 target_link_libraries(
-    engine_sim_offline_contract_tests
-    PRIVATE engine_sim_offline::contract
+    crankwave_contract_tests
+    PRIVATE crankwave::contract
 )
 
 add_test(
     NAME contract.data_model
-    COMMAND engine_sim_offline_contract_tests
+    COMMAND crankwave_contract_tests
 )
 
 add_executable(
-    engine_sim_offline_render_job_derivation_tests
+    crankwave_render_job_derivation_tests
     render_job_derivation_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_render_job_derivation_tests
+    crankwave_render_job_derivation_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_render_job_derivation_tests
+    crankwave_render_job_derivation_tests
     PRIVATE
-        engine_sim_offline::bake
-        engine_sim_offline::presentation
+        crankwave::bake
+        crankwave::presentation
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_render_job_derivation_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_render_job_derivation_tests
 )
 
 add_test(
     NAME render.job_derivation
-    COMMAND engine_sim_offline_render_job_derivation_tests
+    COMMAND crankwave_render_job_derivation_tests
 )
 
 add_executable(
-    engine_sim_offline_engine_telemetry_ndjson_encoder_tests
+    crankwave_engine_telemetry_ndjson_encoder_tests
     engine_telemetry_ndjson_encoder_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_engine_telemetry_ndjson_encoder_tests
-    PRIVATE engine_sim_offline::artifacts
+    crankwave_engine_telemetry_ndjson_encoder_tests
+    PRIVATE crankwave::artifacts
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_engine_telemetry_ndjson_encoder_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_engine_telemetry_ndjson_encoder_tests
 )
 
 add_test(
     NAME artifacts.engine_telemetry_ndjson
-    COMMAND engine_sim_offline_engine_telemetry_ndjson_encoder_tests
+    COMMAND crankwave_engine_telemetry_ndjson_encoder_tests
 )
 
 add_executable(
-    engine_sim_offline_artifact_serialization_tests
+    crankwave_artifact_serialization_tests
     artifact_serialization_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_artifact_serialization_tests
+    crankwave_artifact_serialization_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src/artifacts
 )
 
 target_link_libraries(
-    engine_sim_offline_artifact_serialization_tests
-    PRIVATE engine_sim_offline::artifacts
+    crankwave_artifact_serialization_tests
+    PRIVATE crankwave::artifacts
 )
 
 add_test(
     NAME artifacts.serialization
-    COMMAND engine_sim_offline_artifact_serialization_tests
+    COMMAND crankwave_artifact_serialization_tests
 )
 
 add_executable(
-    engine_sim_offline_vehicleengine_container_tests
-    vehicleengine_container_test.cpp
+    crankwave_container_tests
+    crankwave_container_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_vehicleengine_container_tests
-    PRIVATE engine_sim_offline::artifacts
+    crankwave_container_tests
+    PRIVATE crankwave::artifacts
 )
 
 add_test(
-    NAME artifacts.vehicleengine_container
-    COMMAND engine_sim_offline_vehicleengine_container_tests
+    NAME artifacts.crankwave_container
+    COMMAND crankwave_container_tests
 )
 
 add_executable(
-    engine_sim_offline_simulation_manifest_encoder_tests
+    crankwave_simulation_manifest_encoder_tests
     simulation_manifest_encoder_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_simulation_manifest_encoder_tests
+    crankwave_simulation_manifest_encoder_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_simulation_manifest_encoder_tests
+    crankwave_simulation_manifest_encoder_tests
     PRIVATE
-        engine_sim_offline::artifacts
-        engine_sim_offline::request_identity
+        crankwave::artifacts
+        crankwave::request_identity
 )
 
 add_test(
     NAME artifacts.simulation_manifest_encoder
-    COMMAND engine_sim_offline_simulation_manifest_encoder_tests
+    COMMAND crankwave_simulation_manifest_encoder_tests
 )
 
 add_executable(
-    engine_sim_offline_p18_reference_catalog_tests
+    crankwave_p18_reference_catalog_tests
     p18_reference_catalog_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_p18_reference_catalog_tests
+    crankwave_p18_reference_catalog_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_p18_reference_catalog_tests
+    crankwave_p18_reference_catalog_tests
     PRIVATE
-        engine_sim_offline::artifacts
-        engine_sim_offline::presentation
-        engine_sim_offline_p18_reference_catalog
+        crankwave::artifacts
+        crankwave::presentation
+        crankwave_p18_reference_catalog
 )
 
 add_test(
     NAME reference.p18_catalog
-    COMMAND engine_sim_offline_p18_reference_catalog_tests
+    COMMAND crankwave_p18_reference_catalog_tests
 )
 
 add_executable(
-    engine_sim_offline_directory_render_sink_tests
+    crankwave_directory_render_sink_tests
     directory_render_sink_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_directory_render_sink_tests
-    PRIVATE engine_sim_offline::artifacts
+    crankwave_directory_render_sink_tests
+    PRIVATE crankwave::artifacts
 )
 
 add_test(
     NAME artifacts.directory_sink
-    COMMAND engine_sim_offline_directory_render_sink_tests
+    COMMAND crankwave_directory_render_sink_tests
 )
 
 add_executable(
-    engine_sim_offline_dsp_primitive_tests
+    crankwave_dsp_primitive_tests
     dsp_primitives_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_dsp_primitive_tests
+    crankwave_dsp_primitive_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_dsp_primitive_tests
-    PRIVATE engine_sim_offline::dsp
+    crankwave_dsp_primitive_tests
+    PRIVATE crankwave::dsp
 )
 
 add_test(
     NAME dsp.primitives
-    COMMAND engine_sim_offline_dsp_primitive_tests
+    COMMAND crankwave_dsp_primitive_tests
 )
 
 add_executable(
-    engine_sim_offline_random_table_tests
+    crankwave_random_table_tests
     random_table_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_random_table_tests
+    crankwave_random_table_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_random_table_tests
-    PRIVATE engine_sim_offline::dsp
+    crankwave_random_table_tests
+    PRIVATE crankwave::dsp
 )
 
 add_test(
     NAME dsp.random_table
-    COMMAND engine_sim_offline_random_table_tests
+    COMMAND crankwave_random_table_tests
 )
 
 add_executable(
-    engine_sim_offline_component_seed_derivation_tests
+    crankwave_component_seed_derivation_tests
     component_seed_derivation_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_component_seed_derivation_tests
-    PRIVATE engine_sim_offline::contract
+    crankwave_component_seed_derivation_tests
+    PRIVATE crankwave::contract
 )
 
 add_test(
     NAME randomness.component_seed_derivation
-    COMMAND engine_sim_offline_component_seed_derivation_tests
+    COMMAND crankwave_component_seed_derivation_tests
 )
 
 add_executable(
-    engine_sim_offline_causal_reconstruction_tests
+    crankwave_causal_reconstruction_tests
     causal_reconstruction_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_causal_reconstruction_tests
+    crankwave_causal_reconstruction_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_causal_reconstruction_tests
-    PRIVATE engine_sim_offline::presentation
+    crankwave_causal_reconstruction_tests
+    PRIVATE crankwave::presentation
 )
 
 add_test(
     NAME presentation.causal_reconstruction
-    COMMAND engine_sim_offline_causal_reconstruction_tests
+    COMMAND crankwave_causal_reconstruction_tests
 )
 
 add_executable(
-    engine_sim_offline_route_conditioning_tests
+    crankwave_route_conditioning_tests
     route_conditioning_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_route_conditioning_tests
+    crankwave_route_conditioning_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_route_conditioning_tests
-    PRIVATE engine_sim_offline::presentation
+    crankwave_route_conditioning_tests
+    PRIVATE crankwave::presentation
 )
 
 add_test(
     NAME presentation.route_conditioning
-    COMMAND engine_sim_offline_route_conditioning_tests
+    COMMAND crankwave_route_conditioning_tests
 )
 
 add_executable(
-    engine_sim_offline_exhaust_source_stage_tests
+    crankwave_exhaust_source_stage_tests
     exhaust_source_stage_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_exhaust_source_stage_tests
+    crankwave_exhaust_source_stage_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_exhaust_source_stage_tests
-    PRIVATE engine_sim_offline::presentation
+    crankwave_exhaust_source_stage_tests
+    PRIVATE crankwave::presentation
 )
 
 add_test(
     NAME presentation.exhaust_source_stage
-    COMMAND engine_sim_offline_exhaust_source_stage_tests
+    COMMAND crankwave_exhaust_source_stage_tests
 )
 
 add_executable(
-    engine_sim_offline_pcm16_ir_decoder_tests
+    crankwave_pcm16_ir_decoder_tests
     pcm16_ir_decoder_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_pcm16_ir_decoder_tests
+    crankwave_pcm16_ir_decoder_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_pcm16_ir_decoder_tests
-    PRIVATE engine_sim_offline::presentation
+    crankwave_pcm16_ir_decoder_tests
+    PRIVATE crankwave::presentation
 )
 
 add_test(
     NAME presentation.pcm16_ir_decoder
-    COMMAND engine_sim_offline_pcm16_ir_decoder_tests
+    COMMAND crankwave_pcm16_ir_decoder_tests
 )
 
 add_executable(
-    engine_sim_offline_static_ir_conversion_tests
+    crankwave_static_ir_conversion_tests
     static_ir_conversion_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_static_ir_conversion_tests
+    crankwave_static_ir_conversion_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_static_ir_conversion_tests
-    PRIVATE engine_sim_offline::presentation
+    crankwave_static_ir_conversion_tests
+    PRIVATE crankwave::presentation
 )
 
 add_test(
     NAME presentation.static_ir_conversion
     COMMAND
-        engine_sim_offline_static_ir_conversion_tests
+        crankwave_static_ir_conversion_tests
         ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav
 )
 
 add_executable(
-    engine_sim_offline_presentation_method_registry_tests
+    crankwave_presentation_method_registry_tests
     presentation_method_registry_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_presentation_method_registry_tests
+    crankwave_presentation_method_registry_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_presentation_method_registry_tests
-    PRIVATE engine_sim_offline::presentation
+    crankwave_presentation_method_registry_tests
+    PRIVATE crankwave::presentation
 )
 
 add_test(
     NAME presentation.method_registry
-    COMMAND engine_sim_offline_presentation_method_registry_tests
+    COMMAND crankwave_presentation_method_registry_tests
 )
 
 add_executable(
-    engine_sim_offline_presentation_calibration_compiler_tests
+    crankwave_presentation_calibration_compiler_tests
     presentation_calibration_compiler_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_presentation_calibration_compiler_tests
+    crankwave_presentation_calibration_compiler_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_presentation_calibration_compiler_tests
-    PRIVATE engine_sim_offline::presentation
+    crankwave_presentation_calibration_compiler_tests
+    PRIVATE crankwave::presentation
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_presentation_calibration_compiler_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_presentation_calibration_compiler_tests
 )
 
 add_test(
     NAME presentation.calibration_compiler
-    COMMAND engine_sim_offline_presentation_calibration_compiler_tests
+    COMMAND crankwave_presentation_calibration_compiler_tests
 )
 
 add_executable(
-    engine_sim_offline_presentation_asset_compiler_tests
+    crankwave_presentation_asset_compiler_tests
     presentation_asset_compiler_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_presentation_asset_compiler_tests
+    crankwave_presentation_asset_compiler_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_presentation_asset_compiler_tests
+    crankwave_presentation_asset_compiler_tests
     PRIVATE
-        engine_sim_offline::presentation
+        crankwave::presentation
         $<$<PLATFORM_ID:Linux>:m>
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_presentation_asset_compiler_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_presentation_asset_compiler_tests
 )
 
 add_test(
     NAME presentation.asset_compiler
     COMMAND
-        engine_sim_offline_presentation_asset_compiler_tests
+        crankwave_presentation_asset_compiler_tests
         ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav
 )
 
 add_executable(
-    engine_sim_offline_fixed_fft_convolution_tests
+    crankwave_fixed_fft_convolution_tests
     fixed_fft_convolution_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_fixed_fft_convolution_tests
+    crankwave_fixed_fft_convolution_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_fixed_fft_convolution_tests
-    PRIVATE engine_sim_offline::presentation
+    crankwave_fixed_fft_convolution_tests
+    PRIVATE crankwave::presentation
 )
 
 add_test(
     NAME presentation.fixed_fft_convolution
-    COMMAND engine_sim_offline_fixed_fft_convolution_tests
+    COMMAND crankwave_fixed_fft_convolution_tests
 )
 
 add_executable(
-    engine_sim_offline_ir_library_runtime_tests
+    crankwave_ir_library_runtime_tests
     ir_library_runtime_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_ir_library_runtime_tests
+    crankwave_ir_library_runtime_tests
     PRIVATE ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_ir_library_runtime_tests
-    PRIVATE engine_sim_offline::presentation
+    crankwave_ir_library_runtime_tests
+    PRIVATE crankwave::presentation
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_ir_library_runtime_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_ir_library_runtime_tests
 )
 
 if(EMSCRIPTEN)
     target_compile_options(
-        engine_sim_offline_ir_library_runtime_tests
+        crankwave_ir_library_runtime_tests
         PRIVATE -fwasm-exceptions
     )
     target_link_options(
-        engine_sim_offline_ir_library_runtime_tests
+        crankwave_ir_library_runtime_tests
         PRIVATE
             "SHELL:--embed-file ${PROJECT_SOURCE_DIR}/assets/builtin/ir-library/payloads@/ir-library"
             "SHELL:-sENVIRONMENT=node"
@@ -1258,13 +1258,13 @@ if(EMSCRIPTEN)
             "SHELL:-sEXIT_RUNTIME=1"
             -fwasm-exceptions
     )
-    engine_sim_offline_configure_wasm_numeric_target(
-        engine_sim_offline_ir_library_runtime_tests
+    crankwave_configure_wasm_numeric_target(
+        crankwave_ir_library_runtime_tests
     )
-    set(_engine_sim_offline_ir_library_runtime_directory "/ir-library")
+    set(_crankwave_ir_library_runtime_directory "/ir-library")
 else()
     set(
-        _engine_sim_offline_ir_library_runtime_directory
+        _crankwave_ir_library_runtime_directory
         "${PROJECT_SOURCE_DIR}/assets/builtin/ir-library/payloads"
     )
 endif()
@@ -1272,848 +1272,848 @@ endif()
 add_test(
     NAME presentation.ir_library_runtime
     COMMAND
-        engine_sim_offline_ir_library_runtime_tests
-        ${_engine_sim_offline_ir_library_runtime_directory}
+        crankwave_ir_library_runtime_tests
+        ${_crankwave_ir_library_runtime_directory}
 )
 
 add_executable(
-    engine_sim_offline_ir_method_selection_tests
+    crankwave_ir_method_selection_tests
     ir_method_selection_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_ir_method_selection_tests
+    crankwave_ir_method_selection_tests
     PRIVATE ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_ir_method_selection_tests
+    crankwave_ir_method_selection_tests
     PRIVATE
-        engine_sim_offline::authoring
-        engine_sim_offline::compile
-        engine_sim_offline::presentation
+        crankwave::authoring
+        crankwave::compile
+        crankwave::presentation
 )
 
 add_test(
     NAME presentation.ir_method_selection
-    COMMAND engine_sim_offline_ir_method_selection_tests ${PROJECT_SOURCE_DIR}
+    COMMAND crankwave_ir_method_selection_tests ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_presentation_audio_session_tests
+    crankwave_presentation_audio_session_tests
     presentation_audio_session_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_presentation_audio_session_tests
+    crankwave_presentation_audio_session_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_presentation_audio_session_tests
-    PRIVATE engine_sim_offline::presentation
+    crankwave_presentation_audio_session_tests
+    PRIVATE crankwave::presentation
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_presentation_audio_session_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_presentation_audio_session_tests
 )
 
 add_test(
     NAME presentation.audio_session
-    COMMAND engine_sim_offline_presentation_audio_session_tests
+    COMMAND crankwave_presentation_audio_session_tests
 )
 
 add_executable(
-    engine_sim_offline_session_control_timeline_tests
+    crankwave_session_control_timeline_tests
     session_control_timeline_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_session_control_timeline_tests
+    crankwave_session_control_timeline_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_session_control_timeline_tests
-    PRIVATE engine_sim_offline::session
+    crankwave_session_control_timeline_tests
+    PRIVATE crankwave::session
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_session_control_timeline_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_session_control_timeline_tests
 )
 
 add_test(
     NAME session.control_timeline
-    COMMAND engine_sim_offline_session_control_timeline_tests
+    COMMAND crankwave_session_control_timeline_tests
 )
 
 add_executable(
-    engine_sim_offline_session_exact_cycle_evidence_tests
+    crankwave_session_exact_cycle_evidence_tests
     session_exact_cycle_evidence_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_session_exact_cycle_evidence_tests
+    crankwave_session_exact_cycle_evidence_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_session_exact_cycle_evidence_tests
-    PRIVATE engine_sim_offline::session
+    crankwave_session_exact_cycle_evidence_tests
+    PRIVATE crankwave::session
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_session_exact_cycle_evidence_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_session_exact_cycle_evidence_tests
 )
 
 add_test(
     NAME session.exact_cycle_evidence
-    COMMAND engine_sim_offline_session_exact_cycle_evidence_tests
+    COMMAND crankwave_session_exact_cycle_evidence_tests
 )
 
 add_executable(
-    engine_sim_offline_p18_reference_audit_reader_tests
+    crankwave_p18_reference_audit_reader_tests
     p18_reference_audit_reader_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_p18_reference_audit_reader_tests
+    crankwave_p18_reference_audit_reader_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_p18_reference_audit_reader_tests
-    PRIVATE engine_sim_offline_p18_reference_fixture
+    crankwave_p18_reference_audit_reader_tests
+    PRIVATE crankwave_p18_reference_fixture
 )
 
 add_test(
     NAME reference.p18_audit_reader
     COMMAND
-        engine_sim_offline_p18_reference_audit_reader_tests
+        crankwave_p18_reference_audit_reader_tests
         ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/reference-audit.bin
 )
 
 add_executable(
-    engine_sim_offline_reference_parity_v1_reader_tests
+    crankwave_reference_parity_v1_reader_tests
     reference_parity_v1_reader_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_reference_parity_v1_reader_tests
-    PRIVATE engine_sim_offline_reference_parity_v1_reader
+    crankwave_reference_parity_v1_reader_tests
+    PRIVATE crankwave_reference_parity_v1_reader
 )
 
 add_test(
     NAME reference.parity_v1_reader
     COMMAND
-        engine_sim_offline_reference_parity_v1_reader_tests
+        crankwave_reference_parity_v1_reader_tests
         ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/reference-parity.bin
 )
 
 add_executable(
-    engine_sim_offline_legacy_low_order_mechanics_tests
+    crankwave_legacy_low_order_mechanics_tests
     legacy_low_order_mechanics_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_legacy_low_order_mechanics_tests
+    crankwave_legacy_low_order_mechanics_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_legacy_low_order_mechanics_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_legacy_low_order_mechanics_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.legacy_low_order_mechanics
-    COMMAND engine_sim_offline_legacy_low_order_mechanics_tests
+    COMMAND crankwave_legacy_low_order_mechanics_tests
 )
 
 add_executable(
-    engine_sim_offline_centered_slider_crank_equivalent_inertia_tests
+    crankwave_centered_slider_crank_equivalent_inertia_tests
     centered_slider_crank_equivalent_inertia_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_centered_slider_crank_equivalent_inertia_tests
+    crankwave_centered_slider_crank_equivalent_inertia_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_centered_slider_crank_equivalent_inertia_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_centered_slider_crank_equivalent_inertia_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.centered_slider_crank_equivalent_inertia
-    COMMAND engine_sim_offline_centered_slider_crank_equivalent_inertia_tests
+    COMMAND crankwave_centered_slider_crank_equivalent_inertia_tests
 )
 
 add_executable(
-    engine_sim_offline_kinematic_scenario_schedule_tests
+    crankwave_kinematic_scenario_schedule_tests
     kinematic_scenario_schedule_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_kinematic_scenario_schedule_tests
+    crankwave_kinematic_scenario_schedule_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_kinematic_scenario_schedule_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_kinematic_scenario_schedule_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.kinematic_scenario_schedule
-    COMMAND engine_sim_offline_kinematic_scenario_schedule_tests
+    COMMAND crankwave_kinematic_scenario_schedule_tests
 )
 
 add_executable(
-    engine_sim_offline_four_stroke_cycle_integrator_tests
+    crankwave_four_stroke_cycle_integrator_tests
     four_stroke_cycle_integrator_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_four_stroke_cycle_integrator_tests
+    crankwave_four_stroke_cycle_integrator_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_four_stroke_cycle_integrator_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_four_stroke_cycle_integrator_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.four_stroke_cycle_integrator
-    COMMAND engine_sim_offline_four_stroke_cycle_integrator_tests
+    COMMAND crankwave_four_stroke_cycle_integrator_tests
 )
 
 add_executable(
-    engine_sim_offline_chen_flynn_cycle_mean_loss_tests
+    crankwave_chen_flynn_cycle_mean_loss_tests
     chen_flynn_cycle_mean_loss_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_chen_flynn_cycle_mean_loss_tests
+    crankwave_chen_flynn_cycle_mean_loss_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_chen_flynn_cycle_mean_loss_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_chen_flynn_cycle_mean_loss_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.chen_flynn_cycle_mean_loss
-    COMMAND engine_sim_offline_chen_flynn_cycle_mean_loss_tests
+    COMMAND crankwave_chen_flynn_cycle_mean_loss_tests
 )
 
 add_executable(
-    engine_sim_offline_chen_flynn_per_cylinder_travel_cycle_mean_loss_tests
+    crankwave_chen_flynn_per_cylinder_travel_cycle_mean_loss_tests
     chen_flynn_per_cylinder_travel_cycle_mean_loss_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_chen_flynn_per_cylinder_travel_cycle_mean_loss_tests
+    crankwave_chen_flynn_per_cylinder_travel_cycle_mean_loss_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_chen_flynn_per_cylinder_travel_cycle_mean_loss_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_chen_flynn_per_cylinder_travel_cycle_mean_loss_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.chen_flynn_per_cylinder_travel_cycle_mean_loss
     COMMAND
-        engine_sim_offline_chen_flynn_per_cylinder_travel_cycle_mean_loss_tests
+        crankwave_chen_flynn_per_cylinder_travel_cycle_mean_loss_tests
 )
 
 add_executable(
-    engine_sim_offline_fixed_horizon_cycle_sampling_tests
+    crankwave_fixed_horizon_cycle_sampling_tests
     fixed_horizon_cycle_sampling_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_fixed_horizon_cycle_sampling_tests
+    crankwave_fixed_horizon_cycle_sampling_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_fixed_horizon_cycle_sampling_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_fixed_horizon_cycle_sampling_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.fixed_horizon_cycle_sampling
-    COMMAND engine_sim_offline_fixed_horizon_cycle_sampling_tests
+    COMMAND crankwave_fixed_horizon_cycle_sampling_tests
 )
 
 add_executable(
-    engine_sim_offline_held_speed_operating_point_result_tests
+    crankwave_held_speed_operating_point_result_tests
     held_speed_operating_point_result_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_held_speed_operating_point_result_tests
+    crankwave_held_speed_operating_point_result_tests
     PRIVATE
-        engine_sim_offline_authored_engine_fixture_support
-        engine_sim_offline::request_identity
-        engine_sim_offline::simulation
+        crankwave_authored_engine_fixture_support
+        crankwave::request_identity
+        crankwave::simulation
 )
 
 add_test(
     NAME contract.held_speed_operating_point_result
     COMMAND
-        engine_sim_offline_held_speed_operating_point_result_tests
+        crankwave_held_speed_operating_point_result_tests
         ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_inertial_dyno_result_contract_tests
+    crankwave_inertial_dyno_result_contract_tests
     inertial_dyno_result_contract_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_inertial_dyno_result_contract_tests
-    PRIVATE engine_sim_offline::contract
+    crankwave_inertial_dyno_result_contract_tests
+    PRIVATE crankwave::contract
 )
 
 add_test(
     NAME contract.inertial_dyno_result
-    COMMAND engine_sim_offline_inertial_dyno_result_contract_tests
+    COMMAND crankwave_inertial_dyno_result_contract_tests
 )
 
 add_executable(
-    engine_sim_offline_operating_cycle_accountant_tests
+    crankwave_operating_cycle_accountant_tests
     operating_cycle_accountant_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_operating_cycle_accountant_tests
+    crankwave_operating_cycle_accountant_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_operating_cycle_accountant_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_operating_cycle_accountant_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.operating_cycle_accountant
-    COMMAND engine_sim_offline_operating_cycle_accountant_tests
+    COMMAND crankwave_operating_cycle_accountant_tests
 )
 
 add_executable(
-    engine_sim_offline_inertial_crank_dynamics_tests
+    crankwave_inertial_crank_dynamics_tests
     inertial_crank_dynamics_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_inertial_crank_dynamics_tests
+    crankwave_inertial_crank_dynamics_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_inertial_crank_dynamics_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_inertial_crank_dynamics_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.inertial_crank_dynamics
-    COMMAND engine_sim_offline_inertial_crank_dynamics_tests
+    COMMAND crankwave_inertial_crank_dynamics_tests
 )
 
 add_executable(
-    engine_sim_offline_bounded_dyno_constraint_tests
+    crankwave_bounded_dyno_constraint_tests
     bounded_dyno_constraint_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_bounded_dyno_constraint_tests
+    crankwave_bounded_dyno_constraint_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_bounded_dyno_constraint_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_bounded_dyno_constraint_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.bounded_dyno_constraint
-    COMMAND engine_sim_offline_bounded_dyno_constraint_tests
+    COMMAND crankwave_bounded_dyno_constraint_tests
 )
 
 add_executable(
-    engine_sim_offline_bounded_clutch_coupling_tests
+    crankwave_bounded_clutch_coupling_tests
     bounded_clutch_coupling_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_bounded_clutch_coupling_tests
+    crankwave_bounded_clutch_coupling_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_bounded_clutch_coupling_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_bounded_clutch_coupling_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.bounded_clutch_coupling
-    COMMAND engine_sim_offline_bounded_clutch_coupling_tests
+    COMMAND crankwave_bounded_clutch_coupling_tests
 )
 
 add_executable(
-    engine_sim_offline_forward_vehicle_road_load_tests
+    crankwave_forward_vehicle_road_load_tests
     forward_vehicle_road_load_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_forward_vehicle_road_load_tests
+    crankwave_forward_vehicle_road_load_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_forward_vehicle_road_load_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_forward_vehicle_road_load_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.forward_vehicle_road_load
-    COMMAND engine_sim_offline_forward_vehicle_road_load_tests
+    COMMAND crankwave_forward_vehicle_road_load_tests
 )
 
 add_executable(
-    engine_sim_offline_coupled_free_vehicle_drivetrain_tests
+    crankwave_coupled_free_vehicle_drivetrain_tests
     coupled_free_vehicle_drivetrain_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_coupled_free_vehicle_drivetrain_tests
+    crankwave_coupled_free_vehicle_drivetrain_tests
     PRIVATE ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_coupled_free_vehicle_drivetrain_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_coupled_free_vehicle_drivetrain_tests
+    PRIVATE crankwave::simulation
 )
 
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_coupled_free_vehicle_drivetrain_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_coupled_free_vehicle_drivetrain_tests
 )
 
 add_test(
     NAME simulation.coupled_free_vehicle_drivetrain
-    COMMAND engine_sim_offline_coupled_free_vehicle_drivetrain_tests
+    COMMAND crankwave_coupled_free_vehicle_drivetrain_tests
 )
 
 add_executable(
-    engine_sim_offline_low_order_free_vehicle_runtime_tests
+    crankwave_low_order_free_vehicle_runtime_tests
     low_order_free_vehicle_runtime_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_low_order_free_vehicle_runtime_tests
+    crankwave_low_order_free_vehicle_runtime_tests
     PRIVATE ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_low_order_free_vehicle_runtime_tests
+    crankwave_low_order_free_vehicle_runtime_tests
     PRIVATE
-        engine_sim_offline_authored_engine_fixture_support
-        engine_sim_offline::simulation
+        crankwave_authored_engine_fixture_support
+        crankwave::simulation
 )
 
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_low_order_free_vehicle_runtime_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_low_order_free_vehicle_runtime_tests
 )
 
 add_test(
     NAME simulation.low_order_free_vehicle_runtime
     COMMAND
-        engine_sim_offline_low_order_free_vehicle_runtime_tests
+        crankwave_low_order_free_vehicle_runtime_tests
         ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_bmw_m52tub28_held_dyno_tests
+    crankwave_bmw_m52tub28_held_dyno_tests
     bmw_m52tub28_held_dyno_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_bmw_m52tub28_held_dyno_tests
+    crankwave_bmw_m52tub28_held_dyno_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_bmw_m52tub28_held_dyno_tests
+    crankwave_bmw_m52tub28_held_dyno_tests
     PRIVATE
-        engine_sim_offline::simulation
-        engine_sim_offline_authored_engine_fixture_support
+        crankwave::simulation
+        crankwave_authored_engine_fixture_support
 )
 
 add_test(
     NAME simulation.bmw_m52tub28_held_dyno
-    COMMAND engine_sim_offline_bmw_m52tub28_held_dyno_tests ${PROJECT_SOURCE_DIR}
+    COMMAND crankwave_bmw_m52tub28_held_dyno_tests ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_subaru_ej25_topology_tests
+    crankwave_subaru_ej25_topology_tests
     subaru_ej25_topology_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_subaru_ej25_topology_tests
+    crankwave_subaru_ej25_topology_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_subaru_ej25_topology_tests
+    crankwave_subaru_ej25_topology_tests
     PRIVATE
-        engine_sim_offline::simulation
-        engine_sim_offline_authored_engine_fixture_support
+        crankwave::simulation
+        crankwave_authored_engine_fixture_support
 )
 
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_subaru_ej25_topology_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_subaru_ej25_topology_tests
 )
 
 add_test(
     NAME simulation.subaru_ej25_topology
-    COMMAND engine_sim_offline_subaru_ej25_topology_tests ${PROJECT_SOURCE_DIR}
+    COMMAND crankwave_subaru_ej25_topology_tests ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_radial_5_topology_tests
+    crankwave_radial_5_topology_tests
     radial_5_topology_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_radial_5_topology_tests
+    crankwave_radial_5_topology_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_radial_5_topology_tests
+    crankwave_radial_5_topology_tests
     PRIVATE
-        engine_sim_offline::simulation
-        engine_sim_offline::session
-        engine_sim_offline_authored_engine_fixture_support
+        crankwave::simulation
+        crankwave::session
+        crankwave_authored_engine_fixture_support
 )
 
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_radial_5_topology_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_radial_5_topology_tests
 )
 
 add_test(
     NAME simulation.radial_5_topology
-    COMMAND engine_sim_offline_radial_5_topology_tests ${PROJECT_SOURCE_DIR}
+    COMMAND crankwave_radial_5_topology_tests ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_shovelhead_bank_local_heads_tests
+    crankwave_shovelhead_bank_local_heads_tests
     shovelhead_bank_local_heads_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_shovelhead_bank_local_heads_tests
+    crankwave_shovelhead_bank_local_heads_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_shovelhead_bank_local_heads_tests
+    crankwave_shovelhead_bank_local_heads_tests
     PRIVATE
-        engine_sim_offline::simulation
-        engine_sim_offline::session
-        engine_sim_offline_authored_engine_fixture_support
+        crankwave::simulation
+        crankwave::session
+        crankwave_authored_engine_fixture_support
 )
 
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_shovelhead_bank_local_heads_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_shovelhead_bank_local_heads_tests
 )
 
 add_test(
     NAME simulation.shovelhead_bank_local_heads
     COMMAND
-        engine_sim_offline_shovelhead_bank_local_heads_tests
+        crankwave_shovelhead_bank_local_heads_tests
         ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_multiple_crankshaft_execution_tests
+    crankwave_multiple_crankshaft_execution_tests
     multiple_crankshaft_execution_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_multiple_crankshaft_execution_tests
+    crankwave_multiple_crankshaft_execution_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_multiple_crankshaft_execution_tests
+    crankwave_multiple_crankshaft_execution_tests
     PRIVATE
-        engine_sim_offline::compile
-        engine_sim_offline::request_identity
-        engine_sim_offline::session
+        crankwave::compile
+        crankwave::request_identity
+        crankwave::session
 )
 
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_multiple_crankshaft_execution_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_multiple_crankshaft_execution_tests
 )
 
 add_test(
     NAME simulation.multiple_crankshaft_execution
     COMMAND
-        engine_sim_offline_multiple_crankshaft_execution_tests
+        crankwave_multiple_crankshaft_execution_tests
         ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_engine_sim_v1_transient_friction_tests
-    engine_sim_v1_transient_friction_test.cpp
+    crankwave_transient_friction_tests
+    crankwave_transient_friction_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_engine_sim_v1_transient_friction_tests
+    crankwave_transient_friction_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_engine_sim_v1_transient_friction_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_transient_friction_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
-    NAME simulation.engine_sim_v1_transient_friction
-    COMMAND engine_sim_offline_engine_sim_v1_transient_friction_tests
+    NAME simulation.crankwave_transient_friction
+    COMMAND crankwave_transient_friction_tests
 )
 
 add_executable(
-    engine_sim_offline_engine_sim_v1_starter_motor_tests
-    engine_sim_v1_starter_motor_test.cpp
+    crankwave_starter_motor_tests
+    crankwave_starter_motor_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_engine_sim_v1_starter_motor_tests
+    crankwave_starter_motor_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_engine_sim_v1_starter_motor_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_starter_motor_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
-    NAME simulation.engine_sim_v1_starter_motor
-    COMMAND engine_sim_offline_engine_sim_v1_starter_motor_tests
+    NAME simulation.crankwave_starter_motor
+    COMMAND crankwave_starter_motor_tests
 )
 
 add_executable(
-    engine_sim_offline_cycle_accounting_method_registry_tests
+    crankwave_cycle_accounting_method_registry_tests
     cycle_accounting_method_registry_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_cycle_accounting_method_registry_tests
+    crankwave_cycle_accounting_method_registry_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_cycle_accounting_method_registry_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_cycle_accounting_method_registry_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.cycle_accounting_method_registry
-    COMMAND engine_sim_offline_cycle_accounting_method_registry_tests
+    COMMAND crankwave_cycle_accounting_method_registry_tests
 )
 
 add_executable(
-    engine_sim_offline_legacy_fixed_valvetrain_tests
+    crankwave_legacy_fixed_valvetrain_tests
     legacy_fixed_valvetrain_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_legacy_fixed_valvetrain_tests
+    crankwave_legacy_fixed_valvetrain_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_legacy_fixed_valvetrain_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_legacy_fixed_valvetrain_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.legacy_fixed_valvetrain
-    COMMAND engine_sim_offline_legacy_fixed_valvetrain_tests
+    COMMAND crankwave_legacy_fixed_valvetrain_tests
 )
 
 add_executable(
-    engine_sim_offline_legacy_vtec_selector_tests
+    crankwave_legacy_vtec_selector_tests
     legacy_vtec_selector_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_legacy_vtec_selector_tests
+    crankwave_legacy_vtec_selector_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_legacy_vtec_selector_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_legacy_vtec_selector_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.legacy_vtec_selector
-    COMMAND engine_sim_offline_legacy_vtec_selector_tests
+    COMMAND crankwave_legacy_vtec_selector_tests
 )
 
 add_executable(
-    engine_sim_offline_legacy_gas_primitives_tests
+    crankwave_legacy_gas_primitives_tests
     legacy_gas_primitives_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_legacy_gas_primitives_tests
+    crankwave_legacy_gas_primitives_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_legacy_gas_primitives_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_legacy_gas_primitives_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.legacy_gas_primitives
-    COMMAND engine_sim_offline_legacy_gas_primitives_tests
+    COMMAND crankwave_legacy_gas_primitives_tests
 )
 
 add_executable(
-    engine_sim_offline_legacy_combustion_primitives_tests
+    crankwave_legacy_combustion_primitives_tests
     legacy_combustion_primitives_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_legacy_combustion_primitives_tests
+    crankwave_legacy_combustion_primitives_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_legacy_combustion_primitives_tests
-    PRIVATE engine_sim_offline::simulation
+    crankwave_legacy_combustion_primitives_tests
+    PRIVATE crankwave::simulation
 )
 
 add_test(
     NAME simulation.legacy_combustion_primitives
-    COMMAND engine_sim_offline_legacy_combustion_primitives_tests
+    COMMAND crankwave_legacy_combustion_primitives_tests
 )
 
 add_executable(
-    engine_sim_offline_legacy_low_order_gas_tests
+    crankwave_legacy_low_order_gas_tests
     legacy_low_order_gas_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_legacy_low_order_gas_tests
+    crankwave_legacy_low_order_gas_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_legacy_low_order_gas_tests
+    crankwave_legacy_low_order_gas_tests
     PRIVATE
-        engine_sim_offline_authored_engine_fixture_support
-        engine_sim_offline::simulation
+        crankwave_authored_engine_fixture_support
+        crankwave::simulation
 )
 
 add_test(
     NAME simulation.legacy_low_order_gas
     COMMAND
-        engine_sim_offline_legacy_low_order_gas_tests
+        crankwave_legacy_low_order_gas_tests
         ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_low_order_capture_session_tests
+    crankwave_low_order_capture_session_tests
     low_order_capture_session_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_low_order_capture_session_tests
+    crankwave_low_order_capture_session_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_low_order_capture_session_tests
+    crankwave_low_order_capture_session_tests
     PRIVATE
-        engine_sim_offline::artifacts
-        engine_sim_offline_authored_engine_fixture_support
-        engine_sim_offline::simulation
+        crankwave::artifacts
+        crankwave_authored_engine_fixture_support
+        crankwave::simulation
 )
 
 add_test(
     NAME simulation.low_order_capture_session
     COMMAND
-        engine_sim_offline_low_order_capture_session_tests
+        crankwave_low_order_capture_session_tests
         ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_bmw_m52b28_free_engine_source_parity_tests
+    crankwave_bmw_m52b28_free_engine_source_parity_tests
     bmw_m52b28_free_engine_source_parity_test.cpp
     bmw_m52b28_render_gate_support.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_bmw_m52b28_free_engine_source_parity_tests
+    crankwave_bmw_m52b28_free_engine_source_parity_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_bmw_m52b28_free_engine_source_parity_tests
+    crankwave_bmw_m52b28_free_engine_source_parity_tests
     PRIVATE
-        engine_sim_offline::bake
-        engine_sim_offline::compile
-        engine_sim_offline::simulation
+        crankwave::bake
+        crankwave::compile
+        crankwave::simulation
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_bmw_m52b28_free_engine_source_parity_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_bmw_m52b28_free_engine_source_parity_tests
 )
 
 add_test(
     NAME simulation.bmw_m52b28_free_engine_source_parity
     COMMAND
-        engine_sim_offline_bmw_m52b28_free_engine_source_parity_tests
+        crankwave_bmw_m52b28_free_engine_source_parity_tests
         ${PROJECT_SOURCE_DIR}
 )
 set_tests_properties(
@@ -2122,511 +2122,511 @@ set_tests_properties(
 )
 
 add_executable(
-    engine_sim_offline_low_order_capture_plan_tests
+    crankwave_low_order_capture_plan_tests
     low_order_capture_plan_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_low_order_capture_plan_tests
+    crankwave_low_order_capture_plan_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_low_order_capture_plan_tests
+    crankwave_low_order_capture_plan_tests
     PRIVATE
-        engine_sim_offline_authored_engine_fixture_support
-        engine_sim_offline::simulation
+        crankwave_authored_engine_fixture_support
+        crankwave::simulation
 )
 
 add_test(
     NAME simulation.low_order_capture_plan
     COMMAND
-        engine_sim_offline_low_order_capture_plan_tests
+        crankwave_low_order_capture_plan_tests
         ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_low_order_engine_core_v1_runtime_tests
+    crankwave_low_order_engine_core_v1_runtime_tests
     low_order_engine_core_v1_runtime_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_low_order_engine_core_v1_runtime_tests
+    crankwave_low_order_engine_core_v1_runtime_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_low_order_engine_core_v1_runtime_tests
+    crankwave_low_order_engine_core_v1_runtime_tests
     PRIVATE
-        engine_sim_offline_authored_engine_fixture_support
-        engine_sim_offline::simulation
+        crankwave_authored_engine_fixture_support
+        crankwave::simulation
 )
 
 add_test(
     NAME simulation.low_order_engine_core_v1_runtime
     COMMAND
-        engine_sim_offline_low_order_engine_core_v1_runtime_tests
+        crankwave_low_order_engine_core_v1_runtime_tests
         ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_low_order_operating_point_v1_runtime_tests
+    crankwave_low_order_operating_point_v1_runtime_tests
     low_order_operating_point_v1_runtime_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_low_order_operating_point_v1_runtime_tests
+    crankwave_low_order_operating_point_v1_runtime_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_low_order_operating_point_v1_runtime_tests
+    crankwave_low_order_operating_point_v1_runtime_tests
     PRIVATE
-        engine_sim_offline_authored_engine_fixture_support
-        engine_sim_offline::simulation
+        crankwave_authored_engine_fixture_support
+        crankwave::simulation
 )
 
 add_test(
     NAME simulation.low_order_operating_point_v1_runtime
     COMMAND
-        engine_sim_offline_low_order_operating_point_v1_runtime_tests
+        crankwave_low_order_operating_point_v1_runtime_tests
         ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_captured_source_excitation_tests
+    crankwave_captured_source_excitation_tests
     captured_source_excitation_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_captured_source_excitation_tests
+    crankwave_captured_source_excitation_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_captured_source_excitation_tests
+    crankwave_captured_source_excitation_tests
     PRIVATE
-        engine_sim_offline::excitation
-        engine_sim_offline_authored_engine_fixture_support
+        crankwave::excitation
+        crankwave_authored_engine_fixture_support
 )
 
 add_test(
     NAME excitation.captured_source
     COMMAND
-        engine_sim_offline_captured_source_excitation_tests
+        crankwave_captured_source_excitation_tests
         ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_bmw_m52b28_mechanics_parity_tests
+    crankwave_bmw_m52b28_mechanics_parity_tests
     bmw_m52b28_mechanics_parity_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_bmw_m52b28_mechanics_parity_tests
+    crankwave_bmw_m52b28_mechanics_parity_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_bmw_m52b28_mechanics_parity_tests
+    crankwave_bmw_m52b28_mechanics_parity_tests
     PRIVATE
-        engine_sim_offline_authored_engine_fixture_support
-        engine_sim_offline::simulation
-        engine_sim_offline_reference_parity_v1_reader
+        crankwave_authored_engine_fixture_support
+        crankwave::simulation
+        crankwave_reference_parity_v1_reader
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_bmw_m52b28_mechanics_parity_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_bmw_m52b28_mechanics_parity_tests
 )
 
 add_test(
     NAME simulation.bmw_m52b28_mechanics_parity
     COMMAND
-        engine_sim_offline_bmw_m52b28_mechanics_parity_tests
+        crankwave_bmw_m52b28_mechanics_parity_tests
         ${PROJECT_SOURCE_DIR}
         ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/reference-parity.bin
 )
 
 add_executable(
-    engine_sim_offline_one_level_master_rod_kinematics_tests
+    crankwave_one_level_master_rod_kinematics_tests
     one_level_master_rod_kinematics_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_one_level_master_rod_kinematics_tests
+    crankwave_one_level_master_rod_kinematics_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_one_level_master_rod_kinematics_tests
+    crankwave_one_level_master_rod_kinematics_tests
     PRIVATE
-        engine_sim_offline::simulation
+        crankwave::simulation
 )
 
 add_test(
     NAME simulation.one_level_master_rod_kinematics
-    COMMAND engine_sim_offline_one_level_master_rod_kinematics_tests
+    COMMAND crankwave_one_level_master_rod_kinematics_tests
 )
 
 add_executable(
-    engine_sim_offline_one_level_master_rod_configuration_inertia_tests
+    crankwave_one_level_master_rod_configuration_inertia_tests
     one_level_master_rod_configuration_inertia_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_one_level_master_rod_configuration_inertia_tests
+    crankwave_one_level_master_rod_configuration_inertia_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_one_level_master_rod_configuration_inertia_tests
+    crankwave_one_level_master_rod_configuration_inertia_tests
     PRIVATE
-        engine_sim_offline::simulation
+        crankwave::simulation
 )
 
 add_test(
     NAME simulation.one_level_master_rod_configuration_inertia
-    COMMAND engine_sim_offline_one_level_master_rod_configuration_inertia_tests
+    COMMAND crankwave_one_level_master_rod_configuration_inertia_tests
 )
 
 add_executable(
-    engine_sim_offline_one_level_master_rod_coupled_reaction_tests
+    crankwave_one_level_master_rod_coupled_reaction_tests
     one_level_master_rod_coupled_reaction_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_one_level_master_rod_coupled_reaction_tests
+    crankwave_one_level_master_rod_coupled_reaction_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_one_level_master_rod_coupled_reaction_tests
+    crankwave_one_level_master_rod_coupled_reaction_tests
     PRIVATE
-        engine_sim_offline::simulation
+        crankwave::simulation
 )
 
 add_test(
     NAME simulation.one_level_master_rod_coupled_reaction
-    COMMAND engine_sim_offline_one_level_master_rod_coupled_reaction_tests
+    COMMAND crankwave_one_level_master_rod_coupled_reaction_tests
 )
 
 add_executable(
-    engine_sim_offline_low_order_dynamic_crank_master_rod_runtime_tests
+    crankwave_low_order_dynamic_crank_master_rod_runtime_tests
     low_order_dynamic_crank_master_rod_runtime_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_low_order_dynamic_crank_master_rod_runtime_tests
+    crankwave_low_order_dynamic_crank_master_rod_runtime_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_low_order_dynamic_crank_master_rod_runtime_tests
+    crankwave_low_order_dynamic_crank_master_rod_runtime_tests
     PRIVATE
-        engine_sim_offline_authored_engine_fixture_support
-        engine_sim_offline::simulation
+        crankwave_authored_engine_fixture_support
+        crankwave::simulation
 )
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_low_order_dynamic_crank_master_rod_runtime_tests
+crankwave_enable_renderer_numeric_policy(
+    crankwave_low_order_dynamic_crank_master_rod_runtime_tests
 )
 
 add_test(
     NAME simulation.low_order_dynamic_crank_master_rod_runtime
-    COMMAND engine_sim_offline_low_order_dynamic_crank_master_rod_runtime_tests
+    COMMAND crankwave_low_order_dynamic_crank_master_rod_runtime_tests
             ${PROJECT_SOURCE_DIR}
 )
 
 add_executable(
-    engine_sim_offline_p18_reference_seed_reader_tests
+    crankwave_p18_reference_seed_reader_tests
     p18_reference_seed_reader_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_p18_reference_seed_reader_tests
+    crankwave_p18_reference_seed_reader_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_p18_reference_seed_reader_tests
-    PRIVATE engine_sim_offline_p18_reference_fixture
+    crankwave_p18_reference_seed_reader_tests
+    PRIVATE crankwave_p18_reference_fixture
 )
 
 add_test(
     NAME reference.p18_seed_reader
     COMMAND
-        engine_sim_offline_p18_reference_seed_reader_tests
+        crankwave_p18_reference_seed_reader_tests
         ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/component-seeds.bin
 )
 
 add_executable(
-    engine_sim_offline_p18_reference_fixture_loader_tests
+    crankwave_p18_reference_fixture_loader_tests
     p18_reference_fixture_loader_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_p18_reference_fixture_loader_tests
+    crankwave_p18_reference_fixture_loader_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_p18_reference_fixture_loader_tests
+    crankwave_p18_reference_fixture_loader_tests
     PRIVATE
-        engine_sim_offline::artifacts
-        engine_sim_offline::presentation
-        engine_sim_offline_p18_reference_catalog
-        engine_sim_offline_p18_reference_fixture
+        crankwave::artifacts
+        crankwave::presentation
+        crankwave_p18_reference_catalog
+        crankwave_p18_reference_fixture
 )
 
 add_test(
     NAME reference.p18_fixture_loader
     COMMAND
-        engine_sim_offline_p18_reference_fixture_loader_tests
+        crankwave_p18_reference_fixture_loader_tests
         ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18
 )
 
 add_executable(
-    engine_sim_offline_mastering_tests
+    crankwave_mastering_tests
     mastering_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_mastering_tests
+    crankwave_mastering_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_mastering_tests
+    crankwave_mastering_tests
     PRIVATE
-        engine_sim_offline::artifacts
-        engine_sim_offline::presentation
+        crankwave::artifacts
+        crankwave::presentation
 )
 
 add_test(
     NAME presentation.mastering
-    COMMAND engine_sim_offline_mastering_tests
+    COMMAND crankwave_mastering_tests
 )
 
 add_executable(
-    engine_sim_offline_master_dynamics_tests
+    crankwave_master_dynamics_tests
     master_dynamics_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_master_dynamics_tests
+    crankwave_master_dynamics_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_master_dynamics_tests
-    PRIVATE engine_sim_offline::presentation
+    crankwave_master_dynamics_tests
+    PRIVATE crankwave::presentation
 )
 
 add_test(
     NAME presentation.master_dynamics
-    COMMAND engine_sim_offline_master_dynamics_tests
+    COMMAND crankwave_master_dynamics_tests
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(
-        engine_sim_offline_native_presentation_publisher_tests
+        crankwave_native_presentation_publisher_tests
         native_presentation_publisher_test.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_native_presentation_publisher_tests
+        crankwave_native_presentation_publisher_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/src
     )
 
     target_link_libraries(
-        engine_sim_offline_native_presentation_publisher_tests
+        crankwave_native_presentation_publisher_tests
         PRIVATE
-            engine_sim_offline::bake
-            engine_sim_offline::authoring
-            engine_sim_offline::session
+            crankwave::bake
+            crankwave::authoring
+            crankwave::session
             $<$<PLATFORM_ID:Linux>:m>
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_native_presentation_publisher_tests
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_native_presentation_publisher_tests
     )
 
     add_test(
         NAME render.native_presentation_publisher
         COMMAND
-            engine_sim_offline_native_presentation_publisher_tests
+            crankwave_native_presentation_publisher_tests
             ${PROJECT_SOURCE_DIR}
     )
 
     add_executable(
-        engine_sim_offline_linux_execution_facts_tests
+        crankwave_linux_execution_facts_tests
         linux_execution_facts_test.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_linux_execution_facts_tests
+        crankwave_linux_execution_facts_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/src
     )
 
     target_link_libraries(
-        engine_sim_offline_linux_execution_facts_tests
-        PRIVATE engine_sim_offline_execution
+        crankwave_linux_execution_facts_tests
+        PRIVATE crankwave_execution
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_linux_execution_facts_tests
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_linux_execution_facts_tests
     )
 
     add_test(
         NAME execution.linux_facts
-        COMMAND engine_sim_offline_linux_execution_facts_tests
+        COMMAND crankwave_linux_execution_facts_tests
     )
 
 endif()
 
-if(TARGET engine_sim_offline_cli_support)
+if(TARGET crankwave_cli_support)
     add_executable(
-        engine_sim_offline_vehicleengine_cli_support_tests
-        vehicleengine_cli_support_test.cpp
+        crankwave_cli_support_tests
+        crankwave_cli_support_test.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_vehicleengine_cli_support_tests
+        crankwave_cli_support_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/src/cli
     )
 
     target_link_libraries(
-        engine_sim_offline_vehicleengine_cli_support_tests
+        crankwave_cli_support_tests
         PRIVATE
-            engine_sim_offline_cli_support
-            engine_sim_offline::artifacts
+            crankwave_cli_support
+            crankwave::artifacts
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_vehicleengine_cli_support_tests
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_cli_support_tests
     )
 
     add_test(
-        NAME cli.vehicleengine_support
-        COMMAND engine_sim_offline_vehicleengine_cli_support_tests
+        NAME cli.crankwave_support
+        COMMAND crankwave_cli_support_tests
     )
 
     add_executable(
-        engine_sim_offline_cli_app_tests
+        crankwave_cli_app_tests
         cli_app_test.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_cli_app_tests
+        crankwave_cli_app_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/include
             ${PROJECT_SOURCE_DIR}/src/cli
     )
 
     target_link_libraries(
-        engine_sim_offline_cli_app_tests
-        PRIVATE engine_sim_offline_cli_support
+        crankwave_cli_app_tests
+        PRIVATE crankwave_cli_support
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_cli_app_tests
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_cli_app_tests
     )
 
     add_test(
         NAME cli.app
-        COMMAND engine_sim_offline_cli_app_tests
+        COMMAND crankwave_cli_app_tests
     )
 
     add_executable(
-        engine_sim_offline_bake_vehicleengine_command_tests
-        bake_vehicleengine_command_test.cpp
+        crankwave_bake_crankwave_command_tests
+        bake_crankwave_command_test.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_bake_vehicleengine_command_tests
+        crankwave_bake_crankwave_command_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/include
             ${PROJECT_SOURCE_DIR}/src/cli
     )
 
     target_link_libraries(
-        engine_sim_offline_bake_vehicleengine_command_tests
-        PRIVATE engine_sim_offline_cli_support
+        crankwave_bake_crankwave_command_tests
+        PRIVATE crankwave_cli_support
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_bake_vehicleengine_command_tests
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_bake_crankwave_command_tests
     )
 
     add_test(
-        NAME cli.bake_vehicleengine_command
-        COMMAND engine_sim_offline_bake_vehicleengine_command_tests
+        NAME cli.bake_crankwave_command
+        COMMAND crankwave_bake_crankwave_command_tests
     )
 
     add_executable(
-        engine_sim_offline_native_input_files_tests
+        crankwave_native_input_files_tests
         native_input_files_test.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_native_input_files_tests
+        crankwave_native_input_files_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/src/cli
     )
 
     target_link_libraries(
-        engine_sim_offline_native_input_files_tests
+        crankwave_native_input_files_tests
         PRIVATE
-            engine_sim_offline_cli_support
-            engine_sim_offline::compile
+            crankwave_cli_support
+            crankwave::compile
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_native_input_files_tests
+    crankwave_enable_renderer_numeric_policy(
+        crankwave_native_input_files_tests
     )
     add_dependencies(
-        engine_sim_offline_native_input_files_tests
-        engine_sim_offline_builtin_assets
+        crankwave_native_input_files_tests
+        crankwave_builtin_assets
     )
 
     add_test(
         NAME cli.native_input_files
         COMMAND
-            engine_sim_offline_native_input_files_tests
+            crankwave_native_input_files_tests
             ${PROJECT_SOURCE_DIR}
-            ${ENGINE_SIM_OFFLINE_BUILTIN_ASSET_CATALOG_FOR_TESTS}
-            ${ENGINE_SIM_OFFLINE_IR_AUTHORING_CATALOG_FOR_TESTS}
-            ${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY_FOR_TESTS}
-            ${ENGINE_SIM_OFFLINE_INSTALL_ASSET_RELATIVE_FROM_BINDIR}
+            ${CRANKWAVE_BUILTIN_ASSET_CATALOG_FOR_TESTS}
+            ${CRANKWAVE_IR_AUTHORING_CATALOG_FOR_TESTS}
+            ${CRANKWAVE_RELEASE_IDENTITY_FOR_TESTS}
+            ${CRANKWAVE_INSTALL_ASSET_RELATIVE_FROM_BINDIR}
     )
 
     add_test(
         NAME cli.process
         COMMAND
             ${CMAKE_COMMAND}
-            -DCLI_EXECUTABLE=$<TARGET_FILE:engine_sim_offline_cli>
-            -DRELEASE_IDENTITY=${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY_FOR_TESTS}
+            -DCLI_EXECUTABLE=$<TARGET_FILE:crankwave_cli>
+            -DRELEASE_IDENTITY=${CRANKWAVE_RELEASE_IDENTITY_FOR_TESTS}
             -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cli_process_test.cmake
     )
 
     find_program(
-        _engine_sim_offline_node_for_installed_test
+        _crankwave_node_for_installed_test
         NAMES node nodejs
     )
-    if(_engine_sim_offline_node_for_installed_test)
+    if(_crankwave_node_for_installed_test)
         add_test(
             NAME tools.ir_authoring_catalog
             COMMAND
-                ${_engine_sim_offline_node_for_installed_test}
+                ${_crankwave_node_for_installed_test}
                 --test
                 ${PROJECT_SOURCE_DIR}/tools/ir-authoring-catalog/test.mjs
         )
@@ -2640,7 +2640,7 @@ if(TARGET engine_sim_offline_cli_support)
         add_test(
             NAME tools.responsive_audio_baker
             COMMAND
-                ${_engine_sim_offline_node_for_installed_test}
+                ${_crankwave_node_for_installed_test}
                 --test
                 ${PROJECT_SOURCE_DIR}/tools/responsive-audio-baker/test.mjs
         )
@@ -2652,28 +2652,28 @@ if(TARGET engine_sim_offline_cli_support)
         )
 
         add_test(
-            NAME runtime.vehicleengine_package
+            NAME runtime.crankwave_package
             COMMAND
-                ${_engine_sim_offline_node_for_installed_test}
+                ${_crankwave_node_for_installed_test}
                 --test
-                ${PROJECT_SOURCE_DIR}/web/tests/runtime/vehicleengine-package.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/crankwave-package.test.mjs
         )
         set_tests_properties(
-            runtime.vehicleengine_package
+            runtime.crankwave_package
             PROPERTIES
                 LABELS "javascript;runtime"
                 TIMEOUT 120
         )
 
         add_test(
-            NAME runtime.vehicleengine_audio_engine
+            NAME runtime.crankwave_audio_engine
             COMMAND
-                ${_engine_sim_offline_node_for_installed_test}
+                ${_crankwave_node_for_installed_test}
                 --test
-                ${PROJECT_SOURCE_DIR}/web/tests/runtime/vehicleengine-audio-engine.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/crankwave-audio-engine.test.mjs
         )
         set_tests_properties(
-            runtime.vehicleengine_audio_engine
+            runtime.crankwave_audio_engine
             PROPERTIES
                 LABELS "javascript;runtime"
                 TIMEOUT 120
@@ -2682,7 +2682,7 @@ if(TARGET engine_sim_offline_cli_support)
         add_test(
             NAME runtime.partitioned_spectrum_convolver
             COMMAND
-                ${_engine_sim_offline_node_for_installed_test}
+                ${_crankwave_node_for_installed_test}
                 --test
                 ${PROJECT_SOURCE_DIR}/web/tests/runtime/partitioned-spectrum-convolver.test.mjs
         )
@@ -2693,22 +2693,22 @@ if(TARGET engine_sim_offline_cli_support)
                 TIMEOUT 120
         )
     endif()
-    if(UNIX AND ENGINE_SIM_OFFLINE_DISTRIBUTION_TAR_FOR_TESTS AND
-       NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_BINDIR_FOR_TESTS}" AND
-       NOT IS_ABSOLUTE "${ENGINE_SIM_OFFLINE_INSTALL_DATADIR_FOR_TESTS}")
+    if(UNIX AND CRANKWAVE_DISTRIBUTION_TAR_FOR_TESTS AND
+       NOT IS_ABSOLUTE "${CRANKWAVE_INSTALL_BINDIR_FOR_TESTS}" AND
+       NOT IS_ABSOLUTE "${CRANKWAVE_INSTALL_DATADIR_FOR_TESTS}")
         add_test(
             NAME distribution.installed_prefix
             COMMAND
                 ${CMAKE_COMMAND}
                 -DBUILD_DIRECTORY=${PROJECT_BINARY_DIR}
                 -DINSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/installed-distribution-$<CONFIG>
-                -DINSTALL_BINDIR=${ENGINE_SIM_OFFLINE_INSTALL_BINDIR_FOR_TESTS}
-                -DINSTALL_DATADIR=${ENGINE_SIM_OFFLINE_INSTALL_DATADIR_FOR_TESTS}
+                -DINSTALL_BINDIR=${CRANKWAVE_INSTALL_BINDIR_FOR_TESTS}
+                -DINSTALL_DATADIR=${CRANKWAVE_INSTALL_DATADIR_FOR_TESTS}
                 -DINSTALL_CONFIG=$<CONFIG>
-                -DNODE_EXECUTABLE=${_engine_sim_offline_node_for_installed_test}
-                -DRELEASE_IDENTITY=${ENGINE_SIM_OFFLINE_RELEASE_IDENTITY_FOR_TESTS}
+                -DNODE_EXECUTABLE=${_crankwave_node_for_installed_test}
+                -DRELEASE_IDENTITY=${CRANKWAVE_RELEASE_IDENTITY_FOR_TESTS}
                 -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}
-                -DTAR_EXECUTABLE=${ENGINE_SIM_OFFLINE_DISTRIBUTION_TAR_FOR_TESTS}
+                -DTAR_EXECUTABLE=${CRANKWAVE_DISTRIBUTION_TAR_FOR_TESTS}
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/installed_distribution_test.cmake
         )
         set_tests_properties(
@@ -2725,7 +2725,7 @@ if(TARGET engine_sim_offline_cli_support)
             NAME cli.bmw_json_render
             COMMAND
                 ${CMAKE_COMMAND}
-                -DCLI_EXECUTABLE=$<TARGET_FILE:engine_sim_offline_cli>
+                -DCLI_EXECUTABLE=$<TARGET_FILE:crankwave_cli>
                 -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}
                 -DOUTPUT_ROOT=${CMAKE_CURRENT_BINARY_DIR}/cli-integration-output
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cli_bmw_json_render_test.cmake

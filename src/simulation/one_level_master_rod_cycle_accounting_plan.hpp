@@ -1,7 +1,7 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
-#include "engine_sim_offline/contract/torque.hpp"
+#include "crankwave/contract/common.hpp"
+#include "crankwave/contract/torque.hpp"
 #include "simulation/chen_flynn_cycle_mean_loss.hpp"
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/mechanism_kinematics_plan.hpp"
@@ -9,7 +9,7 @@
 
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 // Dynamic warm preparation holds this speed only until a complete four-stroke
 // cycle has been observed. Released operation derives its cycle-mean speed from
@@ -36,4 +36,4 @@ compile_one_level_master_rod_dynamic_cycle_accounting_plan(
     const LowOrderCapturePlan &capture_plan,
     const OneLevelMasterRodDynamicAccountingInputs &inputs);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

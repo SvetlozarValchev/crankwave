@@ -1,4 +1,4 @@
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/compile.hpp"
 
 #include "compile/resolution_builder.hpp"
 #include "compile/si_conversion.hpp"
@@ -22,10 +22,10 @@
 
 namespace {
 
-namespace authoring = engine_sim_offline::authoring;
-namespace compile = engine_sim_offline::compile;
-namespace detail = engine_sim_offline::compile::detail;
-namespace contract = engine_sim_offline::contract;
+namespace authoring = crankwave::authoring;
+namespace compile = crankwave::compile;
+namespace detail = crankwave::compile::detail;
+namespace contract = crankwave::contract;
 
 static_assert(!std::is_default_constructible_v<compile::CompiledEngine>);
 static_assert(!std::is_default_constructible_v<compile::CompiledScenario>);

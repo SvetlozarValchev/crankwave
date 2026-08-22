@@ -68,7 +68,7 @@ test("six procedures cover the complete slice-15 capture vocabulary", () => {
   );
   for (const procedure of PROCEDURES) {
     const authored = scenario(procedure.file);
-    assert.equal(authored.schema, "engine-sim-offline/scenario");
+    assert.equal(authored.schema, "crankwave/scenario");
     assert.equal(authored.engine, "bmw-m52tub28-cleanroom");
     assert.equal(authored.quality.id, "listening");
     assert.deepEqual(authored.output.buses, [

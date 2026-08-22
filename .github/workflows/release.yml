@@ -8,8 +8,8 @@ on:
 env:
   BUILDER_BASE_IMAGE: debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241
   NODE_BASE_IMAGE: node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
-  BUILDER_IMAGE: engine-sim-offline-native-builder:release
-  IMAGE_NAME: ghcr.io/svetlozarvalchev/engine-sim-offline
+  BUILDER_IMAGE: crankwave-native-builder:release
+  IMAGE_NAME: ghcr.io/svetlozarvalchev/crankwave
 
 concurrency:
   group: release-${{ github.ref }}
@@ -63,7 +63,7 @@ jobs:
 
       - name: Build and verify native-only distribution
         env:
-          ESO_VERSION: ${{ steps.release.outputs.version }}
+          CRANKWAVE_VERSION: ${{ steps.release.outputs.version }}
           REPLICA: ${{ matrix.replica }}
         shell: bash
         run: |
@@ -72,16 +72,16 @@ jobs:
             --network none \
             --user "$(id -u):$(id -g)" \
             --pids-limit 4096 \
-            -e ESO_VERSION \
-            -e ESO_BUILD_ROOT=".work/github-release-${REPLICA}" \
-            -e ESO_JOBS=4 \
+            -e CRANKWAVE_VERSION \
+            -e CRANKWAVE_BUILD_ROOT=".work/github-release-${REPLICA}" \
+            -e CRANKWAVE_JOBS=4 \
             -e GITHUB_SHA \
             -v "${GITHUB_WORKSPACE}:/src" \
             -w /src \
             "${BUILDER_IMAGE}" \
             ./scripts/ci/build-release.sh
           source_dir=".work/github-release-${REPLICA}/native/distribution/Release"
-          archive="engine-sim-offline-${ESO_VERSION}.tar"
+          archive="crankwave-${CRANKWAVE_VERSION}.tar"
           extracted=".work/github-release-${REPLICA}/host-verification"
           rm -rf "${extracted}"
           mkdir -p "${extracted}" "release-${REPLICA}"
@@ -90,8 +90,8 @@ jobs:
           node scripts/ci/verify-release.mjs \
             --archive "${source_dir}/${archive}" \
             --sidecar "${source_dir}/${archive}.sha256" \
-            --prefix "${extracted}/engine-sim-offline-${ESO_VERSION}" \
-            --release "${ESO_VERSION}" \
+            --prefix "${extracted}/crankwave-${CRANKWAVE_VERSION}" \
+            --release "${CRANKWAVE_VERSION}" \
             --revision "${GITHUB_SHA}"
           cp "${source_dir}/${archive}" "release-${REPLICA}/"
           cp "${source_dir}/${archive}.sha256" "release-${REPLICA}/"
@@ -139,7 +139,7 @@ jobs:
         run: |
           set -euo pipefail
           version=${GITHUB_REF_NAME#v}
-          archive="engine-sim-offline-${version}.tar"
+          archive="crankwave-${version}.tar"
           sidecar="${archive}.sha256"
           test "$(awk '$1 == "VERSION" { print $2; exit }' CMakeLists.txt)" = "${version}"
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
@@ -153,25 +153,25 @@ jobs:
           test "${expected}" = "${actual}"
           while IFS= read -r member; do
             case "${member}" in
-              "engine-sim-offline-${version}"|"engine-sim-offline-${version}/"*) ;;
+              "crankwave-${version}"|"crankwave-${version}/"*) ;;
               *) echo "unexpected archive member: ${member}" >&2; exit 70 ;;
             esac
             [[ "${member}" != /* && "/${member}/" != *"/../"* ]]
           done < <(tar -tf "release/${archive}")
           tar -xf "release/${archive}" -C release/extracted \
             --no-same-owner --no-same-permissions
-          prefix="release/extracted/engine-sim-offline-${version}"
+          prefix="release/extracted/crankwave-${version}"
           node scripts/ci/verify-release.mjs \
             --archive "release/${archive}" \
             --sidecar "release/${sidecar}" \
             --prefix "${prefix}" \
             --release "${version}" \
             --revision "${GITHUB_SHA}"
-          resource="${prefix}/share/engine-sim-offline/${version}"
+          resource="${prefix}/share/crankwave/${version}"
           release_json_sha=$(sha256sum "${resource}/release.json" | cut -d ' ' -f 1)
           test "$(cat "${resource}/release.json.sha256")" = "${release_json_sha}"
-          cp "${resource}/release.json" "release/engine-sim-offline-${version}.release.json"
-          cp "${resource}/release.json.sha256" "release/engine-sim-offline-${version}.release.json.sha256"
+          cp "${resource}/release.json" "release/crankwave-${version}.release.json"
+          cp "${resource}/release.json.sha256" "release/crankwave-${version}.release.json.sha256"
           cp "release/${archive}" "release/oci-context/${archive}"
           cp "release/${sidecar}" "release/oci-context/${sidecar}"
           created=$(git show -s --format=%cI "${GITHUB_SHA}")
@@ -189,17 +189,17 @@ jobs:
         id: publication
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ESO_VERSION: ${{ steps.release.outputs.version }}
-          ESO_ARCHIVE_SHA256: ${{ steps.release.outputs.archive_sha }}
-          ESO_RELEASE_JSON_SHA256: ${{ steps.release.outputs.release_json_sha }}
+          CRANKWAVE_VERSION: ${{ steps.release.outputs.version }}
+          CRANKWAVE_ARCHIVE_SHA256: ${{ steps.release.outputs.archive_sha }}
+          CRANKWAVE_RELEASE_JSON_SHA256: ${{ steps.release.outputs.release_json_sha }}
         shell: bash
         run: |
           set -euo pipefail
           core_assets=(
-            "release/engine-sim-offline-${ESO_VERSION}.tar"
-            "release/engine-sim-offline-${ESO_VERSION}.tar.sha256"
-            "release/engine-sim-offline-${ESO_VERSION}.release.json"
-            "release/engine-sim-offline-${ESO_VERSION}.release.json.sha256"
+            "release/crankwave-${CRANKWAVE_VERSION}.tar"
+            "release/crankwave-${CRANKWAVE_VERSION}.tar.sha256"
+            "release/crankwave-${CRANKWAVE_VERSION}.release.json"
+            "release/crankwave-${CRANKWAVE_VERSION}.release.json.sha256"
           )
           if state=$(gh release view "${GITHUB_REF_NAME}" --json isDraft --jq .isDraft 2>/dev/null); then
             if [[ "${state}" == "false" ]]; then
@@ -210,7 +210,7 @@ jobs:
               for asset in "${core_assets[@]}"; do
                 cmp "${asset}" "${existing}/$(basename "${asset}")"
               done
-              binding="${existing}/engine-sim-offline-${ESO_VERSION}.binding.json"
+              binding="${existing}/crankwave-${CRANKWAVE_VERSION}.binding.json"
               test -f "${binding}"
               published_digest=$(BINDING_PATH="${binding}" node --input-type=module <<'NODE'
           import fs from "node:fs";
@@ -221,14 +221,14 @@ jobs:
             "production_runtime", "release_identity", "release_json_sha256", "schema",
             "source_git_commit", "source_repository",
           ]);
-          assert.equal(binding.schema, "engine-sim-offline/github-release-binding.v2");
-          assert.equal(binding.release_identity, process.env.ESO_VERSION);
+          assert.equal(binding.schema, "crankwave/github-release-binding.v2");
+          assert.equal(binding.release_identity, process.env.CRANKWAVE_VERSION);
           assert.equal(binding.source_repository, process.env.GITHUB_REPOSITORY);
           assert.equal(binding.source_git_commit, process.env.GITHUB_SHA);
           assert.equal(binding.distribution_asset,
-            `engine-sim-offline-${process.env.ESO_VERSION}.tar`);
-          assert.equal(binding.distribution_sha256, process.env.ESO_ARCHIVE_SHA256);
-          assert.equal(binding.release_json_sha256, process.env.ESO_RELEASE_JSON_SHA256);
+            `crankwave-${process.env.CRANKWAVE_VERSION}.tar`);
+          assert.equal(binding.distribution_sha256, process.env.CRANKWAVE_ARCHIVE_SHA256);
+          assert.equal(binding.release_json_sha256, process.env.CRANKWAVE_RELEASE_JSON_SHA256);
           assert.deepEqual(binding.production_runtime, {
             kind: "native", node_required: false, simulation_wasm_required: false,
           });
@@ -253,7 +253,7 @@ jobs:
             gh release create "${GITHUB_REF_NAME}" \
               --verify-tag \
               --draft \
-              --title "engine-sim-offline ${ESO_VERSION}" \
+              --title "crankwave ${CRANKWAVE_VERSION}" \
               --generate-notes
           fi
           gh release upload "${GITHUB_REF_NAME}" "${core_assets[@]}" --clobber
@@ -263,11 +263,11 @@ jobs:
           gh release download "${GITHUB_REF_NAME}" --dir "${remote}"
           for file in "${remote}"/*; do
             case "$(basename "${file}")" in
-              "engine-sim-offline-${ESO_VERSION}.tar"|\
-              "engine-sim-offline-${ESO_VERSION}.tar.sha256"|\
-              "engine-sim-offline-${ESO_VERSION}.release.json"|\
-              "engine-sim-offline-${ESO_VERSION}.release.json.sha256"|\
-              "engine-sim-offline-${ESO_VERSION}.binding.json") ;;
+              "crankwave-${CRANKWAVE_VERSION}.tar"|\
+              "crankwave-${CRANKWAVE_VERSION}.tar.sha256"|\
+              "crankwave-${CRANKWAVE_VERSION}.release.json"|\
+              "crankwave-${CRANKWAVE_VERSION}.release.json.sha256"|\
+              "crankwave-${CRANKWAVE_VERSION}.binding.json") ;;
               *) echo "unexpected draft release asset: ${file}" >&2; exit 73 ;;
             esac
           done
@@ -289,16 +289,16 @@ jobs:
       - name: Publish or reuse the exact release-derived image
         id: image
         env:
-          ESO_VERSION: ${{ steps.release.outputs.version }}
-          ESO_ARCHIVE_SHA256: ${{ steps.release.outputs.archive_sha }}
-          ESO_RELEASE_JSON_SHA256: ${{ steps.release.outputs.release_json_sha }}
+          CRANKWAVE_VERSION: ${{ steps.release.outputs.version }}
+          CRANKWAVE_ARCHIVE_SHA256: ${{ steps.release.outputs.archive_sha }}
+          CRANKWAVE_RELEASE_JSON_SHA256: ${{ steps.release.outputs.release_json_sha }}
           OCI_CREATED: ${{ steps.release.outputs.created }}
           SOURCE_DATE_EPOCH: ${{ steps.release.outputs.epoch }}
           PUBLISHED_IMAGE_DIGEST: ${{ steps.publication.outputs.image_digest }}
         shell: bash
         run: |
           set -euo pipefail
-          version_tag="${IMAGE_NAME}:${ESO_VERSION}-linux-amd64"
+          version_tag="${IMAGE_NAME}:${CRANKWAVE_VERSION}-linux-amd64"
           revision_tag="${IMAGE_NAME}:sha-${GITHUB_SHA}"
           inspect_digest() {
             docker buildx imagetools inspect "$1" --format '{{.Manifest.Digest}}' 2>/dev/null || true
@@ -323,10 +323,10 @@ jobs:
                 --sbom=false \
                 --tag "${version_tag}" \
                 --tag "${revision_tag}" \
-                --build-arg "ESO_VERSION=${ESO_VERSION}" \
-                --build-arg "ESO_GIT_SHA=${GITHUB_SHA}" \
-                --build-arg "ESO_ARCHIVE_SHA256=${ESO_ARCHIVE_SHA256}" \
-                --build-arg "ESO_RELEASE_JSON_SHA256=${ESO_RELEASE_JSON_SHA256}" \
+                --build-arg "CRANKWAVE_VERSION=${CRANKWAVE_VERSION}" \
+                --build-arg "CRANKWAVE_GIT_SHA=${GITHUB_SHA}" \
+                --build-arg "CRANKWAVE_ARCHIVE_SHA256=${CRANKWAVE_ARCHIVE_SHA256}" \
+                --build-arg "CRANKWAVE_RELEASE_JSON_SHA256=${CRANKWAVE_RELEASE_JSON_SHA256}" \
                 --build-arg "OCI_CREATED=${OCI_CREATED}" \
                 --build-arg "OCI_SOURCE=https://github.com/${GITHUB_REPOSITORY}" \
                 --build-arg "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" \
@@ -357,13 +357,13 @@ jobs:
           import fs from "node:fs";
           const labels = JSON.parse(fs.readFileSync("release/existing-image-labels.json", "utf8"));
           const expected = {
-            "org.opencontainers.image.version": process.env.ESO_VERSION,
+            "org.opencontainers.image.version": process.env.CRANKWAVE_VERSION,
             "org.opencontainers.image.revision": process.env.GITHUB_SHA,
-            "io.engine-sim-offline.archive-sha256": process.env.ESO_ARCHIVE_SHA256,
-            "io.engine-sim-offline.release-json-sha256": process.env.ESO_RELEASE_JSON_SHA256,
-            "io.engine-sim-offline.production-runtime": "native",
-            "io.engine-sim-offline.node-required": "false",
-            "io.engine-sim-offline.simulation-wasm-required": "false",
+            "io.crankwave.archive-sha256": process.env.CRANKWAVE_ARCHIVE_SHA256,
+            "io.crankwave.release-json-sha256": process.env.CRANKWAVE_RELEASE_JSON_SHA256,
+            "io.crankwave.production-runtime": "native",
+            "io.crankwave.node-required": "false",
+            "io.crankwave.simulation-wasm-required": "false",
           };
           for (const [name, value] of Object.entries(expected)) {
             if (labels[name] !== value) throw new Error(`existing OCI label mismatch: ${name}`);
@@ -373,39 +373,39 @@ jobs:
 
       - name: Smoke the exact pushed image and create its binding
         env:
-          ESO_VERSION: ${{ steps.release.outputs.version }}
-          ESO_ARCHIVE_SHA256: ${{ steps.release.outputs.archive_sha }}
-          ESO_RELEASE_JSON_SHA256: ${{ steps.release.outputs.release_json_sha }}
-          ESO_IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          CRANKWAVE_VERSION: ${{ steps.release.outputs.version }}
+          CRANKWAVE_ARCHIVE_SHA256: ${{ steps.release.outputs.archive_sha }}
+          CRANKWAVE_RELEASE_JSON_SHA256: ${{ steps.release.outputs.release_json_sha }}
+          CRANKWAVE_IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         shell: bash
         run: |
           set -euo pipefail
-          image="${IMAGE_NAME}@${ESO_IMAGE_DIGEST}"
+          image="${IMAGE_NAME}@${CRANKWAVE_IMAGE_DIGEST}"
           docker pull --platform linux/amd64 "${image}"
           test "$(docker image inspect "${image}" --format '{{.Architecture}}')" = "amd64"
           test "$(docker image inspect "${image}" --format '{{.Config.User}}')" = "65532:65532"
           test "$(docker image inspect "${image}" --format '{{json .Config.Entrypoint}}')" = \
-            '["/opt/engine-sim-offline/bin/engine-sim-offline"]'
+            '["/opt/crankwave/bin/crankwave"]'
           docker image inspect "${image}" --format '{{json .Config.Labels}}' > release/image-labels.json
           node --input-type=module <<'NODE'
           import fs from "node:fs";
           const labels = JSON.parse(fs.readFileSync("release/image-labels.json", "utf8"));
           const expected = {
-            "org.opencontainers.image.version": process.env.ESO_VERSION,
+            "org.opencontainers.image.version": process.env.CRANKWAVE_VERSION,
             "org.opencontainers.image.revision": process.env.GITHUB_SHA,
-            "io.engine-sim-offline.archive-sha256": process.env.ESO_ARCHIVE_SHA256,
-            "io.engine-sim-offline.release-json-sha256": process.env.ESO_RELEASE_JSON_SHA256,
-            "io.engine-sim-offline.production-runtime": "native",
-            "io.engine-sim-offline.node-required": "false",
-            "io.engine-sim-offline.simulation-wasm-required": "false",
-            "io.engine-sim-offline.target": "x86_64-pc-linux-gnu",
+            "io.crankwave.archive-sha256": process.env.CRANKWAVE_ARCHIVE_SHA256,
+            "io.crankwave.release-json-sha256": process.env.CRANKWAVE_RELEASE_JSON_SHA256,
+            "io.crankwave.production-runtime": "native",
+            "io.crankwave.node-required": "false",
+            "io.crankwave.simulation-wasm-required": "false",
+            "io.crankwave.target": "x86_64-pc-linux-gnu",
           };
           for (const [name, value] of Object.entries(expected)) {
             if (labels[name] !== value) throw new Error(`OCI label mismatch: ${name}`);
           }
           NODE
           test "$(docker run --rm --platform linux/amd64 "${image}" --version)" = \
-            "engine-sim-offline ${ESO_VERSION}"
+            "crankwave ${CRANKWAVE_VERSION}"
           docker run --rm --platform linux/amd64 --entrypoint /bin/sh "${image}" \
             -c 'test ! -e /usr/bin/node && test ! -e /usr/local/bin/node'
           smoke="${GITHUB_WORKSPACE}/release/image-smoke"
@@ -427,15 +427,15 @@ jobs:
           docker run --rm --platform linux/amd64 \
             --mount "type=bind,src=${GITHUB_WORKSPACE}/data,dst=/inputs,readonly" \
             --mount "type=bind,src=${smoke},dst=/work" \
-            "${image}" bake-vehicleengine \
+            "${image}" bake-crankwave \
             --engine /inputs/engines/kohler-ch750-cleanroom/engine.json \
-            --output /work/kohler.vehicleengine \
+            --output /work/kohler.crankwave \
             --deadline-unix-ms "${deadline}" \
             --result-format json > release/image-bake.json
           docker run --rm --platform linux/amd64 \
             --mount "type=bind,src=${smoke},dst=/work" \
-            "${image}" verify-vehicleengine \
-            --input /work/kohler.vehicleengine \
+            "${image}" verify-crankwave \
+            --input /work/kohler.crankwave \
             --deadline-unix-ms "${deadline}" \
             --result-format json > release/image-verify.json
           node --input-type=module <<'NODE'
@@ -443,7 +443,7 @@ jobs:
           const read = name => JSON.parse(fs.readFileSync(`release/image-${name}.json`, "utf8"));
           for (const name of ["render", "bake", "verify", "catalog"]) {
             const result = read(name);
-            if (!result.ok || result.release_identity !== process.env.ESO_VERSION) {
+            if (!result.ok || result.release_identity !== process.env.CRANKWAVE_VERSION) {
               throw new Error(`OCI ${name} smoke returned an invalid result`);
             }
           }
@@ -454,21 +454,21 @@ jobs:
             throw new Error("OCI catalog does not expose all 73 IRs");
           }
           NODE
-          node --input-type=module <<'NODE' > "release/engine-sim-offline-${ESO_VERSION}.binding.json"
+          node --input-type=module <<'NODE' > "release/crankwave-${CRANKWAVE_VERSION}.binding.json"
           const binding = {
-            schema: "engine-sim-offline/github-release-binding.v2",
-            release_identity: process.env.ESO_VERSION,
+            schema: "crankwave/github-release-binding.v2",
+            release_identity: process.env.CRANKWAVE_VERSION,
             source_repository: process.env.GITHUB_REPOSITORY,
             source_git_commit: process.env.GITHUB_SHA,
-            distribution_asset: `engine-sim-offline-${process.env.ESO_VERSION}.tar`,
-            distribution_sha256: process.env.ESO_ARCHIVE_SHA256,
-            release_json_sha256: process.env.ESO_RELEASE_JSON_SHA256,
+            distribution_asset: `crankwave-${process.env.CRANKWAVE_VERSION}.tar`,
+            distribution_sha256: process.env.CRANKWAVE_ARCHIVE_SHA256,
+            release_json_sha256: process.env.CRANKWAVE_RELEASE_JSON_SHA256,
             production_runtime: {
               kind: "native",
               node_required: false,
               simulation_wasm_required: false,
             },
-            oci_reference: `${process.env.IMAGE_NAME}@${process.env.ESO_IMAGE_DIGEST}`,
+            oci_reference: `${process.env.IMAGE_NAME}@${process.env.CRANKWAVE_IMAGE_DIGEST}`,
             oci_platform: "linux/amd64",
           };
           process.stdout.write(`${JSON.stringify(binding, null, 2)}\n`);
@@ -477,16 +477,16 @@ jobs:
       - name: Publish or verify the bound GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ESO_VERSION: ${{ steps.release.outputs.version }}
+          CRANKWAVE_VERSION: ${{ steps.release.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
           assets=(
-            "release/engine-sim-offline-${ESO_VERSION}.tar"
-            "release/engine-sim-offline-${ESO_VERSION}.tar.sha256"
-            "release/engine-sim-offline-${ESO_VERSION}.release.json"
-            "release/engine-sim-offline-${ESO_VERSION}.release.json.sha256"
-            "release/engine-sim-offline-${ESO_VERSION}.binding.json"
+            "release/crankwave-${CRANKWAVE_VERSION}.tar"
+            "release/crankwave-${CRANKWAVE_VERSION}.tar.sha256"
+            "release/crankwave-${CRANKWAVE_VERSION}.release.json"
+            "release/crankwave-${CRANKWAVE_VERSION}.release.json.sha256"
+            "release/crankwave-${CRANKWAVE_VERSION}.binding.json"
           )
           state=$(gh release view "${GITHUB_REF_NAME}" --json isDraft --jq .isDraft)
           if [[ "${state}" == "false" ]]; then
@@ -501,7 +501,7 @@ jobs:
           fi
           test "${state}" = "true"
           gh release upload "${GITHUB_REF_NAME}" \
-            "release/engine-sim-offline-${ESO_VERSION}.binding.json" --clobber
+            "release/crankwave-${CRANKWAVE_VERSION}.binding.json" --clobber
           staged="release/final-draft"
           mkdir -p "${staged}"
           gh release download "${GITHUB_REF_NAME}" --dir "${staged}"

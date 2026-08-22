@@ -1,11 +1,11 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <cstdint>
 #include <string_view>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 inline constexpr std::string_view
     kNonnegativeSpeedFreeEngineCenteredSliderCrankMethodId =
@@ -49,4 +49,4 @@ free_engine_equivalent_inertia_sum_method_descriptor() noexcept;
 [[nodiscard]] const contract::MethodIdentity &
 free_engine_equivalent_inertia_sum_method_identity();
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

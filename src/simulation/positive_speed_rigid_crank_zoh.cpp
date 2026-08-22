@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace engine_sim_offline::simulation::detail {
+namespace crankwave::simulation::detail {
 namespace {
 
 [[nodiscard]] PositiveSpeedRigidCrankZohInputError
@@ -390,4 +390,4 @@ advance_nonnegative_speed_configuration_dependent_crank_zoh(
     };
 }
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace crankwave::simulation::detail

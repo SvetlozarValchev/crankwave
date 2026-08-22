@@ -1,7 +1,7 @@
 #include "native_input_files.hpp"
 #include "native_input_files_support.hpp"
 
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/session.hpp"
 
 #include <array>
 #include <atomic>
@@ -16,8 +16,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::cli;
+using namespace crankwave;
+using namespace crankwave::cli;
 
 constexpr std::string_view kOriginalIrUri =
     "../../../reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav";
@@ -80,7 +80,7 @@ class IsolatedDirectory {
         const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
         for (unsigned attempt = 0; attempt < 32U; ++attempt) {
             path_ = std::filesystem::temp_directory_path() /
-                    ("engine-sim-offline-native-input-" + std::to_string(stamp) + "-" +
+                    ("crankwave-native-input-" + std::to_string(stamp) + "-" +
                      std::to_string(sequence.fetch_add(1)));
             std::error_code error;
             if (std::filesystem::create_directory(path_, error)) {
@@ -352,9 +352,9 @@ void test_builtin_catalog_strict_parser(const std::filesystem::path &source_root
     constexpr std::array invalid_catalogs{
         std::string_view{R"({"schema":"wrong","assets":[]})"},
         std::string_view{
-            R"({"schema":"engine-sim-offline/builtin-asset-catalog.v1","assets":[],"extra":true})"},
+            R"({"schema":"crankwave/builtin-asset-catalog.v1","assets":[],"extra":true})"},
         std::string_view{
-            R"({"schema":"engine-sim-offline/builtin-asset-catalog.v1","assets":[{"kind":"audio","id":"smooth-39","sha256":"75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"},{"kind":"audio","id":"smooth-39","sha256":"75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"}]})"},
+            R"({"schema":"crankwave/builtin-asset-catalog.v1","assets":[{"kind":"audio","id":"smooth-39","sha256":"75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"},{"kind":"audio","id":"smooth-39","sha256":"75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"}]})"},
     };
     for (const auto catalog : invalid_catalogs) {
         write_text(catalog_path, catalog);
@@ -407,7 +407,7 @@ void test_builtin_catalog_engine_binding(const std::filesystem::path &source_roo
     }
     {
         IsolatedDirectory isolated;
-        const auto bundle = isolated.path() / "engine-sim-offline-assets";
+        const auto bundle = isolated.path() / "crankwave-assets";
         std::filesystem::create_directories(bundle / "payloads");
         std::filesystem::copy_file(catalog_path, bundle / "catalog.v1.json");
         write_text(bundle / "payloads" / kSmooth39Sha256, "corrupt-payload");
@@ -426,8 +426,8 @@ void test_builtin_catalog_discovery(
     const std::filesystem::path &installed_asset_relative_path) {
     {
         IsolatedDirectory isolated;
-        const auto executable = isolated.path() / "build/bin/engine-sim-offline";
-        const auto catalog = isolated.path() / "build/bin/engine-sim-offline-assets/"
+        const auto executable = isolated.path() / "build/bin/crankwave";
+        const auto catalog = isolated.path() / "build/bin/crankwave-assets/"
                                                "catalog.v1.json";
         write_text(executable.parent_path() / "CMakeCache.txt", "");
         std::filesystem::create_directories(executable.parent_path() / "CMakeFiles");
@@ -439,7 +439,7 @@ void test_builtin_catalog_discovery(
     }
     {
         IsolatedDirectory isolated;
-        const auto executable = isolated.path() / "prefix/bin/engine-sim-offline";
+        const auto executable = isolated.path() / "prefix/bin/crankwave";
         const auto catalog = (executable.parent_path() / installed_asset_relative_path /
                               "catalog.v1.json")
                                  .lexically_normal();
@@ -451,13 +451,13 @@ void test_builtin_catalog_discovery(
     }
     {
         IsolatedDirectory isolated;
-        const auto executable = isolated.path() / "prefix/bin/engine-sim-offline";
+        const auto executable = isolated.path() / "prefix/bin/crankwave";
         const auto installed_catalog =
             (executable.parent_path() / installed_asset_relative_path /
              "catalog.v1.json")
                 .lexically_normal();
         const auto adjacent_catalog = executable.parent_path() /
-                                      "engine-sim-offline-assets" /
+                                      "crankwave-assets" /
                                       "catalog.v1.json";
         write_text(installed_catalog, "{}");
         write_text(adjacent_catalog, "{\"poisoned\":true}");
@@ -468,7 +468,7 @@ void test_builtin_catalog_discovery(
     }
     {
         IsolatedDirectory isolated;
-        const auto executable = isolated.path() / "prefix/bin/engine-sim-offline";
+        const auto executable = isolated.path() / "prefix/bin/crankwave";
         const auto installed_catalog =
             (executable.parent_path() / installed_asset_relative_path /
              "catalog.v1.json")
@@ -476,7 +476,7 @@ void test_builtin_catalog_discovery(
         const auto release_manifest =
             installed_catalog.parent_path().parent_path() / "release.json";
         const auto adjacent_catalog = executable.parent_path() /
-                                      "engine-sim-offline-assets" /
+                                      "crankwave-assets" /
                                       "catalog.v1.json";
         write_text(release_manifest, "{}");
         write_text(adjacent_catalog, "{\"poisoned\":true}");
@@ -488,9 +488,9 @@ void test_builtin_catalog_discovery(
     }
     {
         IsolatedDirectory isolated;
-        const auto executable = isolated.path() / "prefix/bin/engine-sim-offline";
+        const auto executable = isolated.path() / "prefix/bin/crankwave";
         const auto adjacent_catalog = executable.parent_path() /
-                                      "engine-sim-offline-assets" /
+                                      "crankwave-assets" /
                                       "catalog.v1.json";
         write_text(adjacent_catalog, "{\"poisoned\":true}");
         const auto discovered = discover_builtin_asset_catalog(executable);
@@ -501,7 +501,7 @@ void test_builtin_catalog_discovery(
     {
         IsolatedDirectory isolated;
         const auto discovered =
-            discover_builtin_asset_catalog(isolated.path() / "bin/engine-sim-offline");
+            discover_builtin_asset_catalog(isolated.path() / "bin/crankwave");
         require_input_error(discovered,
                             NativeInputErrorCode::builtin_asset_catalog_not_found,
                             "missing built-in catalog did not fail discovery");

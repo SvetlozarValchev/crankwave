@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <ranges>
 
-namespace engine_sim_offline::render_detail {
+namespace crankwave::render_detail {
 
 std::vector<contract::AssetPayloadIdentity> asset_payload_identities(
     const compile::detail::ResolvedEnginePackage &engine_package) {
@@ -52,4 +52,4 @@ contract::RenderRequestRecord make_render_request_record(
     };
 }
 
-} // namespace engine_sim_offline::render_detail
+} // namespace crankwave::render_detail

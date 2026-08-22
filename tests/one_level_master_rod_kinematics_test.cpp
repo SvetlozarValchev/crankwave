@@ -11,8 +11,8 @@
 
 namespace {
 
-using namespace engine_sim_offline::contract;
-using namespace engine_sim_offline::simulation;
+using namespace crankwave::contract;
+using namespace crankwave::simulation;
 
 void expect(bool condition, const char *message) {
     if (!condition) {

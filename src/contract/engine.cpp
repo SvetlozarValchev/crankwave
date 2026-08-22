@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/engine.hpp"
+#include "crankwave/contract/engine.hpp"
 
 #include "physics_profile_support.hpp"
 #include "validation_support.hpp"
@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 namespace {
 
 template <class T>
@@ -1728,4 +1728,4 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
     return report;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

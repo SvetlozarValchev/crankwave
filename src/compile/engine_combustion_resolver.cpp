@@ -13,7 +13,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 namespace {
 
 using CamshaftByCylinder =
@@ -422,4 +422,4 @@ void resolve_operating_accounting(const ModelContext &context,
         {"engine.profile_id"});
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

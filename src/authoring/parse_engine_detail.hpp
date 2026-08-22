@@ -1,7 +1,7 @@
 #pragma once
 
 #include "authoring/document_reader.hpp"
-#include "engine_sim_offline/authoring/engine_document.hpp"
+#include "crankwave/authoring/engine_document.hpp"
 
 #include <initializer_list>
 #include <optional>
@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::authoring::detail {
+namespace crankwave::authoring::detail {
 
 template <class Enum>
 bool read_enum(DocumentReader &reader, JsonValue value, std::string_view path,
@@ -155,4 +155,4 @@ void parse_presentation(DocumentReader &, JsonValue, std::string_view,
                         PresentationDefinition &);
 void parse_rig(DocumentReader &, JsonValue, std::string_view, RigDefinition &);
 
-} // namespace engine_sim_offline::authoring::detail
+} // namespace crankwave::authoring::detail

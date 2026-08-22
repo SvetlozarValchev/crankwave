@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <span>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 inline constexpr std::size_t kLegacyCombustionHistorySampleCount = 256U;
 inline constexpr std::uint64_t kMaximumLegacyPcg32Stream = dsp::kMaximumPcg32Stream;
@@ -176,4 +176,4 @@ legacy_advance_gasoline_flame(LegacyFlameState &flame, LegacyGasCell &cell,
 legacy_extinguish_flame_for_intake_transfer(LegacyFlameState &flame,
                                             double signed_intake_transfer_mol) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

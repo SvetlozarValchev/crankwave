@@ -4,7 +4,7 @@
 #include <array>
 #include <cstring>
 
-namespace engine_sim_offline::contract::detail {
+namespace crankwave::contract::detail {
 namespace {
 
 constexpr std::array<std::uint32_t, 64> kRoundConstants{
@@ -133,4 +133,4 @@ void Sha256Stream::transform(const std::array<std::byte, 64> &block) noexcept {
     state_[7] += h;
 }
 
-} // namespace engine_sim_offline::contract::detail
+} // namespace crankwave::contract::detail

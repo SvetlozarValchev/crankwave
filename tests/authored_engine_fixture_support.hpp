@@ -1,15 +1,15 @@
 #pragma once
 
-#include "engine_sim_offline/contract/engine.hpp"
-#include "engine_sim_offline/contract/presentation.hpp"
-#include "engine_sim_offline/contract/provenance.hpp"
-#include "engine_sim_offline/contract/randomness.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/engine.hpp"
+#include "crankwave/contract/presentation.hpp"
+#include "crankwave/contract/provenance.hpp"
+#include "crankwave/contract/randomness.hpp"
+#include "crankwave/contract/scenario.hpp"
 
 #include <filesystem>
 #include <vector>
 
-namespace engine_sim_offline::test {
+namespace crankwave::test {
 
 struct AuthoredEngineFixture {
     contract::EngineSpec engine;
@@ -55,4 +55,4 @@ operating_profile(contract::EngineSpec &engine);
 [[nodiscard]] const contract::LowOrderOperatingPointV1Profile &
 operating_profile(const contract::EngineSpec &engine);
 
-} // namespace engine_sim_offline::test
+} // namespace crankwave::test

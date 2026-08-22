@@ -11,11 +11,11 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
-  ESO_CANONICAL_SAMPLE_RATE,
+  CRANKWAVE_CANONICAL_SAMPLE_RATE,
   ProcessKind,
   SessionExecutionKind,
 } from "../../../web/runtime/c-api-abi.js";
-import { EngineSimCapiClient } from "../../../web/runtime/c-api-client.js";
+import { CrankwaveCapiClient } from "../../../web/runtime/c-api-client.js";
 import {
   rendererFileIdentity,
   uniqueArtifactTokens,
@@ -25,14 +25,14 @@ const experiment = import.meta.dirname;
 const repository = path.resolve(experiment, "../../..");
 const COMMAND_ARGS = process.argv.slice(2);
 const MOTORING_PROOF = COMMAND_ARGS.includes("--motoring-proof");
-const inventoryPath = requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_INVENTORY");
-const modulePath = requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_MODULE");
-const wasmPath = process.env.ESO_RESPONSIVE_BAKE_WASM === undefined
-  ? path.join(path.dirname(modulePath), "engine-sim-offline.wasm")
-  : requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_WASM");
+const inventoryPath = requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_INVENTORY");
+const modulePath = requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_MODULE");
+const wasmPath = process.env.CRANKWAVE_RESPONSIVE_BAKE_WASM === undefined
+  ? path.join(path.dirname(modulePath), "crankwave.wasm")
+  : requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_WASM");
 const rendererFilePairIdentity = rendererFileIdentity(modulePath, wasmPath);
-const bakeCacheRoot = requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_CACHE");
-const responsiveOutputRoot = requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_OUTPUT");
+const bakeCacheRoot = requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_CACHE");
+const responsiveOutputRoot = requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_OUTPUT");
 
 function requiredEnvironmentPath(name) {
   const value = process.env[name];
@@ -42,7 +42,7 @@ function requiredEnvironmentPath(name) {
   return path.normalize(value);
 }
 
-const SAMPLE_RATE = ESO_CANONICAL_SAMPLE_RATE;
+const SAMPLE_RATE = CRANKWAVE_CANONICAL_SAMPLE_RATE;
 const PHYSICS_RATE = 10_000;
 const SAMPLES_PER_CYCLE = 4_096;
 const PHASE_CYCLE_REVOLUTIONS = 2;
@@ -414,7 +414,7 @@ function sourceScenario(config, direction, lane) {
     unit: "rad",
   };
   return {
-    schema: "engine-sim-offline/scenario",
+    schema: "crankwave/scenario",
     id: MOTORING_PROOF
       ? `${config.engineId}-motoring-ignition-off-fuel-on-${direction}-${lane.id}-capture`
       : `${config.engineId}-directional-${direction}-${lane.id}-capture`,
@@ -765,7 +765,7 @@ async function captureDirection(engineId, direction, laneId) {
   const scenario = sourceScenario(config, direction, lane);
   const scenarioBytes = Buffer.from(`${JSON.stringify(scenario)}\n`);
   const startedAt = performance.now();
-  const client = await EngineSimCapiClient.create(pathToFileURL(modulePath));
+  const client = await CrankwaveCapiClient.create(pathToFileURL(modulePath));
   const routeResults = [];
   try {
     for (const route of config.routes) {
@@ -830,8 +830,8 @@ async function captureDirection(engineId, direction, laneId) {
   }
   const metadata = {
     schema: MOTORING_PROOF
-      ? "engine-sim-offline/state-phase-source-capture"
-      : "engine-sim-offline/directional-transient-source-capture",
+      ? "crankwave/state-phase-source-capture"
+      : "crankwave/directional-transient-source-capture",
     id: `${config.engineId}-${direction}-${lane.id}`,
     engine: config.engineId,
     direction,
@@ -1375,7 +1375,7 @@ function buildPackage(config) {
       }
       const filename = `${route.token}-${direction}.json`;
       const manifest = {
-        schema: "engine-sim-offline/responsive-audio-directional-route",
+        schema: "crankwave/responsive-audio-directional-route",
         id: MOTORING_PROOF
           ? `${config.engineId}-motoring-ignition-off-fuel-on-${direction}-${route.token}-live-preview`
           : `${config.engineId}-directional-${direction}-${route.token}-live-preview`,
@@ -1428,7 +1428,7 @@ function buildPackage(config) {
         provenance: {
           engine: { id: config.engineId, sha256: engineSha256 },
           renderer_build: {
-            id: "engine-sim-offline-renderer-build",
+            id: "crankwave-renderer-build",
             sha256: rendererSha256,
           },
           representation:
@@ -1488,8 +1488,8 @@ function buildPackage(config) {
   }
   const runtime = {
     schema: MOTORING_PROOF
-      ? "engine-sim-offline/responsive-audio-state-phase-texture"
-      : "engine-sim-offline/responsive-audio-directional-texture",
+      ? "crankwave/responsive-audio-state-phase-texture"
+      : "crankwave/responsive-audio-directional-texture",
     id: MOTORING_PROOF
       ? `${config.engineId}-motoring-ignition-off-fuel-on-live-preview`
       : `${config.engineId}-directional-transient-live-preview`,
@@ -1520,7 +1520,7 @@ function buildPackage(config) {
     provenance: {
       engine: { id: config.engineId, sha256: engineSha256 },
       renderer_build: {
-        id: "engine-sim-offline-renderer-build",
+        id: "crankwave-renderer-build",
         sha256: rendererSha256,
       },
       representation:
@@ -1547,8 +1547,8 @@ function buildPackage(config) {
   writeJson(path.join(config.packageDirectory, "runtime.json"), runtime);
   const report = {
     schema: MOTORING_PROOF
-      ? "engine-sim-offline/state-phase-texture-proof-report"
-      : "engine-sim-offline/multi-engine-directional-transient-report",
+      ? "crankwave/state-phase-texture-proof-report"
+      : "crankwave/multi-engine-directional-transient-report",
     engine: config.engineId,
     silent: true,
     package_id: runtime.id,
@@ -1743,7 +1743,7 @@ function checkAllCapturedSeams() {
     checkCapturedSeams(engine.engine_id),
   );
   return Object.freeze({
-    schema: "engine-sim-offline/multi-engine-directional-seam-check-report",
+    schema: "crankwave/multi-engine-directional-seam-check-report",
     silent: true,
     engine_count: engines.length,
     all_source_cycle_begins_aligned: engines.every(
@@ -1790,7 +1790,7 @@ function capturePlan(engineId) {
     })),
   );
   return Object.freeze({
-    schema: "engine-sim-offline/directional-transient-capture-plan",
+    schema: "crankwave/directional-transient-capture-plan",
     engine: engineId,
     cached_state_count: states.filter(({ cached }) => cached).length,
     new_state_count: states.filter(({ cached }) => !cached).length,
@@ -1883,7 +1883,7 @@ async function captureAll(concurrency) {
     results.push(await captureEngine(engine.engine_id, concurrency));
   }
   return Object.freeze({
-    schema: "engine-sim-offline/multi-engine-directional-source-capture-report",
+    schema: "crankwave/multi-engine-directional-source-capture-report",
     silent: true,
     engine_count: results.length,
     maximum_capture_concurrency: concurrency,
@@ -1900,7 +1900,7 @@ async function generateAll(concurrency) {
     results.push(await generateEngine(engine.engine_id, concurrency));
   }
   const report = {
-    schema: "engine-sim-offline/multi-engine-directional-transient-batch-report",
+    schema: "crankwave/multi-engine-directional-transient-batch-report",
     silent: true,
     engine_count: results.length,
     maximum_capture_concurrency: concurrency,

@@ -45,7 +45,7 @@ scenario inputs.
 | Engine display name | `BMW M52B28` |
 | Scenario ID | `bmw-m52b28-reference-pull-v1` |
 | Engine and scenario schema version | `1` |
-| Provenance schema ID | `engine-sim-offline.m3-bmw-provenance.v1` |
+| Provenance schema ID | `crankwave.m3-bmw-provenance.v1` |
 | Provenance bundle ID | `bmw-m52b28-m3-request-provenance-v1` |
 
 All eight engine method selections are `legacy_low_order_v1`, version 1, with the
@@ -280,7 +280,7 @@ mass-AFR field. They remain explicit rather than being fabricated later:
 | Oil temperature | `363.15 K` | Metadata-only parity default |
 | Crankcase pressure | `101325 Pa abs` | Consumed |
 | Crankcase temperature | `298.15 K` | Consumed |
-| Fuel ID | `gasoline-legacy-engine-sim-v1` | Must match engine profile |
+| Fuel ID | `gasoline-crankwave` | Must match engine profile |
 | Lower heating value | `48.1e6 J/kg` | Consumed |
 | Stoichiometric mass AFR | `(12.5/0.25)*(0.02897/0.100)` = `14.484999999999998` | Derived pseudo-gas metadata; not consumed |
 
@@ -326,7 +326,7 @@ The immutable evidence identities are:
 | `legacy-bmw-m52b28-asset` | `assets/engines/bmw/M52B28.mr` | `9617562a7a5615c2bf84c9ec39cd5ae25c560059` | `2c7746f82e86cc22b0ab243f61e7fb8c155c3abf1084ad7b6f8bfee3d4e875a9` | no assertion |
 | `legacy-engine-sim-objects` | `es/objects/objects.mr` | `9617562a7a5615c2bf84c9ec39cd5ae25c560059` | `f8214983c816f0a2e8d2cf1d733d10ea7adfbdaef94965b9c969c49e35e14dba` | no assertion |
 | `legacy-performer-intake` | `es/part-library/parts/intakes.mr` | `9617562a7a5615c2bf84c9ec39cd5ae25c560059` | `f2331225d54ec56da44b5b658cfd51b859eb77c9bc5700a8dcace7513f5f8b1e` | no assertion |
-| `reference-fixture-manifest` | `reference/fixtures/bmw-m52b28-p18/manifest.json` | repository content | `52d694ba6edc8771b5a4c394d5b62573c22b38e8ba4ef7e2f5bc8c8fb6decc07` | local evaluation only |
+| `reference-fixture-manifest` | `reference/fixtures/bmw-m52b28-p18/manifest.json` | repository content | `91bcbfa577be7895b5e88867181d7a603f296968eea23cc726187e0172e00cde` | local evaluation only |
 | `reference-parity-evidence` | `reference/fixtures/bmw-m52b28-p18/reference-parity.bin` | repository content | `19d351b54c8eb8b509cd72ea03061b01f92722cbfa48d27a2342ca7203ffa94c` | local evaluation only |
 | `reference-component-seed-evidence` | `reference/fixtures/bmw-m52b28-p18/component-seeds.bin` | repository content | `ca6f9b2d56e2f6729401437a741f605069a7eea21524a85b3dce0322ec30468f` | local evaluation only |
 | `engine-sim-mit-notice` | `reference/oracles/bmw-m52b28/engine-sim-MIT.txt` | repository content | `9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15` | permitted |

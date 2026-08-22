@@ -2,7 +2,7 @@
 
 #include <array>
 
-namespace engine_sim_offline::dsp {
+namespace crankwave::dsp {
 
 // Deterministic primitives used by source conditioning and publication.
 inline constexpr double kSourceConditioningPi = 3.14159265359;
@@ -75,4 +75,4 @@ class BackwardDerivative {
 [[nodiscard]] float publish_calibrated_float32(double sample,
                                                double calibration_gain_linear);
 
-} // namespace engine_sim_offline::dsp
+} // namespace crankwave::dsp

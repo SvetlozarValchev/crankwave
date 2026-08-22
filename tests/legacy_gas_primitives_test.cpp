@@ -11,7 +11,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::simulation;
+using namespace crankwave::simulation;
 
 [[nodiscard]] std::uint64_t bits(double value) noexcept {
     return std::bit_cast<std::uint64_t>(value);

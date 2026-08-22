@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "sequoia-3ur-fe-cleanroom-interactive-free-rev-10khz-preview",
   "engine": "sequoia-3ur-fe-cleanroom",
   "fuel": "regular-unleaded-gasoline",

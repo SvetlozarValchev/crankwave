@@ -17,7 +17,7 @@ The artifact contract is fixed:
 | role | `diagnostics.engine-telemetry.v1` |
 | kind | `telemetry` |
 | path | `telemetry/engine-telemetry.v1.ndjson` |
-| schema | `engine-sim-offline.engine-telemetry.ndjson.v1` |
+| schema | `crankwave.engine-telemetry.ndjson.v1` |
 | diagnostic | `true` |
 | required | yes |
 

@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "shovelhead-bank-local-heads-lifecycle-startup-candidate-10khz-lifecycle-preview",
   "engine": "shovelhead-bank-local-heads",
   "fuel": "gasoline-default",

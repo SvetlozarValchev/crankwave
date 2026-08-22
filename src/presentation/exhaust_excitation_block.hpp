@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <concepts>
 #include <cstddef>
@@ -10,12 +10,12 @@
 #include <type_traits>
 #include <utility>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 /**
  * Callback-scoped, non-owning excitation view.
  *
- * Values retain the uncalibrated engine_sim_source_unit. They are neither pressure
+ * Values retain the uncalibrated crankwave_source_unit. They are neither pressure
  * nor microphone samples. Storage is a flat frame-major matrix whose inner route
  * order is exactly `route_ids()`. All referenced ranges must remain alive and
  * immutable until the receiving callback returns. The factory rejects temporary
@@ -43,15 +43,15 @@ class ExhaustExcitationBlockView final {
     [[nodiscard]] static ExhaustExcitationBlockView borrow_for_callback(
         std::uint64_t first_frame_index, contract::RationalRateHz sample_rate,
         RouteIdRange &&route_ids, std::size_t frame_count,
-        ValueRange &&frame_major_values_engine_sim_source_unit,
+        ValueRange &&frame_major_values_crankwave_source_unit,
         FlowRange &&frame_major_absolute_exhaust_valve_mass_flow_kg_s) noexcept {
         return {
             first_frame_index,
             sample_rate,
             {std::ranges::data(route_ids), std::ranges::size(route_ids)},
             frame_count,
-            {std::ranges::data(frame_major_values_engine_sim_source_unit),
-             std::ranges::size(frame_major_values_engine_sim_source_unit)},
+            {std::ranges::data(frame_major_values_crankwave_source_unit),
+             std::ranges::size(frame_major_values_crankwave_source_unit)},
             {std::ranges::data(frame_major_absolute_exhaust_valve_mass_flow_kg_s),
              std::ranges::size(frame_major_absolute_exhaust_valve_mass_flow_kg_s)},
         };
@@ -78,20 +78,20 @@ class ExhaustExcitationBlockView final {
     }
 
     [[nodiscard]] std::span<const double>
-    values_engine_sim_source_unit() const noexcept {
-        return values_engine_sim_source_unit_;
+    values_crankwave_source_unit() const noexcept {
+        return values_crankwave_source_unit_;
     }
 
     [[nodiscard]] std::span<const double>
-    frame_values_engine_sim_source_unit(std::size_t frame_index) const noexcept {
-        return values_engine_sim_source_unit_.subspan(frame_index * route_count(),
+    frame_values_crankwave_source_unit(std::size_t frame_index) const noexcept {
+        return values_crankwave_source_unit_.subspan(frame_index * route_count(),
                                                       route_count());
     }
 
     [[nodiscard]] double
-    value_engine_sim_source_unit(std::size_t frame_index,
+    value_crankwave_source_unit(std::size_t frame_index,
                                  std::size_t route_index) const noexcept {
-        return values_engine_sim_source_unit_[frame_index * route_count() +
+        return values_crankwave_source_unit_[frame_index * route_count() +
                                               route_index];
     }
 
@@ -116,11 +116,11 @@ class ExhaustExcitationBlockView final {
     ExhaustExcitationBlockView(
         std::uint64_t first_frame_index, contract::RationalRateHz sample_rate,
         std::span<const contract::RouteId> route_ids, std::size_t frame_count,
-        std::span<const double> values_engine_sim_source_unit,
+        std::span<const double> values_crankwave_source_unit,
         std::span<const double> absolute_exhaust_valve_mass_flow_kg_s) noexcept
         : first_frame_index_(first_frame_index), sample_rate_(sample_rate),
           route_ids_(route_ids), frame_count_(frame_count),
-          values_engine_sim_source_unit_(values_engine_sim_source_unit),
+          values_crankwave_source_unit_(values_crankwave_source_unit),
           absolute_exhaust_valve_mass_flow_kg_s_(
               absolute_exhaust_valve_mass_flow_kg_s) {}
 
@@ -128,8 +128,8 @@ class ExhaustExcitationBlockView final {
     contract::RationalRateHz sample_rate_{};
     std::span<const contract::RouteId> route_ids_;
     std::size_t frame_count_ = 0;
-    std::span<const double> values_engine_sim_source_unit_;
+    std::span<const double> values_crankwave_source_unit_;
     std::span<const double> absolute_exhaust_valve_mass_flow_kg_s_;
 };
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

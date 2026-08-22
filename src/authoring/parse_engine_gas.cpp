@@ -3,7 +3,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::authoring::detail {
+namespace crankwave::authoring::detail {
 
 void parse_intake(DocumentReader &reader, JsonValue value, std::string_view path,
                   IntakeDefinition &output) {
@@ -169,4 +169,4 @@ void parse_source_route(DocumentReader &reader, JsonValue value, std::string_vie
     }
 }
 
-} // namespace engine_sim_offline::authoring::detail
+} // namespace crankwave::authoring::detail

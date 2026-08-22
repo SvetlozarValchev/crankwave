@@ -1,11 +1,11 @@
 #pragma once
 
 #include "compile/resolved_authoring.hpp"
-#include "engine_sim_offline/authoring/engine_document.hpp"
-#include "engine_sim_offline/compile.hpp"
-#include "engine_sim_offline/contract/engine.hpp"
-#include "engine_sim_offline/contract/presentation.hpp"
-#include "engine_sim_offline/contract/randomness.hpp"
+#include "crankwave/authoring/engine_document.hpp"
+#include "crankwave/compile.hpp"
+#include "crankwave/contract/engine.hpp"
+#include "crankwave/contract/presentation.hpp"
+#include "crankwave/contract/randomness.hpp"
 
 #include <cstddef>
 #include <optional>
@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 
 struct VerifiedEngineAsset {
     AssetKind kind = AssetKind::audio;
@@ -46,4 +46,4 @@ using EngineResolutionResult = CompileResult<ResolvedEnginePackage>;
     const authoring::EnginePackageDocument &document,
     std::span<const AssetPayloadView> assets) noexcept;
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

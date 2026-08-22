@@ -28,7 +28,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 constexpr double kLegacyPi = 3.14159265359;
 constexpr double kLegacyRpmScale = 0.104719755;

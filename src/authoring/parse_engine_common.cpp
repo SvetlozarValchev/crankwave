@@ -4,7 +4,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace engine_sim_offline::authoring::detail {
+namespace crankwave::authoring::detail {
 namespace {
 
 bool parse_quantity_dimension(DocumentReader &reader, JsonValue value,
@@ -223,4 +223,4 @@ void parse_engine_limits(DocumentReader &reader, JsonValue value, std::string_vi
                      subject_value);
 }
 
-} // namespace engine_sim_offline::authoring::detail
+} // namespace crankwave::authoring::detail

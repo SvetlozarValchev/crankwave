@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "harley-evolution-1340-cleanroom-inertial-dyno-800-5000rpm",
   "engine": "harley-evolution-1340-cleanroom",
   "fuel": "regular-unleaded-gasoline",

@@ -69,12 +69,12 @@ function listRegularFiles(root) {
 const args = parseArguments(process.argv.slice(2));
 assert.match(args.release, /^[0-9]+\.[0-9]+\.[0-9]+$/u);
 assert.match(args.revision, /^[0-9a-f]{40}$/u);
-assert.equal(path.basename(args.prefix), `engine-sim-offline-${args.release}`);
+assert.equal(path.basename(args.prefix), `crankwave-${args.release}`);
 
 const archiveBytes = fs.readFileSync(args.archive);
 const archiveSha256 = sha256(archiveBytes);
 assert.equal(fs.readFileSync(args.sidecar, "utf8"), `${archiveSha256}\n`);
-const archiveRoot = `engine-sim-offline-${args.release}`;
+const archiveRoot = `crankwave-${args.release}`;
 const archiveMembers = run("tar", ["-tf", args.archive]).split("\n");
 for (const member of archiveMembers) {
   assert(member === archiveRoot || member.startsWith(`${archiveRoot}/`),
@@ -83,7 +83,7 @@ for (const member of archiveMembers) {
     `archive member traverses: ${member}`);
 }
 
-const resourceRelative = `share/engine-sim-offline/${args.release}`;
+const resourceRelative = `share/crankwave/${args.release}`;
 const resourceRoot = path.join(args.prefix, resourceRelative);
 const releasePath = path.join(resourceRoot, "release.json");
 const releaseBindingPath = `${releasePath}.sha256`;
@@ -92,7 +92,7 @@ const releaseSha256 = sha256(releaseBytes);
 assert.equal(fs.readFileSync(releaseBindingPath, "utf8"), `${releaseSha256}\n`);
 
 const release = JSON.parse(releaseBytes);
-assert.equal(release.schema, "engine-sim-offline/installed-distribution.v2");
+assert.equal(release.schema, "crankwave/installed-distribution.v2");
 assert.equal(release.release_identity, args.release);
 assert.equal(release.classification, "immutable_release");
 assert.equal(release.complete, true);
@@ -113,30 +113,30 @@ assert.deepEqual(release.production_runtime, {
 
 const expectedCommands = [
   "render",
-  "bake-vehicleengine",
-  "pack-vehicleengine",
-  "inspect-vehicleengine",
-  "verify-vehicleengine",
+  "bake-crankwave",
+  "pack-crankwave",
+  "inspect-crankwave",
+  "verify-crankwave",
   "inspect-ir-catalog",
 ];
-assert.equal(release.native_cli.path, "bin/engine-sim-offline");
+assert.equal(release.native_cli.path, "bin/crankwave");
 assert.match(release.native_cli.sha256, /^[0-9a-f]{64}$/u);
 assert.deepEqual(release.native_cli.commands, expectedCommands);
 assert.equal(release.browser_playback.kind, "simulator-free-esm");
 assert.equal(release.browser_playback.resource_directory, `${resourceRelative}/web/runtime`);
 assert.equal(release.browser_playback.entrypoint,
-  `${resourceRelative}/web/runtime/vehicleengine-audio-engine.js`);
+  `${resourceRelative}/web/runtime/crankwave-audio-engine.js`);
 assert.deepEqual(release.telemetry_contract, {
   role: "diagnostics.engine-telemetry.v1",
   kind: "telemetry",
   path: "telemetry/engine-telemetry.v1.ndjson",
-  schema: "engine-sim-offline.engine-telemetry.ndjson.v1",
+  schema: "crankwave.engine-telemetry.ndjson.v1",
   originating_commit: "c8d672b59e3046654ad5f818f31725798aef7ffa",
 });
 
-const expectedWorkflowPath = `${resourceRelative}/contracts/vehicleengine-bake-workflow.v2.json`;
-assert.equal(release.vehicleengine_bake_workflow.path, expectedWorkflowPath);
-assert.match(release.vehicleengine_bake_workflow.sha256, /^[0-9a-f]{64}$/u);
+const expectedWorkflowPath = `${resourceRelative}/contracts/crankwave-bake-workflow.v2.json`;
+assert.equal(release.crankwave_bake_workflow.path, expectedWorkflowPath);
+assert.match(release.crankwave_bake_workflow.sha256, /^[0-9a-f]{64}$/u);
 
 const declaredPaths = new Set();
 let previousPath = "";
@@ -172,7 +172,7 @@ for (const file of expectedFiles) {
 }
 assert.deepEqual(archiveMembers, [...expectedArchiveMembers].sort(),
   "archive contains unbound, missing, duplicated, or noncanonical members");
-const cliRecord = release.files.find(file => file.path === "bin/engine-sim-offline");
+const cliRecord = release.files.find(file => file.path === "bin/crankwave");
 assert(cliRecord, "native CLI is absent from release files");
 assert.equal(cliRecord.sha256, release.native_cli.sha256);
 
@@ -184,8 +184,8 @@ const browserModuleNames = [
   "release.js",
   "renderer-runtime-compatibility.js",
   "responsive-audio-lifecycle-runtime.js",
-  "vehicleengine-audio-engine.js",
-  "vehicleengine-package.js",
+  "crankwave-audio-engine.js",
+  "crankwave-package.js",
   "shared-recorded-starter-runtime.js",
   "state-phase-texture-runtime.js",
   "steady-transient-envelope.js",
@@ -199,14 +199,14 @@ const actualBrowserModules = release.files
 assert.deepEqual(actualBrowserModules, browserModuleNames);
 
 for (const required of [
-  `${resourceRelative}/licenses/ENGINE-SIM-OFFLINE.txt`,
+  `${resourceRelative}/licenses/CRANKWAVE.txt`,
   `${resourceRelative}/licenses/THIRD-PARTY-NOTICES.md`,
   `${resourceRelative}/assets/catalog.v1.json`,
   `${resourceRelative}/assets/ir-authoring-catalog.v1.json`,
   `${resourceRelative}/package.json`,
   `${resourceRelative}/profiles/interactive-preview-v1.json`,
   `${resourceRelative}/schemas/installed-distribution.v2.schema.json`,
-  `${resourceRelative}/schemas/vehicleengine-bake-workflow.v2.schema.json`,
+  `${resourceRelative}/schemas/crankwave-bake-workflow.v2.schema.json`,
   expectedWorkflowPath,
   release.browser_playback.entrypoint,
 ]) {
@@ -214,8 +214,8 @@ for (const required of [
 }
 
 for (const forbidden of [
-  "bin/engine-sim-offline-responsive-bake",
-  "libexec/engine-sim-offline/dump-ir-spectrum",
+  "bin/crankwave-responsive-bake",
+  "libexec/crankwave/dump-ir-spectrum",
 ]) {
   assert(!declaredPaths.has(forbidden), `obsolete production executable was shipped: ${forbidden}`);
 }
@@ -230,7 +230,7 @@ for (const file of declaredPaths) {
 
 const packageMetadata = readJson(path.join(resourceRoot, "package.json"));
 assert.deepEqual(packageMetadata, {
-  name: "engine-sim-offline-installed-resources",
+  name: "crankwave-installed-resources",
   private: true,
   license: "UNLICENSED",
   version: args.release,
@@ -238,13 +238,13 @@ assert.deepEqual(packageMetadata, {
 });
 const releaseModule = await import(pathToFileURL(
   path.join(resourceRoot, "web", "runtime", "release.js")).href);
-assert.equal(releaseModule.ENGINE_SIM_OFFLINE_RELEASE_IDENTITY, args.release);
+assert.equal(releaseModule.CRANKWAVE_RELEASE_IDENTITY, args.release);
 assert.equal(releaseModule.default.releaseIdentity, args.release);
 
 const workflowPath = path.join(args.prefix, expectedWorkflowPath);
-assert.equal(sha256(fs.readFileSync(workflowPath)), release.vehicleengine_bake_workflow.sha256);
+assert.equal(sha256(fs.readFileSync(workflowPath)), release.crankwave_bake_workflow.sha256);
 const workflow = readJson(workflowPath);
-assert.equal(workflow.schema, "engine-sim-offline/vehicleengine-bake-workflow.v2");
+assert.equal(workflow.schema, "crankwave/crankwave-bake-workflow.v2");
 assert.equal(workflow.release_identity, args.release);
 assert.equal(workflow.path_base, "distribution_root");
 assert.deepEqual(workflow.production_runtime, release.production_runtime);
@@ -255,34 +255,34 @@ assert.equal(workflow.responsive_profile_selection.explicit_override, null);
 assert.deepEqual(workflow.telemetry_contract, {
   producer_command: "render",
   ...release.telemetry_contract,
-  included_in_vehicleengine_workflow: false,
+  included_in_crankwave_workflow: false,
 });
 assert.equal(workflow.steps.length, 1);
 assert.equal(workflow.steps[0].ordinal, 1);
-assert.equal(workflow.steps[0].id, "bake_vehicleengine");
-assert.equal(workflow.steps[0].executable, "bin/engine-sim-offline");
+assert.equal(workflow.steps[0].id, "bake_crankwave");
+assert.equal(workflow.steps[0].executable, "bin/crankwave");
 assert.deepEqual(workflow.steps[0].arguments, [
-  "bake-vehicleengine",
+  "bake-crankwave",
   "--engine",
   "{engine_json}",
   "--output",
-  "{new_vehicleengine_file}",
+  "{new_crankwave_file}",
   "--deadline-unix-ms",
   "{deadline_unix_ms}",
   "--result-format",
   "json",
 ]);
-assert.equal(workflow.steps[0].required_output, "{new_vehicleengine_file}");
+assert.equal(workflow.steps[0].required_output, "{new_crankwave_file}");
 assert.deepEqual(workflow.steps[0].required_stdout_record, {
-  schema: "engine-sim-offline.cli-result.v1",
+  schema: "crankwave.cli-result.v1",
   release_identity: args.release,
-  command: "bake-vehicleengine",
+  command: "bake-crankwave",
   ok: true,
   code: "success",
   exit_code: 0,
 });
 assert.deepEqual(workflow.steps[0].required_result_fields, {
-  output_file: "{new_vehicleengine_file}",
+  output_file: "{new_crankwave_file}",
   verified: true,
 });
 assert.deepEqual(workflow.success, {
@@ -290,8 +290,8 @@ assert.deepEqual(workflow.success, {
   publishable_after_step: 1,
 });
 
-const cli = path.join(args.prefix, "bin", "engine-sim-offline");
-assert.equal(run(cli, ["--version"]), `engine-sim-offline ${args.release}`);
+const cli = path.join(args.prefix, "bin", "crankwave");
+assert.equal(run(cli, ["--version"]), `crankwave ${args.release}`);
 const catalogResult = JSON.parse(run(cli, ["inspect-ir-catalog", "--result-format", "json"]));
 assert.equal(catalogResult.ok, true);
 assert.equal(catalogResult.release_identity, args.release);
@@ -308,7 +308,7 @@ for (const entry of catalogResult.result.catalog.entries) {
 }
 
 process.stdout.write(`${JSON.stringify({
-  schema: "engine-sim-offline/release-verification.v2",
+  schema: "crankwave/release-verification.v2",
   release_identity: args.release,
   git_commit: args.revision,
   archive_sha256: archiveSha256,

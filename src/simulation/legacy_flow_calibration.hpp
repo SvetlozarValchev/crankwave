@@ -1,9 +1,9 @@
 #pragma once
 
-#include "engine_sim_offline/contract/parity_model.hpp"
+#include "crankwave/contract/parity_model.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 // Converts the authored standard-CFM number used by the legacy flow-bench
 // calibration into the matching fixed-air mass-flow rate. Keep the operation order
@@ -30,4 +30,4 @@ legacy_standard_cfm_mass_flow_kg_s(double source_rating_cfm) noexcept {
     contract::LegacyRestrictionCalibration calibration,
     double source_rating) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

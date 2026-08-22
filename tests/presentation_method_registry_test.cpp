@@ -12,7 +12,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -80,28 +80,28 @@ struct MethodCase {
             "causal-kaiser-sinc-257tap-4096phase-10000-or-20000-to-192000-"
             "binary64-v4",
             4,
-            "59bf6b72dcc1526f61f4a4cc504f647ace15532c0e21273d9957190b87e7dc3c",
+            "e580c0788f9bbb80cc9c534f70f3bc83525cccffb9c919ad6697b460c000fe3e",
             presentation::causal_reconstruction_method_descriptor,
             presentation::causal_reconstruction_method_identity,
         },
         {
             "route-jitter-dc-derivative-flow-coupled-air-noise-binary64-v3",
             3,
-            "0cac6f86b2577e083452eb1c97962af0131ebc4dfd5aa03ce175a29d8d3cd3ee",
+            "4914a466d9aecf5853d8e13711f31c581df3cc5f788cfa4e09eeb6782c451cf3",
             presentation::route_conditioning_method_descriptor,
             presentation::route_conditioning_method_identity,
         },
         {
             "static-ir-blackman-sinc-24tap-4096phase-44100-to-192000-binary64-v1",
             1,
-            "f006bfcad24e587e3aa6edd06f860ccdc8b22ad567c7f3c717a9e9b469b5144a",
+            "d82ee19e6c06cfd462659ed72c5f8dd24a38b58994f4b0a6d70b7523b469555c",
             presentation::static_ir_conversion_method_descriptor,
             presentation::static_ir_conversion_method_identity,
         },
         {
             "fixed-causal-overlap-save-radix2-dit-fft-65536-binary64-v1",
             1,
-            "438893081f95e279aa6c472baaa880f88ec82c9832156397298bd7df086977dd",
+            "e2b6e0c113a0d7ba91170cc3fcb76ab43e229b14059bb48762554a139931bfa4",
             presentation::fixed_overlap_save_convolution_method_descriptor,
             presentation::fixed_overlap_save_convolution_method_identity,
         },
@@ -109,7 +109,7 @@ struct MethodCase {
             "exhaust-route-wet-selection-float32-wave-publication-10000-or-"
             "20000-to-192000-20ms-clock-v7",
             7,
-            "0c50c422892a9761dd3b986f648e4536c9eaabf91c7531c77b28cccd631a661c",
+            "4a78ba3b1c6943d64c3ca2c3864d0ed5c290011c5c6304b1274927338b46889a",
             presentation::route_stem_publication_method_descriptor,
             presentation::route_stem_publication_method_identity,
         },
@@ -117,7 +117,7 @@ struct MethodCase {
             "ordered-n-route-rate-adjusted-leveler-tanh-quarter-sine-pcm24-wave-"
             "master-v4",
             4,
-            "5b7f919e9635cc9b1a18dade2e7de29084c04f7dd53951861902f42027fb5afd",
+            "7e326ea253a7b85a6fc361ab88e35eb68b5593fcae7e8944579337f056697652",
             presentation::ordered_route_audition_method_descriptor,
             presentation::ordered_route_audition_method_identity,
         },

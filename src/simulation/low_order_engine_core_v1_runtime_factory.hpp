@@ -1,13 +1,13 @@
 #pragma once
 
-#include "engine_sim_offline/contract/randomness.hpp"
+#include "crankwave/contract/randomness.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
 #include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <variant>
 
-namespace engine_sim_offline::simulation::detail {
+namespace crankwave::simulation::detail {
 
 // Private construction seam for the composite runtime and focused leaf tests.
 // Production code has no standalone mechanics or gas compiler entry point.
@@ -49,4 +49,4 @@ struct LowOrderEngineCoreV1RuntimeFactory {
         bool has_kinematic_schedule);
 };
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace crankwave::simulation::detail

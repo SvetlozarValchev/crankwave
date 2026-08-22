@@ -2,7 +2,7 @@
 
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/cycle_accounting_method_registry.hpp"
-#include "simulation/engine_sim_v1_transient_friction.hpp"
+#include "simulation/crankwave_transient_friction.hpp"
 #include "simulation/free_engine_method_registry.hpp"
 #include "simulation/free_vehicle_method_registry.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
@@ -17,7 +17,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 using contract::ContractIssueCode;
@@ -185,12 +185,12 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
                   "sampling");
 
     const auto crank_friction_calculation =
-        calculate_engine_sim_v1_positive_speed_crank_friction(
+        calculate_crankwave_positive_speed_crank_friction(
             {(direct_plan != nullptr ? direct_plan->rigid_crank_group
                                      : radial_plan->rigid_crank_group)
                  .running_friction_torque_magnitude_nm});
     const auto *crank_friction =
-        std::get_if<EngineSimV1PositiveSpeedCrankFriction>(&crank_friction_calculation);
+        std::get_if<CrankwavePositiveSpeedCrankFriction>(&crank_friction_calculation);
     require(report, crank_friction != nullptr, ContractIssueCode::invalid_value,
             "mechanism_plan.rigid_crank_group."
             "running_friction_torque_magnitude_nm",
@@ -444,7 +444,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
                           scenario.initial_thermal_state.gas_temperature_k.value,
                           LegacyGasMixture{0.0, 1.0, 0.0}))
                     : 0.0;
-            const EngineSimV1PistonWallCylinderPlan friction_plan{
+            const CrankwavePistonWallCylinderPlan friction_plan{
                 model.piston_area_m2,
                 model.crank_radius_m,
                 model.connecting_rod_length_m,
@@ -454,7 +454,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
                 planned.connecting_rod_inertia_kg_m2,
                 scenario.crankcase.pressure_pa_abs.value,
             };
-            const auto initial_stage = stage_engine_sim_v1_piston_wall_friction({
+            const auto initial_stage = stage_crankwave_piston_wall_friction({
                 friction_plan,
                 legacy_wrap_2pi(initial_theta_rad - model.geometric_tdc_rad),
                 initial_engine_speed_rpm * kLegacyRpmScale,
@@ -468,7 +468,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
                     "dynamic-crank piston-wall cylinder chamber is absent from the "
                     "captured gas transaction");
             require(report,
-                    std::holds_alternative<EngineSimV1PistonWallFrictionStage>(
+                    std::holds_alternative<CrankwavePistonWallFrictionStage>(
                         initial_stage),
                     ContractIssueCode::invalid_value,
                     "engine.physics_profile.mechanism.cylinders[" +
@@ -476,7 +476,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
                     "dynamic-crank piston-wall source law rejected the resolved "
                     "centered-slider mechanism");
             if (chamber_gas_index.has_value() &&
-                std::holds_alternative<EngineSimV1PistonWallFrictionStage>(
+                std::holds_alternative<CrankwavePistonWallFrictionStage>(
                     initial_stage)) {
                 configuration_inertia_plan.cylinders.push_back({
                     model.geometric_tdc_rad,
@@ -534,7 +534,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         const auto piston_wall_cylinder_count = piston_wall_cylinders.size();
         mechanism_runtime.emplace(LowOrderDynamicCrankDirectCenteredMechanismRuntime{
             std::move(configuration_inertia_plan),
-            std::vector<EngineSimV1PistonWallFrictionStage>(piston_wall_cylinder_count),
+            std::vector<CrankwavePistonWallFrictionStage>(piston_wall_cylinder_count),
             std::vector<double>(piston_wall_cylinder_count),
             std::vector<double>(piston_wall_cylinder_count),
             initial_engine_speed_rpm * kLegacyRpmScale,
@@ -920,4 +920,4 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

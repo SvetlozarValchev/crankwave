@@ -1,7 +1,7 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/common.hpp"
+#include "crankwave/contract/scenario.hpp"
 #include "simulation/four_stroke_cycle_integrator.hpp"
 
 #include <cstddef>
@@ -13,7 +13,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 [[nodiscard]] std::string_view
 fixed_horizon_cycle_sampling_method_descriptor() noexcept;
@@ -259,4 +259,4 @@ using FixedHorizonCycleSamplerCompileResult =
 [[nodiscard]] FixedHorizonCycleSamplerCompileResult
 compile_fixed_horizon_cycle_sampler(FixedHorizonCycleSamplerPlan plan);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

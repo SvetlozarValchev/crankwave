@@ -1,7 +1,7 @@
 const ZERO_RAMP_FRAMES = 32;
 const RECOVERY_RAMP_FRAMES = 32;
 
-class EngineSimOfflineRingOutput extends AudioWorkletProcessor {
+class CrankwaveRingOutput extends AudioWorkletProcessor {
   constructor(options) {
     super();
     const config = options.processorOptions;
@@ -199,4 +199,4 @@ class EngineSimOfflineRingOutput extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor("eso-ring-output", EngineSimOfflineRingOutput);
+registerProcessor("crankwave-ring-output", CrankwaveRingOutput);

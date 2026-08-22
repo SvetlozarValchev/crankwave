@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/provenance.hpp"
+#include "crankwave/contract/provenance.hpp"
 
 #include "sha256_stream.hpp"
 
@@ -11,7 +11,7 @@
 #include <string>
 #include <string_view>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 namespace {
 
 class DigestWriter {
@@ -139,4 +139,4 @@ Sha256Digest canonical_provenance_ledger_digest(const ProvenanceLedger &ledger,
     return writer.finish();
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

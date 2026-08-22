@@ -4,7 +4,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::cli {
+namespace crankwave::cli {
 namespace {
 
 [[nodiscard]] std::string bytes_to_string(
@@ -111,4 +111,4 @@ NativeAtlasBakeInputResult load_native_atlas_bake_input(
     }
 }
 
-} // namespace engine_sim_offline::cli
+} // namespace crankwave::cli

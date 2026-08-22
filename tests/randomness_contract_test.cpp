@@ -3,21 +3,22 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <iostream>
 #include <optional>
 #include <string_view>
 
-namespace engine_sim_offline::contract::test {
+namespace crankwave::contract::test {
 namespace {
 
 constexpr Sha256Digest kExpectedPcg32MethodConfiguration{{
-    0xa4, 0x83, 0x83, 0xd2, 0x71, 0x6a, 0x05, 0x9b, 0x0b, 0x60, 0xaa,
-    0xbf, 0x4c, 0x6f, 0xeb, 0xb0, 0xa8, 0x1e, 0xdb, 0xad, 0x62, 0x2d,
-    0xa4, 0x63, 0x48, 0x23, 0xbf, 0x22, 0x42, 0x1e, 0xaf, 0x0c,
+    0xe9, 0x86, 0xac, 0x47, 0x97, 0x1f, 0xa1, 0xd6, 0xab, 0x27, 0xf8,
+    0xe9, 0x5f, 0x86, 0x2a, 0x29, 0x3e, 0x54, 0xec, 0xad, 0xfb, 0xe0,
+    0x09, 0xb1, 0x74, 0xe8, 0x9f, 0x5b, 0x90, 0x57, 0x5d, 0x70,
 }};
 constexpr Sha256Digest kExpectedDerivationMethodConfiguration{{
-    0x0e, 0x86, 0xea, 0x38, 0xfb, 0x2e, 0x68, 0x1b, 0xb6, 0x46, 0x3b,
-    0x39, 0x16, 0xc6, 0xad, 0x30, 0x53, 0x6f, 0x6a, 0xf0, 0x5c, 0xb0,
-    0xbe, 0x1b, 0x00, 0xd3, 0xca, 0xcb, 0x76, 0x35, 0x93, 0xb4,
+    0x31, 0x3c, 0x5e, 0xaf, 0xaf, 0xae, 0x9b, 0x65, 0x2d, 0x01, 0xc2,
+    0x14, 0x7c, 0x31, 0xb3, 0x65, 0xfc, 0x4e, 0x51, 0xf2, 0x8e, 0xe6,
+    0xb3, 0x5c, 0x7e, 0x43, 0x54, 0x49, 0xed, 0x0d, 0x79, 0xf4,
 }};
 
 [[nodiscard]] bool has_issue(const ValidationReport &report, ContractIssueCode code,
@@ -60,6 +61,19 @@ void run_randomness_contract_tests() {
     expect(policy.generator.value == pcg32_generator_method_identity() &&
                policy.derivation.value == component_seed_derivation_method_identity(),
            "fixture randomness policy did not use the admitted exact methods");
+    if (policy.generator.value.configuration_sha256 !=
+            kExpectedPcg32MethodConfiguration ||
+        policy.derivation.value.configuration_sha256 !=
+            kExpectedDerivationMethodConfiguration) {
+        constexpr std::string_view digits = "0123456789abcdef";
+        for (const auto &value : {policy.generator.value.configuration_sha256,
+                                  policy.derivation.value.configuration_sha256}) {
+            for (const auto byte : value.bytes) {
+                std::cerr << digits[byte >> 4U] << digits[byte & UINT8_C(0x0f)];
+            }
+            std::cerr << '\n';
+        }
+    }
     expect(policy.generator.value.configuration_sha256 ==
                    kExpectedPcg32MethodConfiguration &&
                policy.derivation.value.configuration_sha256 ==
@@ -119,11 +133,11 @@ void run_randomness_contract_tests() {
         content.randomness.component_seeds ==
             std::vector<ComponentSeed>{
                 {RandomComponentKind::combustion, CylinderId{1}, std::nullopt,
-                 UINT64_C(0x6ba3d060370e05fa), UINT64_C(0x3e13b1e68ef2f790)},
+                 UINT64_C(0x638e648507353211), UINT64_C(0x09d037c702feb066)},
                 {RandomComponentKind::presentation_air_noise, std::nullopt, RouteId{1},
-                 UINT64_C(0x75bc579d4c90a640), UINT64_C(0x7e4ef6200e7c70c1)},
+                 UINT64_C(0x0d172bd0b6609980), UINT64_C(0x40bb189b0ce745fe)},
                 {RandomComponentKind::presentation_jitter, std::nullopt, RouteId{1},
-                 UINT64_C(0x9e2b91cd0dc51cfc), UINT64_C(0x1ae6ee3019603abb)},
+                 UINT64_C(0xa7cd663a89695273), UINT64_C(0x0794616d5c2a0127)},
             },
         "canonical provisioned component inventory, order, or seed values changed");
 
@@ -154,25 +168,25 @@ void run_randomness_contract_tests() {
         multi_owner_plan.component_seeds ==
             std::vector<ComponentSeed>{
                 {RandomComponentKind::combustion, CylinderId{1}, std::nullopt,
-                 UINT64_C(0x6ba3d060370e05fa), UINT64_C(0x3e13b1e68ef2f790)},
+                 UINT64_C(0x638e648507353211), UINT64_C(0x09d037c702feb066)},
                 {RandomComponentKind::combustion, CylinderId{2}, std::nullopt,
-                 UINT64_C(0xb1ab9b6c6217bdf3), UINT64_C(0x7681d4f9a6c78e3f)},
+                 UINT64_C(0x8378fa334d97535e), UINT64_C(0x45f2daf9901678c3)},
                 {RandomComponentKind::combustion, CylinderId{3}, std::nullopt,
-                 UINT64_C(0x0c2447917cd77f40), UINT64_C(0x4c09e08d851104f5)},
+                 UINT64_C(0xb7f998bfc604914e), UINT64_C(0x0ca67d0274c3a0a2)},
                 {RandomComponentKind::combustion, CylinderId{4}, std::nullopt,
-                 UINT64_C(0xfc83080b6c8b1a98), UINT64_C(0x686f68f85fd7d169)},
+                 UINT64_C(0x0d3eccc412acfd53), UINT64_C(0x1213a1f55f64b73e)},
                 {RandomComponentKind::combustion, CylinderId{5}, std::nullopt,
-                 UINT64_C(0x1f0c63f1d677237b), UINT64_C(0x3507d87731683125)},
+                 UINT64_C(0x74774e667b6044c3), UINT64_C(0x67c5e156e65edc4e)},
                 {RandomComponentKind::combustion, CylinderId{6}, std::nullopt,
-                 UINT64_C(0xad811f42fb6dafa3), UINT64_C(0x50900fae5afa96cf)},
+                 UINT64_C(0x8ee0a57a30066164), UINT64_C(0x798f3346d42f6acd)},
                 {RandomComponentKind::presentation_air_noise, std::nullopt, RouteId{1},
-                 UINT64_C(0x75bc579d4c90a640), UINT64_C(0x7e4ef6200e7c70c1)},
+                 UINT64_C(0x0d172bd0b6609980), UINT64_C(0x40bb189b0ce745fe)},
                 {RandomComponentKind::presentation_air_noise, std::nullopt, RouteId{2},
-                 UINT64_C(0x208e57f73615bd95), UINT64_C(0x786d92e584c43b78)},
+                 UINT64_C(0xfe16c9e3ea44a31a), UINT64_C(0x311ac0d4f16c0d57)},
                 {RandomComponentKind::presentation_jitter, std::nullopt, RouteId{1},
-                 UINT64_C(0x9e2b91cd0dc51cfc), UINT64_C(0x1ae6ee3019603abb)},
+                 UINT64_C(0xa7cd663a89695273), UINT64_C(0x0794616d5c2a0127)},
                 {RandomComponentKind::presentation_jitter, std::nullopt, RouteId{2},
-                 UINT64_C(0xdb7540a0c8b54d74), UINT64_C(0x41ddcdeb066bf214)},
+                 UINT64_C(0x0fcabae05f0d4195), UINT64_C(0x26228b61f534bb77)},
             },
         "multi-owner canonical plan order or BMW seed mapping changed");
     expect(std::ranges::none_of(multi_owner_plan.component_seeds,
@@ -261,4 +275,4 @@ void run_randomness_contract_tests() {
            "manifest accepted a fabricated combustion initialization");
 }
 
-} // namespace engine_sim_offline::contract::test
+} // namespace crankwave::contract::test

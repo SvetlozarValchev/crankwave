@@ -5,7 +5,7 @@
 #include <limits>
 #include <numbers>
 
-namespace engine_sim_offline::session {
+namespace crankwave::session {
 namespace {
 
 constexpr double kFourStrokeCycleRadians = 4.0 * std::numbers::pi_v<double>;
@@ -494,4 +494,4 @@ exact_cycle_evidence_error_message(const ExactCycleEvidenceErrorCode code) noexc
     return "exact cycle evidence failed for an unknown reason";
 }
 
-} // namespace engine_sim_offline::session
+} // namespace crankwave::session

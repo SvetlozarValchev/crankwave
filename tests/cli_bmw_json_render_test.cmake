@@ -69,9 +69,9 @@ if(NOT EXISTS "${audition_wave}")
 endif()
 file(SIZE "${audition_wave}" audition_wave_size)
 file(SHA256 "${audition_wave}" audition_wave_sha256)
-if(NOT audition_wave_size EQUAL 8640598 OR
+if(NOT audition_wave_size EQUAL 8640588 OR
    NOT audition_wave_sha256 STREQUAL
-       "58ec677b0565fad0e9a3b9eedba9590d5af9891c647185ebdb9c98f7e469cde7")
+       "87204d323d1a44016a0cdae94c61a52420f257f0da9d9033a3a788f5169723d0")
     message(FATAL_ERROR
         "CLI audition WAV identity changed\n"
         "size: ${audition_wave_size}\nsha256: ${audition_wave_sha256}")
@@ -91,7 +91,7 @@ endif()
 
 file(READ "${manifest}" manifest_text)
 foreach(required_manifest_fragment
-        "\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v10\""
+        "\"wire_schema\":\"crankwave.render-manifest.simulation.v10\""
         "\"schema_version\":10"
         "\"engine_id\":{\"value\":\"bmw-m52b28\""
         "\"scenario_id\":\"bmw-m52b28-inertial-dyno-1500-6500rpm\""

@@ -10,7 +10,7 @@
 
 namespace {
 
-using engine_sim_offline::presentation::MasterDynamics;
+using crankwave::presentation::MasterDynamics;
 
 void expect(bool condition, const char *message) {
     if (!condition) {

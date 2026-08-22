@@ -21,7 +21,7 @@ test("versioned resampler produces the exact duration at common device rates", (
     });
     assert.equal(
       resampler.id,
-      "engine-sim-offline/windowed-sinc-129-phase2048-v1",
+      "crankwave/windowed-sinc-129-phase2048-v1",
     );
     assert.equal(resampler.id, DEVICE_RESAMPLER_ID);
     const input = new Float32Array(19_200).fill(1);

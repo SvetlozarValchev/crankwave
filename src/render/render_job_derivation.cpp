@@ -1,6 +1,6 @@
 #include "render/render_job_derivation.hpp"
 
-#include "engine_sim_offline/artifacts/engine_telemetry_ndjson_encoder.hpp"
+#include "crankwave/artifacts/engine_telemetry_ndjson_encoder.hpp"
 
 #include <algorithm>
 #include <array>
@@ -11,7 +11,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace engine_sim_offline::render_detail {
+namespace crankwave::render_detail {
 namespace {
 
 constexpr std::size_t kMaximumPortableRelativePathBytes = 240;
@@ -160,7 +160,7 @@ derive_audition_metadata(const contract::ResolvedRenderInputs &inputs,
     metadata.title =
         "engine=" + engine.engine_id.value + ";scenario=" + scenario.scenario_id;
     metadata.software =
-        "engine-sim-offline;method=" + method.id +
+        "crankwave;method=" + method.id +
         ";version=" + std::to_string(method.version) +
         ";configuration_sha256=" + digest_hex(method.configuration_sha256);
 
@@ -337,4 +337,4 @@ RenderJobProjectionResult derive_render_job_projection(
     return projection;
 }
 
-} // namespace engine_sim_offline::render_detail
+} // namespace crankwave::render_detail

@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "sequoia-3ur-fe-cleanroom-inertial-dyno-650-6000rpm",
   "engine": "sequoia-3ur-fe-cleanroom",
   "fuel": "regular-unleaded-gasoline",

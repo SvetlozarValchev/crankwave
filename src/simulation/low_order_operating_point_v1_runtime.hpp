@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/result.hpp"
+#include "crankwave/contract/result.hpp"
 #include "simulation/fixed_horizon_cycle_sampling.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
@@ -14,7 +14,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct LowOrderOperatingPointV1Step {
     contract::TorqueTelemetry capture_torque;
@@ -137,4 +137,4 @@ compile_low_order_operating_point_v1_runtime(
     const LowOrderCapturePlan &capture_plan,
     const contract::Sha256Digest &simulation_request_identity_v7_sha256);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

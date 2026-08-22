@@ -1,14 +1,13 @@
 # Third-party notices
 
-Engine Sim WASM is proprietary software. The following third-party material is
-distributed under its own license and is not relicensed by the Engine Sim WASM
-proprietary license.
+Crankwave is distributed under the MIT License. The following third-party
+material retains its own provenance and license terms.
 
 ## engine-sim sound-library impulse responses and source-informed material
 
 Original project: `https://github.com/ange-yaghi/engine-sim`
 
-Exact cataloged source tree: `https://github.com/SvetlozarValchev/engine-sim`
+Exact cataloged source tree: `https://github.com/SvetlozarValchev/crankwave`
 at the commit recorded by the release-bound IR authoring catalog.
 
 The imported impulse responses are exact bytes from the upstream repository tree
@@ -38,3 +37,17 @@ The exact source-tree commit, file path, Git blob identity, content SHA-256, and
 license SHA-256 for each imported impulse response are retained in
 `assets/builtin/ir-authoring-catalog.v1.json`. The installed release manifest binds
 that catalog by its exact path, byte count, and SHA-256.
+
+## Car not starting.wav
+
+Creator: Ika.Komura
+
+Source: `https://freesound.org/people/Ika.Komura/sounds/520773/`
+
+Download page: `https://pixabay.com/sound-effects/city-car-not-starting-40006/`
+
+License: CC0 1.0 Universal
+`https://creativecommons.org/publicdomain/zero/1.0/`
+
+The shared recorded-starter runtime asset is a cropped, equalized,
+level-matched, and resampled derivative of this public-domain recording.

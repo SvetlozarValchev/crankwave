@@ -2,10 +2,10 @@
 
 #include "dsp/source_conditioning_primitives.hpp"
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 // Stateful mono audition master. The input is the uncalibrated Float32 serial
-// sum in engine-sim source units. Publication remains a separate, untouched path.
+// sum in Crankwave source units. Publication remains a separate, untouched path.
 class MasterDynamics final {
   public:
     static constexpr double kSampleRateHz = dsp::kConditionedSourceRateHz;
@@ -36,4 +36,4 @@ class MasterDynamics final {
     float gain_linear_ = kInitialGainLinear;
 };
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

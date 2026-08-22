@@ -6,7 +6,7 @@
 #include <numbers>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 constexpr double kFourStrokeCycleRadians = 4.0 * std::numbers::pi_v<double>;
@@ -565,4 +565,4 @@ compile_operating_cycle_accountant(OperatingCycleAccountingPlan plan) {
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

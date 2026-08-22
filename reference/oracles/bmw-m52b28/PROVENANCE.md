@@ -108,7 +108,7 @@ Relevant package identities:
 The historical external package was treated as read-only evidence under:
 
 ```text
-/home/cbethax/depot/dev/engine-sim-offline-failed/engine-sim/workspace/listening/
+/home/cbethax/depot/dev/crankwave-failed/engine-sim/workspace/listening/
   bmw-m52b28-fifth-equivalent-pull-package/
 ```
 

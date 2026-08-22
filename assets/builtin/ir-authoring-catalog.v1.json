@@ -1,6 +1,6 @@
 {
-  "schema": "engine-sim-offline/ir-authoring-catalog.v1",
-  "catalog_id": "engine-sim-offline-built-in-ir-library",
+  "schema": "crankwave/ir-authoring-catalog.v1",
+  "catalog_id": "crankwave-built-in-ir-library",
   "catalog_revision": 1,
   "release_identity": "1.2.0",
   "entry_count": 73,
@@ -15,14 +15,14 @@
     "arbitrary_path_selection": false
   },
   "source_collection": {
-    "repository": "https://github.com/SvetlozarValchev/engine-sim",
+    "repository": "https://github.com/SvetlozarValchev/crankwave",
     "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
     "asset_introduction_commit": "24718fa29b7ec29f733456d546b9f329e68f55ec",
     "repository_relative_root": "assets/sound-library",
     "import": "exact-byte-copy-content-addressed-by-sha256"
   },
   "measurement_method": {
-    "id": "engine-sim-offline-ir-objective-analysis-v1",
+    "id": "crankwave-ir-objective-analysis-v1",
     "decoded_domain": "mono-normalized-pcm-without-level-normalization",
     "meaningful_support": "last-frame-strictly-above-100-over-32768-amplitude",
     "decay": "reverse-integrated-squared-amplitude-from-absolute-peak",
@@ -46,7 +46,7 @@
     }
   },
   "semantic_method": {
-    "id": "engine-sim-offline-ir-measurement-proxy-semantics-v1",
+    "id": "crankwave-ir-measurement-proxy-semantics-v1",
     "objective_proxy_warning": "bright-dark-sharp-smooth-open-muffled-decay-tags-are-relative-measurement-proxies-not-listening-claims",
     "curated_review_method": "level-matched-fixed-dry-engine-probe-v1",
     "curated_review_status": "incomplete-human-audition-required",
@@ -76,7 +76,7 @@
         "byte_count": 58142
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/engine_01.wav",
         "source_file_sha256": "b52354b8d9595fea1b2a438e34609bbf4895d7a368d09ec79ea1c6c6bf13ca43",
@@ -211,7 +211,7 @@
         "byte_count": 39980
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/engine_02.wav",
         "source_file_sha256": "b9b7e167a64ab25d0949ecec584c999c7e9f19b4fba9c9717231d815ec83c4c0",
@@ -349,7 +349,7 @@
         "byte_count": 38468
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/engine_03.wav",
         "source_file_sha256": "d00ffc95241afba2ded31216d924c0331838435e58d0f01a9c607ce7aa883b9a",
@@ -487,7 +487,7 @@
         "byte_count": 38468
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/engine_04.wav",
         "source_file_sha256": "b98d5e6fc188ddc51313b9e3f867a3f4e1511a910e792cffe3a70f63fd8cae92",
@@ -623,7 +623,7 @@
         "byte_count": 55100
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine.wav",
         "source_file_sha256": "7910907c1d2dbd3c4a52eb428cb89a40ab3655d1e0e62003a308bd41f42dbb74",
@@ -762,7 +762,7 @@
         "byte_count": 40012
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_01_16.wav",
         "source_file_sha256": "2db8ab43b2b33ffa3ce1443b3ec2acc129b79a0528efbc56736105ea870d94f3",
@@ -897,7 +897,7 @@
         "byte_count": 22726
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_02_16.wav",
         "source_file_sha256": "9e8d5ee37927bf1e2534fb6add0ecd1c71fd1f4944aa67ed23c6cc06946878fd",
@@ -1032,7 +1032,7 @@
         "byte_count": 40012
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_03_16.wav",
         "source_file_sha256": "84e7e982d51d39a0520e61c3dd568858b12ab77596c2ae6d8fbcc6723ebfff40",
@@ -1169,7 +1169,7 @@
         "byte_count": 28528
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_04_16.wav",
         "source_file_sha256": "9e17701c6b2d8463fa2010b7fcfcbea9e9043f2f569a0fe580e2e7ddbfaa2932",
@@ -1306,7 +1306,7 @@
         "byte_count": 28528
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_05_16.wav",
         "source_file_sha256": "bb52139c125bcd3a703fab9d88ea39cce1478f5fc6edfc2fddfa95c326abd9c5",
@@ -1445,7 +1445,7 @@
         "byte_count": 44912
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_06_16.wav",
         "source_file_sha256": "8645784ef3d879f4dbf4e7a88de3859df396bc7267c25e70cd25a351da393563",
@@ -1582,7 +1582,7 @@
         "byte_count": 44912
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_07_16.wav",
         "source_file_sha256": "81a8a4b583737193cdab3a5bee3154197d66d0b7743acd69756b888f42e170ed",
@@ -1718,7 +1718,7 @@
         "byte_count": 44912
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_08_16.wav",
         "source_file_sha256": "009277a38570804cecb15effcb3177a929f72718dbea9770930044d066e15a14",
@@ -1854,7 +1854,7 @@
         "byte_count": 28528
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_09_16.wav",
         "source_file_sha256": "9d888673c42799fee59ba53cd76679b6a159d2524c987040410e91849784ec2b",
@@ -1991,7 +1991,7 @@
         "byte_count": 26970
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_10_16.wav",
         "source_file_sha256": "e6447382260ee5dd43462d65e40dcc8a76343707d58df28c436d58e2e0a4a4e0",
@@ -2126,7 +2126,7 @@
         "byte_count": 27854
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_11_16.wav",
         "source_file_sha256": "b67aa191f11028dae47f14357bbb9dc571fd4896fe2636dda8eddf0da48323d0",
@@ -2259,7 +2259,7 @@
         "byte_count": 40874
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_12_16.wav",
         "source_file_sha256": "2fe07296ae3479cb8b04629f88d8f5b5dfe005893de60f87f67ef76c0e646405",
@@ -2398,7 +2398,7 @@
         "byte_count": 57258
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_13_16.wav",
         "source_file_sha256": "5ab4629e17c384b028ab2714f1d8eca275c7280ba1a78a8ad5b41eb01f792b5e",
@@ -2535,7 +2535,7 @@
         "byte_count": 31626
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_14_eq_adjusted_16.wav",
         "source_file_sha256": "dddbf4c01d0584c0a3660266add4b7517b32a2d688c2f890ff448b3909447553",
@@ -2672,7 +2672,7 @@
         "byte_count": 38748
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_15_eq_adjusted_16.wav",
         "source_file_sha256": "06975e66f7f0ac71b53709510215b1cbaecd206ac81b0bc6eecf063423342281",
@@ -2811,7 +2811,7 @@
         "byte_count": 40012
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_16.wav",
         "source_file_sha256": "c28bf85293c5b98e833aa90f28280b6667144c73c76b126a8912af9d00f40fd6",
@@ -2950,7 +2950,7 @@
         "byte_count": 58142
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_16_eq_adjusted_16.wav",
         "source_file_sha256": "44ce5af25a55efdf996c7e5026271f80949625b95fbdc1c4b83863b6e991b152",
@@ -3086,7 +3086,7 @@
         "byte_count": 38054
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_17.wav",
         "source_file_sha256": "67c7f03081f33d0dd4842014c4a97c166bfe6873a5cdb6d941de4e930349b61b",
@@ -3222,7 +3222,7 @@
         "byte_count": 39384
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/archive/test_engine_18.wav",
         "source_file_sha256": "af8a747634b52c60507e88f972568a0832bdbcce9d47281e09f2c276b508e1d4",
@@ -3359,7 +3359,7 @@
         "byte_count": 134668
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_01.wav",
         "source_file_sha256": "ba87e1783519860c1d41555d45542f332bcbf395afc2035ceab8caa0043e3b71",
@@ -3498,7 +3498,7 @@
         "byte_count": 100902
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_02.wav",
         "source_file_sha256": "c7e0b765493a4482b8df345838912dfdc1579c4cc031439bd87ab4ba7a199f32",
@@ -3637,7 +3637,7 @@
         "byte_count": 100902
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_03.wav",
         "source_file_sha256": "2e9581619c467138248001e950bbe9f38b71dd78f9184861bfecb14e93e81522",
@@ -3776,7 +3776,7 @@
         "byte_count": 100902
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_04.wav",
         "source_file_sha256": "7aa3fe4f370fcc39247f4dd446c94e93a1cb196baf4d43fa3f1b496b656c3c29",
@@ -3915,7 +3915,7 @@
         "byte_count": 152926
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_05.wav",
         "source_file_sha256": "182bacca7059b33be01d1401c01a472d0a134ef2877dc859ec92de648476b4dc",
@@ -4054,7 +4054,7 @@
         "byte_count": 108704
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_06.wav",
         "source_file_sha256": "683e8d0a7378e5d7f966e04ec7aa79157fee595fe375a40e663cca08285e66b0",
@@ -4193,7 +4193,7 @@
         "byte_count": 59568
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_07.wav",
         "source_file_sha256": "89be18e3276a220483bd2bcbba749238436a41b46b9650fa1eb74ee491574173",
@@ -4330,7 +4330,7 @@
         "byte_count": 72062
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_08.wav",
         "source_file_sha256": "3cffd2a7ff7971781b1b1be3122e967c0acfb3037196ecc11887aa9201c3d96e",
@@ -4466,7 +4466,7 @@
         "byte_count": 47006
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_09.wav",
         "source_file_sha256": "e5af9f809cbf1e0d17972a197b5db87ae832a436c0adebcae70bb342a94083b0",
@@ -4604,7 +4604,7 @@
         "byte_count": 15038
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_10.wav",
         "source_file_sha256": "0ca83c84cef3ef4188aba9dd16ff5c938d289e001e14237dc6c6e65baf36a1fa",
@@ -4740,7 +4740,7 @@
         "byte_count": 15886
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_11.wav",
         "source_file_sha256": "6239bb1cf96d55a20cab0678cc11193dd203db06270ea603ab47975e201ce9ac",
@@ -4877,7 +4877,7 @@
         "byte_count": 22206
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_12.wav",
         "source_file_sha256": "c880cf246f943b0260bb71a89f1301cec1c75eb7940ace23f8c50d09a64b798e",
@@ -5014,7 +5014,7 @@
         "byte_count": 39190
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_13.wav",
         "source_file_sha256": "d4076095208d6d22a7d6548d6be17b4ae8d4ab2da040de62279aae9ea4cb16f8",
@@ -5151,7 +5151,7 @@
         "byte_count": 16030
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_14.wav",
         "source_file_sha256": "d6215397d6e5a93b823de307eb92bfdcf915bcc07d31ef3e37dcc0d0fa1c43ad",
@@ -5287,7 +5287,7 @@
         "byte_count": 28382
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_15.wav",
         "source_file_sha256": "43da7576970e469275cdbff9f48ea4a08f1dc49fb722885d4013e0fb67e02261",
@@ -5420,7 +5420,7 @@
         "byte_count": 29154
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_16.wav",
         "source_file_sha256": "f21c70aacf68fed9dcc53e1f2ff30fb65bbb4f526cbcbea676bb0a74398bd276",
@@ -5559,7 +5559,7 @@
         "byte_count": 49226
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_17.wav",
         "source_file_sha256": "87c60963e424270f1bbb4ae04f6ecb6173aa6761b56b14167c12c325ca42ed70",
@@ -5695,7 +5695,7 @@
         "byte_count": 22730
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_18.wav",
         "source_file_sha256": "91f770aff5d5ffd4b9133fbd089a338c7445253d4c220212d6513ebd07152f4a",
@@ -5831,7 +5831,7 @@
         "byte_count": 22978
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_19.wav",
         "source_file_sha256": "1d66d16e01dad91b0c9d8a0ebab502efe3b292756efffde140ff805216521b25",
@@ -5967,7 +5967,7 @@
         "byte_count": 31264
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_20.wav",
         "source_file_sha256": "d33392e894081a7ee5fa035960561bec75c5f58b99fb4f8652696d7b2cafe1b0",
@@ -6104,7 +6104,7 @@
         "byte_count": 38984
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_21.wav",
         "source_file_sha256": "acdeb4d51609b5a676335c3319a2a3c3f8cb0e695403e8fc40adea7aceac0d4f",
@@ -6240,7 +6240,7 @@
         "byte_count": 94568
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_22.wav",
         "source_file_sha256": "d91a8dd175828a94bb5f20f4d6f3bf9dc8ecf1c0f8d824a34589d62863733ee5",
@@ -6376,7 +6376,7 @@
         "byte_count": 94644
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_23.wav",
         "source_file_sha256": "77305213dabf70509fb73692ec2cf35df4db5004baf45c453b69baf7076d411f",
@@ -6513,7 +6513,7 @@
         "byte_count": 94016
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_24.wav",
         "source_file_sha256": "42cecd5d60d29046451947792e35ffab33f3cd9bfb866943d2406f76ec93ec5f",
@@ -6650,7 +6650,7 @@
         "byte_count": 93792
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_25.wav",
         "source_file_sha256": "0a1832567c90a79227787404eea78a2d998b5605cc87be6236289a619b7ad7f4",
@@ -6787,7 +6787,7 @@
         "byte_count": 91816
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_26.wav",
         "source_file_sha256": "56cfe84e380db79235edeea7a701a3667e5550ca45436b22e2caf021eb1c37e1",
@@ -6924,7 +6924,7 @@
         "byte_count": 118622
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_27.wav",
         "source_file_sha256": "60263ceb50dea2c2546535a629f8af6964c23cfc6d05248bf8be957aa37f3bfb",
@@ -7063,7 +7063,7 @@
         "byte_count": 94986
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_28.wav",
         "source_file_sha256": "6fcd2cb9d207ac5e84164332968ca0afd0b39813a20734b861adfa88e88fab64",
@@ -7199,7 +7199,7 @@
         "byte_count": 24960
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_29.wav",
         "source_file_sha256": "bc1a4629607dad7cc75baec60c2836104b68e643663be6a643afd4e7e9109071",
@@ -7332,7 +7332,7 @@
         "byte_count": 29512
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_30.wav",
         "source_file_sha256": "859fb1ff63c8bcf5fba1d5e1ed62ff9d4fe5168df358a86df9c666fc3b80cb9f",
@@ -7469,7 +7469,7 @@
         "byte_count": 94986
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_31.wav",
         "source_file_sha256": "fb1be19a3efdaebe761f5a04f4c71fc606bdf4cf0a5f2ced8450be60fb368c54",
@@ -7602,7 +7602,7 @@
         "byte_count": 78602
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_32.wav",
         "source_file_sha256": "801e351f55194ea1ee0db4500e3309d22df0888277361e467f47466b89899d71",
@@ -7738,7 +7738,7 @@
         "byte_count": 78602
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_33.wav",
         "source_file_sha256": "fcccc3b13a0a830d51abdf80c637f50b94a7db5fbd3a0c8b604f09ba5cfe9499",
@@ -7875,7 +7875,7 @@
         "byte_count": 78602
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_34.wav",
         "source_file_sha256": "0931d6de21b6be3adcbbfb08384815e9c109daaa46ef518caf04bce5bdee1fcf",
@@ -8008,7 +8008,7 @@
         "byte_count": 78602
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_35.wav",
         "source_file_sha256": "f890b567063f9c037e75f258378c07da60c7479ccd29afc5008017e1fb480dc4",
@@ -8147,7 +8147,7 @@
         "byte_count": 78602
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_36.wav",
         "source_file_sha256": "dfb17b192732b0408979d5b45228855085e97ef341bbcc08bf23dddb121d5e16",
@@ -8280,7 +8280,7 @@
         "byte_count": 78602
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_37.wav",
         "source_file_sha256": "36ef8bd864db8e68df972d0bbfbf215d20a3ec32f26186eed0c1ee63a1c52224",
@@ -8418,7 +8418,7 @@
         "byte_count": 78602
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_38.wav",
         "source_file_sha256": "bf5a3e726f0370af077b99cf2e9d58e03e8a8bd1a51e9b5833bc00d7c12cfd04",
@@ -8555,7 +8555,7 @@
         "byte_count": 78602
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_39.wav",
         "source_file_sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc",
@@ -8694,7 +8694,7 @@
         "byte_count": 77464
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_40.wav",
         "source_file_sha256": "55a45fdc85bc5a9b15885a52a4245a76f4f59f7e9f1a2711d626bbe5cf519ef5",
@@ -8833,7 +8833,7 @@
         "byte_count": 77464
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_41.wav",
         "source_file_sha256": "531a928726178716bab50a6675cc6df021e0ca3e5e4cff3c6714817d0e951b69",
@@ -8969,7 +8969,7 @@
         "byte_count": 76950
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_42.wav",
         "source_file_sha256": "d9d1f6034c3b646b54762cc50edff8328b571ecfed4c9bd2ae2271cef53d1d6d",
@@ -9108,7 +9108,7 @@
         "byte_count": 76950
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_43.wav",
         "source_file_sha256": "930286258ccb1846c0b8f9af5b458e61ad3617d5482cd70aa514696e71fee739",
@@ -9244,7 +9244,7 @@
         "byte_count": 187592
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_44.wav",
         "source_file_sha256": "2e75fae74ef43b6b47dca7ea1000e35950bab21471611a859650c74fd4006cbb",
@@ -9383,7 +9383,7 @@
         "byte_count": 203976
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_45.wav",
         "source_file_sha256": "9da950e21499604aa100b791cfe6a21a192c6b8da26e7e91515b024a9b682819",
@@ -9522,7 +9522,7 @@
         "byte_count": 77834
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_46.wav",
         "source_file_sha256": "97408471f8b699a93b888db448367cf7abbe20e6c4891cc8af0d1946889f8b69",
@@ -9658,7 +9658,7 @@
         "byte_count": 77834
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_47.wav",
         "source_file_sha256": "84655595e6e2225c9f4c649e79754c39b3e8e53d64d4b7dbe85d0052242d0ee0",
@@ -9796,7 +9796,7 @@
         "byte_count": 77834
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_48.wav",
         "source_file_sha256": "931d87f2c94d423f28c4e6d2f212ab2245bd17f0d5c442aec065d7624c17080b",
@@ -9934,7 +9934,7 @@
         "byte_count": 77834
       },
       "source": {
-        "repository": "https://github.com/SvetlozarValchev/engine-sim",
+        "repository": "https://github.com/SvetlozarValchev/crankwave",
         "repository_tree_commit": "35dac075491addbdd7a58663a9d92c75480df4ce",
         "repository_relative_path": "assets/sound-library/smooth/smooth_49.wav",
         "source_file_sha256": "8e074d7fddfae55884440654621d111a2091dc386333b328ec063b7b919756cd",

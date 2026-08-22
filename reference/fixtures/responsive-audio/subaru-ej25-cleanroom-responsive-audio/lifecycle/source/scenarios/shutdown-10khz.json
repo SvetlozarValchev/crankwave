@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "subaru-ej25-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
   "engine": "subaru-ej25-cleanroom",
   "fuel": "gasoline-default",

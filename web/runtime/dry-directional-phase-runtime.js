@@ -3,7 +3,7 @@ import {
 } from "./directional-phase-cell.js";
 
 const RUNTIME_SCHEMA =
-  "engine-sim-offline/responsive-audio-directional-texture";
+  "crankwave/responsive-audio-directional-texture";
 const CANONICAL_SAMPLE_RATE = 192_000;
 const FFT_SIZE = 65_536;
 const IR_COEFFICIENT_COUNT = 30_071;

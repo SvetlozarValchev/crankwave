@@ -2,7 +2,7 @@
 
 #include "simulation/legacy_gas_primitives.hpp"
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 constexpr double kCalibrationPressurePa = 101325.0;
@@ -35,4 +35,4 @@ double legacy_flow_bench_restriction_coefficient(
         kCalibrationTemperatureK);
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

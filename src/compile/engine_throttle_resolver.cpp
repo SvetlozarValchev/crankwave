@@ -2,7 +2,7 @@
 
 #include <variant>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 
 void resolve_throttle_controller(const ModelContext &context,
                                  ResolutionEmitter &emitter,
@@ -35,4 +35,4 @@ void resolve_throttle_controller(const ModelContext &context,
     };
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

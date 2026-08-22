@@ -73,7 +73,7 @@ Float32 representation.
 ## 3. Capture telemetry encoding
 
 `TelemetryEncoder` writes
-`engine-sim-offline.capture-telemetry.le.v1`, a canonical little-endian stream:
+`crankwave.capture-telemetry.le.v1`, a canonical little-endian stream:
 
 - one copied topology and clock header;
 - every `EngineCaptureSample` and every frame-major cylinder, port, gas-volume,

@@ -4,7 +4,7 @@
 #include <limits>
 #include <string_view>
 
-namespace engine_sim_offline::numeric {
+namespace crankwave::numeric {
 
 // The written presentation and clock-resolution algorithms use long double for
 // their extended accumulators. Their meaning is selected by the compile target,
@@ -55,4 +55,4 @@ target_extended_precision_format_is_admitted() noexcept {
            sizeof(long double) == kTargetLongDoubleBytes;
 }
 
-} // namespace engine_sim_offline::numeric
+} // namespace crankwave::numeric

@@ -21,8 +21,8 @@ The browser admits only this code-registered edge; any future renderer closure
 fails closed until separately proven.
 
 Every lifecycle also uses the single canonical `shared-recorded-starter`
-fixture. It is a commissioned original recording
-licensed to SvetlozarValchev with modification and redistribution authorized.
-The source asset and derived 192 kHz mono payload retain independent SHA-256
-identities; the original delivery path is deliberately not recorded. Source A
-and baked B receive the same recorded layer after their engine-specific paths.
+fixture. It is derived from Ika.Komura's `Car not starting.wav`, dedicated to
+the public domain under CC0 1.0. The source MP3 and derived 192 kHz mono payload
+retain independent SHA-256 identities and reproducible crop, EQ, level, and
+resampling metadata. Source A and baked B receive the same recorded layer after
+their engine-specific paths.

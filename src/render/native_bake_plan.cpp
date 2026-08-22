@@ -3,12 +3,12 @@
 #include "render/render_job_derivation.hpp"
 #include "render/render_request.hpp"
 
-#include "engine_sim_offline/request_identity.hpp"
+#include "crankwave/request_identity.hpp"
 
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::render_detail {
+namespace crankwave::render_detail {
 
 NativeBakePlanResult derive_native_bake_plan(
     const compile::detail::CompiledScenarioInputsView inputs,
@@ -97,4 +97,4 @@ NativeBakePlanResult derive_native_bake_plan(
     };
 }
 
-} // namespace engine_sim_offline::render_detail
+} // namespace crankwave::render_detail

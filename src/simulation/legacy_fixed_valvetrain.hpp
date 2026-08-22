@@ -1,7 +1,7 @@
 #pragma once
 
-#include "engine_sim_offline/contract/engine.hpp"
-#include "engine_sim_offline/contract/parity_model.hpp"
+#include "crankwave/contract/engine.hpp"
+#include "crankwave/contract/parity_model.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 #include "simulation/legacy_vtec_selector.hpp"
 
@@ -11,7 +11,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct LegacyValvetrainFlowProfile {
     contract::BankId bank_id;
@@ -167,4 +167,4 @@ using LegacySelectableValvetrainCompileResult =
 compile_legacy_selectable_valvetrain(const contract::EngineSpec &engine,
                                      const contract::LowOrderEngineCoreV1 &core);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

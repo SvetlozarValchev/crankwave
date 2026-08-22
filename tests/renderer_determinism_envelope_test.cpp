@@ -14,7 +14,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::determinism;
+using namespace crankwave::determinism;
 
 static_assert(!std::is_default_constructible_v<RendererDeterminismEnvelope>);
 static_assert(

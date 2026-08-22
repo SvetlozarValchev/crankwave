@@ -4,8 +4,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { EngineSimVehicleEngineBaker } from "../../web/runtime/c-api-baker.js";
-import { loadResponsiveAudioVehicleEngine } from "../../web/runtime/vehicleengine-package.js";
+import { CrankwaveBaker } from "../../web/runtime/c-api-baker.js";
+import { loadResponsiveAudioCrankwave } from "../../web/runtime/crankwave-package.js";
 
 function digest(bytes) {
   return new Uint8Array(createHash("sha256").update(bytes).digest());
@@ -40,7 +40,7 @@ async function main() {
       return path.join(path.dirname(loaderPath), file);
     },
   });
-  const baker = new EngineSimVehicleEngineBaker(module);
+  const baker = new CrankwaveBaker(module);
   const started = performance.now();
   try {
     const result = baker.bake({
@@ -60,8 +60,8 @@ async function main() {
     assert.equal(result.directionalCaptureCount, 6);
     assert.equal(result.lifecycleCaptureCount, 4);
     assert.equal(result.bytes.byteLength, result.byteCount);
-    assert.equal(new TextDecoder().decode(result.bytes.subarray(0, 8)), "VEHENG01");
-    const loaded = await loadResponsiveAudioVehicleEngine(result.bytes, {
+    assert.equal(new TextDecoder().decode(result.bytes.subarray(0, 8)), "CRKWAVE1");
+    const loaded = await loadResponsiveAudioCrankwave(result.bytes, {
       crypto: webcrypto,
     });
     assert.equal(loaded.package.descriptor.engineId, result.engineId);

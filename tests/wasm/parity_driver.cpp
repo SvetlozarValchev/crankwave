@@ -1,12 +1,12 @@
 #include "parity_driver.h"
 
-#include "engine_sim_offline/c_api.h"
+#include "crankwave/c_api.h"
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten/emscripten.h>
-#define ESO_WASM_PARITY_EXPORT EMSCRIPTEN_KEEPALIVE
+#define CRANKWAVE_WASM_PARITY_EXPORT EMSCRIPTEN_KEEPALIVE
 #else
-#define ESO_WASM_PARITY_EXPORT
+#define CRANKWAVE_WASM_PARITY_EXPORT
 #endif
 
 #include <array>
@@ -59,46 +59,46 @@ class Context {
 
     ~Context() {
         if (value_ != nullptr) {
-            (void)eso_context_destroy(value_);
+            (void)crankwave_context_destroy(value_);
         }
     }
 
-    [[nodiscard]] eso_context_t **output() noexcept {
+    [[nodiscard]] crankwave_context_t **output() noexcept {
         return &value_;
     }
 
-    [[nodiscard]] eso_context_t *get() const noexcept {
+    [[nodiscard]] crankwave_context_t *get() const noexcept {
         return value_;
     }
 
   private:
-    eso_context_t *value_ = nullptr;
+    crankwave_context_t *value_ = nullptr;
 };
 
 class Handles {
   public:
-    explicit Handles(eso_context_t *context) : context_(context) {}
+    explicit Handles(crankwave_context_t *context) : context_(context) {}
     Handles(const Handles &) = delete;
     Handles &operator=(const Handles &) = delete;
 
     ~Handles() {
-        if (session != ESO_INVALID_HANDLE) {
-            (void)eso_destroy_session(context_, session);
+        if (session != CRANKWAVE_INVALID_HANDLE) {
+            (void)crankwave_destroy_session(context_, session);
         }
-        if (scenario != ESO_INVALID_HANDLE) {
-            (void)eso_destroy_scenario(context_, scenario);
+        if (scenario != CRANKWAVE_INVALID_HANDLE) {
+            (void)crankwave_destroy_scenario(context_, scenario);
         }
-        if (engine != ESO_INVALID_HANDLE) {
-            (void)eso_destroy_engine(context_, engine);
+        if (engine != CRANKWAVE_INVALID_HANDLE) {
+            (void)crankwave_destroy_engine(context_, engine);
         }
     }
 
-    eso_engine_handle_t engine = ESO_INVALID_HANDLE;
-    eso_scenario_handle_t scenario = ESO_INVALID_HANDLE;
-    eso_session_handle_t session = ESO_INVALID_HANDLE;
+    crankwave_engine_handle_t engine = CRANKWAVE_INVALID_HANDLE;
+    crankwave_scenario_handle_t scenario = CRANKWAVE_INVALID_HANDLE;
+    crankwave_session_handle_t session = CRANKWAVE_INVALID_HANDLE;
 
   private:
-    eso_context_t *context_ = nullptr;
+    crankwave_context_t *context_ = nullptr;
 };
 
 [[nodiscard]] bool valid_input(const std::uint8_t *data,
@@ -106,12 +106,12 @@ class Handles {
     return data != nullptr || size == 0U;
 }
 
-[[nodiscard]] eso_utf8_view_t utf8(const std::uint8_t *data,
+[[nodiscard]] crankwave_utf8_view_t utf8(const std::uint8_t *data,
                                    const std::uint32_t size) noexcept {
     return {reinterpret_cast<const char *>(data), static_cast<std::size_t>(size)};
 }
 
-[[nodiscard]] eso_byte_view_t bytes(const std::uint8_t *data,
+[[nodiscard]] crankwave_byte_view_t bytes(const std::uint8_t *data,
                                     const std::uint32_t size) noexcept {
     return {data, static_cast<std::size_t>(size)};
 }
@@ -172,7 +172,7 @@ void append_boolean(std::string &output, const std::uint32_t value) {
     output += value == 0U ? "false" : "true";
 }
 
-void append_torque_state(std::string &output, const eso_torque_value_nm_t &value) {
+void append_torque_state(std::string &output, const crankwave_torque_value_nm_t &value) {
     output.push_back('[');
     append_integer(output, value.availability);
     output.push_back(',');
@@ -186,7 +186,7 @@ void append_torque_state(std::string &output, const eso_torque_value_nm_t &value
     output.push_back(']');
 }
 
-void append_quantity_state(std::string &output, const eso_quantity_value_t &value) {
+void append_quantity_state(std::string &output, const crankwave_quantity_value_t &value) {
     output.push_back('[');
     append_integer(output, value.availability);
     output.push_back(',');
@@ -197,7 +197,7 @@ void append_quantity_state(std::string &output, const eso_quantity_value_t &valu
 }
 
 void append_telemetry_state(std::string &output,
-                            const eso_session_telemetry_t &telemetry) {
+                            const crankwave_session_telemetry_t &telemetry) {
     const auto &value = telemetry.engine;
     output.push_back('[');
     append_integer(output, telemetry.physics_step_end);
@@ -218,7 +218,7 @@ void append_telemetry_state(std::string &output,
     output.push_back(',');
     append_integer(output, value.limiter_cut_active);
 
-    const std::array<const eso_torque_value_nm_t *, 8> torque{
+    const std::array<const crankwave_torque_value_nm_t *, 8> torque{
         &value.torque.instantaneous_indicated_gas,
         &value.torque.pumping_partition,
         &value.torque.friction_pump_and_accessory,
@@ -233,7 +233,7 @@ void append_telemetry_state(std::string &output,
         append_torque_state(output, *item);
     }
 
-    const std::array<const eso_quantity_value_t *, 4> quantity{
+    const std::array<const crankwave_quantity_value_t *, 4> quantity{
         &value.torque.cycle_work_j,
         &value.torque.net_bmep_pa,
         &value.torque.instantaneous_power_w,
@@ -251,7 +251,7 @@ void append_telemetry_state(std::string &output,
 }
 
 void append_telemetry_numeric(std::vector<double> &output,
-                              const eso_session_telemetry_t &telemetry) {
+                              const crankwave_session_telemetry_t &telemetry) {
     const auto &value = telemetry.engine;
     output.insert(output.end(), {
                                     value.theta_rad,
@@ -279,7 +279,7 @@ void append_telemetry_numeric(std::vector<double> &output,
                                 });
 }
 
-void append_bus(std::string &output, const eso_audio_bus_descriptor_t &bus,
+void append_bus(std::string &output, const crankwave_audio_bus_descriptor_t &bus,
                 const std::string_view id) {
     output += "{\"kind\":";
     append_integer(output, bus.kind);
@@ -304,7 +304,7 @@ void append_bus(std::string &output, const eso_audio_bus_descriptor_t &bus,
     output.push_back('}');
 }
 
-void append_gear(std::string &output, const eso_forward_gear_descriptor_t &gear,
+void append_gear(std::string &output, const crankwave_forward_gear_descriptor_t &gear,
                  const std::string_view semantic_id) {
     std::uint64_t ratio_bits = 0U;
     static_assert(sizeof(ratio_bits) == sizeof(gear.ratio));
@@ -320,8 +320,8 @@ void append_gear(std::string &output, const eso_forward_gear_descriptor_t &gear,
     output.push_back(']');
 }
 
-void append_block(std::string &output, const eso_process_info_t &process,
-                  const eso_session_telemetry_t &telemetry) {
+void append_block(std::string &output, const crankwave_process_info_t &process,
+                  const crankwave_session_telemetry_t &telemetry) {
     output.push_back('[');
     append_integer(output, process.block_phase);
     output.push_back(',');
@@ -358,59 +358,59 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     }
 }
 
-[[nodiscard]] std::string copy_engine_id(eso_context_t *context,
-                                         const eso_engine_handle_t engine) {
+[[nodiscard]] std::string copy_engine_id(crankwave_context_t *context,
+                                         const crankwave_engine_handle_t engine) {
     std::size_t size = 0;
-    if (eso_engine_copy_id(context, engine, {nullptr, 0U}, &size) != ESO_STATUS_OK) {
+    if (crankwave_engine_copy_id(context, engine, {nullptr, 0U}, &size) != CRANKWAVE_STATUS_OK) {
         throw DriverStatus::engine_id;
     }
     std::string result(size + 1U, '\0');
-    if (eso_engine_copy_id(context, engine, {result.data(), result.size()}, &size) !=
-        ESO_STATUS_OK) {
+    if (crankwave_engine_copy_id(context, engine, {result.data(), result.size()}, &size) !=
+        CRANKWAVE_STATUS_OK) {
         throw DriverStatus::engine_id;
     }
     result.resize(size);
     return result;
 }
 
-[[nodiscard]] std::string copy_scenario_id(eso_context_t *context,
-                                           const eso_scenario_handle_t scenario) {
+[[nodiscard]] std::string copy_scenario_id(crankwave_context_t *context,
+                                           const crankwave_scenario_handle_t scenario) {
     std::size_t size = 0;
-    if (eso_scenario_copy_id(context, scenario, {nullptr, 0U}, &size) !=
-        ESO_STATUS_OK) {
+    if (crankwave_scenario_copy_id(context, scenario, {nullptr, 0U}, &size) !=
+        CRANKWAVE_STATUS_OK) {
         throw DriverStatus::scenario_id;
     }
     std::string result(size + 1U, '\0');
-    if (eso_scenario_copy_id(context, scenario, {result.data(), result.size()},
-                             &size) != ESO_STATUS_OK) {
+    if (crankwave_scenario_copy_id(context, scenario, {result.data(), result.size()},
+                             &size) != CRANKWAVE_STATUS_OK) {
         throw DriverStatus::scenario_id;
     }
     result.resize(size);
     return result;
 }
 
-[[nodiscard]] std::string copy_bus_id(eso_context_t *context,
-                                      const eso_session_handle_t session,
+[[nodiscard]] std::string copy_bus_id(crankwave_context_t *context,
+                                      const crankwave_session_handle_t session,
                                       const std::uint32_t bus_index,
                                       const std::size_t size) {
     std::string result(size + 1U, '\0');
-    if (eso_session_copy_audio_bus_id(context, session, bus_index,
+    if (crankwave_session_copy_audio_bus_id(context, session, bus_index,
                                       {result.data(), result.size()}) !=
-        ESO_STATUS_OK) {
+        CRANKWAVE_STATUS_OK) {
         throw DriverStatus::bus;
     }
     result.resize(size);
     return result;
 }
 
-[[nodiscard]] std::string copy_gear_semantic_id(eso_context_t *context,
-                                                const eso_session_handle_t session,
+[[nodiscard]] std::string copy_gear_semantic_id(crankwave_context_t *context,
+                                                const crankwave_session_handle_t session,
                                                 const std::uint32_t gear_index,
                                                 const std::size_t size) {
     std::string result(size + 1U, '\0');
-    if (eso_session_copy_forward_gear_semantic_id(context, session, gear_index,
+    if (crankwave_session_copy_forward_gear_semantic_id(context, session, gear_index,
                                                   {result.data(), result.size()}) !=
-        ESO_STATUS_OK) {
+        CRANKWAVE_STATUS_OK) {
         throw DriverStatus::gear;
     }
     result.resize(size);
@@ -430,84 +430,84 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
                                const std::uint8_t *accessory_configuration_bytes,
                                const std::uint32_t accessory_configuration_byte_count,
                                std::vector<std::uint8_t> &bundle) {
-    eso_abi_layout_t abi{};
-    if (eso_api_version() != ESO_C_API_VERSION ||
-        eso_get_abi_layout(&abi) != ESO_STATUS_OK ||
-        abi.api_version != ESO_C_API_VERSION || abi.little_endian != 1U ||
+    crankwave_abi_layout_t abi{};
+    if (crankwave_api_version() != CRANKWAVE_C_API_VERSION ||
+        crankwave_get_abi_layout(&abi) != CRANKWAVE_STATUS_OK ||
+        abi.api_version != CRANKWAVE_C_API_VERSION || abi.little_endian != 1U ||
         abi.completed_cycle_evidence_size_bytes !=
-            sizeof(eso_completed_cycle_evidence_t)) {
+            sizeof(crankwave_completed_cycle_evidence_t)) {
         return DriverStatus::context;
     }
 
     Context owner;
-    if (eso_context_create(ESO_C_API_VERSION, owner.output()) != ESO_STATUS_OK ||
+    if (crankwave_context_create(CRANKWAVE_C_API_VERSION, owner.output()) != CRANKWAVE_STATUS_OK ||
         owner.get() == nullptr) {
         return DriverStatus::context;
     }
     Handles handles{owner.get()};
 
     const std::array assets{
-        eso_asset_payload_t{
-            ESO_ASSET_AUDIO,
+        crankwave_asset_payload_t{
+            CRANKWAVE_ASSET_AUDIO,
             utf8(impulse_response_id, impulse_response_id_size),
             bytes(impulse_response_bytes, impulse_response_byte_count),
         },
-        eso_asset_payload_t{
-            ESO_ASSET_ACCESSORY_CONFIGURATION,
+        crankwave_asset_payload_t{
+            CRANKWAVE_ASSET_ACCESSORY_CONFIGURATION,
             utf8(accessory_configuration_id, accessory_configuration_id_size),
             bytes(accessory_configuration_bytes, accessory_configuration_byte_count),
         },
     };
-    if (eso_compile_engine_json(owner.get(), utf8(engine_json, engine_json_size),
+    if (crankwave_compile_engine_json(owner.get(), utf8(engine_json, engine_json_size),
                                 assets.data(), assets.size(),
-                                &handles.engine) != ESO_STATUS_OK) {
+                                &handles.engine) != CRANKWAVE_STATUS_OK) {
         return DriverStatus::engine;
     }
     const auto engine_id = copy_engine_id(owner.get(), handles.engine);
 
-    if (eso_compile_scenario_json(owner.get(), handles.engine,
+    if (crankwave_compile_scenario_json(owner.get(), handles.engine,
                                   utf8(scenario_json, scenario_json_size),
-                                  &handles.scenario) != ESO_STATUS_OK) {
+                                  &handles.scenario) != CRANKWAVE_STATUS_OK) {
         return DriverStatus::scenario;
     }
     const auto scenario_id = copy_scenario_id(owner.get(), handles.scenario);
 
-    if (eso_create_session(owner.get(), handles.scenario,
-                           ESO_SESSION_EXECUTION_FINITE_SCENARIO,
-                           &handles.session) != ESO_STATUS_OK) {
+    if (crankwave_create_session(owner.get(), handles.scenario,
+                           CRANKWAVE_SESSION_EXECUTION_FINITE_SCENARIO,
+                           &handles.session) != CRANKWAVE_STATUS_OK) {
         return DriverStatus::session;
     }
 
-    eso_session_descriptor_t descriptor{};
-    if (eso_session_get_descriptor(owner.get(), handles.session, &descriptor) !=
-            ESO_STATUS_OK ||
+    crankwave_session_descriptor_t descriptor{};
+    if (crankwave_session_get_descriptor(owner.get(), handles.session, &descriptor) !=
+            CRANKWAVE_STATUS_OK ||
         descriptor.maximum_telemetry_frames_per_process_call == 0U ||
         descriptor.maximum_cycle_evidence_per_process_call == 0U ||
         descriptor.maximum_delivery_frames_per_process_call == 0U ||
         descriptor.audio_bus_count == 0U ||
-        descriptor.execution_kind != ESO_SESSION_EXECUTION_FINITE_SCENARIO) {
+        descriptor.execution_kind != CRANKWAVE_SESSION_EXECUTION_FINITE_SCENARIO) {
         return DriverStatus::descriptor;
     }
 
     std::string identity_engine(descriptor.engine_id_utf8_bytes + 1U, '\0');
     std::string identity_scenario(descriptor.scenario_id_utf8_bytes + 1U, '\0');
-    eso_session_identity_buffers_t identity{
+    crankwave_session_identity_buffers_t identity{
         {identity_engine.data(), identity_engine.size()},
         {identity_scenario.data(), identity_scenario.size()},
     };
-    if (eso_session_copy_identity(owner.get(), handles.session, &identity) !=
-        ESO_STATUS_OK) {
+    if (crankwave_session_copy_identity(owner.get(), handles.session, &identity) !=
+        CRANKWAVE_STATUS_OK) {
         return DriverStatus::identity;
     }
     identity_engine.resize(descriptor.engine_id_utf8_bytes);
     identity_scenario.resize(descriptor.scenario_id_utf8_bytes);
 
-    std::vector<eso_forward_gear_descriptor_t> gears(descriptor.forward_gear_count);
+    std::vector<crankwave_forward_gear_descriptor_t> gears(descriptor.forward_gear_count);
     std::vector<std::string> gear_semantic_ids;
     gear_semantic_ids.reserve(descriptor.forward_gear_count);
     for (std::uint32_t index = 0; index < descriptor.forward_gear_count; ++index) {
-        if (eso_session_get_forward_gear_descriptor(owner.get(), handles.session, index,
-                                                    &gears[index]) != ESO_STATUS_OK ||
+        if (crankwave_session_get_forward_gear_descriptor(owner.get(), handles.session, index,
+                                                    &gears[index]) != CRANKWAVE_STATUS_OK ||
             gears[index].authored_ordinal != index + 1U) {
             return DriverStatus::gear;
         }
@@ -515,18 +515,18 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
             owner.get(), handles.session, index, gears[index].semantic_id_utf8_bytes));
     }
 
-    std::vector<eso_audio_bus_descriptor_t> buses(descriptor.audio_bus_count);
+    std::vector<crankwave_audio_bus_descriptor_t> buses(descriptor.audio_bus_count);
     std::vector<std::string> bus_ids;
     bus_ids.reserve(descriptor.audio_bus_count);
     std::uint32_t audition_bus_index = std::numeric_limits<std::uint32_t>::max();
     for (std::uint32_t index = 0; index < descriptor.audio_bus_count; ++index) {
-        if (eso_session_get_audio_bus_descriptor(owner.get(), handles.session, index,
-                                                 &buses[index]) != ESO_STATUS_OK) {
+        if (crankwave_session_get_audio_bus_descriptor(owner.get(), handles.session, index,
+                                                 &buses[index]) != CRANKWAVE_STATUS_OK) {
             return DriverStatus::bus;
         }
         bus_ids.push_back(copy_bus_id(owner.get(), handles.session, index,
                                       buses[index].id_utf8_bytes));
-        if (buses[index].kind == ESO_AUDIO_BUS_ENGINE_AUDITION_MASTER) {
+        if (buses[index].kind == CRANKWAVE_AUDIO_BUS_ENGINE_AUDITION_MASTER) {
             if (audition_bus_index != std::numeric_limits<std::uint32_t>::max()) {
                 return DriverStatus::bus;
             }
@@ -538,14 +538,14 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
         return DriverStatus::bus;
     }
 
-    eso_control_rejection_t preparation_rejection{};
-    const eso_control_command_t preparation_command{
-        0U, 1U, ESO_CONTROL_THROTTLE, 0U, 0.5, 0U, 0U};
-    const auto preparation_status = eso_session_enqueue_controls(
+    crankwave_control_rejection_t preparation_rejection{};
+    const crankwave_control_command_t preparation_command{
+        0U, 1U, CRANKWAVE_CONTROL_THROTTLE, 0U, 0.5, 0U, 0U};
+    const auto preparation_status = crankwave_session_enqueue_controls(
         owner.get(), handles.session, &preparation_command, 1U, &preparation_rejection);
-    if (preparation_status != ESO_STATUS_CONTROL_REJECTED ||
+    if (preparation_status != CRANKWAVE_STATUS_CONTROL_REJECTED ||
         preparation_rejection.code !=
-            ESO_ERROR_CONTROL_UNAVAILABLE_DURING_PREPARATION ||
+            CRANKWAVE_ERROR_CONTROL_UNAVAILABLE_DURING_PREPARATION ||
         preparation_rejection.command_index != 0U) {
         return DriverStatus::preparation_control;
     }
@@ -557,24 +557,24 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     const auto first_audible_frame =
         descriptor.preparation_block_count * descriptor.delivery_frames_per_block;
     const std::array live_commands{
-        eso_control_command_t{first_audible_frame, 1U, ESO_CONTROL_THROTTLE, 0U, 0.5,
+        crankwave_control_command_t{first_audible_frame, 1U, CRANKWAVE_CONTROL_THROTTLE, 0U, 0.5,
                               0U, 0U},
-        eso_control_command_t{first_audible_frame, 2U, ESO_CONTROL_IGNITION_ENABLED, 1U,
+        crankwave_control_command_t{first_audible_frame, 2U, CRANKWAVE_CONTROL_IGNITION_ENABLED, 1U,
                               0.0, 0U, 0U},
-        eso_control_command_t{first_audible_frame, 3U, ESO_CONTROL_FUEL_ENABLED, 1U,
+        crankwave_control_command_t{first_audible_frame, 3U, CRANKWAVE_CONTROL_FUEL_ENABLED, 1U,
                               0.0, 0U, 0U},
     };
-    eso_control_rejection_t live_rejection{};
+    crankwave_control_rejection_t live_rejection{};
     const auto live_status =
-        eso_session_enqueue_controls(owner.get(), handles.session, live_commands.data(),
+        crankwave_session_enqueue_controls(owner.get(), handles.session, live_commands.data(),
                                      live_commands.size(), &live_rejection);
-    if (live_status != ESO_STATUS_OK || live_rejection.code != ESO_ERROR_NONE) {
+    if (live_status != CRANKWAVE_STATUS_OK || live_rejection.code != CRANKWAVE_ERROR_NONE) {
         return DriverStatus::live_control;
     }
 
     std::string metadata;
     metadata.reserve(16384U);
-    metadata += "{\"format\":\"engine-sim-offline-wasm-parity-v1\",";
+    metadata += "{\"format\":\"crankwave-wasm-parity-v1\",";
     metadata += "\"abi\":{\"api_version\":";
     append_integer(metadata, abi.api_version);
     metadata += ",\"pointer_size\":";
@@ -678,7 +678,7 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
         audible_pcm.reserve(static_cast<std::size_t>(audible_blocks) *
                             samples_per_block);
     }
-    std::vector<eso_session_telemetry_t> telemetry(
+    std::vector<crankwave_session_telemetry_t> telemetry(
         descriptor.maximum_telemetry_frames_per_process_call);
     std::vector<double> numeric;
     numeric.reserve(static_cast<std::size_t>(descriptor.total_block_count) *
@@ -686,22 +686,22 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
                     kNumericStride);
 
     bool first_block = true;
-    eso_process_info_t completed{};
+    crankwave_process_info_t completed{};
     for (;;) {
-        eso_audio_copy_buffer_t audio{audition_bus_index, block_audio.data(),
+        crankwave_audio_copy_buffer_t audio{audition_bus_index, block_audio.data(),
                                       block_audio.size(), 0U};
-        eso_process_info_t process{};
-        const auto status = eso_session_process(owner.get(), handles.session, &audio,
+        crankwave_process_info_t process{};
+        const auto status = crankwave_session_process(owner.get(), handles.session, &audio,
                                                 1U, telemetry.data(), telemetry.size(),
                                                 nullptr, 0U, &process);
-        if (status != ESO_STATUS_OK) {
+        if (status != CRANKWAVE_STATUS_OK) {
             return DriverStatus::process;
         }
-        if (process.kind == ESO_PROCESS_COMPLETED) {
+        if (process.kind == CRANKWAVE_PROCESS_COMPLETED) {
             completed = process;
             break;
         }
-        if (process.kind != ESO_PROCESS_BLOCK || process.telemetry_written != 1U ||
+        if (process.kind != CRANKWAVE_PROCESS_BLOCK || process.telemetry_written != 1U ||
             audio.samples_written != samples_per_block) {
             return DriverStatus::process;
         }
@@ -711,7 +711,7 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
         first_block = false;
         append_block(metadata, process, telemetry[0]);
         append_telemetry_numeric(numeric, telemetry[0]);
-        if (process.block_phase == ESO_BLOCK_AUDIBLE) {
+        if (process.block_phase == CRANKWAVE_BLOCK_AUDIBLE) {
             audible_pcm.insert(audible_pcm.end(), block_audio.begin(),
                                block_audio.end());
         }
@@ -731,13 +731,13 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     append_integer(metadata, completed.has_inertial_dyno_result);
     metadata += ']';
 
-    eso_control_rejection_t terminal_rejection{};
-    const eso_control_command_t terminal_command{
-        first_audible_frame, 4U, ESO_CONTROL_THROTTLE, 0U, 0.5, 0U, 0U};
-    const auto terminal_status = eso_session_enqueue_controls(
+    crankwave_control_rejection_t terminal_rejection{};
+    const crankwave_control_command_t terminal_command{
+        first_audible_frame, 4U, CRANKWAVE_CONTROL_THROTTLE, 0U, 0.5, 0U, 0U};
+    const auto terminal_status = crankwave_session_enqueue_controls(
         owner.get(), handles.session, &terminal_command, 1U, &terminal_rejection);
-    if (terminal_status != ESO_STATUS_CONTROL_REJECTED ||
-        terminal_rejection.code != ESO_ERROR_CONTROL_SESSION_TERMINAL ||
+    if (terminal_status != CRANKWAVE_STATUS_CONTROL_REJECTED ||
+        terminal_rejection.code != CRANKWAVE_ERROR_CONTROL_SESSION_TERMINAL ||
         terminal_rejection.command_index != 0U) {
         return DriverStatus::terminal_control;
     }
@@ -771,7 +771,7 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
 
 } // namespace
 
-extern "C" ESO_WASM_PARITY_EXPORT uint32_t eso_wasm_parity_run(
+extern "C" CRANKWAVE_WASM_PARITY_EXPORT uint32_t crankwave_wasm_parity_run(
     const uint8_t *const engine_json, const uint32_t engine_json_size,
     const uint8_t *const scenario_json, const uint32_t scenario_json_size,
     const uint8_t *const impulse_response_id, const uint32_t impulse_response_id_size,
@@ -826,4 +826,4 @@ extern "C" ESO_WASM_PARITY_EXPORT uint32_t eso_wasm_parity_run(
     }
 }
 
-#undef ESO_WASM_PARITY_EXPORT
+#undef CRANKWAVE_WASM_PARITY_EXPORT

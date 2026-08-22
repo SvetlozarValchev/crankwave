@@ -2,13 +2,13 @@
 
 #include "compile/resolved_authoring.hpp"
 
-#include "engine_sim_offline/authoring/scenario_document.hpp"
-#include "engine_sim_offline/compile.hpp"
-#include "engine_sim_offline/contract/engine.hpp"
-#include "engine_sim_offline/contract/presentation.hpp"
-#include "engine_sim_offline/contract/randomness.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
-#include "engine_sim_offline/contract/source_matrix.hpp"
+#include "crankwave/authoring/scenario_document.hpp"
+#include "crankwave/compile.hpp"
+#include "crankwave/contract/engine.hpp"
+#include "crankwave/contract/presentation.hpp"
+#include "crankwave/contract/randomness.hpp"
+#include "crankwave/contract/scenario.hpp"
+#include "crankwave/contract/source_matrix.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 
 // Methods outside the contract library are supplied by the executable integration
 // layer. Absence means that the corresponding authored scenario capability is not
@@ -92,4 +92,4 @@ fixed_rate_post_step_rpm_method_identity();
 resolve_scenario_document(const authoring::ScenarioDocument &document,
                           const ScenarioResolverContext &context) noexcept;
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

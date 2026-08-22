@@ -1,10 +1,10 @@
-#include "engine_sim_offline/bake.hpp"
+#include "crankwave/bake.hpp"
 
 #include "compile/compiled_scenario_view.hpp"
 #include "determinism/renderer_determinism_envelope.hpp"
 #include "determinism/renderer_numeric_environment.hpp"
-#include "engine_sim_offline/request_identity.hpp"
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/request_identity.hpp"
+#include "crankwave/session.hpp"
 #include "presentation/presentation_calibration_compiler.hpp"
 #include "render/native_bake_plan.hpp"
 #include "render/native_presentation_publisher.hpp"
@@ -20,7 +20,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline {
+namespace crankwave {
 namespace {
 
 using contract::FailureKind;
@@ -444,4 +444,4 @@ validate_bake_result(const contract::RenderResult &result,
     return report;
 }
 
-} // namespace engine_sim_offline
+} // namespace crankwave

@@ -4,24 +4,24 @@ set -euo pipefail
 repository_dir=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "${repository_dir}"
 
-release_identity=${ESO_VERSION:?ESO_VERSION is required}
-build_root=${ESO_BUILD_ROOT:?ESO_BUILD_ROOT is required}
+release_identity=${CRANKWAVE_VERSION:?CRANKWAVE_VERSION is required}
+build_root=${CRANKWAVE_BUILD_ROOT:?CRANKWAVE_BUILD_ROOT is required}
 expected_revision=${GITHUB_SHA:-$(git rev-parse HEAD)}
-parallel_jobs=${ESO_JOBS:-4}
+parallel_jobs=${CRANKWAVE_JOBS:-4}
 
 case "${release_identity}" in
     [0-9]*.[0-9]*.[0-9]*) ;;
-    *) echo "invalid ESO_VERSION: ${release_identity}" >&2; exit 64 ;;
+    *) echo "invalid CRANKWAVE_VERSION: ${release_identity}" >&2; exit 64 ;;
 esac
 case "${build_root}" in
     .work/github-*) ;;
-    *) echo "ESO_BUILD_ROOT must stay beneath .work/github-*: ${build_root}" >&2; exit 64 ;;
+    *) echo "CRANKWAVE_BUILD_ROOT must stay beneath .work/github-*: ${build_root}" >&2; exit 64 ;;
 esac
 case "${parallel_jobs}" in
-    ''|*[!0-9]*) echo "ESO_JOBS must be a positive integer" >&2; exit 64 ;;
+    ''|*[!0-9]*) echo "CRANKWAVE_JOBS must be a positive integer" >&2; exit 64 ;;
 esac
 if (( parallel_jobs < 1 || parallel_jobs > 16 )); then
-    echo "ESO_JOBS must be in [1,16]" >&2
+    echo "CRANKWAVE_JOBS must be in [1,16]" >&2
     exit 64
 fi
 
@@ -59,13 +59,13 @@ cmake \
     -B "${native_build}" \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DENGINE_SIM_OFFLINE_BUILD_TESTS=ON \
-    -DENGINE_SIM_OFFLINE_BUILD_CLI=ON \
-    -DENGINE_SIM_OFFLINE_BUILD_WASM=OFF \
-    -DENGINE_SIM_OFFLINE_RELEASE_IDENTITY="${release_identity}"
+    -DCRANKWAVE_BUILD_TESTS=ON \
+    -DCRANKWAVE_BUILD_CLI=ON \
+    -DCRANKWAVE_BUILD_WASM=OFF \
+    -DCRANKWAVE_RELEASE_IDENTITY="${release_identity}"
 cmake --build "${native_build}" --parallel "${parallel_jobs}"
 
-cli_executable="${native_build}/engine-sim-offline"
+cli_executable="${native_build}/crankwave"
 max_required_version() {
     local namespace=$1
     readelf --version-info "${cli_executable}" |
@@ -99,10 +99,10 @@ ctest \
 cmake \
     --build "${native_build}" \
     --parallel "${parallel_jobs}" \
-    --target engine_sim_offline_distribution
+    --target crankwave_distribution
 
 distribution_dir="${native_build}/distribution/Release"
-archive="${distribution_dir}/engine-sim-offline-${release_identity}.tar"
+archive="${distribution_dir}/crankwave-${release_identity}.tar"
 sidecar="${archive}.sha256"
 expected_archive_sha=$(tr -d '\n' < "${sidecar}")
 actual_archive_sha=$(sha256sum "${archive}" | awk '{print $1}')
@@ -113,7 +113,7 @@ fi
 
 tar -xf "${archive}" -C "${build_root}/extracted"
 test -x \
-    "${build_root}/extracted/engine-sim-offline-${release_identity}/bin/engine-sim-offline"
+    "${build_root}/extracted/crankwave-${release_identity}/bin/crankwave"
 
 printf 'release_archive=%s\n' "${archive}"
 printf 'release_archive_sha256=%s\n' "${actual_archive_sha}"

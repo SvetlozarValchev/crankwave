@@ -24,10 +24,10 @@
 
 namespace {
 
-namespace compile = engine_sim_offline::compile;
-namespace contract = engine_sim_offline::contract;
-namespace gate = engine_sim_offline::test::bmw_m52b28_render_gate;
-namespace simulation = engine_sim_offline::simulation;
+namespace compile = crankwave::compile;
+namespace contract = crankwave::contract;
+namespace gate = crankwave::test::bmw_m52b28_render_gate;
+namespace simulation = crankwave::simulation;
 
 constexpr double kPreparationDurationS = 5.0;
 constexpr double kWotObservationDurationS = 2.0;
@@ -50,7 +50,7 @@ constexpr std::array<double, 5> kCoastTargetsRpm{
     5000.0, 4000.0, 3000.0, 2000.0, 1500.0,
 };
 constexpr std::array<double, kCoastTargetsRpm.size()> kPristineCoastCrossingsS{
-    0.3711, 0.6665, 1.0626, 1.6702, 2.1667,
+    0.3756, 0.6742, 1.0666, 1.6765, 2.1784,
 };
 
 [[nodiscard]] std::string validation_text(const contract::ValidationReport &report) {

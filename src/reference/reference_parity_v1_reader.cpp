@@ -1,6 +1,6 @@
 #include "reference/reference_parity_v1_reader.hpp"
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <array>
 #include <bit>
@@ -9,7 +9,7 @@
 #include <optional>
 #include <utility>
 
-namespace engine_sim_offline::reference {
+namespace crankwave::reference {
 namespace {
 
 constexpr std::size_t kVersionOffset = 8;
@@ -45,7 +45,7 @@ constexpr double kLegacyPi = 3.14159265359;
 constexpr double kStepSeconds = 1.0 / 10000.0;
 constexpr double kMaximumWrappedCrankAngle = 4.0 * kLegacyPi;
 
-constexpr engine_sim_offline::contract::Sha256Digest kExpectedContentSha256{{
+constexpr crankwave::contract::Sha256Digest kExpectedContentSha256{{
     0x19, 0xd3, 0x51, 0xb5, 0x4c, 0x8e, 0xb8, 0xb5, 0x09, 0xcd, 0x72,
     0xea, 0x03, 0x06, 0x1b, 0x01, 0xf9, 0x27, 0x22, 0xcb, 0xfa, 0x48,
     0xd2, 0x7a, 0x23, 0x42, 0xca, 0x72, 0x03, 0xff, 0xa9, 0x4c,
@@ -446,11 +446,11 @@ decode_reference_parity_v1(std::span<const std::byte> bytes) {
         decoded.frames.push_back(frame);
     }
 
-    if (engine_sim_offline::contract::sha256(bytes) != kExpectedContentSha256) {
+    if (crankwave::contract::sha256(bytes) != kExpectedContentSha256) {
         return error(ReferenceParityV1DecodeErrorCode::content_digest_mismatch, 0);
     }
 
     return decoded;
 }
 
-} // namespace engine_sim_offline::reference
+} // namespace crankwave::reference

@@ -13,8 +13,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::session;
+using namespace crankwave;
+using namespace crankwave::session;
 
 constexpr double kCycleRadians = 4.0 * std::numbers::pi_v<double>;
 

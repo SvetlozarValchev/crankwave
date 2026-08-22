@@ -13,7 +13,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::simulation;
+using namespace crankwave::simulation;
 
 constexpr std::array<LegacyTrianglePoint, 10U> kFlameSpeedRatioTable{{
     {0.0, 3.0},

@@ -16,7 +16,7 @@ concurrency:
 env:
   BUILDER_BASE_IMAGE: debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241
   NODE_BASE_IMAGE: node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
-  BUILDER_IMAGE: engine-sim-offline-native-builder:ci
+  BUILDER_IMAGE: crankwave-native-builder:ci
 
 jobs:
   release-gate:
@@ -51,8 +51,8 @@ jobs:
             web/tests/runtime/partitioned-spectrum-convolver.test.mjs \
             web/tests/runtime/renderer-runtime-compatibility.test.mjs \
             web/tests/runtime/responsive-audio-lifecycle-runtime.test.mjs \
-            web/tests/runtime/vehicleengine-audio-engine.test.mjs \
-            web/tests/runtime/vehicleengine-package.test.mjs \
+            web/tests/runtime/crankwave-audio-engine.test.mjs \
+            web/tests/runtime/crankwave-package.test.mjs \
             web/tests/runtime/shared-recorded-starter-runtime.test.mjs
 
       - name: Verify development-only WASM parity oracle
@@ -76,7 +76,7 @@ jobs:
 
       - name: Build and test native release
         env:
-          ESO_VERSION: ${{ steps.release.outputs.version }}
+          CRANKWAVE_VERSION: ${{ steps.release.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
@@ -84,9 +84,9 @@ jobs:
             --network none \
             --user "$(id -u):$(id -g)" \
             --pids-limit 4096 \
-            -e ESO_VERSION \
-            -e ESO_BUILD_ROOT=.work/github-ci \
-            -e ESO_JOBS=4 \
+            -e CRANKWAVE_VERSION \
+            -e CRANKWAVE_BUILD_ROOT=.work/github-ci \
+            -e CRANKWAVE_JOBS=4 \
             -e GITHUB_SHA \
             -v "${GITHUB_WORKSPACE}:/src" \
             -w /src \
@@ -95,11 +95,11 @@ jobs:
 
       - name: Verify emitted distribution from the host boundary
         env:
-          ESO_VERSION: ${{ steps.release.outputs.version }}
+          CRANKWAVE_VERSION: ${{ steps.release.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
-          archive=".work/github-ci/native/distribution/Release/engine-sim-offline-${ESO_VERSION}.tar"
+          archive=".work/github-ci/native/distribution/Release/crankwave-${CRANKWAVE_VERSION}.tar"
           sidecar="${archive}.sha256"
           extracted=".work/github-ci/host-verification"
           rm -rf "${extracted}"
@@ -108,6 +108,6 @@ jobs:
           node scripts/ci/verify-release.mjs \
             --archive "${archive}" \
             --sidecar "${sidecar}" \
-            --prefix "${extracted}/engine-sim-offline-${ESO_VERSION}" \
-            --release "${ESO_VERSION}" \
+            --prefix "${extracted}/crankwave-${CRANKWAVE_VERSION}" \
+            --release "${CRANKWAVE_VERSION}" \
             --revision "${GITHUB_SHA}"

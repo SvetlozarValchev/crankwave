@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace engine_sim_offline::simulation::detail {
+namespace crankwave::simulation::detail {
 namespace {
 
 [[nodiscard]] ForwardGearReductionInputError
@@ -223,4 +223,4 @@ advance_bounded_clutch_coupling(const BoundedClutchCouplingInput &input) noexcep
     };
 }
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace crankwave::simulation::detail

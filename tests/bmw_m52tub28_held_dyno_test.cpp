@@ -1,6 +1,6 @@
 #include "authored_engine_fixture_support.hpp"
 
-#include "engine_sim_offline/contract/capture.hpp"
+#include "crankwave/contract/capture.hpp"
 #include "simulation/low_order_capture_session.hpp"
 
 #include <algorithm>
@@ -17,9 +17,9 @@
 
 namespace {
 
-namespace contract = engine_sim_offline::contract;
-namespace simulation = engine_sim_offline::simulation;
-namespace test = engine_sim_offline::test;
+namespace contract = crankwave::contract;
+namespace simulation = crankwave::simulation;
+namespace test = crankwave::test;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {

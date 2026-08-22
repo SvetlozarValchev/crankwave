@@ -4,7 +4,7 @@
 #include <string_view>
 #include <variant>
 
-namespace engine_sim_offline::determinism {
+namespace crankwave::determinism {
 
 // This marker is an assertion made by the build system after it has attached the exact
 // numeric flag tail. C++ cannot recover all effective code-generation flags from a
@@ -150,4 +150,4 @@ inline constexpr std::uint16_t kRequiredX87Control = 0x033fU;
 void restore_admitted_renderer_numeric_controls() noexcept;
 
 } // namespace detail
-} // namespace engine_sim_offline::determinism
+} // namespace crankwave::determinism

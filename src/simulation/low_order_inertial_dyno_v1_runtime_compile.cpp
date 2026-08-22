@@ -12,7 +12,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 using contract::ContractIssueCode;
@@ -281,4 +281,4 @@ LowOrderInertialDynoV1CompileResult compile_low_order_inertial_dyno_v1_runtime(
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

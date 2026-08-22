@@ -22,11 +22,11 @@
 
 namespace {
 
-using namespace engine_sim_offline::contract;
-using namespace engine_sim_offline::simulation;
-using engine_sim_offline::test::AuthoredEngineFixture;
+using namespace crankwave::contract;
+using namespace crankwave::simulation;
+using crankwave::test::AuthoredEngineFixture;
 using CoreRuntimeFactory =
-    engine_sim_offline::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
+    crankwave::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
 
 inline constexpr std::size_t kShortRunStepCount = 8000U;
 inline constexpr double kShortRunRpm = 2400.0;
@@ -69,7 +69,7 @@ void expect(bool condition, const std::string &message) {
 make_short_request(const AuthoredEngineFixture &canonical) {
     std::vector<double> rpm(kShortRunStepCount, kShortRunRpm);
     auto request =
-        engine_sim_offline::test::make_prescribed_fixture(canonical, std::move(rpm));
+        crankwave::test::make_prescribed_fixture(canonical, std::move(rpm));
 
     request.scenario.scenario_id = "authored-short-gas-integration";
     request.scenario.total_duration_s.value = kShortRunDurationS;
@@ -115,7 +115,7 @@ make_radial_gas_request(const AuthoredEngineFixture &canonical) {
     };
     prescribed_sweep(request.scenario).throttle_01.points = {{0.0, 0.35}};
 
-    auto &core = engine_sim_offline::test::low_order_core(request.engine);
+    auto &core = crankwave::test::low_order_core(request.engine);
     expect(request.engine.cylinders.size() >= 2U &&
                core.mechanism.cylinders.size() == request.engine.cylinders.size(),
            "radial gas fixture requires at least two ordered cylinders");
@@ -155,7 +155,7 @@ require_gas(CoreRuntimeFactory::GasCompileResult result) {
 }
 
 [[nodiscard]] RandomPlan require_random_plan(const AuthoredEngineFixture &request) {
-    return engine_sim_offline::test::compile_fixture_random_plan(request);
+    return crankwave::test::compile_fixture_random_plan(request);
 }
 
 [[nodiscard]] KinematicScenarioSchedule
@@ -176,7 +176,7 @@ require_control_schedule(ScenarioControlScheduleResult result) {
 
 [[nodiscard]] const LowOrderEngineCoreV1 &
 low_order_core(const AuthoredEngineFixture &request) {
-    return engine_sim_offline::test::low_order_core(request.engine);
+    return crankwave::test::low_order_core(request.engine);
 }
 
 [[nodiscard]] std::uint32_t next_public_id(const auto &items) {
@@ -191,7 +191,7 @@ low_order_core(const AuthoredEngineFixture &request) {
 make_two_intake_request(const AuthoredEngineFixture &canonical) {
     auto request = make_short_request(canonical);
     auto &engine = request.engine;
-    auto &core = engine_sim_offline::test::low_order_core(engine);
+    auto &core = crankwave::test::low_order_core(engine);
     expect(engine.intakes.size() == 1U && core.gas_path.intakes.size() == 1U &&
                core.gas_path.exhaust_routes.size() >= 2U,
            "two-intake runtime fixture requires one intake and two exhaust routes");
@@ -756,7 +756,7 @@ void offset_cam_advance(LegacyCamshaftProfile &camshaft, double offset_rad) {
 
 void configure_vtec_alternate(AuthoredEngineFixture &request, bool distinct_alternate,
                               bool force_alternate_active) {
-    auto &core = engine_sim_offline::test::low_order_core(request.engine);
+    auto &core = crankwave::test::low_order_core(request.engine);
     LegacyVtecAlternateCamProfile alternate;
     alternate.intake = core.valvetrain.intake;
     alternate.exhaust = core.valvetrain.exhaust;
@@ -809,9 +809,9 @@ void test_vtec_selects_one_coherent_immutable_cam_pair(
 
     auto alternate_fixed_request = base_request;
     auto &alternate_fixed_core =
-        engine_sim_offline::test::low_order_core(alternate_fixed_request.engine);
+        crankwave::test::low_order_core(alternate_fixed_request.engine);
     const auto &alternate_source =
-        *engine_sim_offline::test::low_order_core(alternate_active_request.engine)
+        *crankwave::test::low_order_core(alternate_active_request.engine)
              .valvetrain.alternate;
     alternate_fixed_core.valvetrain.intake = alternate_source.intake;
     alternate_fixed_core.valvetrain.exhaust = alternate_source.exhaust;
@@ -942,7 +942,7 @@ void test_two_intake_direct_runtime_retains_independent_lanes(
     auto reference = make_two_intake_request(canonical);
     auto perturbed = reference;
     auto &perturbed_intakes =
-        engine_sim_offline::test::low_order_core(perturbed.engine).gas_path.intakes;
+        crankwave::test::low_order_core(perturbed.engine).gas_path.intakes;
     expect(perturbed_intakes.size() == 2U,
            "two-intake differential fixture lost its ordered lanes");
     perturbed_intakes[1].parameters.idle_throttle_plate_position_01.value = 0.0;
@@ -1013,7 +1013,7 @@ void test_two_intake_main_mixture_lambda_is_lane_local(
     auto reference = make_two_intake_request(canonical);
     auto perturbed = reference;
     auto &perturbed_intakes =
-        engine_sim_offline::test::low_order_core(perturbed.engine).gas_path.intakes;
+        crankwave::test::low_order_core(perturbed.engine).gas_path.intakes;
     expect(perturbed_intakes.size() == 2U &&
                perturbed_intakes[0].parameters.main_mixture_lambda.value == 0.8 &&
                perturbed_intakes[1].parameters.main_mixture_lambda.value == 0.8,
@@ -1077,7 +1077,7 @@ void test_per_cylinder_blowby_executes_bound_restriction(
     auto reference = make_short_request(canonical);
     auto disabled = reference;
     auto &cylinders =
-        engine_sim_offline::test::low_order_core(disabled.engine).mechanism.cylinders;
+        crankwave::test::low_order_core(disabled.engine).mechanism.cylinders;
     expect(cylinders.size() >= 2U,
            "per-cylinder blowby fixture requires at least two cylinders");
 
@@ -1127,7 +1127,7 @@ void test_per_cylinder_blowby_executes_bound_restriction(
 void test_bank_local_runner_and_primary_geometry_binds_and_advances(
     const AuthoredEngineFixture &canonical) {
     auto request = make_short_request(canonical);
-    auto &core = engine_sim_offline::test::low_order_core(request.engine);
+    auto &core = crankwave::test::low_order_core(request.engine);
     expect(request.engine.banks.size() == 1U && core.gas_path.heads.size() == 1U &&
                request.engine.cylinders.size() >= 2U,
            "bank-local gas fixture requires the canonical one-bank topology");
@@ -1455,7 +1455,7 @@ void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical)
 
     {
         auto request = make_short_request(canonical);
-        engine_sim_offline::test::low_order_core(request.engine)
+        crankwave::test::low_order_core(request.engine)
             .fuel.lbv_multiplier.value = 0.0;
         expect_gas_compile_rejected(request, "engine.physics_profile.fuel",
                                     "zero flame-speed multiplier");
@@ -1463,7 +1463,7 @@ void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical)
 
     {
         auto request = make_short_request(canonical);
-        engine_sim_offline::test::low_order_core(request.engine)
+        crankwave::test::low_order_core(request.engine)
             .gas_path.intakes.front()
             .parameters.main_mixture_lambda.value = 0.0;
         expect_gas_compile_rejected(request, "gas_path.intakes[0].parameters",
@@ -1472,7 +1472,7 @@ void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical)
 
     {
         auto request = make_short_request(canonical);
-        engine_sim_offline::test::low_order_core(request.engine)
+        crankwave::test::low_order_core(request.engine)
             .mechanism.cylinders[1]
             .parameters.piston_blowby.resolved_k.value *= 2.0;
         expect_gas_compile_rejected(
@@ -1518,7 +1518,7 @@ void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical)
 void test_length_authored_collector_geometry_admission(
     const AuthoredEngineFixture &canonical) {
     auto request = make_short_request(canonical);
-    auto &route = engine_sim_offline::test::low_order_core(request.engine)
+    auto &route = crankwave::test::low_order_core(request.engine)
                       .gas_path.exhaust_routes.front()
                       .parameters;
     route.collector_cross_section_area_m2.value = 0.0040715040790526395;
@@ -1554,7 +1554,7 @@ int main(int argc, char **argv) {
             throw std::runtime_error{"expected repository root argument"};
         }
         const auto canonical =
-            engine_sim_offline::test::load_canonical_authored_engine_fixture(
+            crankwave::test::load_canonical_authored_engine_fixture(
                 std::filesystem::canonical(argv[1]));
         run_tests(canonical);
     } catch (const std::exception &error) {

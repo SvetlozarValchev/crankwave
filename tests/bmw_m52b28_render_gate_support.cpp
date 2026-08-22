@@ -1,6 +1,6 @@
 #include "bmw_m52b28_render_gate_support.hpp"
 
-#include "engine_sim_offline/authoring/parse.hpp"
+#include "crankwave/authoring/parse.hpp"
 
 #include <algorithm>
 #include <fstream>
@@ -10,7 +10,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::test::bmw_m52b28_render_gate {
+namespace crankwave::test::bmw_m52b28_render_gate {
 namespace {
 
 struct OwnedAsset {
@@ -343,4 +343,4 @@ VerifyingMemorySink::at(const std::string_view role) const {
     return artifacts[found->second];
 }
 
-} // namespace engine_sim_offline::test::bmw_m52b28_render_gate
+} // namespace crankwave::test::bmw_m52b28_render_gate

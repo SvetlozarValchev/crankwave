@@ -2,12 +2,12 @@
 
 #include "identity/canonical_json_writer.hpp"
 
-#include "engine_sim_offline/contract/engine.hpp"
-#include "engine_sim_offline/contract/provenance.hpp"
-#include "engine_sim_offline/contract/randomness.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/engine.hpp"
+#include "crankwave/contract/provenance.hpp"
+#include "crankwave/contract/randomness.hpp"
+#include "crankwave/contract/scenario.hpp"
 
-namespace engine_sim_offline::identity::detail {
+namespace crankwave::identity::detail {
 
 template <class T, class WriteValue>
 [[nodiscard]] bool write_resolved(CanonicalJsonWriter &writer,
@@ -34,4 +34,4 @@ write_provenance_bundle_ref(CanonicalJsonWriter &writer,
 [[nodiscard]] bool write_render_scenario(CanonicalJsonWriter &writer,
                                          const contract::RenderScenario &scenario);
 
-} // namespace engine_sim_offline::identity::detail
+} // namespace crankwave::identity::detail

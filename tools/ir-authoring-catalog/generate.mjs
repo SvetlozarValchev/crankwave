@@ -21,7 +21,7 @@ const REVIEWS_PATH = path.join(
   "assets/builtin/ir-library/perceptual-reviews.v1.json",
 );
 
-const SOURCE_REPOSITORY = "https://github.com/SvetlozarValchev/engine-sim";
+const SOURCE_REPOSITORY = "https://github.com/SvetlozarValchev/crankwave";
 const SOURCE_TREE_COMMIT = "35dac075491addbdd7a58663a9d92c75480df4ce";
 const SOURCE_ASSET_INTRODUCTION_COMMIT =
   "24718fa29b7ec29f733456d546b9f329e68f55ec";
@@ -586,7 +586,7 @@ function semanticProfile(entry, collectionThresholds, review) {
 
 function loadReviews() {
   const document = JSON.parse(fs.readFileSync(REVIEWS_PATH, "utf8"));
-  assert.equal(document.schema, "engine-sim-offline/ir-perceptual-reviews.v1");
+  assert.equal(document.schema, "crankwave/ir-perceptual-reviews.v1");
   assert.equal(document.review_method, "level-matched-fixed-dry-engine-probe-v1");
   assert(Array.isArray(document.reviews));
   const reviews = new Map();
@@ -695,8 +695,8 @@ function buildCatalog({ sourceRoot = null, importPayloads = false }) {
     ]),
   );
   return {
-    schema: "engine-sim-offline/ir-authoring-catalog.v1",
-    catalog_id: "engine-sim-offline-built-in-ir-library",
+    schema: "crankwave/ir-authoring-catalog.v1",
+    catalog_id: "crankwave-built-in-ir-library",
     catalog_revision: 1,
     release_identity: RELEASE_IDENTITY,
     entry_count: entries.length,
@@ -714,7 +714,7 @@ function buildCatalog({ sourceRoot = null, importPayloads = false }) {
       import: "exact-byte-copy-content-addressed-by-sha256",
     },
     measurement_method: {
-      id: "engine-sim-offline-ir-objective-analysis-v1",
+      id: "crankwave-ir-objective-analysis-v1",
       decoded_domain: "mono-normalized-pcm-without-level-normalization",
       meaningful_support: "last-frame-strictly-above-100-over-32768-amplitude",
       decay: "reverse-integrated-squared-amplitude-from-absolute-peak",
@@ -724,7 +724,7 @@ function buildCatalog({ sourceRoot = null, importPayloads = false }) {
       collection_thresholds: collectionThresholds,
     },
     semantic_method: {
-      id: "engine-sim-offline-ir-measurement-proxy-semantics-v1",
+      id: "crankwave-ir-measurement-proxy-semantics-v1",
       objective_proxy_warning: "bright-dark-sharp-smooth-open-muffled-decay-tags-are-relative-measurement-proxies-not-listening-claims",
       curated_review_method: "level-matched-fixed-dry-engine-probe-v1",
       curated_review_status: reviews.size === entries.length

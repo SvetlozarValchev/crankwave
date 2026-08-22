@@ -1,8 +1,8 @@
-#include "engine_sim_offline/authoring/parse.hpp"
+#include "crankwave/authoring/parse.hpp"
 
 #include "authoring/document_reader.hpp"
 #include "authoring/parse_engine_detail.hpp"
-#include "engine_sim_offline/authoring/atlas_bake_document.hpp"
+#include "crankwave/authoring/atlas_bake_document.hpp"
 
 #include <exception>
 #include <new>
@@ -12,7 +12,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::authoring {
+namespace crankwave::authoring {
 namespace {
 
 using detail::DocumentReader;
@@ -472,7 +472,7 @@ void parse_root(DocumentReader &reader, JsonValue value,
     reader.string(reader.required(value, "schema", ""), "/schema", output.schema);
     if (!output.schema.empty() && output.schema != kAtlasBakeSchema) {
         reader.add(DiagnosticCode::unsupported_schema, "/schema",
-                   "expected schema 'engine-sim-offline/atlas-bake'");
+                   "expected schema 'crankwave/atlas-bake'");
     }
     reader.id(reader.required(value, "id", ""), "/id", output.id);
     reader.ref(reader.required(value, "engine", ""), "/engine", output.engine);
@@ -551,4 +551,4 @@ parse_atlas_bake_document(std::string_view json,
     }
 }
 
-} // namespace engine_sim_offline::authoring
+} // namespace crankwave::authoring

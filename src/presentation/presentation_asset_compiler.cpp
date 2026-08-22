@@ -13,7 +13,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 namespace {
 
 [[nodiscard]] bool
@@ -421,4 +421,4 @@ PresentationConvolutionKernelCompileResult compile_presentation_convolution_kern
         std::move(key), std::move(kernel), spectrum_complex_f64le);
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

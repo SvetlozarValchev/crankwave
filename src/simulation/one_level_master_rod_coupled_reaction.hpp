@@ -1,6 +1,6 @@
 #pragma once
 
-#include "simulation/engine_sim_v1_transient_friction.hpp"
+#include "simulation/crankwave_transient_friction.hpp"
 #include "simulation/one_level_master_rod_configuration_inertia.hpp"
 
 #include <cstddef>
@@ -11,7 +11,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 inline constexpr std::size_t kNoOneLevelMasterRodReactionCylinder =
     std::numeric_limits<std::size_t>::max();
@@ -48,7 +48,7 @@ struct OneLevelMasterRodCoupledReactionError {
     OneLevelMasterRodCoupledReactionIssue issue =
         OneLevelMasterRodCoupledReactionIssue::nonfinite_derived_value;
     std::size_t cylinder_index = kNoOneLevelMasterRodReactionCylinder;
-    std::optional<EngineSimV1PistonWallIssue> friction_issue;
+    std::optional<CrankwavePistonWallIssue> friction_issue;
 
     friend bool operator==(const OneLevelMasterRodCoupledReactionError &,
                            const OneLevelMasterRodCoupledReactionError &) = default;
@@ -193,4 +193,4 @@ calculate_one_level_master_rod_branch_reaction(
 
 } // namespace detail
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

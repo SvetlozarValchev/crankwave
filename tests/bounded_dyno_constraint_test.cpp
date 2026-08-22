@@ -14,9 +14,9 @@
 
 namespace {
 
-namespace contract = engine_sim_offline::contract;
-namespace detail = engine_sim_offline::simulation::detail;
-namespace simulation = engine_sim_offline::simulation;
+namespace contract = crankwave::contract;
+namespace detail = crankwave::simulation::detail;
+namespace simulation = crankwave::simulation;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -45,9 +45,9 @@ void expect_near(double actual, double expected, double tolerance,
 
 void test_constraint_method_identities_are_canonical_and_topology_specific() {
     constexpr std::string_view kDirectDigest =
-        "09acc664facd8ac09e8d29e44065866cdb4665def732a923c72a42d27789ace2";
+        "e05cf365708017aefb7d53efbfccc9eb86f20cdd4df36b2f0253c7ee0125b28f";
     constexpr std::string_view kMasterRodDigest =
-        "71b511ed6c5c2c29225cd96645e8c117dea4093cf965c22a76358f220b2bbe8b";
+        "e009ba953eca2d206beae16b307a078e18ddf6d31ad99ed3bafe2304ecf9a03a";
 
     const auto direct_descriptor =
         simulation::bounded_held_dyno_constraint_method_descriptor();
@@ -68,9 +68,11 @@ void test_constraint_method_identities_are_canonical_and_topology_specific() {
     const auto master_rod_digest = contract::sha256(std::as_bytes(std::span<const char>{
         master_rod_descriptor.data(), master_rod_descriptor.size()}));
     expect(digest_hex(direct_digest) == kDirectDigest,
-           "direct held-dyno descriptor digest changed");
+           "direct held-dyno descriptor digest changed: " +
+               digest_hex(direct_digest));
     expect(digest_hex(master_rod_digest) == kMasterRodDigest,
-           "master-rod held-dyno descriptor digest changed");
+           "master-rod held-dyno descriptor digest changed: " +
+               digest_hex(master_rod_digest));
 
     const auto &direct = simulation::bounded_held_dyno_constraint_method_identity();
     const auto &master_rod =

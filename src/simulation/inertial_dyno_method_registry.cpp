@@ -3,7 +3,7 @@
 #include <span>
 #include <string>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 [[nodiscard]] consteval bool
@@ -20,7 +20,7 @@ canonical_lf_descriptor(std::string_view descriptor) noexcept {
 }
 
 constexpr std::string_view kRigidCrankDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=rigid-crank-zoh-work-energy-v1
 version=1
 operation=positive-speed-rigid-one-degree-of-freedom-crank-referred-inertial-dyno
@@ -47,7 +47,7 @@ external_numeric_authority=renderer-build-source-standard-library-math-runtime-a
 )method";
 
 constexpr std::string_view kPassiveBrakeDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=piecewise-linear-positive-speed-passive-brake-v1
 version=1
 operation=positive-speed-passive-resisting-torque-magnitude
@@ -108,4 +108,4 @@ piecewise_linear_positive_speed_passive_brake_method_identity() {
     return identity;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

@@ -5,7 +5,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::authoring::detail {
+namespace crankwave::authoring::detail {
 namespace {
 
 void parse_audio_asset(DocumentReader &reader, JsonValue value, std::string_view path,
@@ -346,4 +346,4 @@ void parse_rig(DocumentReader &reader, JsonValue value, std::string_view path,
     }
 }
 
-} // namespace engine_sim_offline::authoring::detail
+} // namespace crankwave::authoring::detail

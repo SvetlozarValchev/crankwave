@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://engine-sim-offline.dev/schemas/atlas-bake.schema.json",
-  "title": "Engine Sim Offline phase-texture atlas bake document",
+  "$id": "https://crankwave.dev/schemas/atlas-bake.schema.json",
+  "title": "Crankwave phase-texture atlas bake document",
   "$comment": "This is the sole current atlas-bake authoring contract. It contains no legacy moving-segment representation.",
   "type": "object",
   "additionalProperties": false,
@@ -21,7 +21,7 @@
     "lifecycle_captures"
   ],
   "properties": {
-    "schema": { "const": "engine-sim-offline/atlas-bake" },
+    "schema": { "const": "crankwave/atlas-bake" },
     "id": { "$ref": "#/$defs/id" },
     "engine": { "$ref": "#/$defs/id" },
     "public_seed": { "$ref": "#/$defs/uint64Decimal" },

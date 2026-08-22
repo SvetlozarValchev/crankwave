@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "cocentered-split-crank-v-twin-free-engine-coast-3000rpm",
   "engine": "cocentered-split-crank-v-twin",
   "fuel": "gasoline-default",

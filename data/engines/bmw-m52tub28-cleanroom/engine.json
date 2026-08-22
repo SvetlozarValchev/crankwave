@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/engine",
+  "schema": "crankwave/engine",
   "engine": {
     "identity": {
       "id": "bmw-m52tub28-cleanroom",
@@ -440,7 +440,7 @@
       {
         "id": "warm-generic-accessories",
         "uri": "../../profiles/bmw-m52tub28-cleanroom/accessory-configurations/bmw-m52tub28-cleanroom-warm-generic-accessories-v1.json",
-        "sha256": "a1bcdbf0edd62a92ceddecd537f475b17cf2c6503fd65c3d2cf1b5d0d6315ede"
+        "sha256": "476dc695945fff4b4d91957d3aff77b0ecacb89affd759cd8da9b944e7a40e75"
       }
     ],
     "losses": {
@@ -607,7 +607,7 @@
       {
         "id": "smooth-39",
         "kind": "impulse_response",
-        "uri": "../../../reference/fixtures/engine-sim-ir-library/presentation/smooth_39.wav",
+        "uri": "../../../reference/fixtures/crankwave-ir-library/presentation/smooth_39.wav",
         "sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"
       }
     ],

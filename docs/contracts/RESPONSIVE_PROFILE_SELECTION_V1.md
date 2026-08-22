@@ -8,7 +8,7 @@ introduce downstream product-specific fields or behavior.
 
 When `--profile PROFILE.json` is present, ESO reads, validates, hashes, stages,
 and uses those exact profile bytes. The existing
-`engine-sim-offline/responsive-audio-bake-profile-v1` contract is unchanged.
+`crankwave/responsive-audio-bake-profile-v1` contract is unchanged.
 
 When `--profile` is absent, ESO applies policy
 `engine-redline-affine-v1` and emits profile ID

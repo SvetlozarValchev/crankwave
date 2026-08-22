@@ -1,9 +1,9 @@
 #include "authored_engine_fixture_support.hpp"
 
 #include "compile/compiled_scenario_view.hpp"
-#include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/compile.hpp"
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/authoring/parse.hpp"
+#include "crankwave/compile.hpp"
+#include "crankwave/session.hpp"
 #include "simulation/legacy_fixed_valvetrain.hpp"
 
 #include <algorithm>
@@ -24,12 +24,12 @@
 
 namespace {
 
-namespace authoring = engine_sim_offline::authoring;
-namespace compile = engine_sim_offline::compile;
-namespace compile_detail = engine_sim_offline::compile::detail;
-namespace contract = engine_sim_offline::contract;
-namespace simulation = engine_sim_offline::simulation;
-namespace test = engine_sim_offline::test;
+namespace authoring = crankwave::authoring;
+namespace compile = crankwave::compile;
+namespace compile_detail = crankwave::compile::detail;
+namespace contract = crankwave::contract;
+namespace simulation = crankwave::simulation;
+namespace test = crankwave::test;
 
 constexpr double kLegacyPi = 3.14159265359;
 constexpr double kDegreesToRadians = kLegacyPi / 180.0;
@@ -584,16 +584,16 @@ void verify_resolved_head_bindings(const ShovelheadSource &source_assignment,
                           "swapped bank assignment");
 }
 
-[[nodiscard]] engine_sim_offline::EngineSession
+[[nodiscard]] crankwave::EngineSession
 require_session(const compile::CompiledScenario &scenario) {
-    auto result = engine_sim_offline::create_engine_session(
-        scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
+    auto result = crankwave::create_engine_session(
+        scenario, crankwave::EngineSessionExecutionKind::finite_scenario);
     if (const auto *error =
-            std::get_if<engine_sim_offline::EngineSessionError>(&result)) {
+            std::get_if<crankwave::EngineSessionError>(&result)) {
         throw std::runtime_error{"Shovelhead session creation failed: " +
                                  error->detail_code + ": " + error->message};
     }
-    return std::get<engine_sim_offline::EngineSession>(std::move(result));
+    return std::get<crankwave::EngineSession>(std::move(result));
 }
 
 [[nodiscard]] std::vector<std::byte>
@@ -601,7 +601,7 @@ render_audition_pcm(const compile::CompiledScenario &scenario) {
     auto session = require_session(scenario);
     const auto descriptor = session.descriptor();
     expect(descriptor.motion_mode ==
-                   engine_sim_offline::EngineMotionMode::prescribed_kinematic_sweep &&
+                   crankwave::EngineMotionMode::prescribed_kinematic_sweep &&
                descriptor.total_block_count == 4U &&
                descriptor.preparation_block_count == 0U,
            "Shovelhead regression scenario is not the bounded 0.08-second "
@@ -613,16 +613,16 @@ render_audition_pcm(const compile::CompiledScenario &scenario) {
     while (true) {
         auto result = session.process_block();
         if (const auto *block =
-                std::get_if<engine_sim_offline::EngineSessionBlockView>(&result)) {
+                std::get_if<crankwave::EngineSessionBlockView>(&result)) {
             const auto found = std::ranges::find(
                 block->audio_buses(),
-                engine_sim_offline::EngineAudioBusKind::engine_audition_master,
+                crankwave::EngineAudioBusKind::engine_audition_master,
                 [](const auto &bus) { return bus.descriptor.kind; });
             expect(found != block->audio_buses().end() &&
                        block->phase() ==
-                           engine_sim_offline::EngineSessionBlockPhase::audible &&
+                           crankwave::EngineSessionBlockPhase::audible &&
                        found->samples.size() ==
-                           engine_sim_offline::kEngineSessionDeliveryFramesPerBlock &&
+                           crankwave::kEngineSessionDeliveryFramesPerBlock &&
                        std::ranges::all_of(
                            found->samples,
                            [](const float sample) { return std::isfinite(sample); }),
@@ -637,12 +637,12 @@ render_audition_pcm(const compile::CompiledScenario &scenario) {
             continue;
         }
         if (const auto *error =
-                std::get_if<engine_sim_offline::EngineSessionError>(&result)) {
+                std::get_if<crankwave::EngineSessionError>(&result)) {
             throw std::runtime_error{"Shovelhead session faulted: " +
                                      error->detail_code + ": " + error->message};
         }
         const auto &completed =
-            std::get<engine_sim_offline::EngineSessionCompleted>(result);
+            std::get<crankwave::EngineSessionCompleted>(result);
         expect(observed_nonzero && block_count == 4U &&
                    completed.block_count == block_count &&
                    completed.physics_frame_count == 1600U &&

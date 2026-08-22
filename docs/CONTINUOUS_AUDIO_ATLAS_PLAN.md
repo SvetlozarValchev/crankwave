@@ -141,8 +141,8 @@ prerecorded vehicle scenario and the runtime never knows its future target RPM.
 
 ## Sole package contract
 
-The sole logical manifest schema remains `engine-sim-offline/audio-atlas`, paired with
-the sole authoring schema `engine-sim-offline/atlas-bake`. The tracked schemas still
+The sole logical manifest schema remains `crankwave/audio-atlas`, paired with
+the sole authoring schema `crankwave/atlas-bake`. The tracked schemas still
 describe the earlier moving-segment proof and deliberately reject phase-texture and
 transient payloads. Therefore the research package cannot yet be admitted by the
 tracked product.

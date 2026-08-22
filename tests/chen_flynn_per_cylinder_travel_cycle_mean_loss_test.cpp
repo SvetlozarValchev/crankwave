@@ -18,8 +18,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::simulation;
+using namespace crankwave;
+using namespace crankwave::simulation;
 
 constexpr double kFourStrokeCycleRadians = 4.0 * std::numbers::pi_v<double>;
 
@@ -68,6 +68,17 @@ void expect_bits(const double actual, const std::uint64_t expected,
     return result;
 }
 
+[[nodiscard]] std::string digest_hex(const contract::Sha256Digest &digest) {
+    constexpr std::string_view digits = "0123456789abcdef";
+    std::string result;
+    result.reserve(64U);
+    for (const auto byte : digest.bytes) {
+        result.push_back(digits[byte >> 4U]);
+        result.push_back(digits[byte & UINT8_C(0x0f)]);
+    }
+    return result;
+}
+
 [[nodiscard]] ChenFlynnCycleMeanLossPlan generic_plan() noexcept {
     return {0.4, 0.005, 0.09, 0.0009};
 }
@@ -107,14 +118,14 @@ void expect_error(
 
 void test_method_identity_and_claim_boundary() {
     constexpr std::string_view kExpectedDigest =
-        "6f2b6aeaff65da4c0cbc166a6d030f8085a594cf3c57427bb405c6eb6b27bcc1";
+        "a3cc7c0893093d87bd88c0b3c3274209e69476546bc09bdc6525fe03f9133a5d";
     const auto descriptor =
         chen_flynn_per_cylinder_piston_travel_cycle_mean_aggregate_loss_method_descriptor();
     expect(!descriptor.empty() && descriptor.back() == '\n' &&
                descriptor.find('\r') == std::string_view::npos &&
                descriptor.find('\0') == std::string_view::npos,
            "per-cylinder travel method descriptor is not canonical LF text");
-    expect(descriptor.find("engine-sim-offline-greenfield-per-cylinder-work-application") !=
+    expect(descriptor.find("crankwave-greenfield-per-cylinder-work-application") !=
                    std::string_view::npos &&
                descriptor.find("not-pristine-engine-sim-behavior") !=
                    std::string_view::npos &&
@@ -126,7 +137,8 @@ void test_method_identity_and_claim_boundary() {
     const auto actual_digest = contract::sha256(std::as_bytes(
         std::span<const char>{descriptor.data(), descriptor.size()}));
     expect(actual_digest == expected_digest,
-           "per-cylinder travel method descriptor digest changed");
+           "per-cylinder travel method descriptor digest changed: " +
+               digest_hex(actual_digest));
     const auto &identity =
         chen_flynn_per_cylinder_piston_travel_cycle_mean_aggregate_loss_method_identity();
     expect(identity.id ==

@@ -11,7 +11,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 namespace {
 
 struct AffineConversion {
@@ -351,4 +351,4 @@ SiRateResult convert_rate_to_si(const authoring::RationalRate &rate,
     }
 }
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

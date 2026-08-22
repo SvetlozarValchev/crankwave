@@ -2,12 +2,12 @@
 
 #include "compile/engine_resolver.hpp"
 #include "compile/scenario_resolver.hpp"
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/compile.hpp"
 
 #include <memory>
 #include <string>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 
 struct CompiledEngineStorage {
     std::string id;
@@ -20,4 +20,4 @@ struct CompiledScenarioStorage {
     ResolvedScenarioContracts resolved;
 };
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

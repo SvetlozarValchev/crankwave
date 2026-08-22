@@ -1,7 +1,7 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
-#include "engine_sim_offline/contract/provenance.hpp"
+#include "crankwave/contract/common.hpp"
+#include "crankwave/contract/provenance.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -12,7 +12,7 @@
 #include <string_view>
 #include <unordered_set>
 
-namespace engine_sim_offline::contract::detail {
+namespace crankwave::contract::detail {
 
 inline void append_prefixed(ValidationReport &destination, ValidationReport source,
                             std::string_view prefix) {
@@ -147,4 +147,4 @@ void require_unique_numeric_ids(ValidationReport &report, const Range &values,
     }
 }
 
-} // namespace engine_sim_offline::contract::detail
+} // namespace crankwave::contract::detail

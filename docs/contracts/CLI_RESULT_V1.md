@@ -1,11 +1,11 @@
 # Native CLI machine result v1
 
-`render`, `bake-vehicleengine`, `pack-vehicleengine`, `inspect-vehicleengine`,
-`verify-vehicleengine`, and `inspect-ir-catalog` accept
+`render`, `bake-crankwave`, `pack-crankwave`, `inspect-crankwave`,
+`verify-crankwave`, and `inspect-ir-catalog` accept
 `--result-format json`. In that mode the command writes exactly one UTF-8 JSON
 object followed by one LF to standard output for either success or failure. It does
 not write human diagnostics to standard error. Process-launch failures that occur
-before `engine-sim-offline` starts are outside this contract.
+before `crankwave` starts are outside this contract.
 
 JSON strings preserve valid non-ASCII UTF-8 bytes. An invalid input byte sequence
 is represented with the Unicode replacement character escape, so command output is
@@ -15,7 +15,7 @@ Every result begins with these keys in this order:
 
 ```json
 {
-  "schema": "engine-sim-offline.cli-result.v1",
+  "schema": "crankwave.cli-result.v1",
   "release_identity": "1.2.0",
   "command": "render",
   "ok": true,
@@ -38,10 +38,10 @@ contains `output_file`, `engine_id`, `profile_id`, `verified`, `container_bytes`
 `verified` is true only after the complete carrier and its ordered package tree have
 been checked before atomic publication. Pack success contains `output_file`,
 `container_bytes`, `entry_count`, and `container_sha256`. Inspect and verify success
-contain the VEHICLEENGINE version, verification state, byte/count/hash summary, ordered
+contain the CRANKWAVE version, verification state, byte/count/hash summary, ordered
 entry records, and either a verified package descriptor or null.
 IR-catalog inspection success contains `catalog_sha256`, `entry_count`, and the
-validated `engine-sim-offline/ir-authoring-catalog.v1` object. Its release identity
+validated `crankwave/ir-authoring-catalog.v1` object. Its release identity
 must equal the outer installed release identity, and every exposed selection is
 cross-checked against the installed technical asset catalog.
 Potentially wide byte counts are decimal strings. Entry counts and container
@@ -56,22 +56,22 @@ Failure codes are drawn from these stable families:
 - native-bake planning, cooking, backend-identity, packaging, and publication codes,
   including the stable `responsive-*` and `native-responsive-*` detail-code
   namespaces;
-- `vehicleengine-data-error`, `vehicleengine-input-unavailable`,
-  `vehicleengine-output-unavailable`, and `vehicleengine-operation-unavailable`;
+- `crankwave-data-error`, `crankwave-input-unavailable`,
+  `crankwave-output-unavailable`, and `crankwave-operation-unavailable`;
 - `render-invalid-specification`, `render-unreachable-target`,
   `render-event-schedule-violation`, `render-nonphysical-state`,
   `render-numerical-failure`, `render-incomplete-source-route`,
   `render-evidence-rights-failure`, `render-artifact-publication-failure`, and
   `render-contract-violation`;
 - `render-cancelled`, `render-terminated`, and `render-deadline-exceeded`;
-- `bake-vehicleengine-cancelled`, `bake-vehicleengine-terminated`, and
-  `bake-vehicleengine-deadline-exceeded`;
-- `pack-vehicleengine-cancelled`, `pack-vehicleengine-terminated`, and
-  `pack-vehicleengine-deadline-exceeded`;
-- `inspect-vehicleengine-cancelled`, `inspect-vehicleengine-terminated`, and
-  `inspect-vehicleengine-deadline-exceeded`;
-- `verify-vehicleengine-cancelled`, `verify-vehicleengine-terminated`, and
-  `verify-vehicleengine-deadline-exceeded`.
+- `bake-crankwave-cancelled`, `bake-crankwave-terminated`, and
+  `bake-crankwave-deadline-exceeded`;
+- `pack-crankwave-cancelled`, `pack-crankwave-terminated`, and
+  `pack-crankwave-deadline-exceeded`;
+- `inspect-crankwave-cancelled`, `inspect-crankwave-terminated`, and
+  `inspect-crankwave-deadline-exceeded`;
+- `verify-crankwave-cancelled`, `verify-crankwave-terminated`, and
+  `verify-crankwave-deadline-exceeded`.
 
 For native-bake failures other than authored diagnostics and controlled stops, the
 failure object appends `message`, `stage`, nullable `path`, and an ordered `issues`
@@ -101,7 +101,7 @@ result.
 Native bake observes cancellation during admission, engine and asset loading,
 responsive planning, held/directional/lifecycle capture and cooking, child encoding,
 package construction, complete carrier verification, staged-file verification, and
-publication. It verifies the complete VEHICLEENGINE carrier before writing a unique
+publication. It verifies the complete CRANKWAVE carrier before writing a unique
 private stage and atomically publishes without replacing an existing destination.
 Cancellation before publication removes the private stage and exposes no partial
 output. Once no-overwrite publication succeeds, the committed result wins over a

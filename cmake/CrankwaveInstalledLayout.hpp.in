@@ -1,0 +1,10 @@
+#pragma once
+
+#include <string_view>
+
+namespace crankwave::cli::detail {
+
+inline constexpr std::string_view kInstalledAssetDirectoryRelativeToExecutable =
+    R"crankwave(@CRANKWAVE_INSTALL_ASSET_RELATIVE_FROM_BINDIR@)crankwave";
+
+} // namespace crankwave::cli::detail

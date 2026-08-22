@@ -11,7 +11,7 @@
 
 namespace {
 
-namespace detail = engine_sim_offline::simulation::detail;
+namespace detail = crankwave::simulation::detail;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {

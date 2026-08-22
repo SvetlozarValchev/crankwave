@@ -1,11 +1,11 @@
 #pragma once
 
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/session.hpp"
 
 #include <span>
 #include <string_view>
 
-namespace engine_sim_offline::session_detail {
+namespace crankwave::session_detail {
 
 // Internal responsive-cooking boundary. Unlike create_engine_session(), this
 // deliberately publishes only the named source-route dry buses and permits the
@@ -16,4 +16,4 @@ namespace engine_sim_offline::session_detail {
     const compile::CompiledScenario &scenario,
     std::span<const std::string_view> selected_dry_bus_ids);
 
-} // namespace engine_sim_offline::session_detail
+} // namespace crankwave::session_detail

@@ -12,7 +12,7 @@ standard_out=$3
 standard_error=$4
 signal_name=$5
 
-"$cli" verify-vehicleengine \
+"$cli" verify-crankwave \
     --input "$input" \
     --result-format json >"$standard_out" 2>"$standard_error" &
 child=$!

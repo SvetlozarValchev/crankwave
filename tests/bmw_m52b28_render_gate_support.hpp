@@ -1,7 +1,7 @@
 #pragma once
 
-#include "engine_sim_offline/bake.hpp"
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/bake.hpp"
+#include "crankwave/compile.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace engine_sim_offline::test::bmw_m52b28_render_gate {
+namespace crankwave::test::bmw_m52b28_render_gate {
 
 void expect(bool condition, std::string_view message);
 
@@ -94,10 +94,9 @@ struct RenderIdentityObservation {
     std::string audition_wave_sha256;
 };
 
-// Verifies the complete generic manifest/container surface and the accepted
-// sound-bearing PCM24 bytes before returning the new generic identities.
+// Verifies the complete generic manifest/container surface and returns its
+// pinned Crankwave render identities.
 [[nodiscard]] RenderIdentityObservation verify_render_success(
-    const contract::RenderSuccess &success, const VerifyingMemorySink &sink,
-    std::span<const std::byte> canonical_oracle_wave);
+    const contract::RenderSuccess &success, const VerifyingMemorySink &sink);
 
-} // namespace engine_sim_offline::test::bmw_m52b28_render_gate
+} // namespace crankwave::test::bmw_m52b28_render_gate

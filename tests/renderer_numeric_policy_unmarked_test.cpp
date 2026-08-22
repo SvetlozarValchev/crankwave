@@ -4,7 +4,7 @@
 #include <variant>
 
 int main() {
-    using namespace engine_sim_offline::determinism;
+    using namespace crankwave::determinism;
 
     const auto snapshot = observe_current_thread_renderer_numeric_environment();
     if (snapshot.build_policy != RendererNumericBuildPolicy::unmarked) {

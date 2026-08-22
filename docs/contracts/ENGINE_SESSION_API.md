@@ -695,7 +695,7 @@ environment.
 
 ## 10. Portable ABI
 
-[`c_api.h`](../../include/engine_sim_offline/c_api.h) is the one implemented foreign
+[`c_api.h`](../../include/crankwave/c_api.h) is the one implemented foreign
 runtime boundary. It exposes one exact ABI version rather than a family of legacy
 layouts:
 
@@ -712,14 +712,14 @@ session process -> caller-owned PCM buses + POD telemetry + completed-cycle evid
 The creation call is:
 
 ```c
-eso_create_session(context, scenario, execution_kind, out_session);
+crankwave_create_session(context, scenario, execution_kind, out_session);
 ```
 
 There is no form that omits `execution_kind`.
 
 The implemented ABI:
 
-- the sole accepted exact version is `ESO_C_API_VERSION == 10`, with no older-layout
+- the sole accepted exact version is `CRANKWAVE_C_API_VERSION == 10`, with no older-layout
   decoder or compatibility symbol family;
 - no C++ exception crosses the boundary;
 - every call returns an explicit status;
@@ -734,22 +734,22 @@ The implemented ABI:
   wrong-kind handles fail;
 - a session owns the immutable compiled scenario/engine storage it needs, so parent
   handles may be released after session creation;
-- `eso_create_session` requires exactly
-  `ESO_SESSION_EXECUTION_FINITE_SCENARIO` or
-  `ESO_SESSION_EXECUTION_OPEN_ENDED`;
+- `crankwave_create_session` requires exactly
+  `CRANKWAVE_SESSION_EXECUTION_FINITE_SCENARIO` or
+  `CRANKWAVE_SESSION_EXECUTION_OPEN_ENDED`;
 - the session descriptor reports that kind and uses canonical
   `total_block_count == 0` only for open-ended execution;
 - the descriptor reports one of seven motion modes, and gear query/copy functions
   expose the ordered forward-gear inventory;
 - twelve capability bits and control kinds share one fixed-layout command; gear uses
   `id_value`, while the other payload fields must retain their canonical zero values;
-- `eso_session_telemetry_t` wraps engine telemetry with HeldDyno and FreeVehicle
+- `crankwave_session_telemetry_t` wraps engine telemetry with HeldDyno and FreeVehicle
   presence flags and sidecars; every absent sidecar is bytewise all-zero;
-- `eso_completed_cycle_evidence_t` mirrors each exact committed 720-degree cycle,
+- `crankwave_completed_cycle_evidence_t` mirrors each exact committed 720-degree cycle,
   retaining signed lattice ordinals, unsigned physics-frame brackets, fractional
   boundary delivery frames, integrated controls, net-shaft evidence, and state flags;
 - the descriptor publishes the maximum completed-cycle records per process call, and
-  `eso_process_info_t::cycle_evidence_written` publishes the exact returned prefix;
+  `crankwave_process_info_t::cycle_evidence_written` publishes the exact returned prefix;
 - requested PCM, telemetry, and cycle-evidence buffers are completely preflighted
   before the session advances;
 - successful control conversion and block processing use session-owned bounded scratch;
@@ -759,7 +759,7 @@ The implemented ABI:
 The Emscripten module is a 128 MiB fixed-memory wasm32 build with C++ WebAssembly
 exceptions contained behind the C boundary, no filesystem, no native thread, and no
 second JavaScript implementation. The JavaScript wrapper may offer promises around
-compile and session creation, but `eso_session_process` remains synchronous and
+compile and session creation, but `crankwave_session_process` remains synchronous and
 preserves the exact method quantum.
 
 The reproducible gate is [`verify-wasm-parity.sh`](../../scripts/verify-wasm-parity.sh).
@@ -803,7 +803,7 @@ AudioWorklet
   - count genuine streaming underruns
 ```
 
-The exact transport identifier is `engine-sim-offline/browser-worker-v5`. Every build
+The exact transport identifier is `crankwave/browser-worker-v5`. Every build
 request carries its required execution kind explicitly; the Worker and browser runtime
 pass it unchanged to the C API and never infer lifetime from scenario JSON. Build
 results publish the motion mode, exact capability list, and copied forward-gear descriptors;

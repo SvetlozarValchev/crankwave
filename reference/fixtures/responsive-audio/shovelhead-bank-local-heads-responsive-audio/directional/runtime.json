@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-directional-texture",
+  "schema": "crankwave/responsive-audio-directional-texture",
   "id": "shovelhead-bank-local-heads-directional-transient-live-preview",
   "engine": "shovelhead-bank-local-heads",
   "audio": {
@@ -49,7 +49,7 @@
       "sha256": "44ce96943d08ec8cedbca7d44a36e2b767e9e1d110bdeb1618de5b0671b73fd8"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "live-rpm-map-crank-indexed-n-route-dry-directional-units-with-phase-aligned-seam-closure",

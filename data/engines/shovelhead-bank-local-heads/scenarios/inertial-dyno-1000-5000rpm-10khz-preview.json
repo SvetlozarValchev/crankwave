@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "shovelhead-bank-local-heads-inertial-dyno-1000-5000rpm-10khz-preview",
   "engine": "shovelhead-bank-local-heads",
   "fuel": "gasoline-default",

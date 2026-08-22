@@ -12,7 +12,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::scenario_resolution {
+namespace crankwave::compile::detail::scenario_resolution {
 namespace {
 
 // The admitted simulation -> capture -> excitation method consumes one exact 20 ms
@@ -294,4 +294,4 @@ void ScenarioResolver::compile_operating_state() {
     scenario_.operating_state.value = std::move(timeline);
 }
 
-} // namespace engine_sim_offline::compile::detail::scenario_resolution
+} // namespace crankwave::compile::detail::scenario_resolution

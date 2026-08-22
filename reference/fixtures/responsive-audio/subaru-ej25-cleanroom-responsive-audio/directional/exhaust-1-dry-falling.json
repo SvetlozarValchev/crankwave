@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "schema": "crankwave/responsive-audio-directional-route",
   "id": "subaru-ej25-cleanroom-directional-falling-exhaust-1-dry-live-preview",
   "engine": "subaru-ej25-cleanroom",
   "audio": {
@@ -1081,7 +1081,7 @@
       "sha256": "2e383b32d9a6f46b9279159e5c3408c57395005253c8ff864ff2eb40346e7733"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "falling-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",

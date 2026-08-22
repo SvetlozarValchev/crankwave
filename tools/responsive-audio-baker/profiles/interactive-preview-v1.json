@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-bake-profile-v1",
+  "schema": "crankwave/responsive-audio-bake-profile-v1",
   "id": "interactive-preview-v1",
   "rpm": {
     "anchors": [600, 700, 900, 1200, 1600, 2200, 3000, 4000, 5000, 6000, 6500],

@@ -23,11 +23,11 @@
 
 namespace {
 
-using namespace engine_sim_offline::contract;
-using namespace engine_sim_offline::contract::test;
-using namespace engine_sim_offline::simulation;
+using namespace crankwave::contract;
+using namespace crankwave::contract::test;
+using namespace crankwave::simulation;
 using CoreRuntimeFactory =
-    engine_sim_offline::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
+    crankwave::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
 
 void expect_near(double actual, double expected, double tolerance,
                  const char *message) {

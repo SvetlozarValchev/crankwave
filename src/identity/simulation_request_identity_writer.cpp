@@ -3,7 +3,7 @@
 #include <optional>
 #include <string_view>
 
-namespace engine_sim_offline::identity::detail {
+namespace crankwave::identity::detail {
 namespace {
 
 [[nodiscard]] std::string_view
@@ -99,4 +99,4 @@ bool write_provenance_bundle_ref(CanonicalJsonWriter &writer,
            writer.sha256_value(provenance.sha256) && writer.end_object();
 }
 
-} // namespace engine_sim_offline::identity::detail
+} // namespace crankwave::identity::detail

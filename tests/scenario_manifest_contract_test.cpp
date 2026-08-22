@@ -6,7 +6,7 @@
 #include <limits>
 #include <string_view>
 
-namespace engine_sim_offline::contract::test {
+namespace crankwave::contract::test {
 namespace {
 
 bool has_issue(const ValidationReport &report, ContractIssueCode code,
@@ -1067,4 +1067,4 @@ void run_scenario_manifest_contract_tests() {
            "unreachable result accepted a nearest probe absent from evidence");
 }
 
-} // namespace engine_sim_offline::contract::test
+} // namespace crankwave::contract::test

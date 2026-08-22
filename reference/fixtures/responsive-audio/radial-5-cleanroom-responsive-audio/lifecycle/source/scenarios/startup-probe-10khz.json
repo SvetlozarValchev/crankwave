@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "radial-5-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
   "engine": "radial-5-cleanroom",
   "fuel": "gasoline-default",

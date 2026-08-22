@@ -1,6 +1,6 @@
-#include "engine_sim_offline/authoring/json.hpp"
-#include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/responsive/package_children.hpp"
+#include "crankwave/authoring/json.hpp"
+#include "crankwave/authoring/parse.hpp"
+#include "crankwave/responsive/package_children.hpp"
 
 #include <algorithm>
 #include <array>
@@ -21,8 +21,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::responsive;
+using namespace crankwave;
+using namespace crankwave::responsive;
 
 int failures = 0;
 
@@ -61,7 +61,7 @@ void expect(const bool condition, const std::string_view message) {
 }
 
 void export_child_if_requested(const ResponsiveOptionalChildPackageV1 &child) {
-    const char *const requested = std::getenv("ESO_PACKAGE_CHILD_FIXTURE_DIRECTORY");
+    const char *const requested = std::getenv("CRANKWAVE_PACKAGE_CHILD_FIXTURE_DIRECTORY");
     if (requested == nullptr || *requested == '\0') {
         return;
     }
@@ -78,7 +78,7 @@ void export_child_if_requested(const ResponsiveOptionalChildPackageV1 &child) {
 
 [[nodiscard]] contract::ProvenanceLedger
 provenance(const std::string_view id, const contract::Sha256Digest &sha256) {
-    return {"engine-sim-offline.provenance.v1", {std::string{id}, sha256}, {}, {}, {}};
+    return {"crankwave.provenance.v1", {std::string{id}, sha256}, {}, {}, {}};
 }
 
 [[nodiscard]] ResponsiveBakeProfile profile() {
@@ -455,7 +455,7 @@ int main() {
         &held,
         &directional,
         &compiled_presentation,
-        {"test-engine", digest("compiled-engine"), "engine-sim-offline-renderer-build",
+        {"test-engine", digest("compiled-engine"), "crankwave-renderer-build",
          digest("renderer")},
         false,
         {},
@@ -645,13 +645,13 @@ int main() {
         {starter_runtime, starter_audio}, view.provenance);
     expect(std::holds_alternative<EncodedResponsiveSharedRecordedStarterV1>(
                starter_result),
-           "installed licensed starter passes the typed byte-only boundary");
+           "installed CC0 starter passes the typed byte-only boundary");
     if (const auto *starter =
             std::get_if<EncodedResponsiveSharedRecordedStarterV1>(&starter_result)) {
         expect(starter->identity.entry_count == 2U &&
                    digest_hex(starter->identity.aggregate_sha256) ==
-                       "822c87911c2c455b7cba06ffaf65932462f29c346a002753e05f2e80eba97d7"
-                       "c" &&
+                       "9bc1ed5e18177e9000c8892b68aef01133b9e0110ccfc6d767d63f6cdac5129"
+                       "9" &&
                    starter->child.members.size() == 2U,
                "starter identity exactly matches fingerprintRegularTree");
         auto attached =

@@ -1,11 +1,11 @@
 import {
-  ESO_CANONICAL_SAMPLE_RATE,
+  CRANKWAVE_CANONICAL_SAMPLE_RATE,
   ProcessKind,
   RingState,
   SessionExecutionKind,
 } from "./c-api-abi.js";
-import { EngineSimCapiClient } from "./c-api-client.js";
-import { EngineSimRuntimeError } from "./c-api-errors.js";
+import { CrankwaveCapiClient } from "./c-api-client.js";
+import { CrankwaveRuntimeError } from "./c-api-errors.js";
 import { runCanonicalExport } from "./canonical-export.js";
 import {
   DEVICE_RESAMPLER_ID,
@@ -231,7 +231,7 @@ class DryPhaseLiveStateTracker {
         ? 0
         : (telemetry.engineSpeedRpm - this.#previousEndpoint.rpm) /
           ((endpointFrame - this.#previousEndpoint.frame) /
-            ESO_CANONICAL_SAMPLE_RATE),
+            CRANKWAVE_CANONICAL_SAMPLE_RATE),
       manifoldPressurePaAbs: telemetry.meanIntakeManifoldPressurePaAbs,
       requestedThrottle01: telemetry.requestedThrottle01,
       unwrappedCrankRevolutions: telemetry.thetaRad / TWO_PI,
@@ -258,7 +258,7 @@ class DryPhaseLiveStateTracker {
 }
 
 function runtimeError(message, detailCode, operation = "browser-runtime") {
-  return new EngineSimRuntimeError(message, {
+  return new CrankwaveRuntimeError(message, {
     operation,
     detailCode,
     diagnostics: [],
@@ -287,10 +287,10 @@ function outputConfiguration(outputSampleRate, leadFrames) {
   if (
     !Number.isSafeInteger(outputSampleRate) ||
     outputSampleRate < 8_000 ||
-    outputSampleRate > ESO_CANONICAL_SAMPLE_RATE
+    outputSampleRate > CRANKWAVE_CANONICAL_SAMPLE_RATE
   ) {
     throw new RangeError(
-      `outputSampleRate must be an integer in [8000, ${ESO_CANONICAL_SAMPLE_RATE}]`,
+      `outputSampleRate must be an integer in [8000, ${CRANKWAVE_CANONICAL_SAMPLE_RATE}]`,
     );
   }
   if (!Number.isSafeInteger(leadFrames) || leadFrames < 1) {
@@ -334,7 +334,7 @@ export class BrowserEngineRuntime {
   #comparisonMode = SourceBakedComparisonMode.source;
 
   static async create({ moduleUrl, emit }) {
-    const client = await EngineSimCapiClient.create(moduleUrl);
+    const client = await CrankwaveCapiClient.create(moduleUrl);
     return new BrowserEngineRuntime(client, emit);
   }
 
@@ -428,9 +428,9 @@ export class BrowserEngineRuntime {
     let atlasLoadError = null;
     try {
       loadedAtlas = await loadBakedAudioPackage(atlasUrl);
-      if (loadedAtlas.sampleRate !== ESO_CANONICAL_SAMPLE_RATE) {
+      if (loadedAtlas.sampleRate !== CRANKWAVE_CANONICAL_SAMPLE_RATE) {
         throw runtimeError(
-          `audio atlas sample rate ${loadedAtlas.sampleRate} Hz is not the canonical ${ESO_CANONICAL_SAMPLE_RATE} Hz rate`,
+          `audio atlas sample rate ${loadedAtlas.sampleRate} Hz is not the canonical ${CRANKWAVE_CANONICAL_SAMPLE_RATE} Hz rate`,
           "browser-runtime-atlas-noncanonical-rate",
           "load-audio-atlas",
         );
@@ -456,7 +456,7 @@ export class BrowserEngineRuntime {
         loadedAtlas.manifest.provenance.renderer_build.sha256;
       if (
         loadedAtlas.manifest.provenance.renderer_build.id !==
-        "engine-sim-offline-renderer-build"
+        "crankwave-renderer-build"
       ) {
         throw runtimeError(
           "audio atlas renderer provenance uses an unsupported identity kind",
@@ -874,7 +874,7 @@ export class BrowserEngineRuntime {
       ? 2
       : bus.channelCount;
     const resampler = new DeviceRateResampler({
-      inputSampleRate: ESO_CANONICAL_SAMPLE_RATE,
+      inputSampleRate: CRANKWAVE_CANONICAL_SAMPLE_RATE,
       outputSampleRate: settings.outputSampleRate,
       channelCount,
     });

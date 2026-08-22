@@ -1,5 +1,5 @@
 #include "dsp/static_ir_conversion.hpp"
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 #include "numeric/target_extended_precision.hpp"
 #include "presentation/pcm16_ir_decoder.hpp"
 
@@ -19,7 +19,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 constexpr std::array<std::uint8_t, 32> kConfiguredIrInputSha256{
     0x75, 0xde, 0x9d, 0xb4, 0x70, 0x63, 0x39, 0x56, 0x65, 0xd3, 0x6b,

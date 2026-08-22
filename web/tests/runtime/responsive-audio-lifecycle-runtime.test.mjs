@@ -83,7 +83,7 @@ function buildFixture({ elevatedShutdown = false } = {}) {
     : null;
 
   const admissionEvidence = jsonBytes({
-    schema: "engine-sim-offline/startup-admission-floor-evidence",
+    schema: "crankwave/startup-admission-floor-evidence",
     atlas_manifest: "../../held/exhaust-front-dry.json",
     atlas_load_coordinate: LOAD_COORDINATE,
     running_floor_rpm: 500,
@@ -111,7 +111,7 @@ function buildFixture({ elevatedShutdown = false } = {}) {
     const scenario = put(
       scenarioPath,
       jsonBytes({
-        schema: "engine-sim-offline/scenario",
+        schema: "crankwave/scenario",
         id: derivedId,
         engine: "fixture-engine",
       }),
@@ -120,7 +120,7 @@ function buildFixture({ elevatedShutdown = false } = {}) {
     const evidence = put(
       evidencePath,
       jsonBytes({
-        schema: "engine-sim-offline/lifecycle-capture-evidence",
+        schema: "crankwave/lifecycle-capture-evidence",
         role,
         physics_rate_hz: 10_000,
         delivery_rate_hz: 192_000,
@@ -167,7 +167,7 @@ function buildFixture({ elevatedShutdown = false } = {}) {
     target_reference: `${target}-unit-reference`,
   });
   const manifest = {
-    schema: "engine-sim-offline/responsive-audio-lifecycle",
+    schema: "crankwave/responsive-audio-lifecycle",
     id: "fixture-engine-lifecycle",
     engine: "fixture-engine",
     audio: {
@@ -230,7 +230,7 @@ function buildFixture({ elevatedShutdown = false } = {}) {
         }
       : {}),
     startup_admission: {
-      schema: "engine-sim-offline/continuous-startup-admission-v1",
+      schema: "crankwave/continuous-startup-admission-v1",
       running_bed_load_coordinate: LOAD_COORDINATE,
       admission_lane_coordinate: "authored-throttle-01",
       blend: "constant-power",

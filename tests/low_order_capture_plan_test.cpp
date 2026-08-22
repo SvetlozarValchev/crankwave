@@ -21,7 +21,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 void expect(bool condition, const std::string &message) {
     if (!condition) {

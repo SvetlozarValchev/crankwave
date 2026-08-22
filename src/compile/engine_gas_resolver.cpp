@@ -2,7 +2,7 @@
 
 #include <utility>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 
 void resolve_gas_path(const ModelContext &context, ResolutionEmitter &emitter,
                       contract::LowOrderEngineCoreV1 &core) {
@@ -145,4 +145,4 @@ void resolve_gas_path(const ModelContext &context, ResolutionEmitter &emitter,
     }
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

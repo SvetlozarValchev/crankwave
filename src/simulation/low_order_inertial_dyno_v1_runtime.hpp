@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/result.hpp"
+#include "crankwave/contract/result.hpp"
 #include "simulation/inertial_crank_dynamics.hpp"
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
@@ -15,7 +15,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct LowOrderInertialDynoV1StepView {
     std::reference_wrapper<const LegacyMechanismStep> mechanics;
@@ -129,4 +129,4 @@ compile_low_order_inertial_dyno_v1_runtime(
     const LowOrderCapturePlan &capture_plan,
     const contract::Sha256Digest &simulation_request_identity_v7_sha256);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

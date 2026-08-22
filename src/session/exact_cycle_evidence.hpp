@@ -1,14 +1,14 @@
 #pragma once
 
-#include "engine_sim_offline/contract/capture.hpp"
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/contract/capture.hpp"
+#include "crankwave/session.hpp"
 
 #include <cstdint>
 #include <optional>
 #include <span>
 #include <vector>
 
-namespace engine_sim_offline::session {
+namespace crankwave::session {
 
 enum class ExactCycleEvidenceErrorCode : std::uint8_t {
     invalid_configuration,
@@ -129,4 +129,4 @@ class ExactCycleEvidenceAccumulator final {
 [[nodiscard]] const char *
 exact_cycle_evidence_error_message(ExactCycleEvidenceErrorCode code) noexcept;
 
-} // namespace engine_sim_offline::session
+} // namespace crankwave::session

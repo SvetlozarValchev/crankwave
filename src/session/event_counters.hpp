@@ -1,13 +1,13 @@
 #pragma once
 
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/session.hpp"
 
 #include <cstdint>
 #include <span>
 #include <type_traits>
 #include <variant>
 
-namespace engine_sim_offline::session {
+namespace crankwave::session {
 
 // Internal reduction seam shared by EngineSession and its exhaustive focused test.
 // Capture admission has already validated event geometry and ordering; this function
@@ -109,4 +109,4 @@ reduce_event_counters(const std::span<const contract::EngineEvent> events,
     return true;
 }
 
-} // namespace engine_sim_offline::session
+} // namespace crankwave::session

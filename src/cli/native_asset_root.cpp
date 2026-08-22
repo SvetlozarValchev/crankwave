@@ -10,7 +10,7 @@
 #include <unistd.h>
 #endif
 
-namespace engine_sim_offline::cli::detail {
+namespace crankwave::cli::detail {
 namespace {
 
 #if !defined(__linux__)
@@ -274,4 +274,4 @@ ReadFileResult read_confined_asset(
 #endif
 }
 
-} // namespace engine_sim_offline::cli::detail
+} // namespace crankwave::cli::detail

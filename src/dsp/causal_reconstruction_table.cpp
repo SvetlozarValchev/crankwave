@@ -4,7 +4,7 @@
 #include <cmath>
 #include <stdexcept>
 
-namespace engine_sim_offline::dsp {
+namespace crankwave::dsp {
 namespace {
 
 constexpr double kReconstructionPi = 3.141592653589793238462643383279502884;
@@ -117,4 +117,4 @@ double CausalReconstructionTable::coefficient(std::size_t phase,
     return phase_row(phase)[tap];
 }
 
-} // namespace engine_sim_offline::dsp
+} // namespace crankwave::dsp

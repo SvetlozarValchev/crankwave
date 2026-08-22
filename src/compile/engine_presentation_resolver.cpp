@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 namespace {
 
 // This is the incumbent seed-derivation namespace carried by the admitted
@@ -226,4 +226,4 @@ void assemble_presentation(const ModelContext &context, ResolutionEmitter &emitt
         {"randomness.seed_namespace_id"});
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

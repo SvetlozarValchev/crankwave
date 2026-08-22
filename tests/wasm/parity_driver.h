@@ -1,5 +1,5 @@
-#ifndef ENGINE_SIM_OFFLINE_TESTS_WASM_PARITY_DRIVER_H
-#define ENGINE_SIM_OFFLINE_TESTS_WASM_PARITY_DRIVER_H
+#ifndef CRANKWAVE_TESTS_WASM_PARITY_DRIVER_H
+#define CRANKWAVE_TESTS_WASM_PARITY_DRIVER_H
 
 #include <stdint.h>
 
@@ -17,7 +17,7 @@ extern "C" {
  * Every input/output extent is fixed-width so Node can invoke the same adapter
  * in wasm32 without mirroring host size_t layouts.
  */
-uint32_t eso_wasm_parity_run(
+uint32_t crankwave_wasm_parity_run(
     const uint8_t *engine_json, uint32_t engine_json_size, const uint8_t *scenario_json,
     uint32_t scenario_json_size, const uint8_t *impulse_response_id,
     uint32_t impulse_response_id_size, const uint8_t *impulse_response_bytes,

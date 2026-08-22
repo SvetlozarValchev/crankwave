@@ -11,7 +11,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 LowOrderCaptureSession::LowOrderCaptureSession(
     LowOrderEngineCoreV1Runtime core, ProfilePolicy profile_policy,
@@ -476,4 +476,4 @@ std::uint64_t LowOrderCaptureSession::published_block_count() const noexcept {
     return published_block_count_;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

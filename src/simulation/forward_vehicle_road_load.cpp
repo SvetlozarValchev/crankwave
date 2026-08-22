@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace engine_sim_offline::simulation::detail {
+namespace crankwave::simulation::detail {
 namespace {
 
 constexpr double kAirMolecularMassKgPerMol = 28.97e-3;
@@ -136,4 +136,4 @@ advance_forward_vehicle_road_load(const ForwardVehicleRoadLoadInput &input) noex
     };
 }
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace crankwave::simulation::detail

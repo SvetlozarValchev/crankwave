@@ -1,4 +1,4 @@
-# Engine Sim Offline: greenfield product cutover
+# Crankwave: greenfield product cutover
 
 Status: active — source fidelity frozen at the accepted flow-coupled baseline;
 continuous audio-atlas baker and live source/baked A/B are the current milestone
@@ -193,8 +193,8 @@ The current generic identities are:
 
 ```text
 simulation request SHA-256: b08b197a2cf4df993112d9b345c095e2290a5f426ebb3b4462a60af6faed89da
-audition WAV byte count:    8640598
-audition WAV SHA-256:       58ec677b0565fad0e9a3b9eedba9590d5af9891c647185ebdb9c98f7e469cde7
+audition WAV byte count:    8640588
+audition WAV SHA-256:       87204d323d1a44016a0cdae94c61a52420f257f0da9d9033a3a788f5169723d0
 audition PCM24 SHA-256:     52fef731caf12b9a6353e0ed3a928039db74277193d99847b244f852edebf01f
 ```
 
@@ -356,7 +356,7 @@ predeclared tight sample-error bounds; each target retains its own exact hash. E
 cross-target equality is required only if the admitted numeric runtimes actually
 produce it.
 
-Completed evidence: [`c_api.h`](include/engine_sim_offline/c_api.h) is the one
+Completed evidence: [`c_api.h`](include/crankwave/c_api.h) is the one
 exact-version foreign-runtime boundary. It owns context/kind/slot/generation-checked
 engine, scenario, and session handles; performs transactional strict JSON
 parse-and-compile; exposes typed controls, caller-owned PCM/telemetry, and structured

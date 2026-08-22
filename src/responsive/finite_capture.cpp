@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/finite_capture.hpp"
+#include "crankwave/responsive/finite_capture.hpp"
 
 #include "compile/compiled_scenario_view.hpp"
 #include "session/projected_engine_session.hpp"
@@ -15,7 +15,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 using Status = std::optional<FiniteResponsiveCaptureError>;
@@ -1111,4 +1111,4 @@ FiniteResponsiveCaptureResult capture_finite_responsive_dry_routes(
     }
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

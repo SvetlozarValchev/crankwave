@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-held-texture",
+  "schema": "crankwave/responsive-audio-held-texture",
   "id": "honda-b18c5-cleanroom-exact-held-phase-texture-live-preview",
   "engine": "honda-b18c5-cleanroom",
   "fidelity": {
@@ -350,7 +350,7 @@
       "sha256": "beaf656419f9ec7da8d0370e2f575d2a079c1f264ff886be12df0733f7069af8"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "capture_identity": {

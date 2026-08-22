@@ -83,7 +83,7 @@ Each digest below covers the complete named file, not only an inner sample paylo
 
 | Typed field | Classification | Bytes | SHA-256 |
 |---|---|---:|---|
-| `manifest` | verified lineage root; never an execution input | 21,435 | `52d694ba6edc8771b5a4c394d5b62573c22b38e8ba4ef7e2f5bc8c8fb6decc07` |
+| `manifest` | verified lineage root; never an execution input | 21,434 | `91bcbfa577be7895b5e88867181d7a603f296968eea23cc726187e0172e00cde` |
 | `parity_evidence` | verified upstream evidence; never an execution input | 38,080,608 | `19d351b54c8eb8b509cd72ea03061b01f92722cbfa48d27a2342ca7203ffa94c` |
 | `audit_input` | M2 execution input | 21,760,064 | `93fbaef5fe887ba229d7acc28235d63c98f9205d2fe7e426a3e501473a2643a4` |
 | `component_seed_input` | lineage and typed presentation-seed input | 216 | `ca6f9b2d56e2f6729401437a741f605069a7eea21524a85b3dce0322ec30468f` |
@@ -269,7 +269,7 @@ mix for both routes; publication gain; and the four audition values. The IR asse
 leaves cite the configured-IR claim; all other leaves cite the renderer-record claim.
 
 The provenance bundle is self-digesting. Its canonical SHA-256 grammar ID is
-`engine-sim-offline.p18-provenance-ledger-digest.v1`. Unsigned integers use little
+`crankwave.p18-provenance-ledger-digest.v1`. Unsigned integers use little
 endian (`u32` or `u64`); strings use a `u64` byte count followed by exact bytes;
 digests use 32 raw bytes; vectors use a `u64` count; optionals use a one-byte
 zero/one presence tag; and contract enums use their one-byte declared value. The

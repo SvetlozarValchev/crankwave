@@ -1,11 +1,11 @@
-#include "engine_sim_offline/responsive/directional_texture.hpp"
+#include "crankwave/responsive/directional_texture.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <utility>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 constexpr double kSeamBlendCycleFraction = 1.0 / 8.0;
@@ -407,4 +407,4 @@ transform_directional_capture(const DirectionalCaptureView &capture,
     return result;
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

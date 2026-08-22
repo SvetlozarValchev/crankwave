@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 bool legacy_vtec_alternate_profile_active(
     const LegacyVtecSelectorThresholds &thresholds,
@@ -15,4 +15,4 @@ bool legacy_vtec_alternate_profile_active(
                thresholds.minimum_throttle_linkage_opening_01;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

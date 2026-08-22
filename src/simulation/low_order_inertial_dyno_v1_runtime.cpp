@@ -9,7 +9,7 @@
 #include <string_view>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 constexpr double kFourStrokeCycleRadians = 4.0 * std::numbers::pi_v<double>;
@@ -518,4 +518,4 @@ LowOrderInertialDynoV1Runtime::inertial_dyno_result() const noexcept {
     return inertial_dyno_result_;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

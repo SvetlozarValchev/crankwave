@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/audio_atlas.hpp"
+#include "crankwave/contract/audio_atlas.hpp"
 
 #include "validation_support.hpp"
 
@@ -14,7 +14,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 namespace {
 
 using detail::require;
@@ -1061,4 +1061,4 @@ ValidationReport validate(const AudioAtlasManifest &manifest) {
     return report;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

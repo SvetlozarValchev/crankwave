@@ -1,49 +1,49 @@
 import {
   AssetKind,
-  ESO_C_API_VERSION,
-  ESO_INVALID_HANDLE,
-  ESO_SHA256_DIGEST_SIZE,
+  CRANKWAVE_C_API_VERSION,
+  CRANKWAVE_INVALID_HANDLE,
+  CRANKWAVE_SHA256_DIGEST_SIZE,
   Layout,
   SessionExecutionKind,
   Status,
   WASM32_ABI_WORDS,
   statusName,
 } from "./c-api-abi.js";
-import { EngineSimRuntimeError, readContextError } from "./c-api-errors.js";
+import { CrankwaveRuntimeError, readContextError } from "./c-api-errors.js";
 import { WasmHeap, asUint8Array } from "./wasm-heap.js";
-import { EngineSimSession } from "./c-api-session.js";
+import { CrankwaveSession } from "./c-api-session.js";
 
 const REQUIRED_EXPORTS = Object.freeze([
   "_malloc",
   "_free",
-  "_eso_api_version",
-  "_eso_get_abi_layout",
-  "_eso_context_create",
-  "_eso_context_destroy",
-  "_eso_context_get_last_error",
-  "_eso_context_copy_last_error_text",
-  "_eso_context_get_diagnostic",
-  "_eso_context_copy_diagnostic_text",
-  "_eso_context_get_related_diagnostic",
-  "_eso_context_copy_related_diagnostic_text",
-  "_eso_compile_engine_json",
-  "_eso_destroy_engine",
-  "_eso_engine_copy_id",
-  "_eso_engine_copy_provenance_sha256",
-  "_eso_renderer_copy_source_closure_sha256",
-  "_eso_compile_scenario_json",
-  "_eso_destroy_scenario",
-  "_eso_scenario_copy_id",
-  "_eso_create_session",
-  "_eso_destroy_session",
-  "_eso_session_get_descriptor",
-  "_eso_session_copy_identity",
-  "_eso_session_get_forward_gear_descriptor",
-  "_eso_session_copy_forward_gear_semantic_id",
-  "_eso_session_get_audio_bus_descriptor",
-  "_eso_session_copy_audio_bus_id",
-  "_eso_session_enqueue_controls",
-  "_eso_session_process",
+  "_crankwave_api_version",
+  "_crankwave_get_abi_layout",
+  "_crankwave_context_create",
+  "_crankwave_context_destroy",
+  "_crankwave_context_get_last_error",
+  "_crankwave_context_copy_last_error_text",
+  "_crankwave_context_get_diagnostic",
+  "_crankwave_context_copy_diagnostic_text",
+  "_crankwave_context_get_related_diagnostic",
+  "_crankwave_context_copy_related_diagnostic_text",
+  "_crankwave_compile_engine_json",
+  "_crankwave_destroy_engine",
+  "_crankwave_engine_copy_id",
+  "_crankwave_engine_copy_provenance_sha256",
+  "_crankwave_renderer_copy_source_closure_sha256",
+  "_crankwave_compile_scenario_json",
+  "_crankwave_destroy_scenario",
+  "_crankwave_scenario_copy_id",
+  "_crankwave_create_session",
+  "_crankwave_destroy_session",
+  "_crankwave_session_get_descriptor",
+  "_crankwave_session_copy_identity",
+  "_crankwave_session_get_forward_gear_descriptor",
+  "_crankwave_session_copy_forward_gear_semantic_id",
+  "_crankwave_session_get_audio_bus_descriptor",
+  "_crankwave_session_copy_audio_bus_id",
+  "_crankwave_session_enqueue_controls",
+  "_crankwave_session_process",
 ]);
 
 const FIXED_WASM_MEMORY_BYTES = 128 * 1024 * 1024;
@@ -69,7 +69,7 @@ function assetKind(value) {
     case AssetKind.accessoryConfiguration:
       return AssetKind.accessoryConfiguration;
     default:
-      throw new EngineSimRuntimeError(`unsupported asset kind: ${String(value)}`, {
+      throw new CrankwaveRuntimeError(`unsupported asset kind: ${String(value)}`, {
         operation: "compile-engine",
         detailCode: "browser-runtime-unsupported-asset-kind",
         diagnostics: [],
@@ -103,13 +103,13 @@ function normalizeAssets(assets) {
   });
 }
 
-export async function loadEngineSimWasm(moduleUrl) {
+export async function loadCrankwaveWasm(moduleUrl) {
   const resolvedUrl =
     moduleUrl instanceof URL ? moduleUrl.href : new URL(moduleUrl, import.meta.url).href;
   const imported = await import(resolvedUrl);
   if (typeof imported.default !== "function") {
-    throw new EngineSimRuntimeError(
-      "engine-sim-offline.js does not export an Emscripten module factory",
+    throw new CrankwaveRuntimeError(
+      "crankwave.js does not export an Emscripten module factory",
       {
         operation: "initialize",
         detailCode: "browser-runtime-module-factory-missing",
@@ -166,14 +166,14 @@ export class CompiledEngineProgram {
     this.session?.dispose();
     this.session = null;
     this.#client.destroyScenario(this.scenario);
-    this.scenario = ESO_INVALID_HANDLE;
+    this.scenario = CRANKWAVE_INVALID_HANDLE;
     this.#client.destroyEngine(this.engine);
-    this.engine = ESO_INVALID_HANDLE;
+    this.engine = CRANKWAVE_INVALID_HANDLE;
   }
 
   #assertAlive() {
     if (this.#disposed) {
-      throw new EngineSimRuntimeError("the compiled engine program is disposed", {
+      throw new CrankwaveRuntimeError("the compiled engine program is disposed", {
         operation: "create-session",
         detailCode: "browser-runtime-program-disposed",
         diagnostics: [],
@@ -182,20 +182,20 @@ export class CompiledEngineProgram {
   }
 }
 
-export class EngineSimCapiClient {
+export class CrankwaveCapiClient {
   #module;
   #heap;
   #context = 0;
   #disposed = false;
 
   static async create(moduleUrl) {
-    return new EngineSimCapiClient(await loadEngineSimWasm(moduleUrl));
+    return new CrankwaveCapiClient(await loadCrankwaveWasm(moduleUrl));
   }
 
   constructor(module) {
     for (const name of REQUIRED_EXPORTS) {
       if (typeof module?.[name] !== "function") {
-        throw new EngineSimRuntimeError(`required WASM export ${name} is missing`, {
+        throw new CrankwaveRuntimeError(`required WASM export ${name} is missing`, {
           operation: "initialize",
           detailCode: "browser-runtime-wasm-export-missing",
           diagnostics: [],
@@ -207,9 +207,9 @@ export class EngineSimCapiClient {
     this.#admitFrozenAbi();
     const output = this.#heap.allocate(4, "C API context pointer");
     try {
-      const status = module._eso_context_create(ESO_C_API_VERSION, output);
+      const status = module._crankwave_context_create(CRANKWAVE_C_API_VERSION, output);
       if (status !== Status.ok) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           `creating the C API context failed with ${statusName(status)}`,
           {
             operation: "initialize",
@@ -221,7 +221,7 @@ export class EngineSimCapiClient {
       }
       this.#context = this.#heap.view.getUint32(output, true);
       if (this.#context === 0) {
-        throw new EngineSimRuntimeError("the C API returned a null context", {
+        throw new CrankwaveRuntimeError("the C API returned a null context", {
           operation: "initialize",
           detailCode: "browser-runtime-null-context",
           diagnostics: [],
@@ -255,32 +255,32 @@ export class EngineSimCapiClient {
     const normalizedExecutionKind =
       requireSessionExecutionKind(executionKind);
 
-    let engine = ESO_INVALID_HANDLE;
-    let scenario = ESO_INVALID_HANDLE;
+    let engine = CRANKWAVE_INVALID_HANDLE;
+    let scenario = CRANKWAVE_INVALID_HANDLE;
     let session = null;
     try {
       engine = this.#compileEngine(normalizedEngineJson, normalizedAssets);
       const engineId = this.#copyHandleId(
-        "_eso_engine_copy_id",
+        "_crankwave_engine_copy_id",
         engine,
         "copy-engine-id",
       );
       const engineProvenanceSha256 =
         this.#copyEngineProvenanceSha256(engine);
       const rendererSourceSha256 = this.#copySha256(
-        "_eso_renderer_copy_source_closure_sha256",
+        "_crankwave_renderer_copy_source_closure_sha256",
         [],
         "copy-renderer-source-closure-sha256",
       );
       scenario = this.#compileScenario(engine, normalizedScenarioJson);
       const scenarioId = this.#copyHandleId(
-        "_eso_scenario_copy_id",
+        "_crankwave_scenario_copy_id",
         scenario,
         "copy-scenario-id",
       );
       session = this.createSession(scenario, normalizedExecutionKind);
       if (session.descriptor.executionKindCode !== normalizedExecutionKind) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           "the created session reported a different execution kind",
           {
             operation: "create-session",
@@ -302,10 +302,10 @@ export class EngineSimCapiClient {
       );
     } catch (error) {
       session?.dispose();
-      if (scenario !== ESO_INVALID_HANDLE) {
+      if (scenario !== CRANKWAVE_INVALID_HANDLE) {
         this.destroyScenario(scenario);
       }
-      if (engine !== ESO_INVALID_HANDLE) {
+      if (engine !== CRANKWAVE_INVALID_HANDLE) {
         this.destroyEngine(engine);
       }
       throw error;
@@ -318,7 +318,7 @@ export class EngineSimCapiClient {
       requireSessionExecutionKind(executionKind);
     const output = this.#heap.allocate(8, "engine-session handle");
     try {
-      const status = this.#module._eso_create_session(
+      const status = this.#module._crankwave_create_session(
         this.#context,
         scenario,
         normalizedExecutionKind,
@@ -326,32 +326,32 @@ export class EngineSimCapiClient {
       );
       this.assertStatus(status, "create-session");
       const handle = this.#heap.view.getBigUint64(output, true);
-      if (handle === ESO_INVALID_HANDLE) {
-        throw new EngineSimRuntimeError("the C API returned an invalid session handle", {
+      if (handle === CRANKWAVE_INVALID_HANDLE) {
+        throw new CrankwaveRuntimeError("the C API returned an invalid session handle", {
           operation: "create-session",
           detailCode: "browser-runtime-invalid-session-handle",
           diagnostics: [],
         });
       }
-      return new EngineSimSession(this, handle);
+      return new CrankwaveSession(this, handle);
     } finally {
       this.#heap.free(output);
     }
   }
 
   destroyEngine(handle) {
-    if (handle === ESO_INVALID_HANDLE || this.#disposed) {
+    if (handle === CRANKWAVE_INVALID_HANDLE || this.#disposed) {
       return;
     }
-    const status = this.#module._eso_destroy_engine(this.#context, handle);
+    const status = this.#module._crankwave_destroy_engine(this.#context, handle);
     this.assertStatus(status, "destroy-engine");
   }
 
   destroyScenario(handle) {
-    if (handle === ESO_INVALID_HANDLE || this.#disposed) {
+    if (handle === CRANKWAVE_INVALID_HANDLE || this.#disposed) {
       return;
     }
-    const status = this.#module._eso_destroy_scenario(this.#context, handle);
+    const status = this.#module._crankwave_destroy_scenario(this.#context, handle);
     this.assertStatus(status, "destroy-scenario");
   }
 
@@ -373,10 +373,10 @@ export class EngineSimCapiClient {
     }
     this.#disposed = true;
     if (this.#context !== 0) {
-      const status = this.#module._eso_context_destroy(this.#context);
+      const status = this.#module._crankwave_context_destroy(this.#context);
       this.#context = 0;
       if (status !== Status.ok) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           `destroying the C API context failed with ${statusName(status)}`,
           {
             operation: "dispose",
@@ -390,15 +390,15 @@ export class EngineSimCapiClient {
   }
 
   #admitFrozenAbi() {
-    if (this.#module._eso_api_version() !== ESO_C_API_VERSION) {
-      throw new EngineSimRuntimeError("the WASM module exposes the wrong API version", {
+    if (this.#module._crankwave_api_version() !== CRANKWAVE_C_API_VERSION) {
+      throw new CrankwaveRuntimeError("the WASM module exposes the wrong API version", {
         operation: "initialize",
         detailCode: "browser-runtime-abi-version-mismatch",
         diagnostics: [],
       });
     }
     if (this.#heap.buffer.byteLength !== FIXED_WASM_MEMORY_BYTES) {
-      throw new EngineSimRuntimeError(
+      throw new CrankwaveRuntimeError(
         `the WASM module has ${this.#heap.buffer.byteLength} bytes of memory; ` +
           `the admitted fixed image has ${FIXED_WASM_MEMORY_BYTES}`,
         {
@@ -410,9 +410,9 @@ export class EngineSimCapiClient {
     }
     const pointer = this.#heap.allocate(Layout.abiLayout.size, "ABI layout");
     try {
-      const status = this.#module._eso_get_abi_layout(pointer);
+      const status = this.#module._crankwave_get_abi_layout(pointer);
       if (status !== Status.ok) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           `reading the WASM ABI layout failed with ${statusName(status)}`,
           {
             operation: "initialize",
@@ -429,7 +429,7 @@ export class EngineSimCapiClient {
       );
       for (let index = 0; index < WASM32_ABI_WORDS.length; ++index) {
         if (words[index] !== WASM32_ABI_WORDS[index]) {
-          throw new EngineSimRuntimeError(
+          throw new CrankwaveRuntimeError(
             `the WASM ABI layout differs at word ${index}: ` +
               `${words[index]} != ${WASM32_ABI_WORDS[index]}`,
             {
@@ -472,7 +472,7 @@ export class EngineSimCapiClient {
         view.setUint32(base + Layout.assetPayload.payloadData, bytes.pointer, true);
         view.setUint32(base + Layout.assetPayload.payloadBytes, bytes.byteLength, true);
       }
-      const status = this.#module._eso_compile_engine_json(
+      const status = this.#module._crankwave_compile_engine_json(
         this.#context,
         engineView,
         assets.length === 0 ? 0 : assetArray,
@@ -481,8 +481,8 @@ export class EngineSimCapiClient {
       );
       this.assertStatus(status, "compile-engine");
       const handle = view.getBigUint64(output, true);
-      if (handle === ESO_INVALID_HANDLE) {
-        throw new EngineSimRuntimeError(
+      if (handle === CRANKWAVE_INVALID_HANDLE) {
+        throw new CrankwaveRuntimeError(
           "the C API returned an invalid compiled-engine handle",
           {
             operation: "compile-engine",
@@ -512,7 +512,7 @@ export class EngineSimCapiClient {
       const view = heap.view;
       view.setUint32(input + Layout.utf8View.data, bytes.pointer, true);
       view.setUint32(input + Layout.utf8View.bytes, bytes.byteLength, true);
-      const status = this.#module._eso_compile_scenario_json(
+      const status = this.#module._crankwave_compile_scenario_json(
         this.#context,
         engine,
         input,
@@ -520,8 +520,8 @@ export class EngineSimCapiClient {
       );
       this.assertStatus(status, "compile-scenario");
       const handle = view.getBigUint64(output, true);
-      if (handle === ESO_INVALID_HANDLE) {
-        throw new EngineSimRuntimeError(
+      if (handle === CRANKWAVE_INVALID_HANDLE) {
+        throw new CrankwaveRuntimeError(
           "the C API returned an invalid compiled-scenario handle",
           {
             operation: "compile-scenario",
@@ -582,7 +582,7 @@ export class EngineSimCapiClient {
 
   #copyEngineProvenanceSha256(engine) {
     return this.#copySha256(
-      "_eso_engine_copy_provenance_sha256",
+      "_crankwave_engine_copy_provenance_sha256",
       [engine],
       "copy-engine-provenance-sha256",
     );
@@ -591,7 +591,7 @@ export class EngineSimCapiClient {
   #copySha256(functionName, leadingArguments, operation) {
     const heap = this.#heap;
     const output = heap.allocate(
-      ESO_SHA256_DIGEST_SIZE,
+      CRANKWAVE_SHA256_DIGEST_SIZE,
       `${operation} digest`,
     );
     try {
@@ -604,7 +604,7 @@ export class EngineSimCapiClient {
       const bytes = new Uint8Array(
         heap.buffer,
         output,
-        ESO_SHA256_DIGEST_SIZE,
+        CRANKWAVE_SHA256_DIGEST_SIZE,
       );
       let lowercaseHex = "";
       for (const byte of bytes) {
@@ -618,7 +618,7 @@ export class EngineSimCapiClient {
 
   #assertAlive() {
     if (this.#disposed) {
-      throw new EngineSimRuntimeError("the WASM C API client is disposed", {
+      throw new CrankwaveRuntimeError("the WASM C API client is disposed", {
         operation: "runtime",
         detailCode: "browser-runtime-client-disposed",
         diagnostics: [],

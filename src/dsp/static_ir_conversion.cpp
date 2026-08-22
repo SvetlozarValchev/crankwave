@@ -7,7 +7,7 @@
 #include <limits>
 #include <stdexcept>
 
-namespace engine_sim_offline::dsp {
+namespace crankwave::dsp {
 namespace {
 
 constexpr double kStaticIrPi = 3.141592653589793238462643383279502884;
@@ -448,4 +448,4 @@ convert_static_ir_v2(std::span<const std::int32_t> decoded_pcm,
     return coefficients;
 }
 
-} // namespace engine_sim_offline::dsp
+} // namespace crankwave::dsp

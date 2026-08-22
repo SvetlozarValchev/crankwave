@@ -1,8 +1,8 @@
-#include "engine_sim_offline/authoring/engine_document.hpp"
-#include "engine_sim_offline/authoring/scenario_document.hpp"
-#include "engine_sim_offline/compile.hpp"
-#include "engine_sim_offline/contract/common.hpp"
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/authoring/engine_document.hpp"
+#include "crankwave/authoring/scenario_document.hpp"
+#include "crankwave/compile.hpp"
+#include "crankwave/contract/common.hpp"
+#include "crankwave/session.hpp"
 
 #include "authoring/parse_engine_references.hpp"
 #include "compile/compiled_scenario_view.hpp"
@@ -36,12 +36,12 @@
 
 namespace {
 
-namespace authoring = engine_sim_offline::authoring;
-namespace compile = engine_sim_offline::compile;
-namespace contract = engine_sim_offline::contract;
-namespace compile_detail = engine_sim_offline::compile::detail;
-namespace identity_detail = engine_sim_offline::identity::detail;
-namespace simulation = engine_sim_offline::simulation;
+namespace authoring = crankwave::authoring;
+namespace compile = crankwave::compile;
+namespace contract = crankwave::contract;
+namespace compile_detail = crankwave::compile::detail;
+namespace identity_detail = crankwave::identity::detail;
+namespace simulation = crankwave::simulation;
 
 constexpr std::size_t kCylinderCount = 6U;
 constexpr std::uint32_t kIrSampleRateHz = 44100U;
@@ -195,7 +195,7 @@ struct SyntheticAssets {
     return {
         make_pcm16_mono_wave(front),
         make_pcm16_mono_wave(rear),
-        bytes_from_text("{\"schema\":\"engine-sim-offline/accessory-configuration\","
+        bytes_from_text("{\"schema\":\"crankwave/accessory-configuration\","
                         "\"id\":\"fixture-accessory-load\","
                         "\"loads\":[{\"id\":\"alternator\",\"enabled\":true}]}\n"),
     };
@@ -1159,15 +1159,15 @@ void expect_session_audio_exact(const compile::CompiledScenario &left_scenario,
                                 const compile::CompiledScenario &right_scenario,
                                 const std::string_view context) {
     const auto make_session = [&](const compile::CompiledScenario &scenario) {
-        auto created = engine_sim_offline::create_engine_session(
-            scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
+        auto created = crankwave::create_engine_session(
+            scenario, crankwave::EngineSessionExecutionKind::finite_scenario);
         if (const auto *error =
-                std::get_if<engine_sim_offline::EngineSessionError>(&created)) {
+                std::get_if<crankwave::EngineSessionError>(&created)) {
             throw std::runtime_error{std::string{context} +
                                      " session creation failed: " + error->detail_code +
                                      ": " + error->message};
         }
-        return std::get<engine_sim_offline::EngineSession>(std::move(created));
+        return std::get<crankwave::EngineSession>(std::move(created));
     };
     auto left = make_session(left_scenario);
     auto right = make_session(right_scenario);
@@ -1177,9 +1177,9 @@ void expect_session_audio_exact(const compile::CompiledScenario &left_scenario,
         auto left_result = left.process_block();
         auto right_result = right.process_block();
         const auto *left_block =
-            std::get_if<engine_sim_offline::EngineSessionBlockView>(&left_result);
+            std::get_if<crankwave::EngineSessionBlockView>(&left_result);
         const auto *right_block =
-            std::get_if<engine_sim_offline::EngineSessionBlockView>(&right_result);
+            std::get_if<crankwave::EngineSessionBlockView>(&right_result);
         if (left_block != nullptr || right_block != nullptr) {
             expect(left_block != nullptr && right_block != nullptr &&
                        left_block->block_ordinal() == right_block->block_ordinal() &&
@@ -1211,17 +1211,17 @@ void expect_session_audio_exact(const compile::CompiledScenario &left_scenario,
             continue;
         }
 
-        if (std::holds_alternative<engine_sim_offline::EngineSessionError>(
+        if (std::holds_alternative<crankwave::EngineSessionError>(
                 left_result) ||
-            std::holds_alternative<engine_sim_offline::EngineSessionError>(
+            std::holds_alternative<crankwave::EngineSessionError>(
                 right_result)) {
             throw std::runtime_error{std::string{context} +
                                      " session failed during execution"};
         }
         const auto *left_completed =
-            std::get_if<engine_sim_offline::EngineSessionCompleted>(&left_result);
+            std::get_if<crankwave::EngineSessionCompleted>(&left_result);
         const auto *right_completed =
-            std::get_if<engine_sim_offline::EngineSessionCompleted>(&right_result);
+            std::get_if<crankwave::EngineSessionCompleted>(&right_result);
         expect(left_completed != nullptr && right_completed != nullptr &&
                    left_completed->physics_frame_count ==
                        right_completed->physics_frame_count &&
@@ -1664,14 +1664,14 @@ void test_inline_twin_one_route_reaches_executable_boundary() {
     scenario_document.engine.value = "fixture-inline-twin";
     auto scenario = require_value(compile::compile_scenario(engine, scenario_document),
                                   "inline-twin one-route scenario compile failed");
-    auto created = engine_sim_offline::create_engine_session(
-        scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
+    auto created = crankwave::create_engine_session(
+        scenario, crankwave::EngineSessionExecutionKind::finite_scenario);
     if (const auto *error =
-            std::get_if<engine_sim_offline::EngineSessionError>(&created)) {
+            std::get_if<crankwave::EngineSessionError>(&created)) {
         throw std::runtime_error{"inline-twin one-route session creation failed: " +
                                  error->detail_code + ": " + error->message};
     }
-    auto session = std::get<engine_sim_offline::EngineSession>(std::move(created));
+    auto session = std::get<crankwave::EngineSession>(std::move(created));
     const auto descriptor = session.descriptor();
     expect(descriptor.audio_buses.size() == 5U &&
                descriptor.capacities.control_command_queue_capacity == 3800U,
@@ -1681,19 +1681,19 @@ void test_inline_twin_one_route_reaches_executable_boundary() {
     while (true) {
         auto result = session.process_block();
         if (const auto *block =
-                std::get_if<engine_sim_offline::EngineSessionBlockView>(&result)) {
+                std::get_if<crankwave::EngineSessionBlockView>(&result)) {
             expect(block->audio_buses().size() == 5U,
                    "inline-twin session block lost a public audio bus");
             ++block_count;
             continue;
         }
         if (const auto *error =
-                std::get_if<engine_sim_offline::EngineSessionError>(&result)) {
+                std::get_if<crankwave::EngineSessionError>(&result)) {
             throw std::runtime_error{"inline-twin session execution failed: " +
                                      error->detail_code + ": " + error->message};
         }
         const auto &completion =
-            std::get<engine_sim_offline::EngineSessionCompleted>(result);
+            std::get<crankwave::EngineSessionCompleted>(result);
         expect(block_count == descriptor.total_block_count &&
                    completion.block_count == block_count,
                "inline-twin session did not execute its complete one-route horizon");
@@ -3625,7 +3625,7 @@ void test_direct_scenario_dto_admission_fails_closed() {
                                 "scenario admission fixture engine compile failed");
 
     auto stale_schema = make_scenario_document();
-    stale_schema.schema = "engine-sim-offline/scenario-obsolete";
+    stale_schema.schema = "crankwave/scenario-obsolete";
     const auto stale_result = compile::compile_scenario(engine, stale_schema);
     require_diagnostic(stale_result, authoring::DiagnosticCode::unsupported_schema,
                        "/schema", "stale direct scenario DTO");

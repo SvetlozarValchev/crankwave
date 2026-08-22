@@ -7,7 +7,7 @@ import {
   MotionMode,
   SessionExecutionKind,
 } from "../../runtime/c-api-abi.js";
-import { EngineSimCapiClient } from "../../runtime/c-api-client.js";
+import { CrankwaveCapiClient } from "../../runtime/c-api-client.js";
 
 const HELD_DYNO_CAPABILITIES = 455;
 const FREE_VEHICLE_CAPABILITIES = 3_631;
@@ -19,7 +19,7 @@ function usage() {
   return [
     "usage:",
     "  node web/tests/integration/operating-bench.integration.mjs \\",
-    "    <engine-sim-offline.js> <engine.json> <held-dyno.json> \\",
+    "    <crankwave.js> <engine.json> <held-dyno.json> \\",
     "    <free-vehicle.json> <audio-asset-id> <audio-asset> \\",
     "    <accessory-asset-id> <accessory-asset.json>",
   ].join("\n");
@@ -254,7 +254,7 @@ async function main() {
     },
   ];
 
-  const client = await EngineSimCapiClient.create(pathToFileURL(modulePath));
+  const client = await CrankwaveCapiClient.create(pathToFileURL(modulePath));
   let program = null;
   try {
     program = compileProgram(client, engineJson, heldDynoJson, assets);

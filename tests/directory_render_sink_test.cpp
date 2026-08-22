@@ -1,7 +1,7 @@
 #include "contract_test_support.hpp"
 
-#include "engine_sim_offline/artifacts/directory_render_sink.hpp"
-#include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
+#include "crankwave/artifacts/directory_render_sink.hpp"
+#include "crankwave/artifacts/simulation_manifest_encoder.hpp"
 
 #include <array>
 #include <chrono>
@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 #endif
 
-namespace engine_sim_offline::artifacts::test {
+namespace crankwave::artifacts::test {
 namespace {
 
 void expect(bool condition, const char *message) {
@@ -797,10 +797,10 @@ void run_staging_tree_integrity_cases() {
 }
 
 } // namespace
-} // namespace engine_sim_offline::artifacts::test
+} // namespace crankwave::artifacts::test
 
 int main() {
-    using namespace engine_sim_offline::artifacts::test;
+    using namespace crankwave::artifacts::test;
     run_success_case();
     run_abort_and_destructor_cleanup_cases();
     run_protocol_and_confinement_cases();

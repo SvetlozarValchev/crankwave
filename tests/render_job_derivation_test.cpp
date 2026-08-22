@@ -15,8 +15,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::render_detail;
+using namespace crankwave;
+using namespace crankwave::render_detail;
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -43,7 +43,7 @@ void expect(bool condition, const char *message) {
 
 struct ResolutionBuilder {
     contract::ProvenanceLedger provenance{
-        "engine-sim-offline.provenance.v1",
+        "crankwave.provenance.v1",
         {"render-job-derivation-inputs-v1", digest(1)},
         {
             {
@@ -435,7 +435,7 @@ void test_audition_metadata_projection() {
                    "presentation=presentation-id;source_matrix=matrix-id" &&
                metadata->title == "engine=engine-id;scenario=scenario-id" &&
                metadata->software ==
-                   "engine-sim-offline;method=audition-method;version=42;"
+                   "crankwave;method=audition-method;version=42;"
                    "configuration_sha256="
                    "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
            "audition INFO metadata projection changed");
@@ -514,7 +514,7 @@ void test_complete_projection() {
                projection->audition_metadata.title ==
                    "engine=test-engine;scenario=test-dyno-pull" &&
                projection->audition_metadata.software ==
-                   "engine-sim-offline;method=" + method.id + ";version=" +
+                   "crankwave;method=" + method.id + ";version=" +
                        std::to_string(method.version) + ";configuration_sha256=" +
                        digest_hex(method.configuration_sha256),
            "complete projection did not retain exact audition metadata");

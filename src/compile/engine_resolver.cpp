@@ -12,7 +12,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 namespace {
 
 [[nodiscard]] authoring::DiagnosticReport
@@ -134,4 +134,4 @@ EngineResolutionResult resolve_engine_package(
     }
 }
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

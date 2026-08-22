@@ -1,4 +1,4 @@
-#include "engine_sim_offline/artifacts/audio_atlas_manifest_encoder.hpp"
+#include "crankwave/artifacts/audio_atlas_manifest_encoder.hpp"
 
 #include <array>
 #include <charconv>
@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 namespace {
 
 constexpr char kHexDigits[] = "0123456789abcdef";
@@ -974,4 +974,4 @@ encode_audio_atlas_manifest(const contract::AudioAtlasManifest &manifest) {
     }
 }
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-preview",
+  "schema": "crankwave/responsive-audio-preview",
   "id": "kohler-ch750-cleanroom-responsive-audio",
   "engine": "kohler-ch750-cleanroom",
   "fidelity": {
@@ -25,7 +25,7 @@
       "sha256": "812fcfa3fcb1c3040f695140cfc2a73df0934a3d84a848121eb94a41f374e60e"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "exact-held-non-repeating-texture-plus-n-route-directional-transients-through-authored-presentation"
@@ -34,8 +34,8 @@
     "capture_source_closure_sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb",
     "admitted_source_closure_sha256": "c3a905712ddf3ae4e506af64e3919f2324df46af13ff4e3dc1a24037b4079d23",
     "evidence_path": "evidence/renderer-compatibility-parity-report-v1.json",
-    "evidence_byte_count": 18318,
-    "evidence_sha256": "688301b6904d76ab95586cdf4bfad0e8e04fbf11ed99d055ffc693a450e7c123"
+    "evidence_byte_count": 18309,
+    "evidence_sha256": "ee4eed2e02c2177ac487a15d3ecb0c0aed7cf226f5cf6544acc9ddb8f2a9de0a"
   },
   "lifecycle_package_path": "lifecycle/runtime.json",
   "shared_recorded_starter_package_path": "../shared-recorded-starter/runtime.json"

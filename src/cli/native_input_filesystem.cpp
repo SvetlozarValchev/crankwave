@@ -12,7 +12,7 @@
 #include <unistd.h>
 #endif
 
-namespace engine_sim_offline::cli::detail {
+namespace crankwave::cli::detail {
 
 FileDescriptor::FileDescriptor(int descriptor) noexcept
     : descriptor_(descriptor) {}
@@ -312,4 +312,4 @@ ReadFileResult read_exact_regular_file(const std::filesystem::path &path,
 #endif
 }
 
-} // namespace engine_sim_offline::cli::detail
+} // namespace crankwave::cli::detail

@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 namespace {
 
 using contract::ContractIssueCode;
@@ -568,4 +568,4 @@ compile_presentation_calibration(const contract::PresentationCalibration &calibr
                                                             scenario, provenance);
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

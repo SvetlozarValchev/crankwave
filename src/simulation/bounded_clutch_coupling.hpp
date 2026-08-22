@@ -4,7 +4,7 @@
 #include <optional>
 #include <variant>
 
-namespace engine_sim_offline::simulation::detail {
+namespace crankwave::simulation::detail {
 
 struct ForwardGearReductionInput {
     double vehicle_mass_kg = 0.0;
@@ -124,4 +124,4 @@ using BoundedClutchCouplingCalculation =
 [[nodiscard]] BoundedClutchCouplingCalculation
 advance_bounded_clutch_coupling(const BoundedClutchCouplingInput &input) noexcept;
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace crankwave::simulation::detail

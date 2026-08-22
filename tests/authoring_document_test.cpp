@@ -1,4 +1,4 @@
-#include "engine_sim_offline/authoring/parse.hpp"
+#include "crankwave/authoring/parse.hpp"
 
 #include <cstdlib>
 #include <exception>
@@ -13,7 +13,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::authoring;
+using namespace crankwave::authoring;
 
 static_assert(noexcept(parse_engine_document(std::string_view{})));
 static_assert(noexcept(parse_scenario_document(std::string_view{})));
@@ -29,7 +29,7 @@ void expect(bool condition, std::string_view message) {
 
 [[nodiscard]] std::string valid_scenario_json() {
     return R"json({
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "dyno-listen",
   "engine": "test-engine",
   "fuel": "gasoline",
@@ -115,7 +115,7 @@ void expect(bool condition, std::string_view message) {
 
 [[nodiscard]] std::string valid_engine_json() {
     return R"json({
-  "schema": "engine-sim-offline/engine",
+  "schema": "crankwave/engine",
   "engine": {
     "identity": {
       "id": "test-engine",
@@ -654,7 +654,7 @@ void replace_monitoring_event_payload(std::string &json, std::string_view replac
 
 void test_complete_scenario_and_exact_integer_wire_values() {
     const ScenarioDocument scenario = require_scenario(valid_scenario_json());
-    expect(scenario.schema == "engine-sim-offline/scenario", "scenario schema changed");
+    expect(scenario.schema == "crankwave/scenario", "scenario schema changed");
     expect(scenario.public_seed == 18446744073709551615ULL,
            "uint64 decimal string lost precision");
     expect(scenario.rates.physics.numerator == 20000U &&
@@ -920,8 +920,8 @@ void test_free_vehicle_vocabulary_is_explicit_and_greenfield() {
 
 void test_strict_paths_and_continuous_control_authority() {
     std::string unknown = valid_scenario_json();
-    replace_once(unknown, R"json("schema": "engine-sim-offline/scenario",)json",
-                 R"json("schema": "engine-sim-offline/scenario",
+    replace_once(unknown, R"json("schema": "crankwave/scenario",)json",
+                 R"json("schema": "crankwave/scenario",
   "legacy_version": 2,)json");
     const auto unknown_result = parse_scenario_document(unknown);
     expect(has_diagnostic(require_report(unknown_result), DiagnosticCode::unknown_field,
@@ -1006,7 +1006,7 @@ void test_cross_document_reference_validation() {
 
 void test_engine_schema_identifier_is_strict() {
     const auto result = parse_engine_document(
-        R"json({"schema":"engine-sim-offline/engine-v1","engine":{},"presentation":{}})json");
+        R"json({"schema":"crankwave/engine-v1","engine":{},"presentation":{}})json");
     const auto *report = std::get_if<DiagnosticReport>(&result);
     expect(report != nullptr &&
                has_diagnostic(*report, DiagnosticCode::unsupported_schema, "/schema"),
@@ -1015,7 +1015,7 @@ void test_engine_schema_identifier_is_strict() {
 
 void test_complete_engine_package() {
     const EnginePackageDocument package = require_engine(valid_engine_json());
-    expect(package.schema == "engine-sim-offline/engine",
+    expect(package.schema == "crankwave/engine",
            "engine package schema changed");
     expect(package.engine.identity.id.value == "test-engine",
            "engine identity was not retained");

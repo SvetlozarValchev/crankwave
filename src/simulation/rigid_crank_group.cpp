@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 [[nodiscard]] RigidCrankGroupError
@@ -97,4 +97,4 @@ RigidCrankGroupCalculation calculate_rigid_crank_group_properties(
     return result;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

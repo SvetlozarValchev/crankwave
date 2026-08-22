@@ -4,7 +4,7 @@
 #include <optional>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct FourStrokeCycleIntegrationPlan {
     double cycle_reference_theta_rad = 0.0;
@@ -183,4 +183,4 @@ using FourStrokeCycleIntegratorCompileResult =
 compile_four_stroke_cycle_integrator(
     const FourStrokeCycleIntegrationPlan &plan) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

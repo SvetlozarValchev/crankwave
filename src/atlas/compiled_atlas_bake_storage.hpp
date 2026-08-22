@@ -1,12 +1,12 @@
 #pragma once
 
-#include "engine_sim_offline/atlas_bake.hpp"
+#include "crankwave/atlas_bake.hpp"
 
 #include <cstdint>
 #include <string>
 #include <vector>
 
-namespace engine_sim_offline::detail {
+namespace crankwave::detail {
 
 struct CompiledAtlasBakeStorage {
     std::string id;
@@ -19,4 +19,4 @@ struct CompiledAtlasBakeStorage {
     std::vector<CompiledAtlasBakeMovingSegment> moving_segments;
 };
 
-} // namespace engine_sim_offline::detail
+} // namespace crankwave::detail

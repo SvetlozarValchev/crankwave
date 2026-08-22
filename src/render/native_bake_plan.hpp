@@ -8,7 +8,7 @@
 #include <string>
 #include <variant>
 
-namespace engine_sim_offline::render_detail {
+namespace crankwave::render_detail {
 
 struct NativeBakePlan {
     contract::RenderRequestRecord request;
@@ -29,4 +29,4 @@ using NativeBakePlanResult = std::variant<NativeBakePlan, NativeBakePlanError>;
     const presentation::AdmittedPresentationCalibration &calibration,
     const determinism::RendererDeterminismEnvelope &determinism);
 
-} // namespace engine_sim_offline::render_detail
+} // namespace crankwave::render_detail

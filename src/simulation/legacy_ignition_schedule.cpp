@@ -4,7 +4,7 @@
 
 #include <cmath>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 LegacyIgnitionCrossingDecision
 evaluate_legacy_ignition_crossing(double saved_angle_rad, double current_angle_rad,
@@ -55,4 +55,4 @@ LegacyLimiterUpdate update_legacy_limiter(double timer_s, double step_s,
     return result;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

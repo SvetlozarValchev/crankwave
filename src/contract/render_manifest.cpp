@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/render_manifest.hpp"
+#include "crankwave/contract/render_manifest.hpp"
 
 #include "validation_support.hpp"
 
@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 namespace {
 
 [[nodiscard]] bool is_lower_hex(std::string_view value) noexcept {
@@ -979,4 +979,4 @@ ValidationReport validate(const RenderManifest &manifest,
     return report;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

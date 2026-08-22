@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "subaru-ej25-cleanroom-topology-free-engine-1500rpm",
   "engine": "subaru-ej25-cleanroom",
   "fuel": "gasoline-default",

@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 using contract::ContractIssueCode;
@@ -1370,4 +1370,4 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     return session;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

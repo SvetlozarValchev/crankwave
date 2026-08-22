@@ -6,7 +6,7 @@ import {
   AudioBusKind,
   ControlCapability,
   EngineCycleState,
-  ESO_C_API_VERSION,
+  CRANKWAVE_C_API_VERSION,
   Layout,
   MotionMode,
   SourceRouteKind,
@@ -15,7 +15,7 @@ import {
   audioSignalDispositionName,
   sourceRouteKindName,
 } from "../../web/runtime/c-api-abi.js";
-import { EngineSimSession } from "../../web/runtime/c-api-session.js";
+import { CrankwaveSession } from "../../web/runtime/c-api-session.js";
 
 class FakeHeap {
   constructor() {
@@ -100,7 +100,7 @@ function makeFakeClient({
   );
 
   const module = {
-    _eso_session_get_descriptor(_context, _session, pointer) {
+    _crankwave_session_get_descriptor(_context, _session, pointer) {
       const view = heap.view;
       const layout = Layout.sessionDescriptor;
       heap.bytes.fill(0, pointer, pointer + layout.size);
@@ -125,7 +125,7 @@ function makeFakeClient({
       view.setUint32(pointer + layout.forwardGearCount, gears.length, true);
       return 0;
     },
-    _eso_session_copy_identity(_context, _session, pointer) {
+    _crankwave_session_copy_identity(_context, _session, pointer) {
       const layout = Layout.sessionIdentityBuffers;
       writeUtf8(heap, heap.view.getUint32(pointer + layout.engineData, true), engineId);
       writeUtf8(
@@ -135,7 +135,7 @@ function makeFakeClient({
       );
       return 0;
     },
-    _eso_session_get_forward_gear_descriptor(
+    _crankwave_session_get_forward_gear_descriptor(
       _context,
       _session,
       index,
@@ -158,7 +158,7 @@ function makeFakeClient({
       );
       return 0;
     },
-    _eso_session_copy_forward_gear_semantic_id(
+    _crankwave_session_copy_forward_gear_semantic_id(
       _context,
       _session,
       index,
@@ -167,7 +167,7 @@ function makeFakeClient({
       copyToMutableBuffer(heap, buffer, gears[index].semanticId);
       return 0;
     },
-    _eso_session_get_audio_bus_descriptor(_context, _session, index, pointer) {
+    _crankwave_session_get_audio_bus_descriptor(_context, _session, index, pointer) {
       const bus = buses[index];
       const layout = Layout.audioBusDescriptor;
       heap.bytes.fill(0, pointer, pointer + layout.size);
@@ -191,11 +191,11 @@ function makeFakeClient({
       heap.view.setUint32(pointer + layout.idBytes, bus.id.length, true);
       return 0;
     },
-    _eso_session_copy_audio_bus_id(_context, _session, index, buffer) {
+    _crankwave_session_copy_audio_bus_id(_context, _session, index, buffer) {
       copyToMutableBuffer(heap, buffer, buses[index].id);
       return 0;
     },
-    _eso_session_enqueue_controls(
+    _crankwave_session_enqueue_controls(
       _context,
       _session,
       pointer,
@@ -208,7 +208,7 @@ function makeFakeClient({
       heap.bytes.fill(0, rejection, rejection + Layout.controlRejection.size);
       return 0;
     },
-    _eso_session_process(
+    _crankwave_session_process(
       _context,
       _session,
       audioCopy,
@@ -424,7 +424,7 @@ function makeFakeClient({
       view.setUint32(process + info.liveControlsAccepted, 1, true);
       return 0;
     },
-    _eso_destroy_session() {
+    _crankwave_destroy_session() {
       return 0;
     },
   };
@@ -441,7 +441,7 @@ function makeFakeClient({
 }
 
 test("frozen wasm32 ABI is the exact v10 layout", () => {
-  assert.equal(ESO_C_API_VERSION, 10);
+  assert.equal(CRANKWAVE_C_API_VERSION, 10);
   assert.deepEqual(
     WASM32_ABI_WORDS,
     [10, 4, 4, 4, 8, 1, 40, 104, 24, 48, 704, 296],
@@ -524,7 +524,7 @@ test("session distinguishes declared-silent intake topology from active audio", 
     sourceRouteKind: SourceRouteKind.intakeInlet,
     signalDisposition: AudioSignalDisposition.declaredSilent,
   });
-  const session = new EngineSimSession(client, 1n);
+  const session = new CrankwaveSession(client, 1n);
   try {
     assert.equal(session.buses[0].sourceRouteKind, "intake-inlet");
     assert.equal(session.buses[0].routeId, 71);
@@ -541,14 +541,14 @@ test("session rejects a master bus carrying source-route identity", () => {
     signalDisposition: AudioSignalDisposition.active,
   });
   assert.throws(
-    () => new EngineSimSession(client, 1n),
+    () => new CrankwaveSession(client, 1n),
     /invalid audio source-route descriptor/,
   );
 });
 
 test("session decodes motion, gear inventory, and nullable telemetry sidecars", () => {
   const { client } = makeFakeClient();
-  const session = new EngineSimSession(client, 1n);
+  const session = new CrankwaveSession(client, 1n);
   try {
     assert.equal(session.descriptor.motionMode, "free-vehicle");
     assert.equal(session.descriptor.motionModeCode, MotionMode.freeVehicle);
@@ -685,7 +685,7 @@ test("session decodes motion, gear inventory, and nullable telemetry sidecars", 
 
 test("all twelve controls use canonical typed command fields", () => {
   const { client, capturedControlBatches } = makeFakeClient();
-  const session = new EngineSimSession(client, 1n);
+  const session = new CrankwaveSession(client, 1n);
   try {
     session.enqueueControls([
       { kind: "throttle", value: 0.5, deliveryFrame: 12n },

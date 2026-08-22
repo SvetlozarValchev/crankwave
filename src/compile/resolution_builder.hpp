@@ -1,13 +1,13 @@
 #pragma once
 
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/compile.hpp"
 
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 
 using ProvenanceBuildResult = CompileResult<contract::ProvenanceLedger>;
 
@@ -39,4 +39,4 @@ class ResolutionProvenanceBuilder final {
     std::vector<PendingResolution> resolutions_;
 };
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

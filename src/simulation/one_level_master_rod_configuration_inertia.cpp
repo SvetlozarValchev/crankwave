@@ -9,7 +9,7 @@
 #include <optional>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 struct SecondOrderScalar {
@@ -831,4 +831,4 @@ evaluate_one_level_master_rod_configuration_inertia(
     }
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

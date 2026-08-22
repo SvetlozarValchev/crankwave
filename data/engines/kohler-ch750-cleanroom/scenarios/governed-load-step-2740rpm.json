@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "kohler-ch750-cleanroom-governed-load-step-2740rpm",
   "engine": "kohler-ch750-cleanroom",
   "fuel": "gasoline-default",

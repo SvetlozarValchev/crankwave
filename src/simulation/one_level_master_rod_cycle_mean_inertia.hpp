@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -8,7 +8,7 @@
 #include <string_view>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct OneLevelMasterRodMechanismKinematicsPlan;
 
@@ -69,4 +69,4 @@ one_level_master_rod_cycle_mean_inertia_method_identity();
 calculate_one_level_master_rod_cycle_mean_inertia(
     const OneLevelMasterRodMechanismKinematicsPlan &plan) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

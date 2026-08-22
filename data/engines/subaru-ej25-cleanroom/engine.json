@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/engine",
+  "schema": "crankwave/engine",
   "engine": {
     "identity": {
       "id": "subaru-ej25-cleanroom",
@@ -209,7 +209,7 @@
     ],
     "default_fuel": "gasoline-default",
     "accessory_configurations": [
-      {"id": "warm-generic-accessories", "uri": "accessory-configuration.json", "sha256": "e90f6127213f989e6d75a99eab5bfc15e02d730be7fec7a219007ddd19033f4e"}
+      {"id": "warm-generic-accessories", "uri": "accessory-configuration.json", "sha256": "a8d4435faed10556d33439a660305955f40d199f904639a2e6c482de3594b01a"}
     ],
     "losses": {
       "type": "chen_flynn_cycle_mean",
@@ -249,7 +249,7 @@
   },
   "presentation": {
     "assets": [
-      {"id": "mild-exhaust", "kind": "impulse_response", "uri": "../../../reference/fixtures/engine-sim-ir-library/presentation/mild_exhaust.wav", "sha256": "f2875947eba2ed98a15f45a5d62f6ae7b607b0a56389bad5882d75748ad374b9"}
+      {"id": "mild-exhaust", "kind": "impulse_response", "uri": "../../../reference/fixtures/crankwave-ir-library/presentation/mild_exhaust.wav", "sha256": "f2875947eba2ed98a15f45a5d62f6ae7b607b0a56389bad5882d75748ad374b9"}
     ],
     "cylinder_routes": [
       {"cylinder": "cylinder-1", "route": "exhaust-0", "gain_linear": 1},

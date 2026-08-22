@@ -1,4 +1,4 @@
-#include "engine_sim_offline/authoring/parse.hpp"
+#include "crankwave/authoring/parse.hpp"
 
 #include "authoring/document_reader.hpp"
 #include "authoring/parse_engine_detail.hpp"
@@ -14,7 +14,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::authoring {
+namespace crankwave::authoring {
 namespace {
 
 using detail::DocumentReader;
@@ -763,9 +763,9 @@ void parse_scenario_root(DocumentReader &reader, JsonValue value,
                            "total_duration", "audible_start", "audible_duration",
                            "public_seed", "output"});
     reader.string(reader.required(value, "schema", ""), "/schema", output.schema);
-    if (!output.schema.empty() && output.schema != "engine-sim-offline/scenario") {
+    if (!output.schema.empty() && output.schema != "crankwave/scenario") {
         reader.add(DiagnosticCode::unsupported_schema, "/schema",
-                   "expected schema 'engine-sim-offline/scenario'");
+                   "expected schema 'crankwave/scenario'");
     }
     read_id_member(reader, value, "id", "", output.id);
     read_ref_member(reader, value, "engine", "", output.engine);
@@ -977,4 +977,4 @@ validate_scenario_references(const ScenarioDocument &scenario,
     }
 }
 
-} // namespace engine_sim_offline::authoring
+} // namespace crankwave::authoring

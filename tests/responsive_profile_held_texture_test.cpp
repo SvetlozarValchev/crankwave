@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/held_texture.hpp"
+#include "crankwave/responsive/held_texture.hpp"
 
 #include <algorithm>
 #include <array>
@@ -16,8 +16,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::responsive;
+using namespace crankwave;
+using namespace crankwave::responsive;
 
 int failures = 0;
 

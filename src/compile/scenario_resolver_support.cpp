@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::scenario_resolution {
+namespace crankwave::compile::detail::scenario_resolution {
 namespace {
 
 constexpr std::string_view kFuelProjectionDescriptor =
@@ -193,7 +193,7 @@ find_resolution_path(const contract::ProvenanceLedger &provenance,
 contract::Sha256Digest
 source_matrix_digest(const contract::SourceMatrixContract &matrix) {
     DigestPayload writer;
-    writer.string("engine-sim-offline-authored-source-matrix-v1");
+    writer.string("crankwave-authored-source-matrix-v1");
     writer.string(matrix.id);
     writer.byte(static_cast<std::uint8_t>(matrix.distribution));
 
@@ -243,4 +243,4 @@ source_matrix_digest(const contract::SourceMatrixContract &matrix) {
     return writer.finish();
 }
 
-} // namespace engine_sim_offline::compile::detail::scenario_resolution
+} // namespace crankwave::compile::detail::scenario_resolution

@@ -12,7 +12,7 @@
 #include <string_view>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 constexpr double kFourStrokeCycleRadians = 4.0 * std::numbers::pi_v<double>;
@@ -704,4 +704,4 @@ LowOrderOperatingPointV1Runtime::operating_point_result() const noexcept {
     return operating_point_result_;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

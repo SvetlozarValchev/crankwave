@@ -13,8 +13,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::simulation;
+using namespace crankwave;
+using namespace crankwave::simulation;
 
 constexpr double kCycleRadians = 4.0 * std::numbers::pi_v<double>;
 constexpr double kEngineSpeedRpm = 3000.0;

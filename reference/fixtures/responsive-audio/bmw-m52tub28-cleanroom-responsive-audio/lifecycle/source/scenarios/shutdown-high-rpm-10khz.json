@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "bmw-m52tub28-cleanroom-lifecycle-shutdown-high-rpm-candidate-10khz-lifecycle-preview",
   "engine": "bmw-m52tub28-cleanroom",
   "fuel": "premium-unleaded-gasoline",

@@ -1,6 +1,6 @@
 #include "simulation/low_order_dynamic_crank_runtime.hpp"
 
-#include "simulation/engine_sim_v1_starter_motor.hpp"
+#include "simulation/crankwave_starter_motor.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 
@@ -14,7 +14,7 @@
 #include <string_view>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 constexpr double kRpmPerRadianPerSecond = 30.0 / std::numbers::pi_v<double>;
@@ -463,7 +463,7 @@ LowOrderDynamicCrankRuntime::stage_piston_wall_friction() {
                              "source-friction plan",
                              nullptr, cylinder.chamber_volume_id);
             }
-            const auto calculation = stage_engine_sim_v1_piston_wall_friction({
+            const auto calculation = stage_crankwave_piston_wall_friction({
                 cylinder.direct_centered->friction,
                 direct->piston_wall_boundary_phase_rad[index],
                 direct->piston_wall_boundary_angular_speed_rad_s,
@@ -471,7 +471,7 @@ LowOrderDynamicCrankRuntime::stage_piston_wall_friction() {
                 retained_piston_wall_reaction_magnitude_n_[index],
             });
             if (const auto *error =
-                    std::get_if<EngineSimV1PistonWallError>(&calculation)) {
+                    std::get_if<CrankwavePistonWallError>(&calculation)) {
                 return fault(
                     contract::FailureKind::numerical_failure,
                     "dynamic-crank-piston-wall-friction-stage-failed",
@@ -481,7 +481,7 @@ LowOrderDynamicCrankRuntime::stage_piston_wall_friction() {
                     nullptr, cylinder.chamber_volume_id);
             }
             direct->piston_wall_stages[index] =
-                std::get<EngineSimV1PistonWallFrictionStage>(calculation);
+                std::get<CrankwavePistonWallFrictionStage>(calculation);
             total_torque_nm +=
                 direct->piston_wall_stages[index].generalized_friction_torque_nm;
         }
@@ -651,10 +651,10 @@ LowOrderDynamicCrankRuntime::calculate_next_piston_wall_reactions(
                          "direct piston-wall stage and candidate inventories differ");
         }
         for (std::size_t index = 0; index < piston_wall_cylinders_.size(); ++index) {
-            const auto calculation = calculate_engine_sim_v1_next_piston_wall_reaction(
+            const auto calculation = calculate_crankwave_next_piston_wall_reaction(
                 direct->piston_wall_stages[index], angular_acceleration_rad_s2);
             if (const auto *error =
-                    std::get_if<EngineSimV1PistonWallError>(&calculation)) {
+                    std::get_if<CrankwavePistonWallError>(&calculation)) {
                 return fault(
                     contract::FailureKind::numerical_failure,
                     "dynamic-crank-piston-wall-reaction-failed",
@@ -664,7 +664,7 @@ LowOrderDynamicCrankRuntime::calculate_next_piston_wall_reactions(
                     nullptr, piston_wall_cylinders_[index].chamber_volume_id);
             }
             candidate_piston_wall_reaction_magnitude_n_[index] =
-                std::get<EngineSimV1PistonWallReaction>(calculation)
+                std::get<CrankwavePistonWallReaction>(calculation)
                     .wall_reaction_magnitude_n;
         }
         return std::nullopt;
@@ -1400,7 +1400,7 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
         motion_calculation);
     double applied_starter_torque_nm = 0.0;
     if (starter_enabled) {
-        const auto starter_calculation = calculate_engine_sim_v1_starter_motor_torque({
+        const auto starter_calculation = calculate_crankwave_starter_motor_torque({
             true,
             starter_target_speed_rad_s_,
             motion.unconstrained_predicted_final_angular_speed_rad_s,
@@ -1409,7 +1409,7 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
             step_s_,
         });
         if (const auto *error =
-                std::get_if<EngineSimV1StarterMotorInputError>(&starter_calculation)) {
+                std::get_if<CrankwaveStarterMotorInputError>(&starter_calculation)) {
             return fail(
                 fault(contract::FailureKind::contract_violation,
                       "dynamic-crank-starter-motor-failed",
@@ -1418,7 +1418,7 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
                           std::to_string(static_cast<std::uint32_t>(error->issue))));
         }
         applied_starter_torque_nm =
-            std::get<EngineSimV1StarterMotorTorque>(starter_calculation)
+            std::get<CrankwaveStarterMotorTorque>(starter_calculation)
                 .applied_crank_torque_nm;
         if (applied_starter_torque_nm > 0.0) {
             motion_calculation =
@@ -1724,4 +1724,4 @@ std::uint64_t LowOrderDynamicCrankRuntime::release_frame_index() const noexcept 
     return release_frame_index_;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

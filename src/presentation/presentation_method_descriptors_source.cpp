@@ -2,11 +2,11 @@
 
 #include "presentation/presentation_method_descriptor_support.hpp"
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 namespace {
 
 constexpr std::string_view kCausalReconstructionMethodDescriptor =
-    R"method(engine-sim-offline.presentation-method-configuration.v1
+    R"method(crankwave.presentation-method-configuration.v1
 method=causal-kaiser-sinc-257tap-4096phase-10000-or-20000-to-192000-binary64-v4
 version=4
 operation=continuous-ordered-route-causal-bandlimited-reconstruction
@@ -74,7 +74,7 @@ external_numeric_authority=renderer-build-source-standard-library-math-runtime-a
 )method";
 
 constexpr std::string_view kRouteConditioningMethodDescriptor =
-    R"method(engine-sim-offline.presentation-method-configuration.v1
+    R"method(crankwave.presentation-method-configuration.v1
 method=route-jitter-dc-derivative-flow-coupled-air-noise-binary64-v3
 version=3
 operation=continuous-route-owned-jitter-dc-derivative-and-flow-coupled-air-noise-conditioning
@@ -113,7 +113,7 @@ exhaust_flow_activity=clamp(nonnegative-reconstructed-route-flow-divided-by-rout
 canonical_zero=positive-binary64-zero;negative-zero-is-rejected
 random_generator_method=pcg32_xsh_rr_64_32_binary64_v1
 random_generator_version=1
-random_generator_configuration_sha256=a48383d2716a059b0b60aabf4c6febb0a81edbad622da4634823bf22421eaf0c
+random_generator_configuration_sha256=e986ac47971fa1d6ab27f8e95f862a293e54ecadfbe009b174e89f5b90575d70
 random_stream_ownership=one-independent-jitter-stream-and-one-independent-air-noise-stream-per-route
 accepted_frame_draw_cadence=jitter-unsigned-uniform-first-using-two-u32-draws-then-air-signed-uniform-using-two-u32-draws
 zero_calibration_draw_cadence=unchanged-all-four-u32-draws-are-consumed
@@ -185,4 +185,4 @@ std::string_view route_conditioning_method_descriptor() noexcept {
     return kRouteConditioningMethodDescriptor;
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

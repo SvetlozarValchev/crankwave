@@ -33,9 +33,9 @@ is a generic low-order Chen-Flynn model prediction, not a calibrated BMW torque 
 - source tree: `d083e805c5762c0c927e3ac8cf5dd161464e7804`
 - branch: `clean-room/bmw-baseline`
 - build: Release, Clang `21.1.8`, target
-  `engine_sim_offline_m4_bmw_torque_sweep`
+  `crankwave_m4_bmw_torque_sweep`
 - command:
-  `build-m4-fixed-sampling-clang/engine-sim-offline-m4-bmw-torque-sweep artifacts/m4-fixed-horizon-071a086-torque-sweep`
+  `build-m4-fixed-sampling-clang/crankwave-m4-bmw-torque-sweep artifacts/m4-fixed-horizon-071a086-torque-sweep`
 - total simulated-job wall time reported by the evidence: `25.983 s`
 - per-point elapsed time: `2.874..2.914 s`; the evidence runner executes the nine
   points sequentially

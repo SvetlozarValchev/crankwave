@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/engine",
+  "schema": "crankwave/engine",
   "engine": {
     "identity": {
       "id": "shovelhead-bank-local-heads",
@@ -265,7 +265,7 @@
     ],
     "default_fuel": "gasoline-default",
     "accessory_configurations": [
-      {"id": "warm-generic-accessories", "uri": "accessory-configuration.json", "sha256": "ba86093015b191eea91f93549bd538466c3c62470e3f8a1e82d03156ab75c2d4"}
+      {"id": "warm-generic-accessories", "uri": "accessory-configuration.json", "sha256": "1d3196cedf46ee3370088ccc2f72273f3aea00a627e1b276d4c2d08028451470"}
     ],
     "losses": {
       "type": "chen_flynn_cycle_mean",
@@ -301,7 +301,7 @@
   },
   "presentation": {
     "assets": [
-      {"id": "minimal-muffling-01", "kind": "impulse_response", "uri": "../../../reference/fixtures/engine-sim-ir-library/presentation/minimal_muffling_01.wav", "sha256": "0d736bb7065686ae527c8487ef7850762c0381c91125e555228cf4599e4ff68c"}
+      {"id": "minimal-muffling-01", "kind": "impulse_response", "uri": "../../../reference/fixtures/crankwave-ir-library/presentation/minimal_muffling_01.wav", "sha256": "0d736bb7065686ae527c8487ef7850762c0381c91125e555228cf4599e4ff68c"}
     ],
     "cylinder_routes": [
       {"cylinder": "cylinder.front", "route": "exhaust.front", "gain_linear": 1},

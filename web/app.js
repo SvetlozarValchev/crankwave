@@ -1,6 +1,6 @@
 import {
-  ESO_CANONICAL_SAMPLE_RATE,
-  ESO_C_API_VERSION,
+  CRANKWAVE_CANONICAL_SAMPLE_RATE,
+  CRANKWAVE_C_API_VERSION,
   SessionExecutionKind,
 } from "./runtime/c-api-abi.js";
 import { WORKER_PROTOCOL_ID } from "./runtime/protocol.js";
@@ -36,7 +36,7 @@ const UNCONFIGURED_SHARED_STARTER = Object.freeze({
   active: false,
   licenseStatus: null,
   licenseBasis: null,
-  licensee: null,
+  sourceCreator: null,
   auditionOnly: false,
   modificationAuthorized: false,
   redistributionAuthorized: false,
@@ -230,7 +230,7 @@ const RING_HEADER = Object.freeze({
   generation: 5,
   producerState: 6,
 });
-const RING_SCHEMA_ID = "engine-sim-offline/pcm-ring-spsc-v1";
+const RING_SCHEMA_ID = "crankwave/pcm-ring-spsc-v1";
 const RING_HEADER_SCHEMA = Object.freeze({
   id: RING_SCHEMA_ID,
   headerBytes: RING_HEADER.byteLength,
@@ -577,8 +577,10 @@ function normalizeSharedStarterSnapshot(snapshot) {
       typeof snapshot.licenseBasis === "string"
         ? snapshot.licenseBasis
         : null,
-    licensee:
-      typeof snapshot.licensee === "string" ? snapshot.licensee : null,
+    sourceCreator:
+      typeof snapshot.sourceCreator === "string"
+        ? snapshot.sourceCreator
+        : null,
     auditionOnly: snapshot.auditionOnly === true,
     modificationAuthorized: snapshot.modificationAuthorized === true,
     redistributionAuthorized: snapshot.redistributionAuthorized === true,
@@ -645,21 +647,21 @@ function renderSharedStarterControls() {
     elements.sharedStarterStatus.textContent = "Unavailable";
     elements.sharedStarterStatus.dataset.state = "unavailable";
     elements.sharedStarterDetail.textContent =
-      "This engine package does not include the licensed recorded starter.";
+      "This engine package does not include the CC0 recorded starter.";
     return;
   }
 
   elements.sharedStarterStatus.textContent = starter.active
     ? "Starter active"
     : starter.enabled
-      ? "Licensed · ready"
-      : "Licensed · off";
+      ? "CC0 · ready"
+      : "CC0 · off";
   elements.sharedStarterStatus.dataset.state = starter.active
     ? "active"
     : "loaded";
   const integrity = `sessions ${starter.sessionCount} · catches ${starter.catchCount} · fallback ${starter.fallbackCatchCount} · unavailable envelope frames ${starter.unavailableEnvelopeFrames}`;
   const notice = starter.rightsNotice ??
-    "Licensed commissioned original recording.";
+    "CC0 public-domain recording.";
   elements.sharedStarterDetail.textContent =
     `${notice} Mixed identically into Source A and B after their engine-specific paths. ${integrity}.`;
 }
@@ -2246,7 +2248,7 @@ function attachAudioRing(message) {
     channelCount: message.channelCount,
     sampleRate: message.sampleRate,
   };
-  const node = new AudioWorkletNode(context, "eso-ring-output", {
+  const node = new AudioWorkletNode(context, "crankwave-ring-output", {
     numberOfInputs: 0,
     numberOfOutputs: 1,
     outputChannelCount: [message.channelCount],
@@ -2804,8 +2806,8 @@ function admitReadyMessage(message) {
   const counters = schema?.counters;
   if (
     message.protocol !== WORKER_PROTOCOL_ID ||
-    message.apiVersion !== ESO_C_API_VERSION ||
-    message.canonicalSampleRate !== ESO_CANONICAL_SAMPLE_RATE ||
+    message.apiVersion !== CRANKWAVE_C_API_VERSION ||
+    message.canonicalSampleRate !== CRANKWAVE_CANONICAL_SAMPLE_RATE ||
     message.structuralEditContract !== "compile-and-replace" ||
     schema?.id !== RING_SCHEMA_ID ||
     schema.headerBytes !== RING_HEADER.byteLength ||
@@ -3118,7 +3120,7 @@ function startWorker() {
   try {
     state.worker = new Worker(WORKER_URL, {
       type: "module",
-      name: "engine-sim-offline-runtime",
+      name: "crankwave-runtime",
     });
     state.worker.addEventListener("message", handleWorkerMessage);
     state.worker.addEventListener("error", (event) => {

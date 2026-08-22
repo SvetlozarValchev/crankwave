@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "schema": "crankwave/responsive-audio-lifecycle",
   "id": "bmw-m52b28-lifecycle-preview",
   "engine": "bmw-m52b28",
   "audio": {
@@ -170,7 +170,7 @@
     "quiet_rms_threshold": 0.0012758916061842787
   },
   "startup_admission": {
-    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "schema": "crankwave/continuous-startup-admission-v1",
     "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
     "admission_lane_coordinate": "authored-throttle-01",
     "blend": "constant-power",
@@ -204,8 +204,8 @@
     "evidence": {
       "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
       "path": "evidence/startup-admission.json",
-      "sha256": "1170069d4f2d79e420dd45f82b8ecd4d90a023c6f57a6ddabee6501eafc7d35b",
-      "corrected_held_manifest_sha256": "b855508a5ded971688ce649e14fa702309b843ef599f8849463cb1e78aea46b2"
+      "sha256": "bf87b68c1fe6542bb4ce4d4075baa074a3f6dcf8627021a3d752a69730988c5e",
+      "corrected_held_manifest_sha256": "ee25791cf7e1c7d0000ae0a149abbaeae3e1152405b6d82afa29b908b3a58bd0"
     }
   },
   "provenance": {
@@ -214,7 +214,7 @@
       "sha256": "f8719bde7dbab856ff6e131fbdb30a83ee667419bf72e2a45472b6615b7f198d"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
@@ -229,36 +229,36 @@
         "canonical_source_id": "bmw-m52b28-lifecycle-starter-candidate",
         "derived_id": "bmw-m52b28-lifecycle-starter-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/starter-10khz.json",
-        "sha256": "09dbadb9b0ad62c0ff1a0acb907e20e7526e3f4dd26c1f1fef2f2cd23c05a3ca",
+        "sha256": "ff4c04a05e71fb6f6f72e01b54fefa344d9ca067320db8dc15209300a42c7e40",
         "evidence_path": "evidence/starter.json",
-        "evidence_sha256": "c67457c6dd17e1176a6af3ad2acf0ee07346a6b43d09af7e995d9ddfd98d7709"
+        "evidence_sha256": "26f7dc322b7864f06b1a42b50f89008737ca40e67ba8efe3291395bfdb5d2d82"
       },
       {
         "role": "startup",
         "canonical_source_id": "bmw-m52b28-lifecycle-startup-candidate",
         "derived_id": "bmw-m52b28-lifecycle-startup-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/startup-10khz.json",
-        "sha256": "9fb2299f1dd3b0b0fae534ef2f7294aef528d2265ae22aee1e6c349e71def08d",
+        "sha256": "1ed71486a1a96e2d18dcb299814fba7b9859819ae956906fc7915d9642aee355",
         "evidence_path": "evidence/startup.json",
-        "evidence_sha256": "20a4c52455668378449071638eb76936df04455daa9a0c93c318289510eff939"
+        "evidence_sha256": "a2be794c96dbf352b680d68475201ff2feb6bf8aa4d59739ff0789355ab51a73"
       },
       {
         "role": "shutdown",
         "canonical_source_id": "bmw-m52b28-lifecycle-shutdown-candidate",
         "derived_id": "bmw-m52b28-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/shutdown-10khz.json",
-        "sha256": "d2afc63a8f6cddd372cc4b7e135f87716d496d9689dbe7517c307ef06bb25017",
+        "sha256": "ada2525135084772cadbf8a116e2a9ecfce4b98a50b8f39c7c1688eba31d1d8c",
         "evidence_path": "evidence/shutdown.json",
-        "evidence_sha256": "d31c35ffd23b98e3268ad43da71b549828a2b9dc5c9bacfb42c6480b406af5ba"
+        "evidence_sha256": "a1f83a78f7995a34941dbf67361d40682d0a7bc016b2bc9e2191ee7dfb8e9bfa"
       },
       {
         "role": "shutdown-elevated",
         "canonical_source_id": "bmw-m52b28-lifecycle-shutdown-high-rpm-candidate",
         "derived_id": "bmw-m52b28-lifecycle-shutdown-high-rpm-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/shutdown-high-rpm-10khz.json",
-        "sha256": "6eed01954e1efb93b5050331b74c77ecf6a07b70dd512a79ad25ce7d4282b813",
+        "sha256": "6270ce9f29ab6ce9d8f276e19fde9d061191e6c41e4aed93ffc9d73c20c0503d",
         "evidence_path": "evidence/shutdown-high-rpm.json",
-        "evidence_sha256": "73870a5ce1d45fecededf23c8880e6eca1cf331f0ffb2289d6add3267a8c31ae"
+        "evidence_sha256": "ba1e93c7454e9f95d1531aaa83f5465cd8d01a1f5f57c6241c471968451370ec"
       }
     ]
   }

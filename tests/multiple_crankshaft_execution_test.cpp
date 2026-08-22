@@ -1,8 +1,8 @@
 #include "compile/compiled_scenario_view.hpp"
-#include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/compile.hpp"
-#include "engine_sim_offline/request_identity.hpp"
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/authoring/parse.hpp"
+#include "crankwave/compile.hpp"
+#include "crankwave/request_identity.hpp"
+#include "crankwave/session.hpp"
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/free_engine_method_registry.hpp"
 #include "simulation/low_order_capture_session.hpp"
@@ -29,12 +29,12 @@
 
 namespace {
 
-namespace authoring = engine_sim_offline::authoring;
-namespace compile = engine_sim_offline::compile;
-namespace compile_detail = engine_sim_offline::compile::detail;
-namespace contract = engine_sim_offline::contract;
-namespace identity = engine_sim_offline::identity;
-namespace simulation = engine_sim_offline::simulation;
+namespace authoring = crankwave::authoring;
+namespace compile = crankwave::compile;
+namespace compile_detail = crankwave::compile::detail;
+namespace contract = crankwave::contract;
+namespace identity = crankwave::identity;
+namespace simulation = crankwave::simulation;
 
 constexpr std::string_view kFixtureDirectory =
     "data/engines/cocentered-split-crank-v-twin";
@@ -241,17 +241,17 @@ request_identity(const compile::CompiledScenario &scenario) {
     return std::get<identity::SimulationRequestIdentityEncoding>(std::move(encoded));
 }
 
-[[nodiscard]] engine_sim_offline::EngineSession
+[[nodiscard]] crankwave::EngineSession
 require_session(const compile::CompiledScenario &scenario) {
-    auto result = engine_sim_offline::create_engine_session(
-        scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
+    auto result = crankwave::create_engine_session(
+        scenario, crankwave::EngineSessionExecutionKind::finite_scenario);
     if (const auto *error =
-            std::get_if<engine_sim_offline::EngineSessionError>(&result)) {
+            std::get_if<crankwave::EngineSessionError>(&result)) {
         throw std::runtime_error{
             "multiple-crankshaft execution fixture session creation failed: " +
             error->detail_code + ": " + error->message};
     }
-    return std::get<engine_sim_offline::EngineSession>(std::move(result));
+    return std::get<crankwave::EngineSession>(std::move(result));
 }
 
 [[nodiscard]] bool same_f64(const double left, const double right) noexcept {
@@ -401,18 +401,18 @@ enum class ExpectedSessionSidecar : std::uint8_t {
 };
 
 struct SessionExpectation {
-    engine_sim_offline::EngineMotionMode motion_mode;
+    crankwave::EngineMotionMode motion_mode;
     ExpectedSessionSidecar sidecar;
 };
 
 struct SessionObservation {
-    std::vector<engine_sim_offline::EngineTelemetryFrame> telemetry;
+    std::vector<crankwave::EngineTelemetryFrame> telemetry;
     std::vector<std::byte> audition_pcm;
-    engine_sim_offline::EngineSessionCompleted completion;
+    crankwave::EngineSessionCompleted completion;
 };
 
 [[nodiscard]] bool
-telemetry_has_no_wrong_sidecar(const engine_sim_offline::EngineTelemetryFrame &frame,
+telemetry_has_no_wrong_sidecar(const crankwave::EngineTelemetryFrame &frame,
                                const ExpectedSessionSidecar expected) noexcept {
     switch (expected) {
     case ExpectedSessionSidecar::none:
@@ -426,7 +426,7 @@ telemetry_has_no_wrong_sidecar(const engine_sim_offline::EngineTelemetryFrame &f
 }
 
 [[nodiscard]] bool
-telemetry_has_expected_sidecar(const engine_sim_offline::EngineTelemetryFrame &frame,
+telemetry_has_expected_sidecar(const crankwave::EngineTelemetryFrame &frame,
                                const ExpectedSessionSidecar expected) noexcept {
     switch (expected) {
     case ExpectedSessionSidecar::none:
@@ -451,7 +451,7 @@ telemetry_has_expected_sidecar(const engine_sim_offline::EngineTelemetryFrame &f
     while (true) {
         auto result = session.process_block();
         if (const auto *block =
-                std::get_if<engine_sim_offline::EngineSessionBlockView>(&result)) {
+                std::get_if<crankwave::EngineSessionBlockView>(&result)) {
             for (const auto &frame : block->telemetry()) {
                 expect(telemetry_has_no_wrong_sidecar(frame, expectation.sidecar),
                        "multiple-crankshaft fixture published the wrong telemetry "
@@ -464,7 +464,7 @@ telemetry_has_expected_sidecar(const engine_sim_offline::EngineTelemetryFrame &f
                                          block->telemetry().end());
             const auto bus = std::ranges::find(
                 block->audio_buses(),
-                engine_sim_offline::EngineAudioBusKind::engine_audition_master,
+                crankwave::EngineAudioBusKind::engine_audition_master,
                 [](const auto &value) { return value.descriptor.kind; });
             expect(bus != block->audio_buses().end() &&
                        std::ranges::all_of(
@@ -481,12 +481,12 @@ telemetry_has_expected_sidecar(const engine_sim_offline::EngineTelemetryFrame &f
             continue;
         }
         if (const auto *error =
-                std::get_if<engine_sim_offline::EngineSessionError>(&result)) {
+                std::get_if<crankwave::EngineSessionError>(&result)) {
             throw std::runtime_error{"multiple-crankshaft session faulted: " +
                                      error->detail_code + ": " + error->message};
         }
         observation.completion =
-            std::get<engine_sim_offline::EngineSessionCompleted>(result);
+            std::get<crankwave::EngineSessionCompleted>(result);
         expect(observed_nonzero && observed_sidecar && !observation.telemetry.empty() &&
                    !observation.audition_pcm.empty(),
                "multiple-crankshaft session did not publish its expected telemetry "
@@ -496,8 +496,8 @@ telemetry_has_expected_sidecar(const engine_sim_offline::EngineTelemetryFrame &f
 }
 
 [[nodiscard]] bool
-same_held_dyno(const engine_sim_offline::EngineHeldDynoTelemetry &left,
-               const engine_sim_offline::EngineHeldDynoTelemetry &right) noexcept {
+same_held_dyno(const crankwave::EngineHeldDynoTelemetry &left,
+               const crankwave::EngineHeldDynoTelemetry &right) noexcept {
     return same_f64(left.target_engine_speed_rpm, right.target_engine_speed_rpm) &&
            same_f64(left.maximum_absorbing_torque_nm,
                     right.maximum_absorbing_torque_nm) &&
@@ -516,8 +516,8 @@ same_held_dyno(const engine_sim_offline::EngineHeldDynoTelemetry &left,
 }
 
 [[nodiscard]] bool same_free_vehicle(
-    const engine_sim_offline::EngineFreeVehicleTelemetry &left,
-    const engine_sim_offline::EngineFreeVehicleTelemetry &right) noexcept {
+    const crankwave::EngineFreeVehicleTelemetry &left,
+    const crankwave::EngineFreeVehicleTelemetry &right) noexcept {
     return same_f64(left.vehicle_speed_m_s, right.vehicle_speed_m_s) &&
            same_f64(left.vehicle_distance_m, right.vehicle_distance_m) &&
            left.selected_forward_gear_ordinal == right.selected_forward_gear_ordinal &&
@@ -538,8 +538,8 @@ same_held_dyno(const engine_sim_offline::EngineHeldDynoTelemetry &left,
 }
 
 [[nodiscard]] bool same_session_telemetry(
-    const std::vector<engine_sim_offline::EngineTelemetryFrame> &left,
-    const std::vector<engine_sim_offline::EngineTelemetryFrame> &right) noexcept {
+    const std::vector<crankwave::EngineTelemetryFrame> &left,
+    const std::vector<crankwave::EngineTelemetryFrame> &right) noexcept {
     if (left.size() != right.size()) {
         return false;
     }
@@ -562,8 +562,8 @@ same_held_dyno(const engine_sim_offline::EngineHeldDynoTelemetry &left,
 }
 
 [[nodiscard]] bool
-same_completion(const engine_sim_offline::EngineSessionCompleted &left,
-                const engine_sim_offline::EngineSessionCompleted &right) noexcept {
+same_completion(const crankwave::EngineSessionCompleted &left,
+                const crankwave::EngineSessionCompleted &right) noexcept {
     return left.physics_frame_count == right.physics_frame_count &&
            left.delivery_frame_count == right.delivery_frame_count &&
            left.block_count == right.block_count &&
@@ -960,7 +960,7 @@ void run(const std::filesystem::path &repository_root) {
 
     verify_exact_session_ab(
         prescribed_a, prescribed_b,
-        {engine_sim_offline::EngineMotionMode::prescribed_kinematic_sweep,
+        {crankwave::EngineMotionMode::prescribed_kinematic_sweep,
          ExpectedSessionSidecar::none});
 
     const auto dynamic_a = load_variant(repository_root, "engine-a-one-crank.json",
@@ -969,7 +969,7 @@ void run(const std::filesystem::path &repository_root) {
                                         "free-engine-coast-3000rpm.json");
     verify_dynamic_ab_equivalence(dynamic_a, dynamic_b);
     verify_exact_session_ab(dynamic_a, dynamic_b,
-                            {engine_sim_offline::EngineMotionMode::free_engine,
+                            {crankwave::EngineMotionMode::free_engine,
                              ExpectedSessionSidecar::none});
     verify_secondary_inertia_changes_dynamic_motion(dynamic_b);
     verify_secondary_friction_changes_dynamic_motion(dynamic_b);
@@ -979,7 +979,7 @@ void run(const std::filesystem::path &repository_root) {
     const auto held_b = load_variant(repository_root, "engine-b-two-cranks.json",
                                      "held-dyno-3000rpm.json");
     verify_exact_session_ab(held_a, held_b,
-                            {engine_sim_offline::EngineMotionMode::held_dyno,
+                            {crankwave::EngineMotionMode::held_dyno,
                              ExpectedSessionSidecar::held_dyno});
 
     const auto vehicle_a = load_variant(repository_root, "engine-a-one-crank.json",
@@ -987,7 +987,7 @@ void run(const std::filesystem::path &repository_root) {
     const auto vehicle_b = load_variant(repository_root, "engine-b-two-cranks.json",
                                         "free-vehicle-coast-3000rpm.json");
     verify_exact_session_ab(vehicle_a, vehicle_b,
-                            {engine_sim_offline::EngineMotionMode::free_vehicle,
+                            {crankwave::EngineMotionMode::free_vehicle,
                              ExpectedSessionSidecar::free_vehicle});
 }
 

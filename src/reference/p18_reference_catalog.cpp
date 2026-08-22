@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace engine_sim_offline::reference {
+namespace crankwave::reference {
 namespace {
 
 [[nodiscard]] consteval std::uint8_t hex_nibble(char value) {
@@ -51,9 +51,9 @@ const P18ReferenceCatalogV1 &p18_reference_catalog_v1() noexcept {
             {
                 P18ReferenceLineageFile::manifest,
                 "manifest.json",
-                UINT64_C(21435),
+                UINT64_C(21398),
                 digest(
-                    "52d694ba6edc8771b5a4c394d5b62573c22b38e8ba4ef7e2f5bc8c8fb6decc07"),
+                    "91bcbfa577be7895b5e88867181d7a603f296968eea23cc726187e0172e00cde"),
             },
             {
                 P18ReferenceLineageFile::parity_evidence,
@@ -79,9 +79,9 @@ const P18ReferenceCatalogV1 &p18_reference_catalog_v1() noexcept {
             {
                 P18ReferenceLineageFile::renderer_algorithm_record,
                 "P18_PRESENTATION_RENDERER.md",
-                UINT64_C(20832),
+                UINT64_C(20831),
                 digest(
-                    "0e6b1183d421088b4d0b49ea96545034b5ef338363e5ae2e30d81c182c96a008"),
+                    "af9abef78258406517f521a2bbb43bf445c9c1a34b3c1a05b095ecd28a3064ff"),
             },
             {
                 P18ReferenceLineageFile::configured_ir_input,
@@ -351,4 +351,4 @@ const P18ReferenceCatalogV1 &p18_reference_catalog_v1() noexcept {
     return catalog;
 }
 
-} // namespace engine_sim_offline::reference
+} // namespace crankwave::reference

@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "bmw-m52tub28-cleanroom-cold-start-crank-catch-0rpm-10khz-lifecycle-preview-zero-throttle-audition",
   "engine": "bmw-m52tub28-cleanroom",
   "fuel": "premium-unleaded-gasoline",

@@ -9,7 +9,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 using contract::ContractIssueCode;
@@ -786,4 +786,4 @@ compile_legacy_selectable_valvetrain(const contract::EngineSpec &engine,
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/source_matrix.hpp"
+#include "crankwave/contract/source_matrix.hpp"
 
 #include "validation_support.hpp"
 
@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 namespace {
 
 bool valid_artifact_kind(ArtifactKind kind) {
@@ -298,4 +298,4 @@ ValidationReport validate_evidence_rights(const ProvenanceLedger &provenance,
     return report;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

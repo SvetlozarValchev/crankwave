@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/held_texture.hpp"
+#include "crankwave/responsive/held_texture.hpp"
 
 #include "identity_bytes.hpp"
 
@@ -14,7 +14,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 void require(contract::ValidationReport &report, const bool condition,
@@ -538,4 +538,4 @@ HeldResult<HeldCookedCell> cook_held_state(const HeldStateScenarioSpec &spec,
     return result;
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

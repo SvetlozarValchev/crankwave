@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace engine_sim_offline::excitation::detail {
+namespace crankwave::excitation::detail {
 
 struct CapturedExcitationDelayState {
     std::vector<double> history;
@@ -86,4 +86,4 @@ class CapturedSourceExcitationState final {
     std::optional<contract::FailureContext> terminal_fault;
 };
 
-} // namespace engine_sim_offline::excitation::detail
+} // namespace crankwave::excitation::detail

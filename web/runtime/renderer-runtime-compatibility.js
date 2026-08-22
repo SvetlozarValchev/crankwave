@@ -1,5 +1,5 @@
 const EVIDENCE_SCHEMA =
-  "engine-sim-offline/renderer-compatibility-parity-report-v1";
+  "crankwave/renderer-compatibility-parity-report-v1";
 const EVIDENCE_VERDICT =
   "all-old-current-pcm-and-normalized-telemetry-byte-identical";
 
@@ -12,9 +12,9 @@ const VERIFIED_EDGES = Object.freeze([
       "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb",
     admittedSourceClosureSha256:
       "c3a905712ddf3ae4e506af64e3919f2324df46af13ff4e3dc1a24037b4079d23",
-    evidenceByteCount: 18_318,
+    evidenceByteCount: 18_309,
     evidenceSha256:
-      "688301b6904d76ab95586cdf4bfad0e8e04fbf11ed99d055ffc693a450e7c123",
+      "ee4eed2e02c2177ac487a15d3ecb0c0aed7cf226f5cf6544acc9ddb8f2a9de0a",
     captureWasmEvidenceSha256:
       "d5c0016086cd3d67eb9daf4fd80c90cfd2eacba2cbd36d5da7c68f68c909c033",
     admittedWasmEvidenceSha256:

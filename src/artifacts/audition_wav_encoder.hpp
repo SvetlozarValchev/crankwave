@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/artifacts/wav_encoder.hpp"
+#include "crankwave/artifacts/wav_encoder.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -9,7 +9,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 
 inline constexpr std::size_t kMaximumAuditionMetadataFieldBytes = 4096;
 
@@ -79,4 +79,4 @@ make_audition_wave_encoder(const contract::AudioContract &audio,
                            AuditionWaveMetadata metadata,
                            WavEncoderOptions options = {});
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

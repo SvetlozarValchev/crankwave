@@ -1,4 +1,4 @@
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/compile.hpp"
 
 #include "compile/compiled_model_storage.hpp"
 
@@ -8,7 +8,7 @@
 #include <string_view>
 #include <utility>
 
-namespace engine_sim_offline::compile {
+namespace crankwave::compile {
 
 CompiledEngine::CompiledEngine(
     std::shared_ptr<const detail::CompiledEngineStorage> storage) noexcept
@@ -85,4 +85,4 @@ const CompiledSessionCapacities &CompiledScenario::session_capacities() const no
     return storage_->resolved.request_input.session_capacities;
 }
 
-} // namespace engine_sim_offline::compile
+} // namespace crankwave::compile

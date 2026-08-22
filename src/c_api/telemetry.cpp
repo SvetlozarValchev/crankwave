@@ -2,42 +2,42 @@
 
 #include <cstring>
 
-namespace engine_sim_offline::c_api {
+namespace crankwave::c_api {
 namespace {
 
-[[nodiscard]] eso_availability_t
+[[nodiscard]] crankwave_availability_t
 availability(const contract::Availability value) noexcept {
-    return value == contract::Availability::available ? ESO_AVAILABLE : ESO_UNAVAILABLE;
+    return value == contract::Availability::available ? CRANKWAVE_AVAILABLE : CRANKWAVE_UNAVAILABLE;
 }
 
-[[nodiscard]] eso_completeness_t
+[[nodiscard]] crankwave_completeness_t
 completeness(const contract::Completeness value) noexcept {
-    return value == contract::Completeness::complete ? ESO_COMPLETE : ESO_INCOMPLETE;
+    return value == contract::Completeness::complete ? CRANKWAVE_COMPLETE : CRANKWAVE_INCOMPLETE;
 }
 
-[[nodiscard]] eso_quantity_unavailable_reason_t
+[[nodiscard]] crankwave_quantity_unavailable_reason_t
 unavailable_reason(const contract::QuantityUnavailableReason reason) noexcept {
     using Reason = contract::QuantityUnavailableReason;
     switch (reason) {
     case Reason::none:
-        return ESO_QUANTITY_UNAVAILABLE_NONE;
+        return CRANKWAVE_QUANTITY_UNAVAILABLE_NONE;
     case Reason::scenario_not_applicable:
-        return ESO_QUANTITY_UNAVAILABLE_SCENARIO_NOT_APPLICABLE;
+        return CRANKWAVE_QUANTITY_UNAVAILABLE_SCENARIO_NOT_APPLICABLE;
     case Reason::model_not_admitted:
-        return ESO_QUANTITY_UNAVAILABLE_MODEL_NOT_ADMITTED;
+        return CRANKWAVE_QUANTITY_UNAVAILABLE_MODEL_NOT_ADMITTED;
     case Reason::equivalent_inertia_missing:
-        return ESO_QUANTITY_UNAVAILABLE_EQUIVALENT_INERTIA_MISSING;
+        return CRANKWAVE_QUANTITY_UNAVAILABLE_EQUIVALENT_INERTIA_MISSING;
     case Reason::cycle_integration_not_admitted:
-        return ESO_QUANTITY_UNAVAILABLE_CYCLE_INTEGRATION_NOT_ADMITTED;
+        return CRANKWAVE_QUANTITY_UNAVAILABLE_CYCLE_INTEGRATION_NOT_ADMITTED;
     case Reason::not_settled:
-        return ESO_QUANTITY_UNAVAILABLE_NOT_SETTLED;
+        return CRANKWAVE_QUANTITY_UNAVAILABLE_NOT_SETTLED;
     case Reason::required_input_missing:
-        return ESO_QUANTITY_UNAVAILABLE_REQUIRED_INPUT_MISSING;
+        return CRANKWAVE_QUANTITY_UNAVAILABLE_REQUIRED_INPUT_MISSING;
     }
-    return ESO_QUANTITY_UNAVAILABLE_MODEL_NOT_ADMITTED;
+    return CRANKWAVE_QUANTITY_UNAVAILABLE_MODEL_NOT_ADMITTED;
 }
 
-[[nodiscard]] eso_torque_telemetry_t
+[[nodiscard]] crankwave_torque_telemetry_t
 torque_telemetry(const contract::TorqueTelemetry &value) noexcept {
     return {
         torque_value(value.instantaneous_indicated_gas),
@@ -55,50 +55,50 @@ torque_telemetry(const contract::TorqueTelemetry &value) noexcept {
     };
 }
 
-[[nodiscard]] eso_held_dyno_disposition_t
+[[nodiscard]] crankwave_held_dyno_disposition_t
 held_dyno_disposition(const EngineHeldDynoDisposition value) noexcept {
     switch (value) {
     case EngineHeldDynoDisposition::tracking:
-        return ESO_HELD_DYNO_TRACKING;
+        return CRANKWAVE_HELD_DYNO_TRACKING;
     case EngineHeldDynoDisposition::absorbing_torque_limited:
-        return ESO_HELD_DYNO_ABSORBING_TORQUE_LIMITED;
+        return CRANKWAVE_HELD_DYNO_ABSORBING_TORQUE_LIMITED;
     case EngineHeldDynoDisposition::driving_torque_limited:
-        return ESO_HELD_DYNO_DRIVING_TORQUE_LIMITED;
+        return CRANKWAVE_HELD_DYNO_DRIVING_TORQUE_LIMITED;
     }
-    return ESO_HELD_DYNO_TRACKING;
+    return CRANKWAVE_HELD_DYNO_TRACKING;
 }
 
-[[nodiscard]] eso_clutch_disposition_t
+[[nodiscard]] crankwave_clutch_disposition_t
 clutch_disposition(const EngineClutchDisposition value) noexcept {
     switch (value) {
     case EngineClutchDisposition::neutral:
-        return ESO_CLUTCH_NEUTRAL;
+        return CRANKWAVE_CLUTCH_NEUTRAL;
     case EngineClutchDisposition::disengaged:
-        return ESO_CLUTCH_DISENGAGED;
+        return CRANKWAVE_CLUTCH_DISENGAGED;
     case EngineClutchDisposition::engine_driving_torque_limited:
-        return ESO_CLUTCH_ENGINE_DRIVING_TORQUE_LIMITED;
+        return CRANKWAVE_CLUTCH_ENGINE_DRIVING_TORQUE_LIMITED;
     case EngineClutchDisposition::vehicle_backdrive_torque_limited:
-        return ESO_CLUTCH_VEHICLE_BACKDRIVE_TORQUE_LIMITED;
+        return CRANKWAVE_CLUTCH_VEHICLE_BACKDRIVE_TORQUE_LIMITED;
     case EngineClutchDisposition::tracking:
-        return ESO_CLUTCH_TRACKING;
+        return CRANKWAVE_CLUTCH_TRACKING;
     }
-    return ESO_CLUTCH_NEUTRAL;
+    return CRANKWAVE_CLUTCH_NEUTRAL;
 }
 
-[[nodiscard]] eso_road_load_disposition_t
+[[nodiscard]] crankwave_road_load_disposition_t
 road_load_disposition(const EngineRoadLoadDisposition value) noexcept {
     switch (value) {
     case EngineRoadLoadDisposition::moving:
-        return ESO_ROAD_LOAD_MOVING;
+        return CRANKWAVE_ROAD_LOAD_MOVING;
     case EngineRoadLoadDisposition::stopped_within_step:
-        return ESO_ROAD_LOAD_STOPPED_WITHIN_STEP;
+        return CRANKWAVE_ROAD_LOAD_STOPPED_WITHIN_STEP;
     case EngineRoadLoadDisposition::held_at_rest:
-        return ESO_ROAD_LOAD_HELD_AT_REST;
+        return CRANKWAVE_ROAD_LOAD_HELD_AT_REST;
     }
-    return ESO_ROAD_LOAD_HELD_AT_REST;
+    return CRANKWAVE_ROAD_LOAD_HELD_AT_REST;
 }
 
-[[nodiscard]] eso_held_dyno_telemetry_t
+[[nodiscard]] crankwave_held_dyno_telemetry_t
 held_dyno_telemetry(const EngineHeldDynoTelemetry &value) noexcept {
     return {
         value.target_engine_speed_rpm,    value.maximum_absorbing_torque_nm,
@@ -107,7 +107,7 @@ held_dyno_telemetry(const EngineHeldDynoTelemetry &value) noexcept {
     };
 }
 
-[[nodiscard]] eso_free_vehicle_telemetry_t
+[[nodiscard]] crankwave_free_vehicle_telemetry_t
 free_vehicle_telemetry(const EngineFreeVehicleTelemetry &value) noexcept {
     return {
         value.vehicle_speed_m_s,
@@ -127,7 +127,7 @@ free_vehicle_telemetry(const EngineFreeVehicleTelemetry &value) noexcept {
     };
 }
 
-[[nodiscard]] eso_cycle_boundary_evidence_t
+[[nodiscard]] crankwave_cycle_boundary_evidence_t
 cycle_boundary_evidence(const EngineCycleBoundaryEvidence &value) noexcept {
     return {
         value.cycle_ordinal,       value.left_physics_frame,
@@ -137,7 +137,7 @@ cycle_boundary_evidence(const EngineCycleBoundaryEvidence &value) noexcept {
     };
 }
 
-[[nodiscard]] eso_cycle_control_evidence_t
+[[nodiscard]] crankwave_cycle_control_evidence_t
 cycle_control_evidence(const EngineCycleControlEvidence &value) noexcept {
     return {
         value.time_weighted_mean_01,
@@ -147,7 +147,7 @@ cycle_control_evidence(const EngineCycleControlEvidence &value) noexcept {
     };
 }
 
-[[nodiscard]] eso_cycle_net_shaft_evidence_t
+[[nodiscard]] crankwave_cycle_net_shaft_evidence_t
 cycle_net_shaft_evidence(const EngineCycleNetShaftEvidence &value) noexcept {
     return {
         value.angular_work_j,
@@ -162,7 +162,7 @@ cycle_net_shaft_evidence(const EngineCycleNetShaftEvidence &value) noexcept {
 
 } // namespace
 
-eso_quantity_value_t quantity_value(const contract::QuantityValue &value) noexcept {
+crankwave_quantity_value_t quantity_value(const contract::QuantityValue &value) noexcept {
     return {
         value.value,
         availability(value.availability),
@@ -171,7 +171,7 @@ eso_quantity_value_t quantity_value(const contract::QuantityValue &value) noexce
     };
 }
 
-eso_torque_value_nm_t torque_value(const contract::TorqueValueNm &value) noexcept {
+crankwave_torque_value_nm_t torque_value(const contract::TorqueValueNm &value) noexcept {
     return {
         value.value_nm,
         availability(value.availability),
@@ -182,7 +182,7 @@ eso_torque_value_nm_t torque_value(const contract::TorqueValueNm &value) noexcep
     };
 }
 
-eso_engine_telemetry_t
+crankwave_engine_telemetry_t
 engine_telemetry(const contract::EngineCaptureSample &engine) noexcept {
     return {
         engine.step_end_index,
@@ -207,8 +207,8 @@ engine_telemetry(const contract::EngineCaptureSample &engine) noexcept {
     };
 }
 
-eso_session_telemetry_t session_telemetry(const EngineTelemetryFrame &frame) noexcept {
-    eso_session_telemetry_t result;
+crankwave_session_telemetry_t session_telemetry(const EngineTelemetryFrame &frame) noexcept {
+    crankwave_session_telemetry_t result;
     std::memset(&result, 0, sizeof(result));
     result.physics_step_end = frame.physics_step_end;
     result.mean_intake_manifold_pressure_pa_abs =
@@ -225,7 +225,7 @@ eso_session_telemetry_t session_telemetry(const EngineTelemetryFrame &frame) noe
     return result;
 }
 
-eso_completed_cycle_evidence_t
+crankwave_completed_cycle_evidence_t
 completed_cycle_evidence(const EngineCompletedCycleEvidence &cycle) noexcept {
     return {
         cycle.completed_cycle_ordinal,
@@ -243,4 +243,4 @@ completed_cycle_evidence(const EngineCompletedCycleEvidence &cycle) noexcept {
     };
 }
 
-} // namespace engine_sim_offline::c_api
+} // namespace crankwave::c_api

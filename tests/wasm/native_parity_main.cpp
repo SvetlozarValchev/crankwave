@@ -67,7 +67,7 @@ int main(const int argc, const char *const *argv) {
 
         std::vector<std::uint8_t> output(kOutputCapacity);
         std::uint32_t output_size = 0;
-        const auto status = eso_wasm_parity_run(
+        const auto status = crankwave_wasm_parity_run(
             data_or_null(engine), extent(engine), data_or_null(scenario),
             extent(scenario), reinterpret_cast<const std::uint8_t *>(ir_id.data()),
             static_cast<std::uint32_t>(ir_id.size()), data_or_null(ir), extent(ir),

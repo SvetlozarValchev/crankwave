@@ -11,7 +11,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::presentation;
+using namespace crankwave::presentation;
 
 constexpr Pcg32Seed kRoute0Jitter{
     UINT64_C(0x9e2b91cd0dc51cfc),
@@ -67,19 +67,19 @@ struct ConditioningProbe {
 
 void expect_probe(const ConditioningResult &actual, const ConditioningProbe &expected,
                   const char *message) {
-    expect(bits(actual.jittered_engine_sim_source_unit) == expected.jittered &&
+    expect(bits(actual.jittered_crankwave_source_unit) == expected.jittered &&
                bits(actual.filtered_air_noise) == expected.filtered_air &&
-               bits(actual.conditioned_engine_sim_source_unit) == expected.conditioned,
+               bits(actual.conditioned_crankwave_source_unit) == expected.conditioned,
            message);
 }
 
 void expect_same_result_bits(const ConditioningResult &actual,
                              const ConditioningResult &expected, const char *message) {
-    expect(bits(actual.jittered_engine_sim_source_unit) ==
-                   bits(expected.jittered_engine_sim_source_unit) &&
+    expect(bits(actual.jittered_crankwave_source_unit) ==
+                   bits(expected.jittered_crankwave_source_unit) &&
                bits(actual.filtered_air_noise) == bits(expected.filtered_air_noise) &&
-               bits(actual.conditioned_engine_sim_source_unit) ==
-                   bits(expected.conditioned_engine_sim_source_unit),
+               bits(actual.conditioned_crankwave_source_unit) ==
+                   bits(expected.conditioned_crankwave_source_unit),
            message);
 }
 
@@ -112,7 +112,7 @@ void test_route_conditioning_goldens_and_rng_consumption() {
         const auto result_0 = route_0.process(input, 1.0);
         const auto result_1 = route_1.process(input, 1.0);
         if (frame < 30) {
-            expect(bits(result_0.conditioned_engine_sim_source_unit) == UINT64_C(0),
+            expect(bits(result_0.conditioned_crankwave_source_unit) == UINT64_C(0),
                    "route 0 conditioning warm-up ceased being positive zero");
         }
         if (route_0_probe < route_0_probes.size() &&
@@ -200,15 +200,15 @@ conditioning_differences(const RouteConditioningCalibration &changed) {
         const auto configured_result = configured.process(synthetic_input(frame), 1.0);
         differences.jittered =
             differences.jittered ||
-            bits(canonical_result.jittered_engine_sim_source_unit) !=
-                bits(configured_result.jittered_engine_sim_source_unit);
+            bits(canonical_result.jittered_crankwave_source_unit) !=
+                bits(configured_result.jittered_crankwave_source_unit);
         differences.filtered_air =
             differences.filtered_air || bits(canonical_result.filtered_air_noise) !=
                                             bits(configured_result.filtered_air_noise);
         differences.conditioned =
             differences.conditioned ||
-            bits(canonical_result.conditioned_engine_sim_source_unit) !=
-                bits(configured_result.conditioned_engine_sim_source_unit);
+            bits(canonical_result.conditioned_crankwave_source_unit) !=
+                bits(configured_result.conditioned_crankwave_source_unit);
     }
     differences.random_states_match =
         canonical.jitter_rng_state() == configured.jitter_rng_state() &&
@@ -224,13 +224,13 @@ void test_exhaust_flow_activity_changes_only_the_random_mix() {
         const double input = synthetic_input(frame);
         const auto full = full_flow.process(input, 1.0);
         const auto zero = zero_flow.process(input, 0.0);
-        expect(bits(full.jittered_engine_sim_source_unit) ==
-                       bits(zero.jittered_engine_sim_source_unit) &&
+        expect(bits(full.jittered_crankwave_source_unit) ==
+                       bits(zero.jittered_crankwave_source_unit) &&
                    bits(full.filtered_air_noise) == bits(zero.filtered_air_noise),
                "exhaust-flow activity changed jitter or air-noise filter state");
         conditioned_difference =
-            conditioned_difference || bits(full.conditioned_engine_sim_source_unit) !=
-                                          bits(zero.conditioned_engine_sim_source_unit);
+            conditioned_difference || bits(full.conditioned_crankwave_source_unit) !=
+                                          bits(zero.conditioned_crankwave_source_unit);
     }
     expect(conditioned_difference &&
                full_flow.jitter_rng_state() == zero_flow.jitter_rng_state() &&

@@ -1,6 +1,6 @@
 include_guard(GLOBAL)
 
-function(_engine_sim_offline_renderer_stamp_inputs_representable _output)
+function(_crankwave_renderer_stamp_inputs_representable _output)
     set(_representable TRUE)
     foreach(
         _variable_name
@@ -24,7 +24,7 @@ function(_engine_sim_offline_renderer_stamp_inputs_representable _output)
     set(${_output} "${_representable}" PARENT_SCOPE)
 endfunction()
 
-function(engine_sim_offline_add_renderer_source_stamp _target)
+function(crankwave_add_renderer_source_stamp _target)
     if(NOT TARGET "${_target}")
         message(FATAL_ERROR "renderer source stamp requires an existing target")
     endif()
@@ -54,7 +54,7 @@ function(engine_sim_offline_add_renderer_source_stamp _target)
         set(_has_compiler_launcher TRUE)
     endif()
 
-    _engine_sim_offline_renderer_stamp_inputs_representable(
+    _crankwave_renderer_stamp_inputs_representable(
         _query_inputs_representable
     )
     set(_toolchain_query_permitted TRUE)
@@ -85,10 +85,10 @@ function(engine_sim_offline_add_renderer_source_stamp _target)
 
     set(
         _generated_header
-        "${PROJECT_BINARY_DIR}/generated/engine_sim_offline_generated/renderer_source_stamp_generated.hpp"
+        "${PROJECT_BINARY_DIR}/generated/crankwave_generated/renderer_source_stamp_generated.hpp"
     )
     add_custom_target(
-        engine_sim_offline_generate_renderer_source_stamp
+        crankwave_generate_renderer_source_stamp
         COMMAND
             ${CMAKE_COMMAND}
             "-DSOURCE_ROOT=${PROJECT_SOURCE_DIR}"
@@ -115,7 +115,7 @@ function(engine_sim_offline_add_renderer_source_stamp _target)
     )
     add_dependencies(
         "${_target}"
-        engine_sim_offline_generate_renderer_source_stamp
+        crankwave_generate_renderer_source_stamp
     )
 
     target_include_directories(

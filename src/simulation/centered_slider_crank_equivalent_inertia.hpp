@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/parity_model.hpp"
+#include "crankwave/contract/parity_model.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -9,7 +9,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 inline constexpr std::string_view
     kCenteredSliderCrankCycleMeanEquivalentInertiaMethodId =
@@ -172,4 +172,4 @@ evaluate_centered_slider_crank_configuration_inertia(
     const CenteredSliderCrankConfigurationInertiaPlan &plan,
     double crank_angle_rad) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

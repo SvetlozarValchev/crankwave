@@ -1,7 +1,7 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
-#include "engine_sim_offline/contract/torque.hpp"
+#include "crankwave/contract/common.hpp"
+#include "crankwave/contract/torque.hpp"
 #include "simulation/chen_flynn_cycle_mean_loss.hpp"
 #include "simulation/chen_flynn_per_cylinder_travel_cycle_mean_loss.hpp"
 #include "simulation/four_stroke_cycle_integrator.hpp"
@@ -14,7 +14,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct OperatingCylinderAccountingPlan {
     contract::CylinderId cylinder_id;
@@ -229,4 +229,4 @@ using OperatingCycleAccountantCompileResult =
 [[nodiscard]] OperatingCycleAccountantCompileResult
 compile_operating_cycle_accountant(OperatingCycleAccountingPlan plan);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

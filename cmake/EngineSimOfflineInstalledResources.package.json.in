@@ -1,7 +1,0 @@
-{
-  "name": "engine-sim-offline-installed-resources",
-  "private": true,
-  "license": "UNLICENSED",
-  "version": "@ENGINE_SIM_OFFLINE_RELEASE_IDENTITY@",
-  "type": "module"
-}

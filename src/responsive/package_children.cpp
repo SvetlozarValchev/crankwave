@@ -1,8 +1,8 @@
-#include "engine_sim_offline/responsive/package_children.hpp"
+#include "crankwave/responsive/package_children.hpp"
 
-#include "engine_sim_offline/artifacts/vehicleengine_container.hpp"
-#include "engine_sim_offline/authoring/json.hpp"
-#include "engine_sim_offline/authoring/parse.hpp"
+#include "crankwave/artifacts/crankwave_container.hpp"
+#include "crankwave/authoring/json.hpp"
+#include "crankwave/authoring/parse.hpp"
 
 #include <algorithm>
 #include <array>
@@ -17,7 +17,7 @@
 #include <system_error>
 #include <utility>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 using Error = NativeResponsivePackageError;
@@ -34,9 +34,9 @@ constexpr std::uint64_t kMaximumPartitionedCoefficientCount = 570'654U;
 constexpr std::string_view kSharedStarterAudioPackagePath =
     "shared-recorded-starter/audio/recorded-starter.cropped.192000hz.mono.f32le";
 constexpr std::string_view kSharedStarterManifestSha256 =
-    "1fb698a9c304ecee323361b059dbfc615ab82c06357e01b815faa8f3a008365e";
+    "73110090f07df4523081fac3452ee1cc0b3aab6b0b8a356186ca18db3c011bc2";
 constexpr std::string_view kSharedStarterPayloadSha256 =
-    "1949863ca58aef11146d4a842609ef217f6b7df4ba6db38f478eb918cef2964a";
+    "b25b6277e375d5dd92cec98e7d33765a6898461e00597935cd526c850db8c0be";
 
 [[nodiscard]] Error error(const ErrorCode code, std::string detail_code,
                           std::string path, std::string message) {
@@ -432,7 +432,7 @@ validate_core(const ResponsivePackageChildrenViewV1 &input,
         !contract::is_valid_semantic_id(provenance.engine_id) ||
         provenance.compiled_engine_sha256.is_zero() ||
         provenance.renderer_source_sha256.is_zero() ||
-        provenance.renderer_build_id != "engine-sim-offline-renderer-build" ||
+        provenance.renderer_build_id != "crankwave-renderer-build" ||
         directional.engine_id != provenance.engine_id ||
         presentation.engine_id != provenance.engine_id ||
         held.identity_sha256.is_zero() || directional.identity_sha256.is_zero() ||
@@ -892,7 +892,7 @@ encode_held_route(const ResponsivePackageChildrenViewV1 &input,
     JsonWriter writer;
     bool ok = writer.begin_object();
     ok =
-        ok && field(writer, "schema", "engine-sim-offline/responsive-audio-held-route");
+        ok && field(writer, "schema", "crankwave/responsive-audio-held-route");
     ok = ok && field(writer, "id",
                      input.provenance.engine_id + "-exact-held-" + route_token +
                          "-live-preview");
@@ -987,7 +987,7 @@ encode_held_root(const ResponsivePackageChildrenViewV1 &input,
     JsonWriter writer;
     bool ok = writer.begin_object();
     ok = ok &&
-         field(writer, "schema", "engine-sim-offline/responsive-audio-held-texture");
+         field(writer, "schema", "crankwave/responsive-audio-held-texture");
     ok = ok &&
          field(writer, "id",
                input.provenance.engine_id + "-exact-held-phase-texture-live-preview");
@@ -1169,7 +1169,7 @@ encode_directional_route(const ResponsivePackageChildrenViewV1 &input,
     JsonWriter writer;
     bool ok = writer.begin_object();
     ok = ok && field(writer, "schema",
-                     "engine-sim-offline/responsive-audio-directional-route");
+                     "crankwave/responsive-audio-directional-route");
     ok = ok && field(writer, "id",
                      input.provenance.engine_id + "-directional-" +
                          std::string{direction} + "-" + token + "-live-preview");
@@ -1250,7 +1250,7 @@ encode_directional_root(const ResponsivePackageChildrenViewV1 &input,
     JsonWriter writer;
     bool ok = writer.begin_object();
     ok = ok && field(writer, "schema",
-                     "engine-sim-offline/responsive-audio-directional-texture");
+                     "crankwave/responsive-audio-directional-texture");
     ok =
         ok && field(writer, "id",
                     input.provenance.engine_id + "-directional-transient-live-preview");
@@ -1539,11 +1539,11 @@ validate_lifecycle_child_closure(const ResponsiveOptionalChildPackageV1 &child,
 optional_child_schema(const ResponsiveOptionalChildRole role) {
     switch (role) {
     case ResponsiveOptionalChildRole::motoring:
-        return "engine-sim-offline/responsive-audio-state-phase-texture";
+        return "crankwave/responsive-audio-state-phase-texture";
     case ResponsiveOptionalChildRole::lifecycle:
-        return "engine-sim-offline/responsive-audio-lifecycle";
+        return "crankwave/responsive-audio-lifecycle";
     case ResponsiveOptionalChildRole::shared_recorded_starter:
-        return "engine-sim-offline/shared-recorded-starter";
+        return "crankwave/shared-recorded-starter";
     }
     return {};
 }
@@ -1592,7 +1592,7 @@ validate_optional_child(const ResponsiveOptionalChildPackageV1 &child,
         if (stop_token.stop_requested()) {
             return cancelled_error();
         }
-        if (!artifacts::is_portable_vehicleengine_path(member.path) ||
+        if (!artifacts::is_portable_crankwave_path(member.path) ||
             !member.path.starts_with(prefix) || member.bytes.empty() ||
             !paths.insert(member.path).second ||
             member.bytes.size() >
@@ -1631,9 +1631,9 @@ validate_optional_child(const ResponsiveOptionalChildPackageV1 &child,
         const auto *audio_member =
             find_member(child.members, kSharedStarterAudioPackagePath);
         if (!child.dry_bus_ids.empty() || child.members.size() != 2U ||
-            !json_string_equals(root.find("id"), "shared-recorded-starter-licensed") ||
-            root_member->bytes.size() != 3'120U || audio_member == nullptr ||
-            audio_member->bytes.size() != 1'037'272U ||
+            !json_string_equals(root.find("id"), "shared-recorded-starter-cc0-v1") ||
+            root_member->bytes.size() != 3'560U || audio_member == nullptr ||
+            audio_member->bytes.size() != 5'883'648U ||
             digest_hex(contract::sha256(root_member->bytes)) !=
                 kSharedStarterManifestSha256 ||
             digest_hex(contract::sha256(audio_member->bytes)) !=
@@ -1641,7 +1641,7 @@ validate_optional_child(const ResponsiveOptionalChildPackageV1 &child,
             return error(ErrorCode::topology_mismatch,
                          "responsive-shared-starter-contract-mismatch",
                          child.runtime_path,
-                         "shared starter must be the exact two-member licensed "
+                         "shared starter must be the exact two-member CC0 "
                          "package admitted by playback and have no dry routes");
         }
         return std::nullopt;
@@ -1700,7 +1700,7 @@ validate_complete_member_set(std::vector<PortableResponsivePackageMember> &membe
             return cancelled_error();
         }
         const auto &member = members[index];
-        if (!artifacts::is_portable_vehicleengine_path(member.path) ||
+        if (!artifacts::is_portable_crankwave_path(member.path) ||
             member.bytes.empty() ||
             (index != 0U && members[index - 1U].path == member.path) ||
             member.bytes.size() >
@@ -1919,4 +1919,4 @@ build_native_responsive_package_from_cooked_v2(
         stop_token);
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

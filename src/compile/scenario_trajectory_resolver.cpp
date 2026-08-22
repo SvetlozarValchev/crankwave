@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 
-namespace engine_sim_offline::compile::detail::scenario_resolution {
+namespace crankwave::compile::detail::scenario_resolution {
 
 contract::ScalarTrajectory
 ScenarioResolver::scalar_trajectory(const authoring::ScalarTrajectory &input,
@@ -255,4 +255,4 @@ ScenarioResolver::materialize_rpm_lane(const ConvertedQuantityTrajectory &trajec
     return output;
 }
 
-} // namespace engine_sim_offline::compile::detail::scenario_resolution
+} // namespace crankwave::compile::detail::scenario_resolution

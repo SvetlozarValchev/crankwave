@@ -17,7 +17,7 @@ function usage() {
   return [
     "usage:",
     "  node web/tests/integration/browser-runtime.integration.mjs \\",
-    "    <engine-sim-offline.js> <engine.json> <scenario.json> \\",
+    "    <crankwave.js> <engine.json> <scenario.json> \\",
     "    <audio-asset-id> <audio-asset> \\",
     "    <accessory-asset-id> <accessory-asset.json>",
   ].join("\n");

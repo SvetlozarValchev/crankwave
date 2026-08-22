@@ -5,7 +5,7 @@
 #include <span>
 #include <string>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 [[nodiscard]] consteval bool
@@ -22,7 +22,7 @@ canonical_lf_descriptor(std::string_view descriptor) noexcept {
 }
 
 constexpr std::string_view kBoundedHeldDynoConstraintDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=bounded-held-dyno-speed-constraint
 version=1
 operation=positive-speed-one-degree-of-freedom-bounded-dynamometer-velocity-constraint
@@ -47,7 +47,7 @@ binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-no-daz
 static_assert(canonical_lf_descriptor(kBoundedHeldDynoConstraintDescriptor));
 
 constexpr std::string_view kBoundedHeldDynoOneLevelMasterRodConstraintDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=bounded-held-dyno-speed-constraint-one-level-master-rod-v1
 version=1
 operation=positive-speed-one-degree-of-freedom-bounded-dynamometer-velocity-constraint-with-one-level-master-rod-articulated-mechanism
@@ -250,4 +250,4 @@ advance_bounded_dyno_constraint(const BoundedDynoConstraintInput &input) noexcep
 }
 
 } // namespace detail
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

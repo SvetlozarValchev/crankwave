@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include "../numeric/target_extended_precision.hpp"
 
@@ -10,7 +10,7 @@
 #include <numeric>
 #include <utility>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 
 const MethodIdentity &legacy_low_order_v1_method_identity() {
     static const MethodIdentity identity{
@@ -249,4 +249,4 @@ ValidationReport validate(const MethodIdentity &method) {
     return report;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

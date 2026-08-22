@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 namespace detail {
 
@@ -885,4 +885,4 @@ compile_kinematic_scenario_schedule(const contract::RenderScenario &scenario) {
         initial_theta_rad, std::move(storage));
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

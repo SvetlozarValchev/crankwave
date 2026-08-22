@@ -14,25 +14,25 @@
 
 namespace {
 
-using engine_sim_offline::cli::BakeVehicleEngineCommand;
-using engine_sim_offline::cli::CliCommand;
-using engine_sim_offline::cli::CliParseResult;
-using engine_sim_offline::cli::CliResultFormat;
-using engine_sim_offline::cli::CliUsageError;
-using engine_sim_offline::cli::InspectIrCatalogCommand;
-using engine_sim_offline::cli::InspectVehicleEngineCommand;
-using engine_sim_offline::cli::PackVehicleEngineCommand;
-using engine_sim_offline::cli::RenderCommand;
-using engine_sim_offline::cli::VerifyVehicleEngineCommand;
+using crankwave::cli::BakeCrankwaveCommand;
+using crankwave::cli::CliCommand;
+using crankwave::cli::CliParseResult;
+using crankwave::cli::CliResultFormat;
+using crankwave::cli::CliUsageError;
+using crankwave::cli::InspectIrCatalogCommand;
+using crankwave::cli::InspectCrankwaveCommand;
+using crankwave::cli::PackCrankwaveCommand;
+using crankwave::cli::RenderCommand;
+using crankwave::cli::VerifyCrankwaveCommand;
 
-static_assert(engine_sim_offline::cli::kExitSuccess == 0);
-static_assert(engine_sim_offline::cli::kExitUsage == 64);
-static_assert(engine_sim_offline::cli::kExitDataError == 65);
-static_assert(engine_sim_offline::cli::kExitNoInput == 66);
-static_assert(engine_sim_offline::cli::kExitUnavailable == 69);
-static_assert(engine_sim_offline::cli::kExitSoftware == 70);
-static_assert(engine_sim_offline::cli::kExitCantCreate == 73);
-static_assert(engine_sim_offline::cli::kExitTemporaryFailure == 75);
+static_assert(crankwave::cli::kExitSuccess == 0);
+static_assert(crankwave::cli::kExitUsage == 64);
+static_assert(crankwave::cli::kExitDataError == 65);
+static_assert(crankwave::cli::kExitNoInput == 66);
+static_assert(crankwave::cli::kExitUnavailable == 69);
+static_assert(crankwave::cli::kExitSoftware == 70);
+static_assert(crankwave::cli::kExitCantCreate == 73);
+static_assert(crankwave::cli::kExitTemporaryFailure == 75);
 
 void expect(const bool condition, const std::string_view message) {
     if (!condition) {
@@ -42,7 +42,7 @@ void expect(const bool condition, const std::string_view message) {
 
 [[nodiscard]] CliParseResult
 parse(const std::initializer_list<std::string_view> arguments) {
-    return engine_sim_offline::cli::parse_cli_arguments(
+    return crankwave::cli::parse_cli_arguments(
         std::span<const std::string_view>{arguments.begin(), arguments.size()});
 }
 
@@ -77,56 +77,56 @@ void test_exact_render_grammar() {
            "render flags and the developer override must be order-independent");
 }
 
-void test_exact_vehicleengine_grammars() {
+void test_exact_crankwave_grammars() {
     const auto baked =
-        parse({"bake-vehicleengine", "--output", "engine.vehicleengine", "--result-format",
+        parse({"bake-crankwave", "--output", "engine.crankwave", "--result-format",
                "json", "--asset-root", "assets", "--deadline-unix-ms", "1786057200000",
                "--engine", "engine.json"});
     const auto *baked_command = std::get_if<CliCommand>(&baked);
-    expect(baked_command != nullptr, "valid bake-vehicleengine syntax was rejected");
-    const auto *bake = std::get_if<BakeVehicleEngineCommand>(baked_command);
+    expect(baked_command != nullptr, "valid bake-crankwave syntax was rejected");
+    const auto *bake = std::get_if<BakeCrankwaveCommand>(baked_command);
     expect(bake != nullptr && bake->engine_path == "engine.json" &&
                bake->asset_root == "assets" &&
-               bake->output_file == "engine.vehicleengine" &&
+               bake->output_file == "engine.crankwave" &&
                bake->deadline_unix_ms == 1786057200000ULL &&
                bake->result_format == CliResultFormat::json,
-           "bake-vehicleengine options were not retained order-independently");
+           "bake-crankwave options were not retained order-independently");
 
-    const auto packed = parse({"pack-vehicleengine", "--output", "engine.vehicleengine",
+    const auto packed = parse({"pack-crankwave", "--output", "engine.crankwave",
                                "--result-format", "json", "--deadline-unix-ms",
                                "1786057200001", "--package-directory", "package"});
     const auto *packed_command = std::get_if<CliCommand>(&packed);
-    expect(packed_command != nullptr, "valid pack-vehicleengine syntax was rejected");
-    const auto *pack = std::get_if<PackVehicleEngineCommand>(packed_command);
+    expect(packed_command != nullptr, "valid pack-crankwave syntax was rejected");
+    const auto *pack = std::get_if<PackCrankwaveCommand>(packed_command);
     expect(pack != nullptr && pack->package_directory == "package" &&
-               pack->output_file == "engine.vehicleengine" &&
+               pack->output_file == "engine.crankwave" &&
                pack->deadline_unix_ms == 1786057200001ULL &&
                pack->result_format == CliResultFormat::json,
-           "pack-vehicleengine options were not retained order-independently");
+           "pack-crankwave options were not retained order-independently");
 
     const auto inspected =
-        parse({"inspect-vehicleengine", "--deadline-unix-ms", "1786057200002", "--input",
-               "a.vehicleengine", "--result-format", "json"});
+        parse({"inspect-crankwave", "--deadline-unix-ms", "1786057200002", "--input",
+               "a.crankwave", "--result-format", "json"});
     const auto *inspected_command = std::get_if<CliCommand>(&inspected);
-    expect(inspected_command != nullptr, "valid inspect-vehicleengine syntax was rejected");
-    const auto *inspect = std::get_if<InspectVehicleEngineCommand>(inspected_command);
-    expect(inspect != nullptr && inspect->input_file == "a.vehicleengine" &&
+    expect(inspected_command != nullptr, "valid inspect-crankwave syntax was rejected");
+    const auto *inspect = std::get_if<InspectCrankwaveCommand>(inspected_command);
+    expect(inspect != nullptr && inspect->input_file == "a.crankwave" &&
                inspect->deadline_unix_ms == 1786057200002ULL &&
                inspect->result_format == CliResultFormat::json,
-           "inspect-vehicleengine input was not retained");
+           "inspect-crankwave input was not retained");
 
-    const auto verified = parse({"verify-vehicleengine", "--input", "b.vehicleengine",
+    const auto verified = parse({"verify-crankwave", "--input", "b.crankwave",
                                  "--deadline-unix-ms", "1786057200003"});
     const auto *verified_command = std::get_if<CliCommand>(&verified);
-    expect(verified_command != nullptr, "valid verify-vehicleengine syntax was rejected");
-    const auto *verify = std::get_if<VerifyVehicleEngineCommand>(verified_command);
-    expect(verify != nullptr && verify->input_file == "b.vehicleengine" &&
+    expect(verified_command != nullptr, "valid verify-crankwave syntax was rejected");
+    const auto *verify = std::get_if<VerifyCrankwaveCommand>(verified_command);
+    expect(verify != nullptr && verify->input_file == "b.crankwave" &&
                verify->deadline_unix_ms == 1786057200003ULL,
-           "verify-vehicleengine input was not retained");
+           "verify-crankwave input was not retained");
 }
 
 [[nodiscard]] std::string
-digest_hex(const engine_sim_offline::contract::Sha256Digest &digest) {
+digest_hex(const crankwave::contract::Sha256Digest &digest) {
     constexpr std::string_view digits = "0123456789abcdef";
     std::string result;
     result.reserve(64U);
@@ -139,15 +139,19 @@ digest_hex(const engine_sim_offline::contract::Sha256Digest &digest) {
 
 void test_native_responsive_authority_golden() {
     const auto authority =
-        engine_sim_offline::cli::native_responsive_bake_authority_v1();
-    expect(authority.method_authority_preimage.size() == 2058U &&
-               digest_hex(authority.method_authority_sha256) ==
-                   "8b97b7ad80b9497cc375da53c41d7cc4b5557c77ac134d04e687404ed61b8760",
-           "native responsive method-authority preimage or digest changed");
+        crankwave::cli::native_responsive_bake_authority_v1();
+    const auto method_authority_digest =
+        digest_hex(authority.method_authority_sha256);
+    expect(authority.method_authority_preimage.size() == 1950U &&
+               method_authority_digest ==
+                   "89542c25f9aa7a34154cbc88d83244f54d8fcb5cb9d0fb50ac5549f538d24f6a",
+           std::string{"native responsive method-authority preimage or digest changed: size="} +
+               std::to_string(authority.method_authority_preimage.size()) +
+               " digest=" + method_authority_digest);
     const auto bake_recipe_digest = digest_hex(authority.bake_recipe_sha256);
-    expect(authority.bake_recipe_preimage.size() == 3195U &&
+    expect(authority.bake_recipe_preimage.size() == 3072U &&
                bake_recipe_digest ==
-                   "a0ec4024df72c2df92c95855f70132381cdce8266bc061df15d07b0891a196df",
+                   "304f1db349a83741e8823171bf55e0e426294f54ae663224bc646a015d61d597",
            std::string{"native responsive bake-recipe preimage or digest changed: size="} +
                std::to_string(authority.bake_recipe_preimage.size()) +
                " digest=" + bake_recipe_digest);
@@ -202,26 +206,26 @@ void test_strict_render_rejections() {
          "--output-directory", "o"},
         {"render", "--help", "--engine", "e", "--scenario", "s", "--asset-root", "a",
          "--output-directory", "o"},
-        {"pack-vehicleengine"},
-        {"bake-vehicleengine"},
-        {"bake-vehicleengine", "--engine", "engine.json"},
-        {"bake-vehicleengine", "--output", "engine.vehicleengine"},
-        {"bake-vehicleengine", "--engine", "engine.json", "--output", "one.vehicleengine",
-         "--output", "two.vehicleengine"},
-        {"bake-vehicleengine", "--engine", "engine.json", "--output", "engine.vehicleengine",
+        {"pack-crankwave"},
+        {"bake-crankwave"},
+        {"bake-crankwave", "--engine", "engine.json"},
+        {"bake-crankwave", "--output", "engine.crankwave"},
+        {"bake-crankwave", "--engine", "engine.json", "--output", "one.crankwave",
+         "--output", "two.crankwave"},
+        {"bake-crankwave", "--engine", "engine.json", "--output", "engine.crankwave",
          "--deadline-unix-ms", "0"},
-        {"pack-vehicleengine", "--package-directory", "package"},
-        {"pack-vehicleengine", "--package-directory", "package", "--output",
-         "one.vehicleengine", "--output", "two.vehicleengine"},
-        {"pack-vehicleengine", "--package-directory", "package", "--output",
-         "one.vehicleengine", "--deadline-unix-ms", "0"},
-        {"pack-vehicleengine", "--package-directory=package", "--output",
-         "engine.vehicleengine"},
-        {"inspect-vehicleengine"},
-        {"inspect-vehicleengine", "--input", "one", "extra"},
-        {"inspect-vehicleengine", "--input", "one", "--deadline-unix-ms", "-1"},
-        {"verify-vehicleengine", "--output", "one"},
-        {"verify-vehicleengine", "--input", "one", "--deadline-unix-ms",
+        {"pack-crankwave", "--package-directory", "package"},
+        {"pack-crankwave", "--package-directory", "package", "--output",
+         "one.crankwave", "--output", "two.crankwave"},
+        {"pack-crankwave", "--package-directory", "package", "--output",
+         "one.crankwave", "--deadline-unix-ms", "0"},
+        {"pack-crankwave", "--package-directory=package", "--output",
+         "engine.crankwave"},
+        {"inspect-crankwave"},
+        {"inspect-crankwave", "--input", "one", "extra"},
+        {"inspect-crankwave", "--input", "one", "--deadline-unix-ms", "-1"},
+        {"verify-crankwave", "--output", "one"},
+        {"verify-crankwave", "--input", "one", "--deadline-unix-ms",
          "9223372036854775808"},
         {"inspect-ir-catalog", "extra"},
         {"inspect-ir-catalog", "--result-format", "yaml"},
@@ -234,7 +238,7 @@ void test_strict_render_rejections() {
     };
 
     for (const auto &arguments : invalid) {
-        const auto result = engine_sim_offline::cli::parse_cli_arguments(arguments);
+        const auto result = crankwave::cli::parse_cli_arguments(arguments);
         expect(std::holds_alternative<CliUsageError>(result),
                "non-current or malformed syntax was admitted");
         expect(!std::get<CliUsageError>(result).message.empty(),
@@ -252,7 +256,7 @@ struct Invocation {
 invoke(const std::initializer_list<std::string_view> arguments) {
     std::ostringstream standard_out;
     std::ostringstream standard_error;
-    const auto exit_code = engine_sim_offline::cli::run_cli(
+    const auto exit_code = crankwave::cli::run_cli(
         std::span<const std::string_view>{arguments.begin(), arguments.size()},
         standard_out, standard_error);
     return {exit_code, standard_out.str(), standard_error.str()};
@@ -262,14 +266,14 @@ invoke(const std::initializer_list<std::string_view> arguments) {
                                 const std::stop_token termination_token = {}) {
     std::ostringstream standard_out;
     std::ostringstream standard_error;
-    const auto exit_code = engine_sim_offline::cli::run_cli(
+    const auto exit_code = crankwave::cli::run_cli(
         arguments, standard_out, standard_error, termination_token);
     return {exit_code, standard_out.str(), standard_error.str()};
 }
 
 void test_standalone_help_and_version() {
     const auto help = invoke({"--help"});
-    expect(help.exit_code == engine_sim_offline::cli::kExitSuccess,
+    expect(help.exit_code == crankwave::cli::kExitSuccess,
            "--help must succeed");
     expect(help.standard_out.find(
                "render --engine <engine.json> --scenario <scenario.json>") !=
@@ -282,14 +286,14 @@ void test_standalone_help_and_version() {
            "--help must distinguish default assets from the developer override");
     expect(help.standard_out.find("bake-atlas") == std::string::npos,
            "--help must not advertise the withdrawn atlas baker");
-    expect(help.standard_out.find("pack-vehicleengine --package-directory <directory>") !=
+    expect(help.standard_out.find("pack-crankwave --package-directory <directory>") !=
                    std::string::npos &&
-               help.standard_out.find("inspect-vehicleengine --input <file.vehicleengine>") !=
+               help.standard_out.find("inspect-crankwave --input <file.crankwave>") !=
                    std::string::npos &&
-               help.standard_out.find("verify-vehicleengine --input <file.vehicleengine>") !=
+               help.standard_out.find("verify-crankwave --input <file.crankwave>") !=
                    std::string::npos,
-           "--help must advertise the exact VEHICLEENGINE command grammar");
-    expect(help.standard_out.find("bake-vehicleengine --engine <engine.json>") !=
+           "--help must advertise the exact CRANKWAVE command grammar");
+    expect(help.standard_out.find("bake-crankwave --engine <engine.json>") !=
                std::string::npos,
            "--help must advertise the native responsive bake command");
     expect(help.standard_out.find("inspect-ir-catalog") != std::string::npos,
@@ -297,39 +301,39 @@ void test_standalone_help_and_version() {
     expect(help.standard_error.empty(), "--help must not write stderr");
 
     const auto version = invoke({"--version"});
-    expect(version.exit_code == engine_sim_offline::cli::kExitSuccess,
+    expect(version.exit_code == crankwave::cli::kExitSuccess,
            "--version must succeed");
     expect(version.standard_error.empty(), "--version must not write stderr");
     expect(version.standard_out ==
-               "engine-sim-offline " +
-                   std::string{engine_sim_offline::cli::version_label()} + "\n",
+               "crankwave " +
+                   std::string{crankwave::cli::version_label()} + "\n",
            "--version output must be stable");
 }
 
 void test_usage_output_channels() {
     const auto missing = invoke({});
-    expect(missing.exit_code == engine_sim_offline::cli::kExitUsage,
+    expect(missing.exit_code == crankwave::cli::kExitUsage,
            "missing command must return EX_USAGE");
     expect(missing.standard_out.empty(), "a usage failure must not write stdout");
     expect(missing.standard_error.find("error:") != std::string::npos &&
-               missing.standard_error.find("Try 'engine-sim-offline --help'") !=
+               missing.standard_error.find("Try 'crankwave --help'") !=
                    std::string::npos,
            "a usage failure must carry the stable usage hint on stderr");
 
     const auto obsolete = invoke({"render", "--profile", "bmw"});
-    expect(obsolete.exit_code == engine_sim_offline::cli::kExitUsage,
+    expect(obsolete.exit_code == crankwave::cli::kExitUsage,
            "an obsolete profile surface must return EX_USAGE");
     expect(obsolete.standard_out.empty(),
            "an obsolete profile rejection must not write stdout");
 
     const auto machine_missing =
         invoke({"render", "--result-format", "json", "--engine", "only-engine"});
-    expect(machine_missing.exit_code == engine_sim_offline::cli::kExitUsage,
+    expect(machine_missing.exit_code == crankwave::cli::kExitUsage,
            "machine usage failure must return EX_USAGE");
     expect(machine_missing.standard_error.empty(),
            "machine usage failure must reserve stderr for process diagnostics");
     expect(machine_missing.standard_out.find(
-               "\"schema\":\"engine-sim-offline.cli-result.v1\"") !=
+               "\"schema\":\"crankwave.cli-result.v1\"") !=
                    std::string::npos &&
                machine_missing.standard_out.find("\"command\":\"render\"") !=
                    std::string::npos &&
@@ -347,12 +351,12 @@ void test_machine_failures_and_external_stop() {
         invoke({"render", "--engine", "/definitely/missing/engine.json", "--scenario",
                 "/definitely/missing/scenario.json", "--output-directory", "unused",
                 "--result-format", "json"});
-    expect(missing.exit_code != engine_sim_offline::cli::kExitSuccess,
+    expect(missing.exit_code != crankwave::cli::kExitSuccess,
            "machine missing input must fail");
     expect(missing.standard_error.empty(),
            "machine input failure must not write human diagnostics");
     expect(
-        missing.standard_out.find("\"schema\":\"engine-sim-offline.cli-result.v1\"") !=
+        missing.standard_out.find("\"schema\":\"crankwave.cli-result.v1\"") !=
                 std::string::npos &&
             missing.standard_out.find("\"stage\":\"engine input\"") !=
                 std::string::npos,
@@ -372,7 +376,7 @@ void test_machine_failures_and_external_stop() {
         "--result-format",
         "json"};
     const auto unicode_failure = invoke(unicode_arguments);
-    expect(unicode_failure.exit_code != engine_sim_offline::cli::kExitSuccess &&
+    expect(unicode_failure.exit_code != crankwave::cli::kExitSuccess &&
                unicode_failure.standard_error.empty(),
            "Unicode machine failure did not use the machine channel");
     expect(unicode_failure.standard_out.find(unicode_engine_path) !=
@@ -394,70 +398,70 @@ void test_machine_failures_and_external_stop() {
                                                      "--result-format",
                                                      "json",
                                                      ""};
-    const auto exit_code = engine_sim_offline::cli::run_cli(
+    const auto exit_code = crankwave::cli::run_cli(
         std::span<const std::string_view>{arguments.data(), arguments.size() - 1U},
         standard_out, standard_error, termination.get_token());
-    expect(exit_code == engine_sim_offline::cli::kExitTemporaryFailure,
+    expect(exit_code == crankwave::cli::kExitTemporaryFailure,
            "pre-requested termination must return EX_TEMPFAIL");
     expect(standard_error.str().empty() &&
                standard_out.str().find("\"code\":\"render-terminated\"") !=
                    std::string::npos,
            "pre-requested termination must produce a machine cancellation result");
 
-    const std::array<std::string_view, 7> pack_arguments{"pack-vehicleengine",
+    const std::array<std::string_view, 7> pack_arguments{"pack-crankwave",
                                                          "--package-directory",
                                                          "unused-package",
                                                          "--output",
-                                                         "unused.vehicleengine",
+                                                         "unused.crankwave",
                                                          "--result-format",
                                                          "json"};
     const auto stopped_pack = invoke(pack_arguments, termination.get_token());
-    expect(stopped_pack.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
+    expect(stopped_pack.exit_code == crankwave::cli::kExitTemporaryFailure &&
                stopped_pack.standard_error.empty() &&
                stopped_pack.standard_out.find(
-                   "\"code\":\"pack-vehicleengine-terminated\"") != std::string::npos,
+                   "\"code\":\"pack-crankwave-terminated\"") != std::string::npos,
            "pre-requested pack termination lost its stable machine result");
 
     const std::array<std::string_view, 7> bake_arguments{
-        "bake-vehicleengine",   "--engine",        "unused-engine", "--output",
-        "unused.vehicleengine", "--result-format", "json"};
+        "bake-crankwave",   "--engine",        "unused-engine", "--output",
+        "unused.crankwave", "--result-format", "json"};
     const auto stopped_bake = invoke(bake_arguments, termination.get_token());
-    expect(stopped_bake.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
+    expect(stopped_bake.exit_code == crankwave::cli::kExitTemporaryFailure &&
                stopped_bake.standard_error.empty() &&
                stopped_bake.standard_out.find(
-                   "\"code\":\"bake-vehicleengine-terminated\"") != std::string::npos,
+                   "\"code\":\"bake-crankwave-terminated\"") != std::string::npos,
            "pre-requested native bake termination lost its stable machine result");
 
     const std::array<std::string_view, 5> verify_arguments{
-        "verify-vehicleengine", "--input", "unused.vehicleengine", "--result-format", "json"};
+        "verify-crankwave", "--input", "unused.crankwave", "--result-format", "json"};
     const auto stopped_verify = invoke(verify_arguments, termination.get_token());
-    expect(stopped_verify.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
+    expect(stopped_verify.exit_code == crankwave::cli::kExitTemporaryFailure &&
                stopped_verify.standard_error.empty() &&
                stopped_verify.standard_out.find(
-                   "\"code\":\"verify-vehicleengine-terminated\"") != std::string::npos,
+                   "\"code\":\"verify-crankwave-terminated\"") != std::string::npos,
            "pre-requested verify termination lost its stable machine result");
 
-    const std::array<std::string_view, 7> expired_pack_arguments{"pack-vehicleengine",
+    const std::array<std::string_view, 7> expired_pack_arguments{"pack-crankwave",
                                                                  "--package-directory",
                                                                  "unused-package",
                                                                  "--output",
-                                                                 "unused.vehicleengine",
+                                                                 "unused.crankwave",
                                                                  "--deadline-unix-ms",
                                                                  "1"};
     const auto expired_pack = invoke(expired_pack_arguments);
-    expect(expired_pack.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
+    expect(expired_pack.exit_code == crankwave::cli::kExitTemporaryFailure &&
                expired_pack.standard_out.empty() &&
                expired_pack.standard_error.find("error:") != std::string::npos,
            "expired pack deadline did not preserve human-mode diagnostics");
 
     const std::array<std::string_view, 7> expired_verify_arguments{
-        "verify-vehicleengine", "--input", "unused.vehicleengine", "--deadline-unix-ms", "1",
+        "verify-crankwave", "--input", "unused.crankwave", "--deadline-unix-ms", "1",
         "--result-format",  "json"};
     const auto expired_verify = invoke(expired_verify_arguments);
-    expect(expired_verify.exit_code == engine_sim_offline::cli::kExitTemporaryFailure &&
+    expect(expired_verify.exit_code == crankwave::cli::kExitTemporaryFailure &&
                expired_verify.standard_error.empty() &&
                expired_verify.standard_out.find(
-                   "\"code\":\"verify-vehicleengine-deadline-exceeded\"") !=
+                   "\"code\":\"verify-crankwave-deadline-exceeded\"") !=
                    std::string::npos,
            "expired verify deadline lost its stable machine result");
 }
@@ -467,7 +471,7 @@ void test_machine_failures_and_external_stop() {
 int main() {
     try {
         test_exact_render_grammar();
-        test_exact_vehicleengine_grammars();
+        test_exact_crankwave_grammars();
         test_native_responsive_authority_golden();
         test_ir_authoring_catalog_grammar();
         test_strict_render_rejections();

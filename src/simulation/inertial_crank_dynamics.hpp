@@ -6,7 +6,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct InertialCrankBrakePoint {
     double angular_speed_rad_s = 0.0;
@@ -169,4 +169,4 @@ using InertialCrankDynamicsCompilation =
 [[nodiscard]] InertialCrankDynamicsCompilation
 compile_inertial_crank_dynamics(InertialCrankDynamicsConfiguration configuration);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

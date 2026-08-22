@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/directional_cook.hpp"
+#include "crankwave/responsive/directional_cook.hpp"
 
 #include "identity_bytes.hpp"
 
@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 void require(contract::ValidationReport &report, const bool condition,
@@ -83,7 +83,7 @@ make_spec(const DirectionalScenarioPlanRequest &request,
     result.id = request.scenario_template.engine.value + "-directional-" +
                 std::string{direction_id(direction)} + "-" + lane.id + "-capture";
     result.scenario = request.scenario_template;
-    result.scenario.schema = "engine-sim-offline/scenario";
+    result.scenario.schema = "crankwave/scenario";
     result.scenario.id.value = result.id;
     result.scenario.initial_state.engine_speed = {result.motion.start_rpm, "rpm",
                                                   std::nullopt};
@@ -198,4 +198,4 @@ plan_directional_sweep_scenarios(const DirectionalScenarioPlanRequest &request) 
     return result;
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

@@ -1,7 +1,7 @@
 #include "session/session_build.hpp"
 
 #include "compile/compiled_scenario_view.hpp"
-#include "engine_sim_offline/request_identity.hpp"
+#include "crankwave/request_identity.hpp"
 #include "presentation/presentation_asset_compiler.hpp"
 
 #include <bit>
@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::session_detail {
+namespace crankwave::session_detail {
 namespace {
 
 [[nodiscard]] EngineSessionError
@@ -422,4 +422,4 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
     };
 }
 
-} // namespace engine_sim_offline::session_detail
+} // namespace crankwave::session_detail

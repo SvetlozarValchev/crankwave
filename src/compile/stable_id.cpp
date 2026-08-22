@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 namespace {
 
 struct OwnedStableIdSource {
@@ -112,4 +112,4 @@ assign_stable_runtime_ids(std::string_view object_namespace,
     }
 }
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

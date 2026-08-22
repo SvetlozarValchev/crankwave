@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::authoring::detail {
+namespace crankwave::authoring::detail {
 namespace {
 
 [[nodiscard]] std::string escape_pointer_token(std::string_view token) {
@@ -499,4 +499,4 @@ std::optional<DiagnosticSubject> subject(std::string kind, std::string id) {
     return DiagnosticSubject{std::move(kind), std::move(id)};
 }
 
-} // namespace engine_sim_offline::authoring::detail
+} // namespace crankwave::authoring::detail

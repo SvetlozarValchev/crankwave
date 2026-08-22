@@ -4,8 +4,8 @@ import {
   BlockPhase,
   ControlCapability,
   ControlKind,
-  ESO_CANONICAL_SAMPLE_RATE,
-  ESO_INVALID_HANDLE,
+  CRANKWAVE_CANONICAL_SAMPLE_RATE,
+  CRANKWAVE_INVALID_HANDLE,
   Layout,
   MotionMode,
   ProcessKind,
@@ -23,7 +23,7 @@ import {
   roadLoadDispositionName,
   sessionExecutionKindName,
 } from "./c-api-abi.js";
-import { EngineSimRuntimeError } from "./c-api-errors.js";
+import { CrankwaveRuntimeError } from "./c-api-errors.js";
 
 function decimal(value) {
   return value.toString(10);
@@ -31,7 +31,7 @@ function decimal(value) {
 
 function exactRate(numerator, denominator, label) {
   if (denominator === 0n) {
-    throw new EngineSimRuntimeError(`${label} has a zero denominator`, {
+    throw new CrankwaveRuntimeError(`${label} has a zero denominator`, {
       operation: "inspect-session",
       detailCode: "browser-runtime-invalid-rational-rate",
       diagnostics: [],
@@ -39,7 +39,7 @@ function exactRate(numerator, denominator, label) {
   }
   const value = Number(numerator) / Number(denominator);
   if (!Number.isFinite(value) || value <= 0) {
-    throw new EngineSimRuntimeError(`${label} is not a finite positive rate`, {
+    throw new CrankwaveRuntimeError(`${label} is not a finite positive rate`, {
       operation: "inspect-session",
       detailCode: "browser-runtime-invalid-rational-rate",
       diagnostics: [],
@@ -175,7 +175,7 @@ function readEngineTelemetry(view, pointer) {
 function readPresenceFlag(view, pointer, label) {
   const value = view.getUint32(pointer, true);
   if (value !== 0 && value !== 1) {
-    throw new EngineSimRuntimeError(`${label} is not a canonical presence flag`, {
+    throw new CrankwaveRuntimeError(`${label} is not a canonical presence flag`, {
       operation: "process-session",
       detailCode: "browser-runtime-telemetry-presence-invalid",
       diagnostics: [],
@@ -450,7 +450,7 @@ function readProcessInfo(view, pointer) {
   };
 }
 
-export class EngineSimSession {
+export class CrankwaveSession {
   #client;
   #module;
   #heap;
@@ -485,7 +485,7 @@ export class EngineSimSession {
         (bus) => bus.kindCode === AudioBusKind.engineAuditionMaster,
       );
       if (audition.length !== 1) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           `the session exposes ${audition.length} audition master buses`,
           {
             operation: "inspect-session",
@@ -496,10 +496,10 @@ export class EngineSimSession {
       }
       this.#auditionBusIndex = audition[0].index;
       if (
-        audition[0].sampleRateHz !== ESO_CANONICAL_SAMPLE_RATE ||
-        this.#descriptor.deliveryRateHz !== ESO_CANONICAL_SAMPLE_RATE
+        audition[0].sampleRateHz !== CRANKWAVE_CANONICAL_SAMPLE_RATE ||
+        this.#descriptor.deliveryRateHz !== CRANKWAVE_CANONICAL_SAMPLE_RATE
       ) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           "the browser runtime admits only a canonical 192 kHz master",
           {
             operation: "inspect-session",
@@ -509,8 +509,8 @@ export class EngineSimSession {
         );
       }
       for (const bus of this.#buses) {
-        if (bus.sampleRateHz !== ESO_CANONICAL_SAMPLE_RATE) {
-          throw new EngineSimRuntimeError(
+        if (bus.sampleRateHz !== CRANKWAVE_CANONICAL_SAMPLE_RATE) {
+          throw new CrankwaveRuntimeError(
             `audio bus ${bus.id} is not at the canonical 192 kHz rate`,
             {
               operation: "inspect-session",
@@ -597,7 +597,7 @@ export class EngineSimSession {
   enqueueControls(controls) {
     this.#assertAlive();
     if (this.#descriptor.liveControlCapabilities === 0) {
-      throw new EngineSimRuntimeError(
+      throw new CrankwaveRuntimeError(
         "this session mode does not accept live controls",
         {
           operation: "enqueue-controls",
@@ -610,7 +610,7 @@ export class EngineSimSession {
       throw new TypeError("controls must be a non-empty array");
     }
     if (controls.length > this.#descriptor.controlCommandQueueCapacity) {
-      throw new EngineSimRuntimeError(
+      throw new CrankwaveRuntimeError(
         "control batch exceeds the session queue capacity",
         {
           operation: "enqueue-controls",
@@ -854,7 +854,7 @@ export class EngineSimSession {
             );
             break;
           default:
-            throw new EngineSimRuntimeError(
+            throw new CrankwaveRuntimeError(
               `unsupported live control: ${String(input.kind)}`,
               {
                 operation: "enqueue-controls",
@@ -867,7 +867,7 @@ export class EngineSimSession {
           (this.#descriptor.liveControlCapabilities & requiredCapability) ===
           0
         ) {
-          throw new EngineSimRuntimeError(
+          throw new CrankwaveRuntimeError(
             `${input.kind} was not admitted for this session mode`,
             {
               operation: "enqueue-controls",
@@ -877,7 +877,7 @@ export class EngineSimSession {
           );
         }
       }
-      const status = this.#module._eso_session_enqueue_controls(
+      const status = this.#module._crankwave_session_enqueue_controls(
         this.#context,
         this.#handle,
         pointer,
@@ -900,7 +900,7 @@ export class EngineSimSession {
       busIndex < 0 ||
       busIndex >= this.#buses.length
     ) {
-      throw new EngineSimRuntimeError(
+      throw new CrankwaveRuntimeError(
         `audio bus index ${String(busIndex)} is outside the session descriptor`,
         {
           operation: "process-session",
@@ -938,7 +938,7 @@ export class EngineSimSession {
       maximumSamples,
       true,
     );
-    const status = this.#module._eso_session_process(
+    const status = this.#module._crankwave_session_process(
       this.#context,
       this.#handle,
       this.#audioCopyPointer,
@@ -964,7 +964,7 @@ export class EngineSimSession {
       process.cycleEvidenceWritten >
       this.#descriptor.maximumCycleEvidencePerProcessCall
     ) {
-      throw new EngineSimRuntimeError(
+      throw new CrankwaveRuntimeError(
         "the C API reported more completed cycles than the supplied buffer can hold",
         {
           operation: "process-session",
@@ -988,7 +988,7 @@ export class EngineSimSession {
       true,
     );
     if (samplesWritten > maximumSamples) {
-      throw new EngineSimRuntimeError(
+      throw new CrankwaveRuntimeError(
         "the C API reported more audio samples than the supplied buffer can hold",
         {
           operation: "process-session",
@@ -1011,7 +1011,7 @@ export class EngineSimSession {
       this.#nextDeliveryFrame =
         BigInt(process.firstDeliveryFrame) + BigInt(process.deliveryFrameCount);
     } else {
-      throw new EngineSimRuntimeError(
+      throw new CrankwaveRuntimeError(
         `the C API returned unknown process kind ${process.kindCode}`,
         {
           operation: "process-session",
@@ -1047,13 +1047,13 @@ export class EngineSimSession {
     this.#audioPointer = 0;
     if (
       this.#client &&
-      this.#handle !== ESO_INVALID_HANDLE
+      this.#handle !== CRANKWAVE_INVALID_HANDLE
     ) {
-      const status = this.#module._eso_destroy_session(
+      const status = this.#module._crankwave_destroy_session(
         this.#context,
         this.#handle,
       );
-      this.#handle = ESO_INVALID_HANDLE;
+      this.#handle = CRANKWAVE_INVALID_HANDLE;
       this.#client.assertStatus(status, "destroy-session");
     }
   }
@@ -1064,7 +1064,7 @@ export class EngineSimSession {
       "session descriptor",
     );
     try {
-      const status = this.#module._eso_session_get_descriptor(
+      const status = this.#module._crankwave_session_get_descriptor(
         this.#context,
         this.#handle,
         pointer,
@@ -1108,7 +1108,7 @@ export class EngineSimSession {
         executionKindCode !== SessionExecutionKind.finiteScenario &&
         executionKindCode !== SessionExecutionKind.openEnded
       ) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           `the session descriptor has unknown execution kind ${executionKindCode}`,
           {
             operation: "inspect-session",
@@ -1121,7 +1121,7 @@ export class EngineSimSession {
         motionModeCode < MotionMode.heldSpeed ||
         motionModeCode > MotionMode.freeVehicle
       ) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           `the session descriptor has unknown motion mode ${motionModeCode}`,
           {
             operation: "inspect-session",
@@ -1136,7 +1136,7 @@ export class EngineSimSession {
         (openEnded && totalBlocks !== 0n) ||
         (!openEnded && totalBlocks === 0n)
       ) {
-        throw new EngineSimRuntimeError(
+        throw new CrankwaveRuntimeError(
           "the session execution kind and total block count disagree",
           {
             operation: "inspect-session",
@@ -1248,7 +1248,7 @@ export class EngineSimSession {
         descriptor.scenarioIdUtf8Bytes + 1,
         true,
       );
-      const status = this.#module._eso_session_copy_identity(
+      const status = this.#module._crankwave_session_copy_identity(
         this.#context,
         this.#handle,
         buffers,
@@ -1280,7 +1280,7 @@ export class EngineSimSession {
     try {
       const result = [];
       for (let index = 0; index < this.#descriptor.forwardGearCount; ++index) {
-        const status = this.#module._eso_session_get_forward_gear_descriptor(
+        const status = this.#module._crankwave_session_get_forward_gear_descriptor(
           this.#context,
           this.#handle,
           index,
@@ -1294,7 +1294,7 @@ export class EngineSimSession {
           true,
         );
         if (authoredOrdinal !== index + 1) {
-          throw new EngineSimRuntimeError(
+          throw new CrankwaveRuntimeError(
             `forward gear ${index} has authored ordinal ${authoredOrdinal}`,
             {
               operation: "inspect-session",
@@ -1323,7 +1323,7 @@ export class EngineSimSession {
             true,
           );
           const copyStatus =
-            this.#module._eso_session_copy_forward_gear_semantic_id(
+            this.#module._crankwave_session_copy_forward_gear_semantic_id(
               this.#context,
               this.#handle,
               index,
@@ -1363,7 +1363,7 @@ export class EngineSimSession {
     try {
       const result = [];
       for (let index = 0; index < this.#descriptor.audioBusCount; ++index) {
-        const status = this.#module._eso_session_get_audio_bus_descriptor(
+        const status = this.#module._crankwave_session_get_audio_bus_descriptor(
           this.#context,
           this.#handle,
           index,
@@ -1393,7 +1393,7 @@ export class EngineSimSession {
             idBytes + 1,
             true,
           );
-          const copyStatus = this.#module._eso_session_copy_audio_bus_id(
+          const copyStatus = this.#module._crankwave_session_copy_audio_bus_id(
             this.#context,
             this.#handle,
             index,
@@ -1436,7 +1436,7 @@ export class EngineSimSession {
               "unknown-",
             )
           ) {
-            throw new EngineSimRuntimeError(
+            throw new CrankwaveRuntimeError(
               "the session returned an invalid audio source-route descriptor",
               {
                 operation: "inspect-audio-bus",
@@ -1481,14 +1481,14 @@ export class EngineSimSession {
 
   #assertAlive() {
     if (this.#disposed) {
-      throw new EngineSimRuntimeError("the engine session is disposed", {
+      throw new CrankwaveRuntimeError("the engine session is disposed", {
         operation: "session",
         detailCode: "browser-runtime-session-disposed",
         diagnostics: [],
       });
     }
     if (this.#terminal) {
-      throw new EngineSimRuntimeError("the engine session is terminal", {
+      throw new CrankwaveRuntimeError("the engine session is terminal", {
         operation: "session",
         detailCode: "browser-runtime-session-terminal",
         diagnostics: [],

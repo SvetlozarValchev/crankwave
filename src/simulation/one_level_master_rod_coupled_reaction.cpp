@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct OneLevelMasterRodCoupledReactionWorkspaceAccess {
     static bool owner_matches(
@@ -98,7 +98,7 @@ using WorkspaceAccess = OneLevelMasterRodCoupledReactionWorkspaceAccess;
 [[nodiscard]] OneLevelMasterRodCoupledReactionError
 error(const OneLevelMasterRodCoupledReactionIssue issue,
       const std::size_t cylinder_index = kNoOneLevelMasterRodReactionCylinder,
-      const std::optional<EngineSimV1PistonWallIssue> friction_issue =
+      const std::optional<CrankwavePistonWallIssue> friction_issue =
           std::nullopt) noexcept {
     return {issue, cylinder_index, friction_issue};
 }
@@ -436,18 +436,18 @@ stage_one_level_master_rod_piston_wall_friction(
             cylinder_state.wrist_pin.dx_dtheta_m_per_rad * view.bank_axis_x +
             cylinder_state.wrist_pin.dy_dtheta_m_per_rad * view.bank_axis_y;
         const auto law_calculation =
-            stage_engine_sim_v1_piston_wall_kinematic_friction({
+            stage_crankwave_piston_wall_kinematic_friction({
                 slider_derivative,
                 angular_speed_rad_s,
                 boundary.retained_previous_wall_reaction_magnitude_n,
             });
         if (const auto *law_error =
-                std::get_if<EngineSimV1PistonWallError>(&law_calculation)) {
+                std::get_if<CrankwavePistonWallError>(&law_calculation)) {
             return error(OneLevelMasterRodCoupledReactionIssue::friction_law_rejected,
                          index, law_error->issue);
         }
         const auto &law =
-            std::get<EngineSimV1PistonWallKinematicFrictionStage>(law_calculation);
+            std::get<CrankwavePistonWallKinematicFrictionStage>(law_calculation);
         const double pressure_differential =
             boundary.chamber_pressure_pa_abs - boundary.crankcase_pressure_pa_abs;
         const double pressure_force = -view.piston_area_m2 * pressure_differential;
@@ -622,4 +622,4 @@ calculate_one_level_master_rod_coupled_reactions(
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

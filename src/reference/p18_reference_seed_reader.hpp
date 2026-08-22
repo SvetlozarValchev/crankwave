@@ -7,7 +7,7 @@
 #include <span>
 #include <variant>
 
-namespace engine_sim_offline::reference {
+namespace crankwave::reference {
 
 inline constexpr std::size_t kP18ReferenceSeedHeaderBytes = 40;
 inline constexpr std::size_t kP18ReferenceSeedPairBytes = 16;
@@ -98,4 +98,4 @@ using P18ReferenceSeedDecodeResult =
 [[nodiscard]] P18ReferenceSeedDecodeResult
 decode_p18_reference_seeds(std::span<const std::byte> bytes);
 
-} // namespace engine_sim_offline::reference
+} // namespace crankwave::reference

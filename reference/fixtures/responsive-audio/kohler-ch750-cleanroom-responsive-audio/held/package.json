@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-held-texture",
+  "schema": "crankwave/responsive-audio-held-texture",
   "id": "kohler-ch750-cleanroom-exact-held-phase-texture-live-preview",
   "engine": "kohler-ch750-cleanroom",
   "fidelity": {
@@ -224,7 +224,7 @@
       "sha256": "812fcfa3fcb1c3040f695140cfc2a73df0934a3d84a848121eb94a41f374e60e"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "capture_identity": {

@@ -1,4 +1,4 @@
-const SCHEMA = "engine-sim-offline/responsive-audio-lifecycle";
+const SCHEMA = "crankwave/responsive-audio-lifecycle";
 const KIND = "responsive-audio-lifecycle";
 const SAMPLE_RATE = 192_000;
 const BUS_ID = "master.engine.audition";
@@ -275,7 +275,7 @@ function unitInterval(value, label) {
 function startupAdmission(value) {
   const item = object(value, "startup_admission");
   if (
-    item.schema !== "engine-sim-offline/continuous-startup-admission-v1" ||
+    item.schema !== "crankwave/continuous-startup-admission-v1" ||
     item.blend !== "constant-power" ||
     item.admission_lane_coordinate !== "authored-throttle-01" ||
     item.pre_floor_progress !== "smoothstep-first-fire-rpm-to-running-floor" ||
@@ -536,7 +536,7 @@ export async function loadResponsiveAudioLifecycleRuntime(
   );
   if (
     admissionEvidenceDocument.schema !==
-      "engine-sim-offline/startup-admission-floor-evidence" ||
+      "crankwave/startup-admission-floor-evidence" ||
     admissionEvidenceDocument.atlas_load_coordinate !==
       admission.runningBedLoadCoordinate ||
     !(admissionEvidenceDocument.running_floor_rpm > 0)
@@ -640,9 +640,9 @@ export async function loadResponsiveAudioLifecycleRuntime(
           `${label} evidence`,
         );
         if (
-          scenarioDocument.schema !== "engine-sim-offline/scenario" ||
+          scenarioDocument.schema !== "crankwave/scenario" ||
           evidenceDocument.schema !==
-            "engine-sim-offline/lifecycle-capture-evidence"
+            "crankwave/lifecycle-capture-evidence"
         ) {
           fail(`${label} documents use unsupported schemas`);
         }

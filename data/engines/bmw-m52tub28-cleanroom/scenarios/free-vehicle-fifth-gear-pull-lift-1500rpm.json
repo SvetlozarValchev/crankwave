@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "bmw-m52tub28-cleanroom-free-vehicle-fifth-gear-pull-lift-1500rpm",
   "engine": "bmw-m52tub28-cleanroom",
   "fuel": "premium-unleaded-gasoline",

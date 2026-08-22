@@ -8,7 +8,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 static_assert(kFourStrokePiecewiseLinearCycleQuadratureMethodId !=
@@ -103,4 +103,4 @@ contract::ValidationReport admit_implemented_cycle_accounting_methods(
     return report;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

@@ -118,7 +118,7 @@ async function runWasm(modulePath, inputs) {
     },
   });
   if (
-    typeof module._eso_wasm_parity_run !== "function" ||
+    typeof module._crankwave_wasm_parity_run !== "function" ||
     typeof module._malloc !== "function" ||
     typeof module._free !== "function" ||
     !(module.HEAPU8 instanceof Uint8Array)
@@ -147,7 +147,7 @@ async function runWasm(modulePath, inputs) {
     allocations.push(output, outputSize);
     module.HEAPU32[outputSize >>> 2] = 0;
 
-    const status = module._eso_wasm_parity_run(
+    const status = module._crankwave_wasm_parity_run(
       pointers[0],
       inputs[0].length,
       pointers[1],
@@ -181,7 +181,7 @@ async function runWasm(modulePath, inputs) {
 
 function readExpectations(file) {
   const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-  if (parsed.format !== "engine-sim-offline-wasm-parity-expectations-v1") {
+  if (parsed.format !== "crankwave-wasm-parity-expectations-v1") {
     fail("parity expectation file has an unsupported format");
   }
   return parsed;

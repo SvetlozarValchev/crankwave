@@ -1,4 +1,4 @@
-#include "engine_sim_offline/authoring/json.hpp"
+#include "crankwave/authoring/json.hpp"
 
 #include <bit>
 #include <cmath>
@@ -15,7 +15,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::authoring;
+using namespace crankwave::authoring;
 
 static_assert(noexcept(parse_json(std::string_view{})));
 static_assert(std::is_nothrow_move_constructible_v<JsonDocument>);

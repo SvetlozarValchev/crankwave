@@ -9,7 +9,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 using contract::ContractIssueCode;
@@ -1135,4 +1135,4 @@ bool mechanism_kinematics_plan_matches_source(
     return true;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

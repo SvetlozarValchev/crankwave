@@ -2,7 +2,7 @@
 
 #include <type_traits>
 
-namespace engine_sim_offline::artifacts::detail {
+namespace crankwave::artifacts::detail {
 namespace {
 
 std::uint8_t port_kind_code(contract::PortKind value) noexcept {
@@ -410,4 +410,4 @@ bool emit_frame(TelemetryByteEmitter &emitter, const contract::CaptureBlockView 
     return emitted;
 }
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace crankwave::artifacts::detail

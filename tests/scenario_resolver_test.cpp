@@ -17,10 +17,10 @@
 
 namespace {
 
-namespace authoring = engine_sim_offline::authoring;
-namespace compile = engine_sim_offline::compile::detail;
-namespace contract = engine_sim_offline::contract;
-using engine_sim_offline::contract::test::expect;
+namespace authoring = crankwave::authoring;
+namespace compile = crankwave::compile::detail;
+namespace contract = crankwave::contract;
+using crankwave::contract::test::expect;
 
 [[nodiscard]] bool has_diagnostic(const authoring::DiagnosticReport &report,
                                   authoring::DiagnosticCode code,
@@ -44,11 +44,11 @@ using engine_sim_offline::contract::test::expect;
 void test_free_engine_method_identity_is_bound_to_nonnegative_semantics() {
     constexpr std::string_view kExpectedId =
         "nonnegative-speed-free-engine-centered-slider-crank-v1";
-    const auto descriptor = engine_sim_offline::simulation::
+    const auto descriptor = crankwave::simulation::
         nonnegative_speed_free_engine_centered_slider_crank_method_descriptor();
     const auto descriptor_digest = contract::sha256(
         std::as_bytes(std::span<const char>{descriptor.data(), descriptor.size()}));
-    const auto &identity = engine_sim_offline::simulation::
+    const auto &identity = crankwave::simulation::
         nonnegative_speed_free_engine_centered_slider_crank_method_identity();
 
     expect(!descriptor.empty() && descriptor.back() == '\n' &&
@@ -57,15 +57,15 @@ void test_free_engine_method_identity_is_bound_to_nonnegative_semantics() {
            "free-engine method descriptor is not canonical LF text");
     expect(
         identity.id == kExpectedId &&
-            identity.id == engine_sim_offline::simulation::
+            identity.id == crankwave::simulation::
                                kNonnegativeSpeedFreeEngineCenteredSliderCrankMethodId &&
             identity.version ==
-                engine_sim_offline::simulation::
+                crankwave::simulation::
                     kNonnegativeSpeedFreeEngineCenteredSliderCrankMethodVersion &&
             identity.configuration_sha256 == descriptor_digest &&
             contract::validate(identity).ok() &&
             &identity ==
-                &engine_sim_offline::simulation::
+                &crankwave::simulation::
                     nonnegative_speed_free_engine_centered_slider_crank_method_identity(),
         "free-engine method identity is invalid, unstable, or detached from its "
         "canonical descriptor");
@@ -86,11 +86,11 @@ void test_free_engine_method_identity_is_bound_to_nonnegative_semantics() {
 void test_master_rod_free_engine_method_identity_is_bound_to_articulated_semantics() {
     constexpr std::string_view kExpectedId =
         "nonnegative-speed-free-engine-one-level-master-rod-v1";
-    const auto descriptor = engine_sim_offline::simulation::
+    const auto descriptor = crankwave::simulation::
         nonnegative_speed_free_engine_one_level_master_rod_method_descriptor();
     const auto descriptor_digest = contract::sha256(
         std::as_bytes(std::span<const char>{descriptor.data(), descriptor.size()}));
-    const auto &identity = engine_sim_offline::simulation::
+    const auto &identity = crankwave::simulation::
         nonnegative_speed_free_engine_one_level_master_rod_method_identity();
 
     expect(!descriptor.empty() && descriptor.back() == '\n' &&
@@ -99,15 +99,15 @@ void test_master_rod_free_engine_method_identity_is_bound_to_articulated_semanti
            "master-rod free-engine method descriptor is not canonical LF text");
     expect(
         identity.id == kExpectedId &&
-            identity.id == engine_sim_offline::simulation::
+            identity.id == crankwave::simulation::
                                kNonnegativeSpeedFreeEngineOneLevelMasterRodMethodId &&
             identity.version ==
-                engine_sim_offline::simulation::
+                crankwave::simulation::
                     kNonnegativeSpeedFreeEngineOneLevelMasterRodMethodVersion &&
             identity.configuration_sha256 == descriptor_digest &&
             contract::validate(identity).ok() &&
             &identity ==
-                &engine_sim_offline::simulation::
+                &crankwave::simulation::
                     nonnegative_speed_free_engine_one_level_master_rod_method_identity(),
         "master-rod free-engine method identity is invalid, unstable, or detached "
         "from its canonical descriptor");
@@ -119,7 +119,7 @@ void test_master_rod_free_engine_method_identity_is_bound_to_articulated_semanti
                    std::string_view::npos &&
                descriptor.find("per-cylinder-piston-travel-chen-flynn-evidence") !=
                    std::string_view::npos &&
-               descriptor.find("starter=unchanged-engine-sim-v1-unilateral") !=
+               descriptor.find("starter=crankwave-unilateral") !=
                    std::string_view::npos &&
                descriptor.find("external-resisting-sign=") != std::string_view::npos &&
                descriptor.find("stall-commit=") != std::string_view::npos &&
@@ -186,7 +186,7 @@ void test_held_speed_resolution_on_the_integer_clock() {
     auto presentation = contract::test::make_presentation(builder, engine);
     auto randomness = contract::test::make_randomness_policy(builder);
     constexpr std::string_view compiler_schema =
-        "engine-sim-offline.compiler-resolution-provenance";
+        "crankwave.compiler-resolution-provenance";
     builder.provenance.schema_id = compiler_schema;
     engine.provenance_schema_id = compiler_schema;
     presentation.provenance_schema_id = compiler_schema;
@@ -295,7 +295,7 @@ void test_held_speed_resolution_on_the_integer_clock() {
                resolved.request_input.audible_delivery_frames == 192000U,
            "deterministic request frame material changed");
     expect(resolved.request_input.session_capacities ==
-               engine_sim_offline::compile::CompiledSessionCapacities{
+               crankwave::compile::CompiledSessionCapacities{
                    4096U,
                    7U,
                    13U,
@@ -439,10 +439,10 @@ void test_held_speed_resolution_on_the_integer_clock() {
     const auto &mechanism =
         std::get<contract::LowOrderOperatingPointV1Profile>(engine.physics_profile)
             .core.mechanism;
-    const auto inertia_calculation = engine_sim_offline::simulation::
+    const auto inertia_calculation = crankwave::simulation::
         calculate_centered_slider_crank_cycle_mean_inertia(mechanism);
     const auto &derived_inertia =
-        std::get<engine_sim_offline::simulation::CenteredSliderCrankCycleMeanInertia>(
+        std::get<crankwave::simulation::CenteredSliderCrankCycleMeanInertia>(
             inertia_calculation);
     expect(free_engine.initial_engine_speed_rpm.value == 3000.0 &&
                free_engine.engine_baseline_inertia_kg_m2.value ==
@@ -457,7 +457,7 @@ void test_held_speed_resolution_on_the_integer_clock() {
            "free-engine controls changed during SI resolution");
     expect(
         free_engine.crank_dynamics_method.value ==
-            engine_sim_offline::simulation::
+            crankwave::simulation::
                 nonnegative_speed_free_engine_centered_slider_crank_method_identity(),
         "free-engine resolver selected the wrong crank-dynamics method");
     expect(!free_engine.initial_engine_speed_rpm.resolution_id.empty() &&
@@ -541,7 +541,7 @@ void test_held_speed_resolution_on_the_integer_clock() {
         "free-vehicle initial state or right-continuous control lanes changed "
         "during resolution");
     expect(free_vehicle.drivetrain_dynamics_method.value ==
-                   engine_sim_offline::simulation::
+                   crankwave::simulation::
                        bounded_forward_vehicle_drivetrain_method_identity() &&
                contract::validate(free_vehicle_contracts.scenario,
                                   free_vehicle_contracts.combined_provenance)

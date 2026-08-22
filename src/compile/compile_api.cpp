@@ -1,4 +1,4 @@
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/compile.hpp"
 
 #include "compile/compiled_model_builder.hpp"
 #include "compile/engine_resolver.hpp"
@@ -6,7 +6,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::compile {
+namespace crankwave::compile {
 
 EngineCompileResult
 compile_engine(const authoring::EnginePackageDocument &document,
@@ -25,4 +25,4 @@ compile_scenario(const CompiledEngine &engine,
     return detail::CompiledScenarioBuilder::compile(engine, document);
 }
 
-} // namespace engine_sim_offline::compile
+} // namespace crankwave::compile

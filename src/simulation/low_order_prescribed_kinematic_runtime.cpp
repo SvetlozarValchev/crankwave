@@ -4,7 +4,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 using contract::ContractIssueCode;
@@ -241,4 +241,4 @@ LowOrderPrescribedKinematicCompileResult compile_low_order_prescribed_kinematic_
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

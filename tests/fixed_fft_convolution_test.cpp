@@ -1,5 +1,5 @@
 #include "dsp/fixed_fft.hpp"
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 #include "presentation/overlap_save_convolver.hpp"
 
 #include <algorithm>
@@ -20,7 +20,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 using presentation::CausalOverlapSaveConvolver;
 using presentation::CausalPartitionedConvolver;
 

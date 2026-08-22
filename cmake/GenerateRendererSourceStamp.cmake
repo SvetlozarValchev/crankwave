@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.21)
 #
 # The source-closure digest is SHA-256 over this canonical UTF-8 byte stream:
 #
-#   engine-sim-offline.renderer-source-closure.v1\n
+#   crankwave.renderer-source-closure.v1\n
 #   <normalized-relative-path>\n
 #   <decimal-byte-count>\n
 #   <lowercase-file-sha256>\n
@@ -70,7 +70,7 @@ function(_renderer_stamp_write_header _state _head _closure_sha256)
     file(WRITE "${_temporary}"
         "#pragma once\n\n"
         "#include <string_view>\n\n"
-        "namespace engine_sim_offline::determinism::generated {\n\n"
+        "namespace crankwave::determinism::generated {\n\n"
         "inline constexpr std::string_view kRendererSourceState = \"${_state_cpp}\";\n"
         "inline constexpr std::string_view kRendererFullGitHead = \"${_head_cpp}\";\n"
         "inline constexpr std::string_view kRendererSourceClosureSha256 = \"${_closure_cpp}\";\n"
@@ -78,7 +78,7 @@ function(_renderer_stamp_write_header _state _head _closure_sha256)
         "inline constexpr std::string_view kRendererCompilerId = \"${_compiler_id_cpp}\";\n"
         "inline constexpr std::string_view kRendererCompilerVersion = \"${_compiler_version_cpp}\";\n"
         "inline constexpr std::string_view kRendererTargetTriple = \"${_target_triple_cpp}\";\n\n"
-        "} // namespace engine_sim_offline::determinism::generated\n")
+        "} // namespace crankwave::determinism::generated\n")
     execute_process(
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${_temporary}"
                 "${_output_header}"
@@ -251,7 +251,7 @@ if(_untracked_output MATCHES ";" OR _untracked_output MATCHES "\r")
     set(_untracked_result 1)
 endif()
 
-set(_canonical "engine-sim-offline.renderer-source-closure.v1\n")
+set(_canonical "crankwave.renderer-source-closure.v1\n")
 set(_closure_complete TRUE)
 foreach(_relative_path IN LISTS _closure_paths)
     if(NOT _relative_path MATCHES "^[A-Za-z0-9._/+@-]+$" OR

@@ -11,7 +11,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 namespace {
 
 [[nodiscard]] std::variant<IdNamespace, authoring::DiagnosticReport>
@@ -187,4 +187,4 @@ void assign_engine_runtime_ids(ModelContext &resolved,
                       });
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

@@ -6,7 +6,7 @@
 #include <ranges>
 #include <stdexcept>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 std::vector<contract::RouteId> ExhaustSourceStage::validate_route_ids(
     std::span<const contract::RouteId> expected_route_ids) {
@@ -131,7 +131,7 @@ SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
     }
     if (input.frame_count() >
             std::numeric_limits<std::size_t>::max() / input.route_count() ||
-        input.values_engine_sim_source_unit().size() !=
+        input.values_crankwave_source_unit().size() !=
             input.frame_count() * input.route_count()) {
         throw std::invalid_argument{
             "source-stage input must be a complete frame-major route matrix"};
@@ -149,7 +149,7 @@ SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
             std::numeric_limits<std::uint64_t>::max() - kSourceFramesPerMethodBlock) {
         throw std::overflow_error{"source-stage frame counter overflow"};
     }
-    for (const auto sample : input.values_engine_sim_source_unit()) {
+    for (const auto sample : input.values_crankwave_source_unit()) {
         if (!std::isfinite(sample)) {
             throw std::domain_error{"source-stage excitation input was non-finite"};
         }
@@ -189,7 +189,7 @@ SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
         for (std::size_t frame = 0; frame < input.frame_count(); ++frame) {
             for (std::size_t route = 0; route < physical_route_count; ++route) {
                 packed_input_scratch_[frame * packed_route_count + route] =
-                    input.value_engine_sim_source_unit(frame, route);
+                    input.value_crankwave_source_unit(frame, route);
                 packed_input_scratch_[frame * packed_route_count +
                                       physical_route_count + route] =
                     input.absolute_exhaust_valve_mass_flow_kg_s(frame, route);
@@ -215,7 +215,7 @@ SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
                     reconstructed_scratch_[frame * packed_route_count + route],
                     flow_activity);
                 output_frame_major[frame * route_count() + route] =
-                    result.conditioned_engine_sim_source_unit;
+                    result.conditioned_crankwave_source_unit;
             }
         }
     } catch (...) {
@@ -271,4 +271,4 @@ std::uint64_t ExhaustSourceStage::air_noise_rng_state(std::size_t route) const {
     return conditioners_[route].air_noise_rng_state();
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

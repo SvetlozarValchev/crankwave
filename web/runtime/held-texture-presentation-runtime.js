@@ -23,7 +23,7 @@ import { loadResponsiveAudioLifecycleRuntime } from "./responsive-audio-lifecycl
 import { loadRendererRuntimeCompatibility } from "./renderer-runtime-compatibility.js";
 
 const RUNTIME_SCHEMA =
-  "engine-sim-offline/responsive-audio-preview";
+  "crankwave/responsive-audio-preview";
 const RUNTIME_KIND = "responsive-audio-preview";
 const CANONICAL_SAMPLE_RATE = 192_000;
 const FFT_SIZE = 65_536;

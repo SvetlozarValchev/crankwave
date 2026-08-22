@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/result.hpp"
+#include "crankwave/contract/result.hpp"
 
 #include "validation_support.hpp"
 
@@ -11,7 +11,7 @@
 #include <type_traits>
 #include <unordered_set>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 namespace {
 
 bool known(FailureKind value) noexcept {
@@ -755,4 +755,4 @@ validate(const RenderResult &result, const RenderScenario &requested_scenario,
     return report;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

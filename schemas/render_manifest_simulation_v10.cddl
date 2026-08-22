@@ -9,7 +9,7 @@
 ; little-endian grammar.
 
 render-manifest-simulation-v10 = {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v10",
+  "wire_schema": "crankwave.render-manifest.simulation.v10",
   "content": render-manifest-content-simulation-v10,
   "execution": execution-facts
 }
@@ -17,7 +17,7 @@ render-manifest-simulation-v10 = {
 ; Canonical identity for a resolved simulator request before presentation/render
 ; composition. This domain is intentionally distinct from the completed manifest.
 simulation-request-identity-v7 = {
-  "wire_schema": "engine-sim-offline.simulation-request-identity.v7",
+  "wire_schema": "crankwave.simulation-request-identity.v7",
   "engine": engine-spec,
   "scenario": render-scenario,
   "random_plan": random-plan,

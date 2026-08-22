@@ -1,5 +1,5 @@
-#include "engine_sim_offline/artifacts/telemetry_encoder.hpp"
-#include "engine_sim_offline/artifacts/wav_encoder.hpp"
+#include "crankwave/artifacts/telemetry_encoder.hpp"
+#include "crankwave/artifacts/wav_encoder.hpp"
 #include "telemetry_encoder_support.hpp"
 
 #include <algorithm>
@@ -21,9 +21,9 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::artifacts;
-using namespace engine_sim_offline::contract;
+using namespace crankwave;
+using namespace crankwave::artifacts;
+using namespace crankwave::contract;
 
 void expect(bool condition, const char *message) {
     if (!condition) {

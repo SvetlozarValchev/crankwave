@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "raspy-muscle-620-cleanroom-interactive-free-rev-10khz-preview",
   "engine": "raspy-muscle-620-cleanroom",
   "fuel": "premium-unleaded-gasoline",

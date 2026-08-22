@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 #include "simulation/chen_flynn_cycle_mean_loss.hpp"
 
 #include <cstddef>
@@ -10,7 +10,7 @@
 #include <string_view>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 inline constexpr std::string_view
     kChenFlynnPerCylinderPistonTravelCycleMeanAggregateLossMethodId =
@@ -106,4 +106,4 @@ calculate_chen_flynn_per_cylinder_piston_travel_cycle_mean_loss(
     const ChenFlynnCycleMeanLossPlan &plan,
     const ChenFlynnPerCylinderPistonTravelCycleMeanLossInput &input) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

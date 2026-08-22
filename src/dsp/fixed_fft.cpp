@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <utility>
 
-namespace engine_sim_offline::dsp {
+namespace crankwave::dsp {
 namespace {
 
 using Limits = FixedFftLimits;
@@ -333,4 +333,4 @@ PartitionedConvolutionKernel::spectra() const noexcept {
     return spectra_;
 }
 
-} // namespace engine_sim_offline::dsp
+} // namespace crankwave::dsp

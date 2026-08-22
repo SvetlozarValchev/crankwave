@@ -5,7 +5,7 @@
 #include <optional>
 #include <type_traits>
 
-namespace engine_sim_offline::contract::test {
+namespace crankwave::contract::test {
 
 void run_primitives_contract_tests() {
     static_assert(!std::is_convertible_v<CylinderId, PortId>);
@@ -200,4 +200,4 @@ void run_primitives_contract_tests() {
            "cyclic resolution provenance was accepted");
 }
 
-} // namespace engine_sim_offline::contract::test
+} // namespace crankwave::contract::test

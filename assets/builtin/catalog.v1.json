@@ -1,55 +1,55 @@
 {
-  "schema": "engine-sim-offline/builtin-asset-catalog.v1",
+  "schema": "crankwave/builtin-asset-catalog.v1",
   "assets": [
     {
       "kind": "accessory-configuration",
       "id": "warm-generic-accessories",
-      "sha256": "55125069f43e48b52a5842649d899d9d250fc94808b8dbe59360e790aa0bebd4"
+      "sha256": "87d514d95c85d847d961908249dff0e18789b90fab522c5ef9d9f5dee334e62e"
     },
     {
       "kind": "accessory-configuration",
       "id": "warm-generic-accessories",
-      "sha256": "58feca2e7b011a72a910be8a76dde71bdf53d3beedce5cdd54dbee583135f224"
+      "sha256": "258a1d713ddaa4101a5d67c21264d3818eaf8cfb8917a73ccfeb2b569defa2f3"
     },
     {
       "kind": "accessory-configuration",
       "id": "warm-generic-accessories",
-      "sha256": "654ea801670c9e850a0406a0fb7afbc2b507fb6fd1cd70a2d8fbbfbab6dc6d00"
+      "sha256": "daf329a3a06c52aca49cc80de87ed13da89e8dcb368f5481e6c2a279c50b0f0b"
     },
     {
       "kind": "accessory-configuration",
       "id": "warm-generic-accessories",
-      "sha256": "915fafba878580a6ba9a316f65b552ac1da031ef7c7054267107d642ea0e6e79"
+      "sha256": "7acc842390f7c916269f4d0a7080f3353dfaafbd687195e4e9d12e03333de8c6"
     },
     {
       "kind": "accessory-configuration",
       "id": "warm-generic-accessories",
-      "sha256": "a1bcdbf0edd62a92ceddecd537f475b17cf2c6503fd65c3d2cf1b5d0d6315ede"
+      "sha256": "476dc695945fff4b4d91957d3aff77b0ecacb89affd759cd8da9b944e7a40e75"
     },
     {
       "kind": "accessory-configuration",
       "id": "warm-generic-accessories",
-      "sha256": "ba86093015b191eea91f93549bd538466c3c62470e3f8a1e82d03156ab75c2d4"
+      "sha256": "1d3196cedf46ee3370088ccc2f72273f3aea00a627e1b276d4c2d08028451470"
     },
     {
       "kind": "accessory-configuration",
       "id": "warm-generic-accessories",
-      "sha256": "ca8dcf90b501d0f621efdd0137412af629b9710eca41cfb9de63667d4a98adcb"
+      "sha256": "22a458bb5a2b768403637d36dc8e60af0519050187ee524c9131d796eba93355"
     },
     {
       "kind": "accessory-configuration",
       "id": "warm-generic-accessories",
-      "sha256": "e90f6127213f989e6d75a99eab5bfc15e02d730be7fec7a219007ddd19033f4e"
+      "sha256": "a8d4435faed10556d33439a660305955f40d199f904639a2e6c482de3594b01a"
     },
     {
       "kind": "accessory-configuration",
       "id": "warm-generic-accessories",
-      "sha256": "f6a52933a69429ee00e48ff47de613c9effb3509215219ab7b1bdae5e8be9c9b"
+      "sha256": "b77df170c2bed0a33b7d5387e5ee4b57a75a4a22df11615948cf2724c859784a"
     },
     {
       "kind": "accessory-configuration",
       "id": "warm-stock-accessories",
-      "sha256": "ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97"
+      "sha256": "6e822e04aea523d5980f53241166a43a971c481d03bb9ba033b6bb097b9debc6"
     },
     {
       "kind": "audio",

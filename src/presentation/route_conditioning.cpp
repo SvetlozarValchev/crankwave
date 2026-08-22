@@ -5,7 +5,7 @@
 #include <cmath>
 #include <stdexcept>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 namespace {
 
 constexpr double kJitterMaximumOffset = 40.0;
@@ -58,9 +58,9 @@ RouteConditioner::RouteConditioner(Pcg32Seed jitter_seed, Pcg32Seed air_noise_se
                         dsp::kConditionedSourceRateHz) {}
 
 ConditioningResult
-RouteConditioner::process(double reconstructed_engine_sim_source_unit,
+RouteConditioner::process(double reconstructed_crankwave_source_unit,
                           double exhaust_flow_activity_01) {
-    if (!std::isfinite(reconstructed_engine_sim_source_unit) ||
+    if (!std::isfinite(reconstructed_crankwave_source_unit) ||
         !std::isfinite(exhaust_flow_activity_01) || exhaust_flow_activity_01 < 0.0 ||
         exhaust_flow_activity_01 > 1.0) {
         throw std::domain_error{
@@ -70,7 +70,7 @@ RouteConditioner::process(double reconstructed_engine_sim_source_unit,
         throw std::domain_error{"conditioning exhaust-flow activity was negative zero"};
     }
 
-    jitter_history_[jitter_write_offset_] = reconstructed_engine_sim_source_unit;
+    jitter_history_[jitter_write_offset_] = reconstructed_crankwave_source_unit;
     ++jitter_write_offset_;
     if (jitter_write_offset_ == kJitterHistoryLength) {
         jitter_write_offset_ = 0;
@@ -122,4 +122,4 @@ std::uint64_t RouteConditioner::air_noise_rng_state() const noexcept {
     return air_noise_rng_.state();
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

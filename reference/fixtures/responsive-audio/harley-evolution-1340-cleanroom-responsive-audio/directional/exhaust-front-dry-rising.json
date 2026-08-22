@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "schema": "crankwave/responsive-audio-directional-route",
   "id": "harley-evolution-1340-cleanroom-directional-rising-exhaust-front-dry-live-preview",
   "engine": "harley-evolution-1340-cleanroom",
   "audio": {
@@ -923,7 +923,7 @@
       "sha256": "a21033e0ebe6813a63c1212d429936f1cc17e4f6de0a2b206406e7cb6fd92647"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "rising-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",

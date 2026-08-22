@@ -4,7 +4,7 @@
 #include <cmath>
 #include <limits>
 
-namespace engine_sim_offline::reference {
+namespace crankwave::reference {
 namespace {
 
 constexpr std::size_t kRecordSampleIndexOffset = 0;
@@ -143,4 +143,4 @@ decode_p18_reference_audit(std::span<const std::byte> bytes) {
     return decoded;
 }
 
-} // namespace engine_sim_offline::reference
+} // namespace crankwave::reference

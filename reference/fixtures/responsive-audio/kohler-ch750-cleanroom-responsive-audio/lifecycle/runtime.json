@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "schema": "crankwave/responsive-audio-lifecycle",
   "id": "kohler-ch750-cleanroom-lifecycle-preview",
   "engine": "kohler-ch750-cleanroom",
   "audio": {
@@ -125,7 +125,7 @@
     "quiet_rms_threshold": 0.0006736128189260164
   },
   "startup_admission": {
-    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "schema": "crankwave/continuous-startup-admission-v1",
     "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
     "admission_lane_coordinate": "authored-throttle-01",
     "blend": "constant-power",
@@ -159,8 +159,8 @@
     "evidence": {
       "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
       "path": "evidence/startup-admission.json",
-      "sha256": "7ad7de27d35590e218756caa99c875d5fca1b5edbf8c85e5a94ba0845621f6a3",
-      "corrected_held_manifest_sha256": "742623722b37f457d4c85342a449c9b5373c94635aff3ebe2c85718c2638f4b8"
+      "sha256": "bce9031dd964561747392181ca969ca36888663daf07fd7be743b0efcf625b4d",
+      "corrected_held_manifest_sha256": "5e85227412a777a038d31b2546e6d919afc8a84ca0cb3ac8d79817a52ab4245e"
     }
   },
   "provenance": {
@@ -169,7 +169,7 @@
       "sha256": "812fcfa3fcb1c3040f695140cfc2a73df0934a3d84a848121eb94a41f374e60e"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
@@ -184,27 +184,27 @@
         "canonical_source_id": "kohler-ch750-cleanroom-lifecycle-starter-candidate",
         "derived_id": "kohler-ch750-cleanroom-lifecycle-starter-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/starter-10khz.json",
-        "sha256": "67c54511c6a8fa6174cf2d63f7abf30c9312056d2c232e9843815fbfb69a9b2e",
+        "sha256": "dc5e9b85aac5ae0db49a48e6d52711587e01c380f29c2ad2669d1aaf29f03108",
         "evidence_path": "evidence/starter.json",
-        "evidence_sha256": "0e8148a5e86d7ebb0a55588472831b4445dac8529e24fbf5b36b1822429a3119"
+        "evidence_sha256": "5dd264b5f45ab50a1a5ece1d0a8ff519f4bea41e546b08c1914a1bfcd052af56"
       },
       {
         "role": "startup",
         "canonical_source_id": "kohler-ch750-cleanroom-lifecycle-startup-candidate",
         "derived_id": "kohler-ch750-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/startup-10khz.json",
-        "sha256": "0c9e4eee7ef25665382d35bd33bc4ec94cf4bb0098f9db4c73c9c5cefe062332",
+        "sha256": "94bc305e25bd474123d2a29bb13105fca89340c75ffbd68a4b8143c11d00e3c3",
         "evidence_path": "evidence/startup.json",
-        "evidence_sha256": "be4d0b75ae617ab29b5f8139d207e09a66ea87f34df8dfba64e84444a531df35"
+        "evidence_sha256": "d6f742a82cd7a7557d6a2ff923a9e5002dcbcc69d9e727ae17cca5e2c91b89d6"
       },
       {
         "role": "shutdown",
         "canonical_source_id": "kohler-ch750-cleanroom-lifecycle-shutdown-candidate",
         "derived_id": "kohler-ch750-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/shutdown-10khz.json",
-        "sha256": "a20596252fda12abf7278125a2f04b4e5b7b9089f15ccfce0bd24a0a9cdba600",
+        "sha256": "b8e587662d25e0cb9b89fafec550aa544157a172057d344c47c5fb723651133c",
         "evidence_path": "evidence/shutdown.json",
-        "evidence_sha256": "29d142bfcf1dd7e6884a1c1dbf191fa2fb6c487bab43c59d78f143c5cb82e6a4"
+        "evidence_sha256": "ec79224d2b79c1a7dcc0905fbc5e472ce5350ccc80f9854c9e6e47b4c2199003"
       }
     ]
   }

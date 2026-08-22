@@ -1,13 +1,13 @@
 #include "cli_app.hpp"
 
-#include "bake_vehicleengine_command.hpp"
+#include "bake_crankwave_command.hpp"
 #include "native_input_files.hpp"
-#include "vehicleengine_cli_support.hpp"
+#include "crankwave_cli_support.hpp"
 
-#include "engine_sim_offline/artifacts/directory_render_sink.hpp"
-#include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
-#include "engine_sim_offline/bake.hpp"
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/artifacts/directory_render_sink.hpp"
+#include "crankwave/artifacts/simulation_manifest_encoder.hpp"
+#include "crankwave/bake.hpp"
+#include "crankwave/compile.hpp"
 
 #include <algorithm>
 #include <array>
@@ -29,15 +29,15 @@
 #include <utility>
 #include <variant>
 
-#ifndef ENGINE_SIM_OFFLINE_VERSION_LABEL
-#error "ENGINE_SIM_OFFLINE_VERSION_LABEL must be supplied by the product build"
+#ifndef CRANKWAVE_VERSION_LABEL
+#error "CRANKWAVE_VERSION_LABEL must be supplied by the product build"
 #endif
 
-namespace engine_sim_offline::cli {
+namespace crankwave::cli {
 namespace {
 
-constexpr std::string_view kProgramName = "engine-sim-offline";
-constexpr std::string_view kMachineResultSchema = "engine-sim-offline.cli-result.v1";
+constexpr std::string_view kProgramName = "crankwave";
+constexpr std::string_view kMachineResultSchema = "crankwave.cli-result.v1";
 
 enum class CommandOptionKind : std::uint8_t {
     string,
@@ -77,38 +77,38 @@ struct InvocationExecutionControl {
 
 void print_help(std::ostream &stream) {
     stream << "Usage:\n"
-              "  engine-sim-offline --help\n"
-              "  engine-sim-offline --version\n"
-              "  engine-sim-offline render --engine <engine.json> "
+              "  crankwave --help\n"
+              "  crankwave --version\n"
+              "  crankwave render --engine <engine.json> "
               "--scenario <scenario.json> \\\n"
               "      --output-directory <new-directory> "
               "[--asset-root <developer-directory>] \\\n"
               "      [--deadline-unix-ms <epoch-ms>] "
               "[--result-format <text|json>]\n"
-              "  engine-sim-offline bake-vehicleengine --engine <engine.json> \\\n"
-              "      --output <new.vehicleengine> "
+              "  crankwave bake-crankwave --engine <engine.json> \\\n"
+              "      --output <new.crankwave> "
               "[--asset-root <developer-directory>] \\\n"
               "      [--deadline-unix-ms <epoch-ms>] "
               "[--result-format <text|json>]\n"
-              "  engine-sim-offline pack-vehicleengine "
+              "  crankwave pack-crankwave "
               "--package-directory <directory> \\\n"
-              "      --output <new.vehicleengine> [--deadline-unix-ms <epoch-ms>] "
+              "      --output <new.crankwave> [--deadline-unix-ms <epoch-ms>] "
               "[--result-format <text|json>]\n"
-              "  engine-sim-offline inspect-vehicleengine --input <file.vehicleengine> "
+              "  crankwave inspect-crankwave --input <file.crankwave> "
               "[--deadline-unix-ms <epoch-ms>] [--result-format <text|json>]\n"
-              "  engine-sim-offline verify-vehicleengine --input <file.vehicleengine> "
+              "  crankwave verify-crankwave --input <file.crankwave> "
               "[--deadline-unix-ms <epoch-ms>] [--result-format <text|json>]\n"
-              "  engine-sim-offline inspect-ir-catalog "
+              "  crankwave inspect-ir-catalog "
               "[--result-format <text|json>]\n"
               "\n"
               "Commands:\n"
               "  render  Compile declarative engine and scenario JSON, render the\n"
               "          admitted simulation, and atomically publish its artifacts.\n"
-              "  bake-vehicleengine  Compile an engine, cook its complete responsive\n"
+              "  bake-crankwave  Compile an engine, cook its complete responsive\n"
               "                  runtime, and atomically publish a verified carrier.\n"
-              "  pack-vehicleengine     Pack a validated responsive package tree.\n"
-              "  inspect-vehicleengine  Inspect structure and the authenticated index.\n"
-              "  verify-vehicleengine   Verify every payload and package binding.\n"
+              "  pack-crankwave     Pack a validated responsive package tree.\n"
+              "  inspect-crankwave  Inspect structure and the authenticated index.\n"
+              "  verify-crankwave   Verify every payload and package binding.\n"
               "  inspect-ir-catalog  Return the release-bound IR authoring palette.\n"
               "\n"
               "Render uses the bundled content-addressed asset catalog by default.\n"
@@ -283,7 +283,7 @@ void write_machine_prefix(CliOutput &output, const bool ok, const std::string_vi
     stream << "{\"schema\":";
     write_json_string(stream, kMachineResultSchema);
     stream << ",\"release_identity\":";
-    write_json_string(stream, ENGINE_SIM_OFFLINE_VERSION_LABEL);
+    write_json_string(stream, CRANKWAVE_VERSION_LABEL);
     stream << ",\"command\":";
     write_json_string(stream, output.command);
     stream << ",\"ok\":" << (ok ? "true" : "false") << ",\"code\":";
@@ -318,47 +318,47 @@ void write_machine_prefix(CliOutput &output, const bool ok, const std::string_vi
                                          const InvocationExecutionControl &control,
                                          std::string_view message);
 
-[[nodiscard]] int vehicleengine_cli_exit_code(const VehicleEngineCliErrorKind kind) noexcept {
+[[nodiscard]] int crankwave_cli_exit_code(const CrankwaveCliErrorKind kind) noexcept {
     switch (kind) {
-    case VehicleEngineCliErrorKind::data_error:
+    case CrankwaveCliErrorKind::data_error:
         return kExitDataError;
-    case VehicleEngineCliErrorKind::no_input:
+    case CrankwaveCliErrorKind::no_input:
         return kExitNoInput;
-    case VehicleEngineCliErrorKind::cant_create:
+    case CrankwaveCliErrorKind::cant_create:
         return kExitCantCreate;
-    case VehicleEngineCliErrorKind::unavailable:
+    case CrankwaveCliErrorKind::unavailable:
         return kExitUnavailable;
-    case VehicleEngineCliErrorKind::cancelled:
+    case CrankwaveCliErrorKind::cancelled:
         return kExitTemporaryFailure;
     }
     return kExitSoftware;
 }
 
 [[nodiscard]] std::string_view
-vehicleengine_cli_error_code(const VehicleEngineCliErrorKind kind) noexcept {
+crankwave_cli_error_code(const CrankwaveCliErrorKind kind) noexcept {
     switch (kind) {
-    case VehicleEngineCliErrorKind::data_error:
-        return "vehicleengine-data-error";
-    case VehicleEngineCliErrorKind::no_input:
-        return "vehicleengine-input-unavailable";
-    case VehicleEngineCliErrorKind::cant_create:
-        return "vehicleengine-output-unavailable";
-    case VehicleEngineCliErrorKind::unavailable:
-        return "vehicleengine-operation-unavailable";
-    case VehicleEngineCliErrorKind::cancelled:
-        return "vehicleengine-cancelled";
+    case CrankwaveCliErrorKind::data_error:
+        return "crankwave-data-error";
+    case CrankwaveCliErrorKind::no_input:
+        return "crankwave-input-unavailable";
+    case CrankwaveCliErrorKind::cant_create:
+        return "crankwave-output-unavailable";
+    case CrankwaveCliErrorKind::unavailable:
+        return "crankwave-operation-unavailable";
+    case CrankwaveCliErrorKind::cancelled:
+        return "crankwave-cancelled";
     }
     return "software-error";
 }
 
-[[nodiscard]] int report_vehicleengine_error(CliOutput &output,
-                                         const VehicleEngineCliError &error,
+[[nodiscard]] int report_crankwave_error(CliOutput &output,
+                                         const CrankwaveCliError &error,
                                          const InvocationExecutionControl &control) {
-    if (error.kind == VehicleEngineCliErrorKind::cancelled) {
+    if (error.kind == CrankwaveCliErrorKind::cancelled) {
         return report_controlled_stop(output, control, error.message);
     }
-    return report_error(output, vehicleengine_cli_exit_code(error.kind),
-                        vehicleengine_cli_error_code(error.kind), error.message);
+    return report_error(output, crankwave_cli_exit_code(error.kind),
+                        crankwave_cli_error_code(error.kind), error.message);
 }
 
 [[nodiscard]] std::string_view
@@ -790,21 +790,21 @@ observed_stop_reason(const InvocationExecutionControl &control) noexcept {
     return kExitSuccess;
 }
 
-[[nodiscard]] int bake_vehicleengine_exit_code(const BakeVehicleEngineErrorKind kind) noexcept {
+[[nodiscard]] int bake_crankwave_exit_code(const BakeCrankwaveErrorKind kind) noexcept {
     switch (kind) {
-    case BakeVehicleEngineErrorKind::data_error:
+    case BakeCrankwaveErrorKind::data_error:
         return kExitDataError;
-    case BakeVehicleEngineErrorKind::no_input:
+    case BakeCrankwaveErrorKind::no_input:
         return kExitNoInput;
-    case BakeVehicleEngineErrorKind::unavailable:
+    case BakeCrankwaveErrorKind::unavailable:
         return kExitUnavailable;
-    case BakeVehicleEngineErrorKind::software:
+    case BakeCrankwaveErrorKind::software:
         return kExitSoftware;
-    case BakeVehicleEngineErrorKind::cant_create:
+    case BakeCrankwaveErrorKind::cant_create:
         return kExitCantCreate;
-    case BakeVehicleEngineErrorKind::temporary_failure:
+    case BakeCrankwaveErrorKind::temporary_failure:
         return kExitTemporaryFailure;
-    case BakeVehicleEngineErrorKind::cancelled:
+    case BakeCrankwaveErrorKind::cancelled:
         return kExitTemporaryFailure;
     }
     return kExitSoftware;
@@ -833,15 +833,15 @@ contract_issue_code_name(const contract::ContractIssueCode code) noexcept {
 }
 
 [[nodiscard]] int
-report_bake_vehicleengine_error(CliOutput &output, const BakeVehicleEngineError &failure,
+report_bake_crankwave_error(CliOutput &output, const BakeCrankwaveError &failure,
                             const InvocationExecutionControl &control) {
-    if (failure.kind == BakeVehicleEngineErrorKind::cancelled) {
+    if (failure.kind == BakeCrankwaveErrorKind::cancelled) {
         return report_controlled_stop(output, control, failure.message);
     }
     if (failure.diagnostics.has_value()) {
         return report_diagnostics(output, failure.stage, *failure.diagnostics);
     }
-    const auto exit_code = bake_vehicleengine_exit_code(failure.kind);
+    const auto exit_code = bake_crankwave_exit_code(failure.kind);
     if (output.format != CliResultFormat::json) {
         return report_error(output, exit_code, failure.code,
                             failure.stage.empty()
@@ -881,21 +881,21 @@ report_bake_vehicleengine_error(CliOutput &output, const BakeVehicleEngineError 
     return exit_code;
 }
 
-[[nodiscard]] int execute_bake_vehicleengine(const BakeVehicleEngineCommand &command,
+[[nodiscard]] int execute_bake_crankwave(const BakeCrankwaveCommand &command,
                                          CliOutput &output,
                                          const InvocationExecutionControl &control) {
-    BakeVehicleEngineRequest request;
+    BakeCrankwaveRequest request;
     request.engine_path = command.engine_path;
     request.output_file = command.output_file;
     if (!command.asset_root.empty()) {
         request.asset_root = command.asset_root;
     }
     request.release_identity = std::string{version_label()};
-    auto result = bake_vehicleengine_native(request, control.render.stop_token);
-    if (const auto *failure = std::get_if<BakeVehicleEngineError>(&result)) {
-        return report_bake_vehicleengine_error(output, *failure, control);
+    auto result = bake_crankwave_native(request, control.render.stop_token);
+    if (const auto *failure = std::get_if<BakeCrankwaveError>(&result)) {
+        return report_bake_crankwave_error(output, *failure, control);
     }
-    const auto &baked = std::get<BakedVehicleEngineFile>(result);
+    const auto &baked = std::get<BakedCrankwaveFile>(result);
     if (output.format == CliResultFormat::json) {
         write_machine_prefix(output, true, "success", kExitSuccess);
         auto &stream = output.standard_out;
@@ -934,16 +934,16 @@ report_bake_vehicleengine_error(CliOutput &output, const BakeVehicleEngineError 
     return kExitSuccess;
 }
 
-[[nodiscard]] int execute_pack_vehicleengine(const PackVehicleEngineCommand &command,
+[[nodiscard]] int execute_pack_crankwave(const PackCrankwaveCommand &command,
                                          CliOutput &output,
                                          const InvocationExecutionControl &control) {
-    auto result = pack_vehicleengine_package_directory(
+    auto result = pack_crankwave_package_directory(
         std::filesystem::path{command.package_directory},
         std::filesystem::path{command.output_file}, control.render.stop_token);
-    if (const auto *error = std::get_if<VehicleEngineCliError>(&result)) {
-        return report_vehicleengine_error(output, *error, control);
+    if (const auto *error = std::get_if<CrankwaveCliError>(&result)) {
+        return report_crankwave_error(output, *error, control);
     }
-    const auto &packed = std::get<PackedVehicleEngineFile>(result);
+    const auto &packed = std::get<PackedCrankwaveFile>(result);
     if (output.format == CliResultFormat::json) {
         write_machine_prefix(output, true, "success", kExitSuccess);
         output.standard_out << ",\"result\":{\"output_file\":";
@@ -964,19 +964,19 @@ report_bake_vehicleengine_error(CliOutput &output, const BakeVehicleEngineError 
     return kExitSuccess;
 }
 
-[[nodiscard]] int execute_load_vehicleengine(const std::string &input_file,
+[[nodiscard]] int execute_load_crankwave(const std::string &input_file,
                                          const bool verify_payloads, CliOutput &output,
                                          const InvocationExecutionControl &control) {
-    auto result = inspect_vehicleengine_file(std::filesystem::path{input_file},
+    auto result = inspect_crankwave_file(std::filesystem::path{input_file},
                                          verify_payloads, control.render.stop_token);
-    if (const auto *error = std::get_if<VehicleEngineCliError>(&result)) {
-        return report_vehicleengine_error(output, *error, control);
+    if (const auto *error = std::get_if<CrankwaveCliError>(&result)) {
+        return report_crankwave_error(output, *error, control);
     }
-    const auto &loaded = std::get<LoadedVehicleEngineFile>(result);
+    const auto &loaded = std::get<LoadedCrankwaveFile>(result);
     if (output.format == CliResultFormat::json) {
         write_machine_prefix(output, true, "success", kExitSuccess);
         auto &stream = output.standard_out;
-        stream << ",\"result\":{\"vehicleengine_version\":" << loaded.index.version
+        stream << ",\"result\":{\"crankwave_version\":" << loaded.index.version
                << ",\"verified\":" << (loaded.fully_verified ? "true" : "false")
                << ",\"container_bytes\":\"" << loaded.index.container_byte_count
                << "\",\"index_bytes\":\"" << loaded.index.index_byte_count
@@ -1003,7 +1003,7 @@ report_bake_vehicleengine_error(CliOutput &output, const BakeVehicleEngineError 
         }
         stream << "],\"package\":";
         if (const auto *package =
-                std::get_if<artifacts::VehicleEnginePackageDescriptor>(&loaded.package)) {
+                std::get_if<artifacts::CrankwavePackageDescriptor>(&loaded.package)) {
             stream << "{\"engine_id\":";
             write_json_string(stream, package->engine_id);
             stream << ",\"runtime_kind\":";
@@ -1020,7 +1020,7 @@ report_bake_vehicleengine_error(CliOutput &output, const BakeVehicleEngineError 
         stream << "}}\n";
     } else {
         output.standard_out
-            << "vehicleengine_version=" << loaded.index.version << '\n'
+            << "crankwave_version=" << loaded.index.version << '\n'
             << "verified=" << (loaded.fully_verified ? "true" : "false") << '\n'
             << "container_bytes=" << loaded.index.container_byte_count << '\n'
             << "index_bytes=" << loaded.index.index_byte_count << '\n'
@@ -1036,7 +1036,7 @@ report_bake_vehicleengine_error(CliOutput &output, const BakeVehicleEngineError 
                                 << sha256_lower_hex(entry.payload_sha256) << '\n';
         }
         if (const auto *package =
-                std::get_if<artifacts::VehicleEnginePackageDescriptor>(&loaded.package)) {
+                std::get_if<artifacts::CrankwavePackageDescriptor>(&loaded.package)) {
             output.standard_out
                 << "engine_id=" << package->engine_id << '\n'
                 << "runtime_kind=" << package->runtime.kind << '\n'
@@ -1050,7 +1050,7 @@ report_bake_vehicleengine_error(CliOutput &output, const BakeVehicleEngineError 
 
 [[nodiscard]] int execute_inspect_ir_catalog(CliOutput &output) {
     auto loaded =
-        load_ir_authoring_catalog_with_builtin_assets(ENGINE_SIM_OFFLINE_VERSION_LABEL);
+        load_ir_authoring_catalog_with_builtin_assets(CRANKWAVE_VERSION_LABEL);
     if (const auto *error = std::get_if<NativeInputError>(&loaded)) {
         return report_native_input_error(output, "IR authoring catalog", *error);
     }
@@ -1234,7 +1234,7 @@ template <class Operation>
 } // namespace
 
 std::string_view version_label() noexcept {
-    return ENGINE_SIM_OFFLINE_VERSION_LABEL;
+    return CRANKWAVE_VERSION_LABEL;
 }
 
 CliParseResult parse_cli_arguments(const std::span<const std::string_view> arguments) {
@@ -1272,64 +1272,64 @@ CliParseResult parse_cli_arguments(const std::span<const std::string_view> argum
                                              CommandOptionKind::result_format},
             });
     }
-    if (arguments.front() == "pack-vehicleengine") {
+    if (arguments.front() == "pack-crankwave") {
         return parse_command_options(
-            arguments, PackVehicleEngineCommand{},
+            arguments, PackCrankwaveCommand{},
             std::array{
-                CommandOption<PackVehicleEngineCommand>{
-                    "--package-directory", &PackVehicleEngineCommand::package_directory},
-                CommandOption<PackVehicleEngineCommand>{"--output",
-                                                    &PackVehicleEngineCommand::output_file},
-                CommandOption<PackVehicleEngineCommand>{
+                CommandOption<PackCrankwaveCommand>{
+                    "--package-directory", &PackCrankwaveCommand::package_directory},
+                CommandOption<PackCrankwaveCommand>{"--output",
+                                                    &PackCrankwaveCommand::output_file},
+                CommandOption<PackCrankwaveCommand>{
                     "--deadline-unix-ms", nullptr, false, false,
                     CommandOptionKind::deadline_unix_ms},
-                CommandOption<PackVehicleEngineCommand>{"--result-format", nullptr, false,
+                CommandOption<PackCrankwaveCommand>{"--result-format", nullptr, false,
                                                     false,
                                                     CommandOptionKind::result_format},
             });
     }
-    if (arguments.front() == "bake-vehicleengine") {
+    if (arguments.front() == "bake-crankwave") {
         return parse_command_options(
-            arguments, BakeVehicleEngineCommand{},
+            arguments, BakeCrankwaveCommand{},
             std::array{
-                CommandOption<BakeVehicleEngineCommand>{"--engine",
-                                                    &BakeVehicleEngineCommand::engine_path},
-                CommandOption<BakeVehicleEngineCommand>{"--output",
-                                                    &BakeVehicleEngineCommand::output_file},
-                CommandOption<BakeVehicleEngineCommand>{
-                    "--asset-root", &BakeVehicleEngineCommand::asset_root, false},
-                CommandOption<BakeVehicleEngineCommand>{
+                CommandOption<BakeCrankwaveCommand>{"--engine",
+                                                    &BakeCrankwaveCommand::engine_path},
+                CommandOption<BakeCrankwaveCommand>{"--output",
+                                                    &BakeCrankwaveCommand::output_file},
+                CommandOption<BakeCrankwaveCommand>{
+                    "--asset-root", &BakeCrankwaveCommand::asset_root, false},
+                CommandOption<BakeCrankwaveCommand>{
                     "--deadline-unix-ms", nullptr, false, false,
                     CommandOptionKind::deadline_unix_ms},
-                CommandOption<BakeVehicleEngineCommand>{"--result-format", nullptr, false,
+                CommandOption<BakeCrankwaveCommand>{"--result-format", nullptr, false,
                                                     false,
                                                     CommandOptionKind::result_format},
             });
     }
-    if (arguments.front() == "inspect-vehicleengine") {
+    if (arguments.front() == "inspect-crankwave") {
         return parse_command_options(
-            arguments, InspectVehicleEngineCommand{},
+            arguments, InspectCrankwaveCommand{},
             std::array{
-                CommandOption<InspectVehicleEngineCommand>{
-                    "--input", &InspectVehicleEngineCommand::input_file},
-                CommandOption<InspectVehicleEngineCommand>{
+                CommandOption<InspectCrankwaveCommand>{
+                    "--input", &InspectCrankwaveCommand::input_file},
+                CommandOption<InspectCrankwaveCommand>{
                     "--deadline-unix-ms", nullptr, false, false,
                     CommandOptionKind::deadline_unix_ms},
-                CommandOption<InspectVehicleEngineCommand>{
+                CommandOption<InspectCrankwaveCommand>{
                     "--result-format", nullptr, false, false,
                     CommandOptionKind::result_format},
             });
     }
-    if (arguments.front() == "verify-vehicleengine") {
+    if (arguments.front() == "verify-crankwave") {
         return parse_command_options(
-            arguments, VerifyVehicleEngineCommand{},
+            arguments, VerifyCrankwaveCommand{},
             std::array{
-                CommandOption<VerifyVehicleEngineCommand>{
-                    "--input", &VerifyVehicleEngineCommand::input_file},
-                CommandOption<VerifyVehicleEngineCommand>{
+                CommandOption<VerifyCrankwaveCommand>{
+                    "--input", &VerifyCrankwaveCommand::input_file},
+                CommandOption<VerifyCrankwaveCommand>{
                     "--deadline-unix-ms", nullptr, false, false,
                     CommandOptionKind::deadline_unix_ms},
-                CommandOption<VerifyVehicleEngineCommand>{"--result-format", nullptr, false,
+                CommandOption<VerifyCrankwaveCommand>{"--result-format", nullptr, false,
                                                       false,
                                                       CommandOptionKind::result_format},
             });
@@ -1370,36 +1370,36 @@ int run_cli(const std::span<const std::string_view> arguments,
                                                                   control);
                                         });
         }
-        if (const auto *bake_vehicleengine = std::get_if<BakeVehicleEngineCommand>(&command)) {
-            output.format = bake_vehicleengine->result_format;
-            return execute_with_control(*bake_vehicleengine, termination_token,
+        if (const auto *bake_crankwave = std::get_if<BakeCrankwaveCommand>(&command)) {
+            output.format = bake_crankwave->result_format;
+            return execute_with_control(*bake_crankwave, termination_token,
                                         [&](const InvocationExecutionControl &control) {
-                                            return execute_bake_vehicleengine(
-                                                *bake_vehicleengine, output, control);
+                                            return execute_bake_crankwave(
+                                                *bake_crankwave, output, control);
                                         });
         }
-        if (const auto *pack = std::get_if<PackVehicleEngineCommand>(&command)) {
+        if (const auto *pack = std::get_if<PackCrankwaveCommand>(&command)) {
             output.format = pack->result_format;
             return execute_with_control(*pack, termination_token,
                                         [&](const InvocationExecutionControl &control) {
-                                            return execute_pack_vehicleengine(*pack, output,
+                                            return execute_pack_crankwave(*pack, output,
                                                                           control);
                                         });
         }
-        if (const auto *inspect = std::get_if<InspectVehicleEngineCommand>(&command)) {
+        if (const auto *inspect = std::get_if<InspectCrankwaveCommand>(&command)) {
             output.format = inspect->result_format;
             return execute_with_control(*inspect, termination_token,
                                         [&](const InvocationExecutionControl &control) {
-                                            return execute_load_vehicleengine(
+                                            return execute_load_crankwave(
                                                 inspect->input_file, false, output,
                                                 control);
                                         });
         }
-        if (const auto *verify = std::get_if<VerifyVehicleEngineCommand>(&command)) {
+        if (const auto *verify = std::get_if<VerifyCrankwaveCommand>(&command)) {
             output.format = verify->result_format;
             return execute_with_control(*verify, termination_token,
                                         [&](const InvocationExecutionControl &control) {
-                                            return execute_load_vehicleengine(
+                                            return execute_load_crankwave(
                                                 verify->input_file, true, output,
                                                 control);
                                         });
@@ -1420,4 +1420,4 @@ int run_cli(const std::span<const std::string_view> arguments,
     }
 }
 
-} // namespace engine_sim_offline::cli
+} // namespace crankwave::cli

@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/lifecycle-capture-evidence",
+  "schema": "crankwave/lifecycle-capture-evidence",
   "role": "startup",
   "physics_rate_hz": 10000,
   "delivery_rate_hz": 192000,

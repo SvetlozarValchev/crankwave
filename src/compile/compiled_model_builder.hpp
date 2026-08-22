@@ -2,9 +2,9 @@
 
 #include "compile/engine_resolver.hpp"
 #include "compile/scenario_resolver.hpp"
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/compile.hpp"
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 
 class CompiledEngineBuilder final {
   public:
@@ -23,4 +23,4 @@ class CompiledScenarioBuilder final {
           ResolvedScenarioContracts resolved) noexcept;
 };
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

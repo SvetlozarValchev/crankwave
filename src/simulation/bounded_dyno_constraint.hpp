@@ -1,13 +1,13 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 #include "simulation/positive_speed_rigid_crank_zoh.hpp"
 
 #include <cstdint>
 #include <string_view>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 inline constexpr std::string_view kBoundedHeldDynoConstraintMethodId =
     "bounded-held-dyno-speed-constraint";
@@ -117,4 +117,4 @@ using BoundedDynoConstraintCalculation =
 advance_bounded_dyno_constraint(const BoundedDynoConstraintInput &input) noexcept;
 
 } // namespace detail
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

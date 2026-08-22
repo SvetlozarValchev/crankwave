@@ -11,7 +11,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 namespace {
 
 void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
@@ -298,4 +298,4 @@ std::optional<ResolvedRigDescriptor> assemble_rig(const ModelContext &context,
     return rig;
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

@@ -9,7 +9,7 @@
 #include <span>
 #include <vector>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 inline constexpr contract::RationalRateHz kPreviewExcitationRateHz{10000, 1};
 inline constexpr contract::RationalRateHz kExcitationRateHz{20000, 1};
@@ -91,4 +91,4 @@ class ExhaustSourceStage {
     bool terminal_failed_ = false;
 };
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

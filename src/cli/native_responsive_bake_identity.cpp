@@ -1,15 +1,15 @@
 #include "native_responsive_bake_identity.hpp"
 
-#include "engine_sim_offline/artifacts/vehicleengine_container.hpp"
-#include "engine_sim_offline/artifacts/vehicleengine_package.hpp"
-#include "engine_sim_offline/responsive/directional_cook.hpp"
-#include "engine_sim_offline/responsive/held_texture.hpp"
-#include "engine_sim_offline/responsive/lifecycle.hpp"
-#include "engine_sim_offline/responsive/native_package.hpp"
-#include "engine_sim_offline/responsive/package_children.hpp"
-#include "engine_sim_offline/responsive/presentation_transfer.hpp"
-#include "engine_sim_offline/responsive/profile.hpp"
-#include "engine_sim_offline/responsive/scenario_template.hpp"
+#include "crankwave/artifacts/crankwave_container.hpp"
+#include "crankwave/artifacts/crankwave_package.hpp"
+#include "crankwave/responsive/directional_cook.hpp"
+#include "crankwave/responsive/held_texture.hpp"
+#include "crankwave/responsive/lifecycle.hpp"
+#include "crankwave/responsive/native_package.hpp"
+#include "crankwave/responsive/package_children.hpp"
+#include "crankwave/responsive/presentation_transfer.hpp"
+#include "crankwave/responsive/profile.hpp"
+#include "crankwave/responsive/scenario_template.hpp"
 
 #include <array>
 #include <cstdint>
@@ -18,7 +18,7 @@
 #include <string_view>
 #include <utility>
 
-namespace engine_sim_offline::cli {
+namespace crankwave::cli {
 namespace {
 
 using Record = std::pair<std::string_view, std::string_view>;
@@ -85,12 +85,12 @@ NativeResponsiveBakeAuthorityV1 native_responsive_bake_authority_v1() {
         Record{"presentation-spectrum-encoding", kResponsiveTransferSpectrumEncoding},
     };
     auto method_preimage = encode_records(
-        "engine-sim-offline.native-responsive-method-authority.v1", method_records);
+        "crankwave.native-responsive-method-authority.v1", method_records);
 
     const auto container_version =
-        std::to_string(artifacts::kVehicleEngineContainerVersionV1);
+        std::to_string(artifacts::kCrankwaveContainerVersionV1);
     const auto package_schema_version =
-        std::to_string(artifacts::kVehicleEnginePackageSchemaVersion);
+        std::to_string(artifacts::kCrankwavePackageSchemaVersion);
     const std::array recipe_records{
         Record{"automatic-profile", kAutomaticResponsiveProfileId},
         Record{"responsive-profile-schema", kResponsiveBakeProfileSchema},
@@ -123,7 +123,7 @@ NativeResponsiveBakeAuthorityV1 native_responsive_bake_authority_v1() {
                "compiled-session-resolved-dry-routes-and-audition-kind-v1"},
         Record{"capture-scheduler", kNativeResponsiveCaptureSchedulerV1},
         Record{"shared-starter-authority",
-               "installed-release-exact-two-member-licensed-bundle-v1"},
+               "installed-release-exact-two-member-cc0-bundle-v1"},
         Record{"lifecycle-schema", kResponsiveLifecycleSchema},
         Record{"lifecycle-capture-evidence-schema", kLifecycleCaptureEvidenceSchema},
         Record{"startup-admission-evidence-schema",
@@ -139,17 +139,17 @@ NativeResponsiveBakeAuthorityV1 native_responsive_bake_authority_v1() {
                kResponsiveSharedRecordedStarterPackagePathV1},
         Record{"root-runtime-path", kResponsiveRuntimePathV1},
         Record{"bake-report-path", kNativeResponsiveBakeReportPathV2},
-        Record{"vehicleengine-package-descriptor-path",
-               artifacts::kVehicleEnginePackageDescriptorPath},
-        Record{"vehicleengine-package-schema", artifacts::kVehicleEnginePackageSchema},
-        Record{"vehicleengine-package-schema-version", package_schema_version},
-        Record{"vehicleengine-runtime-kind",
-               artifacts::kVehicleEngineResponsiveAudioRuntimeKind},
-        Record{"vehicleengine-container-version", container_version},
+        Record{"crankwave-package-descriptor-path",
+               artifacts::kCrankwavePackageDescriptorPath},
+        Record{"crankwave-package-schema", artifacts::kCrankwavePackageSchema},
+        Record{"crankwave-package-schema-version", package_schema_version},
+        Record{"crankwave-runtime-kind",
+               artifacts::kCrankwaveResponsiveAudioRuntimeKind},
+        Record{"crankwave-container-version", container_version},
         Record{"publication", "verify-complete-carrier-then-atomic-noreplace-v1"},
     };
     auto recipe_preimage = encode_records(
-        "engine-sim-offline.native-responsive-bake-recipe.v1", recipe_records);
+        "crankwave.native-responsive-bake-recipe.v1", recipe_records);
 
     NativeResponsiveBakeAuthorityV1 result;
     result.method_authority_sha256 = contract::sha256(method_preimage);
@@ -159,4 +159,4 @@ NativeResponsiveBakeAuthorityV1 native_responsive_bake_authority_v1() {
     return result;
 }
 
-} // namespace engine_sim_offline::cli
+} // namespace crankwave::cli

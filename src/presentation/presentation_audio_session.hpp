@@ -1,7 +1,7 @@
 #pragma once
 
 #include "dsp/fixed_fft.hpp"
-#include "engine_sim_offline/contract/engine.hpp"
+#include "crankwave/contract/engine.hpp"
 #include "presentation/exhaust_excitation_block.hpp"
 #include "presentation/exhaust_source_stage.hpp"
 
@@ -12,7 +12,7 @@
 #include <span>
 #include <vector>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 inline constexpr contract::RationalRateHz kPresentationAudioRateHz{192000, 1};
 inline constexpr std::size_t kPresentationAudioStemsPerRoute = 3;
@@ -143,4 +143,4 @@ class PresentationAudioSession final {
     std::unique_ptr<Implementation> implementation_;
 };
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

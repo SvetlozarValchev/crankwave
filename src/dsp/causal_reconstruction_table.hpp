@@ -4,7 +4,7 @@
 #include <span>
 #include <vector>
 
-namespace engine_sim_offline::dsp {
+namespace crankwave::dsp {
 
 // Immutable-after-construction coefficient table for the causal
 // reconstruction method. Row 4096 is the explicitly shifted phase-wrap row.
@@ -31,4 +31,4 @@ class CausalReconstructionTable {
     std::vector<double> coefficients_;
 };
 
-} // namespace engine_sim_offline::dsp
+} // namespace crankwave::dsp

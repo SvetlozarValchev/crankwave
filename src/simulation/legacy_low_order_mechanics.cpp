@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 bool finite_step_scalars(const LegacyMechanismStep &step) noexcept {
@@ -531,4 +531,4 @@ bool LegacyLowOrderMechanicsSession::completed() const noexcept {
            (!kinematic_cursor_.has_value() || kinematic_cursor_->completed());
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

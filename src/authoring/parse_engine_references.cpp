@@ -15,7 +15,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::authoring::detail {
+namespace crankwave::authoring::detail {
 namespace {
 
 using IdSet = std::unordered_set<std::string_view>;
@@ -656,4 +656,4 @@ void validate_engine_document(DocumentReader &reader,
     }
 }
 
-} // namespace engine_sim_offline::authoring::detail
+} // namespace crankwave::authoring::detail

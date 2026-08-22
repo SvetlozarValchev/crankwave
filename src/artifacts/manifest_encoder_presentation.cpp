@@ -1,6 +1,6 @@
 #include "manifest_encoder_impl.hpp"
 
-namespace engine_sim_offline::artifacts::detail {
+namespace crankwave::artifacts::detail {
 namespace {
 
 bool write_audio_sample_encoding(CanonicalJsonWriter &writer,
@@ -227,4 +227,4 @@ bool write_presentation_calibration(
            writer.end_object();
 }
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace crankwave::artifacts::detail

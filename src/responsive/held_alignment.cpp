@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/held_texture.hpp"
+#include "crankwave/responsive/held_texture.hpp"
 
 #include "identity_bytes.hpp"
 
@@ -17,7 +17,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 constexpr double kRpmAdjacentMaximumShiftSamples =
@@ -896,4 +896,4 @@ cook_held_texture_grid(const ResponsiveBakeProfile &profile,
     return result;
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

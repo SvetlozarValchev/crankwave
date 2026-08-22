@@ -8,7 +8,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::dsp {
+namespace crankwave::dsp {
 
 // Fixed transform shape for the configured-IR route. This is not
 // a general FFT API: its fixed topology and traversal order are part of the
@@ -175,4 +175,4 @@ class RuntimeConvolutionKernel {
     Storage storage_ = std::shared_ptr<const FixedConvolutionKernel>{};
 };
 
-} // namespace engine_sim_offline::dsp
+} // namespace crankwave::dsp

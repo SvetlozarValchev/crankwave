@@ -6,20 +6,20 @@
 #include <span>
 #include <string>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 constexpr double kPascalPerBar = 100000.0;
 constexpr double kFourStrokeCycleRadians = 4.0 * std::numbers::pi_v<double>;
 
 constexpr std::string_view kMethodDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=chen-flynn-per-cylinder-piston-travel-cycle-mean-aggregate-loss-v1
 version=1
 operation=stable-per-cylinder-piston-travel-chen-flynn-work-reduction
 correlation_coefficients=constant-fmep-bar,peak-pressure-coefficient,mean-piston-speed-coefficient-bar-s-per-m,mean-piston-speed-squared-coefficient-bar-s2-per-m2
 correlation_coefficient_domain=finite-canonical-nonnegative-binary64;negative-zero-is-rejected;at-least-one-coefficient-is-positive
-heterogeneous_application_authority=engine-sim-offline-greenfield-per-cylinder-work-application
+heterogeneous_application_authority=crankwave-greenfield-per-cylinder-work-application
 heterogeneous_application_nonclaim=not-pristine-engine-sim-behavior-and-not-a-chen-flynn-literature-multicylinder-reduction
 input_engine_speed_rpm=finite-positive-binary64
 cylinder_input=nonempty-array-in-strictly-increasing-nonzero-stable-cylinder-id-order
@@ -378,4 +378,4 @@ calculate_chen_flynn_per_cylinder_piston_travel_cycle_mean_loss(
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

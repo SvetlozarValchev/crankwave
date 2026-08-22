@@ -24,7 +24,7 @@ export const PcmRingHeader = Object.freeze({
 });
 
 export const PCM_RING_HEADER_SCHEMA = Object.freeze({
-  id: "engine-sim-offline/pcm-ring-spsc-v1",
+  id: "crankwave/pcm-ring-spsc-v1",
   headerBytes: PCM_RING_HEADER_BYTES,
   sampleEncoding: "float32-interleaved-native-endian",
   counters: Object.freeze({

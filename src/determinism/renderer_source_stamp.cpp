@@ -1,6 +1,6 @@
 #include "determinism/renderer_source_stamp.hpp"
 
-#include <engine_sim_offline_generated/renderer_source_stamp_generated.hpp>
+#include <crankwave_generated/renderer_source_stamp_generated.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -9,7 +9,7 @@
 #include <string_view>
 #include <utility>
 
-namespace engine_sim_offline::determinism {
+namespace crankwave::determinism {
 namespace {
 
 [[nodiscard]] std::optional<RendererSourceState>
@@ -159,4 +159,4 @@ RendererSourceStampResult renderer_source_stamp() {
     });
 }
 
-} // namespace engine_sim_offline::determinism
+} // namespace crankwave::determinism

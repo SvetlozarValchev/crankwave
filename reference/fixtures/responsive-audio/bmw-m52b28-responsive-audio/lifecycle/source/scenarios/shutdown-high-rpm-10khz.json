@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "bmw-m52b28-lifecycle-shutdown-high-rpm-candidate-10khz-lifecycle-preview",
   "engine": "bmw-m52b28",
   "fuel": "gasoline",

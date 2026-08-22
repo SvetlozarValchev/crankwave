@@ -1,13 +1,13 @@
 import {
-  ESO_CANONICAL_SAMPLE_RATE,
+  CRANKWAVE_CANONICAL_SAMPLE_RATE,
   ProcessKind,
   SessionExecutionKind,
 } from "./c-api-abi.js";
-import { EngineSimRuntimeError } from "./c-api-errors.js";
+import { CrankwaveRuntimeError } from "./c-api-errors.js";
 import { concatenateFloat32, encodeFloat32Wav } from "./wav.js";
 
 export const MAXIMUM_CANONICAL_EXPORT_FRAMES =
-  ESO_CANONICAL_SAMPLE_RATE * 180;
+  CRANKWAVE_CANONICAL_SAMPLE_RATE * 180;
 
 function nextTask() {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -54,7 +54,7 @@ export async function runCanonicalExport({
   try {
     const bus = session.buses[busIndex];
     if (!bus) {
-      throw new EngineSimRuntimeError(
+      throw new CrankwaveRuntimeError(
         `audio bus index ${busIndex} is outside the compiled session`,
         {
           operation: "export-wav",
@@ -69,7 +69,7 @@ export async function runCanonicalExport({
         SessionExecutionKind.finiteScenario ||
       descriptor.totalBlockCountBigInt === null
     ) {
-      throw new EngineSimRuntimeError(
+      throw new CrankwaveRuntimeError(
         "canonical WAV export requires a finite authored-scenario session",
         {
           operation: "export-wav",
@@ -83,7 +83,7 @@ export async function runCanonicalExport({
         descriptor.preparationBlockCountBigInt) *
       BigInt(descriptor.deliveryFramesPerBlock);
     if (predictedFrames > BigInt(MAXIMUM_CANONICAL_EXPORT_FRAMES)) {
-      throw new EngineSimRuntimeError(
+      throw new CrankwaveRuntimeError(
         `export contains ${predictedFrames} canonical frames; the browser limit is ` +
           `${MAXIMUM_CANONICAL_EXPORT_FRAMES}`,
         {
@@ -126,7 +126,7 @@ export async function runCanonicalExport({
     const pcm = concatenateFloat32(chunks, totalSamples);
     const wav = encodeFloat32Wav(
       pcm,
-      ESO_CANONICAL_SAMPLE_RATE,
+      CRANKWAVE_CANONICAL_SAMPLE_RATE,
       bus.channelCount,
     );
     return {
@@ -134,7 +134,7 @@ export async function runCanonicalExport({
       wav,
       bus,
       executionKind: descriptor.executionKind,
-      sampleRate: ESO_CANONICAL_SAMPLE_RATE,
+      sampleRate: CRANKWAVE_CANONICAL_SAMPLE_RATE,
       channelCount: bus.channelCount,
       frameCount: pcm.length / bus.channelCount,
       completedBlocks: processedBlocks.toString(10),

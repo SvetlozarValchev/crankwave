@@ -19,8 +19,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::simulation;
+using namespace crankwave;
+using namespace crankwave::simulation;
 
 constexpr double kCycleRadians = 4.0 * std::numbers::pi_v<double>;
 
@@ -153,7 +153,7 @@ void expect_accepted(FixedHorizonCycleSampler &value, const FixedHorizonCycle &i
 
 void test_method_identity_and_plan_admission() {
     constexpr std::string_view kExpectedDigest =
-        "9efbb15d0ad27d3f97d75d135b642c9a7feec6610c50e7ec82523ec62808da63";
+        "aeb863bc286844134bccd01c5a2d8b00e5d5e6e950b8e94185a12200cee8cc30";
     const auto descriptor = fixed_horizon_cycle_sampling_method_descriptor();
     expect(!descriptor.empty() && descriptor.back() == '\n' &&
                descriptor.find('\r') == std::string_view::npos &&
@@ -161,7 +161,7 @@ void test_method_identity_and_plan_admission() {
            "fixed-horizon descriptor is not canonical LF text");
     const auto digest = descriptor_digest(descriptor);
     expect(digest_hex(digest) == kExpectedDigest,
-           "fixed-horizon descriptor digest changed");
+           "fixed-horizon descriptor digest changed: " + digest_hex(digest));
 
     const auto &identity = fixed_horizon_cycle_sampling_method_identity();
     expect(identity.id == "fixed-horizon-trailing-complete-cycle-sample-v1" &&

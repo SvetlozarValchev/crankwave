@@ -1,4 +1,4 @@
-#include "engine_sim_offline/atlas_assembly.hpp"
+#include "crankwave/atlas_assembly.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -12,7 +12,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline {
+namespace crankwave {
 namespace {
 
 using Direction = authoring::AtlasBakeMovingDirection;
@@ -607,4 +607,4 @@ AudioAtlasAssemblyResult assemble_moving_audio_atlas(
     }
 }
 
-} // namespace engine_sim_offline
+} // namespace crankwave

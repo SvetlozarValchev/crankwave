@@ -1,8 +1,8 @@
 #include "native_input_files_support.hpp"
 
-#include "engine_sim_offline_installed_layout.hpp"
+#include "crankwave_installed_layout.hpp"
 
-#include "engine_sim_offline/authoring/json.hpp"
+#include "crankwave/authoring/json.hpp"
 
 #include <algorithm>
 #include <array>
@@ -19,11 +19,11 @@
 #include <unistd.h>
 #endif
 
-namespace engine_sim_offline::cli {
+namespace crankwave::cli {
 namespace {
 
 constexpr std::string_view kCatalogSchema =
-    "engine-sim-offline/builtin-asset-catalog.v1";
+    "crankwave/builtin-asset-catalog.v1";
 constexpr std::size_t kMaximumCatalogEntries = 16384U;
 constexpr std::size_t kMaximumExecutablePathBytes = 1024U * 1024U;
 
@@ -234,7 +234,7 @@ parse_ir_authoring_catalog(detail::ReadFile catalog_file,
     const auto release_identity = root.find("release_identity").string();
     const auto entries = root.find("entries");
     if (root.kind() != authoring::JsonKind::object || !schema ||
-        *schema != "engine-sim-offline/ir-authoring-catalog.v1" || !release_identity ||
+        *schema != "crankwave/ir-authoring-catalog.v1" || !release_identity ||
         *release_identity != expected_release_identity ||
         entries.kind() != authoring::JsonKind::array || entries.size() == 0U ||
         entries.size() > kMaximumCatalogEntries) {
@@ -542,7 +542,7 @@ discover_impl(const std::filesystem::path &executable_path) {
     }
 
     const auto adjacent_catalog =
-        (executable_directory / "engine-sim-offline-assets" / "catalog.v1.json")
+        (executable_directory / "crankwave-assets" / "catalog.v1.json")
             .lexically_normal();
     {
         std::error_code error;
@@ -750,4 +750,4 @@ load_builtin_asset_catalog_identity_with_builtin_assets(NativeInputLimits limits
     }
 }
 
-} // namespace engine_sim_offline::cli
+} // namespace crankwave::cli

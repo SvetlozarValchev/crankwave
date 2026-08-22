@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 [[nodiscard]] std::size_t
@@ -272,4 +272,4 @@ evaluate_centered_slider_crank(const CenteredSliderCrankCylinder &cylinder,
     return sample;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

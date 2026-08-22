@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "kohler-ch750-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
   "engine": "kohler-ch750-cleanroom",
   "fuel": "gasoline-default",

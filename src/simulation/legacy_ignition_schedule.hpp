@@ -1,6 +1,6 @@
 #pragma once
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 // Exact source-parity crossing result. The adjusted values are retained because they
 // are normative event evidence, not merely temporaries used to decide `crossed`.
@@ -36,4 +36,4 @@ struct LegacyLimiterUpdate {
                                                         double limiter_speed_rpm,
                                                         double limiter_hold_s) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

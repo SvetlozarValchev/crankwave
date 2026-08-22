@@ -23,8 +23,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::presentation;
+using namespace crankwave;
+using namespace crankwave::presentation;
 
 constexpr std::size_t kSyntheticSupportFrameCount = 6907;
 

@@ -1,11 +1,11 @@
 #pragma once
 
-#include "engine_sim_offline/contract/engine.hpp"
+#include "crankwave/contract/engine.hpp"
 
 #include <cstdint>
 #include <string_view>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 inline constexpr std::string_view kFourStrokePiecewiseLinearCycleQuadratureMethodId =
     "four-stroke-piecewise-linear-cycle-quadrature-v1";
@@ -53,4 +53,4 @@ implemented_aggregate_loss_method_identity_for(
     const contract::EngineSpec &engine,
     const contract::LowOrderOperatingPointV1Profile &profile);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

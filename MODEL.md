@@ -1,4 +1,4 @@
-# Engine Sim Offline model contract
+# Crankwave model contract
 
 Status: normative pre-implementation record
 
@@ -372,7 +372,7 @@ The strict configured-IR decode and exact static conversion boundary are recorde
 The isolated fixed-topology transform, immutable configured-IR spectrum, and causal
 overlap-save ownership boundary are recorded in
 [`M2_P18_CONVOLUTION.md`](docs/model/M2_P18_CONVOLUTION.md).
-Its output unit remains `engine_sim_source_unit`, not Pa or SPL.
+Its output unit remains `crankwave_source_unit`, not Pa or SPL.
 
 The M2 route includes the exact causal reconstruction, stochastic conditioning,
 derivative/noise mixture, configured IR, calibration, semantic stems, and listening
@@ -878,7 +878,7 @@ reference_bus[route(i)] +=
 
 The exact delay, grouping, routes, constants, and filtered-RPM recurrence are owned by
 the fixture and frozen source matrix. The result is uncalibrated
-`engine_sim_source_unit`. This empirical excitation is M3's parity boundary, not
+`crankwave_source_unit`. This empirical excitation is M3's parity boundary, not
 production outlet radiation.
 
 M3 uses the exact renderer implementation accepted at the M2 listening stop. Its

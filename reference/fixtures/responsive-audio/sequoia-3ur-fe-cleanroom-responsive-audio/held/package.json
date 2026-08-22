@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-held-texture",
+  "schema": "crankwave/responsive-audio-held-texture",
   "id": "sequoia-3ur-fe-cleanroom-exact-held-phase-texture-live-preview",
   "engine": "sequoia-3ur-fe-cleanroom",
   "fidelity": {
@@ -272,7 +272,7 @@
       "sha256": "71ce08a1cb0dc63d7eb0eea7070e8625a5fe4628379dadc9e4402440152fa5f2"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "capture_identity": {

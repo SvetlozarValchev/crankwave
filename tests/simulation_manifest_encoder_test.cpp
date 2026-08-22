@@ -1,5 +1,5 @@
-#include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
-#include "engine_sim_offline/request_identity.hpp"
+#include "crankwave/artifacts/simulation_manifest_encoder.hpp"
+#include "crankwave/request_identity.hpp"
 
 #include "contract_test_support.hpp"
 
@@ -18,20 +18,20 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::artifacts;
-using namespace engine_sim_offline::contract;
-using namespace engine_sim_offline::contract::test;
-using namespace engine_sim_offline::identity;
+using namespace crankwave;
+using namespace crankwave::artifacts;
+using namespace crankwave::contract;
+using namespace crankwave::contract::test;
+using namespace crankwave::identity;
 
 constexpr std::string_view kExpectedCanonicalManifestSha256 =
-    "b062cd133d767034df3f1018b4cc538876e77ed3c3e0389db1a39172119d0d0e";
+    "e20ffd9993ef07e4e4a5ef2729c78c8c9ddedf605853b0122bbf8d59c06d9caf";
 constexpr std::string_view kExpectedCanonicalRequestIdentitySha256 =
-    "23ab2a54df036f837289a8893ab2343a77b7eecfa7443f63b1c5395485c391c8";
+    "72bcd85ec010d45505eea561815905ecd8417da517c8a0cac666fbf08782d890";
 constexpr std::string_view kExpectedCustomizedManifestSha256 =
-    "8dfaae758a12f2144ee34a5465d09e75d9ddb54a6fcf6f31597aba0d80cf9143";
+    "8550ed3f595f197f8b561f5d547ccd0132fadb764e51cf1d706de576a546689c";
 constexpr std::string_view kExpectedCustomizedRequestIdentitySha256 =
-    "96ce077744030ed8e6034473e8fcfc51c894891d165f9ac79c9b37275dd3ea7d";
+    "d32292d55b00ebd62e9d01eb594871eaa159a1f231777e6e259031c211e2cb87";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -218,7 +218,7 @@ struct GoldenHashes {
 
     const auto manifest_document = as_string(first_manifest);
     constexpr std::string_view kManifestPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v10\","
+        "{\"wire_schema\":\"crankwave.render-manifest.simulation.v10\","
         "\"content\":{\"schema_version\":10,\"inputs\":{\"kind\":\"simulation_v9\","
         "\"value\":{\"resolved\":{\"engine\":";
     expect(manifest_document.starts_with(kManifestPrefix),
@@ -373,7 +373,7 @@ struct GoldenHashes {
 
     const auto identity_document = as_string(first_identity.bytes);
     constexpr std::string_view kIdentityPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v7\","
+        "{\"wire_schema\":\"crankwave.simulation-request-identity.v7\","
         "\"engine\":";
     expect(identity_document.starts_with(kIdentityPrefix),
            "request identity root or member order changed");

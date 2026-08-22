@@ -1,4 +1,4 @@
-#include "engine_sim_offline/artifacts/wav_encoder.hpp"
+#include "crankwave/artifacts/wav_encoder.hpp"
 
 #include <algorithm>
 #include <array>
@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 namespace {
 
 static_assert(sizeof(float) == 4);
@@ -468,4 +468,4 @@ WavEncoderResult make_wav_encoder(const contract::AudioContract &audio,
     };
 }
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

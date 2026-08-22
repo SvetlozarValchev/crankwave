@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "schema": "crankwave/responsive-audio-lifecycle",
   "id": "subaru-ej25-cleanroom-lifecycle-preview",
   "engine": "subaru-ej25-cleanroom",
   "audio": {
@@ -125,7 +125,7 @@
     "quiet_rms_threshold": 0.0003769245577650219
   },
   "startup_admission": {
-    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "schema": "crankwave/continuous-startup-admission-v1",
     "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
     "admission_lane_coordinate": "authored-throttle-01",
     "blend": "constant-power",
@@ -159,8 +159,8 @@
     "evidence": {
       "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
       "path": "evidence/startup-admission.json",
-      "sha256": "8537473b24e56806021fea382828d41cb80da4e1c3e51f48013505f1e6c5ec93",
-      "corrected_held_manifest_sha256": "d408b1b83877b361518645c3f013e7302d1a83e1537cbe3d37a404d3c303d280"
+      "sha256": "5c21ef6a9f80daa6d7d74274acc3f8faed26c9f60047c759e50672e0ff209e6d",
+      "corrected_held_manifest_sha256": "951ecc8677b046fb33e9ecb98af309562b6bfa1a1f4e6dee9eedd12ce45a8de1"
     }
   },
   "provenance": {
@@ -169,7 +169,7 @@
       "sha256": "2e383b32d9a6f46b9279159e5c3408c57395005253c8ff864ff2eb40346e7733"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
@@ -184,27 +184,27 @@
         "canonical_source_id": "subaru-ej25-cleanroom-lifecycle-starter-candidate",
         "derived_id": "subaru-ej25-cleanroom-lifecycle-starter-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/starter-10khz.json",
-        "sha256": "3c1c587705f0e6d64191f5bcfb1c4ec033f8821845cdc382ac012fbab03a226c",
+        "sha256": "6bfdbeb063a6c5e21714dfa44fadad24e77b48b3e322b85a28a16626a1d640f8",
         "evidence_path": "evidence/starter.json",
-        "evidence_sha256": "887e51d2ae2ec761ffbd768236c9b30d7d46104a922b1207db99245e01e4f07a"
+        "evidence_sha256": "c97bd5a67712295e6e703d946ce2a707c89e9e24c93c2e70d996d481897c2139"
       },
       {
         "role": "startup",
         "canonical_source_id": "subaru-ej25-cleanroom-lifecycle-startup-candidate",
         "derived_id": "subaru-ej25-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/startup-10khz.json",
-        "sha256": "e2621fa6df8accd4584aad7eb88d72142daa3b8801040490f34b32f3ff83a59d",
+        "sha256": "91b42afe28383325ff68318c7eb8614e12e8514ad8eb9c9c0ba52a804ad98368",
         "evidence_path": "evidence/startup.json",
-        "evidence_sha256": "7463ebdb7c0491a67b7aaae198b8aebd2c2c34d108d2a6472f26fb3f49a9a892"
+        "evidence_sha256": "c8a5ef57933cd86f7102a021e779b3886ae8c2eb358f5987404c60f3a8235699"
       },
       {
         "role": "shutdown",
         "canonical_source_id": "subaru-ej25-cleanroom-lifecycle-shutdown-candidate",
         "derived_id": "subaru-ej25-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/shutdown-10khz.json",
-        "sha256": "d81c08758db111087df0deba0e48609463e080e2b8a153505949e13841efd019",
+        "sha256": "30a5150bf817dd009355fc087a177197983e8c44f28dde122427f0c2e3cccdf1",
         "evidence_path": "evidence/shutdown.json",
-        "evidence_sha256": "5872829fdff43615b76044c92e7def3d3acad610bfabcb32eff8d86e34907548"
+        "evidence_sha256": "f6fb9bc94edf9ec8bc7466e7d0b1c7167e9acd52de564c0cd8d0ca0a320fffe7"
       }
     ]
   }

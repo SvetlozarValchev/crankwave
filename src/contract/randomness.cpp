@@ -1,8 +1,8 @@
-#include "engine_sim_offline/contract/randomness.hpp"
+#include "crankwave/contract/randomness.hpp"
 
-#include "engine_sim_offline/contract/engine.hpp"
-#include "engine_sim_offline/contract/presentation.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/engine.hpp"
+#include "crankwave/contract/presentation.hpp"
+#include "crankwave/contract/scenario.hpp"
 #include "sha256_stream.hpp"
 #include "validation_support.hpp"
 
@@ -19,11 +19,11 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 namespace {
 
 inline constexpr std::string_view kPcg32GeneratorMethodDescriptor =
-    "engine-sim-offline.randomness-method-configuration.v1\n"
+    "crankwave.randomness-method-configuration.v1\n"
     "method=pcg32_xsh_rr_64_32_binary64_v1\n"
     "version=1\n"
     "operation=deterministic-pcg-xsh-rr-64-32-with-binary64-draws\n"
@@ -54,7 +54,7 @@ inline constexpr std::string_view kPcg32GeneratorMethodDescriptor =
     "no-daz\n";
 
 inline constexpr std::string_view kComponentSeedDerivationMethodDescriptor =
-    "engine-sim-offline.randomness-method-configuration.v1\n"
+    "crankwave.randomness-method-configuration.v1\n"
     "method=sha256_length_prefixed_capture_component_pcg32_v1\n"
     "version=1\n"
     "operation=domain-separated-seed-namespace-and-component-pcg32-"
@@ -69,12 +69,12 @@ inline constexpr std::string_view kComponentSeedDerivationMethodDescriptor =
     "sha256=project-owned-fips-180-4-sha-256\n"
     "seed_derivation_field_value=sha256_length_prefixed_capture_component_"
     "pcg32_v1\n"
-    "capture_random_key_domain=engine-sim-offline-capture-random-key-v1\n"
+    "capture_random_key_domain=crankwave-capture-random-key-v1\n"
     "capture_random_key_items=domain-then-fields-capture_id-public_seed-seed_"
     "derivation\n"
     "capture_id_value=resolved-seed-namespace-id\n"
     "capture_random_key_output=complete-32-byte-sha256-digest\n"
-    "component_seed_domain=engine-sim-offline-capture-component-seed-v1\n"
+    "component_seed_domain=crankwave-capture-component-seed-v1\n"
     "capture_random_key_sha256_text=64-lowercase-hex-digits\n"
     "component_seed_items=domain-then-fields-capture_random_key_sha256-"
     "component_domain-component_index\n"
@@ -507,4 +507,4 @@ compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &en
     return plan;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

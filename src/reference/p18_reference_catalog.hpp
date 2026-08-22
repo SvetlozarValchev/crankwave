@@ -1,13 +1,13 @@
 #pragma once
 
-#include "engine_sim_offline/contract/presentation.hpp"
+#include "crankwave/contract/presentation.hpp"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
 
-namespace engine_sim_offline::reference {
+namespace crankwave::reference {
 
 enum class P18ReferenceLineageFile : std::uint8_t {
     manifest,
@@ -293,4 +293,4 @@ struct P18ReferenceCatalogV1 {
 
 [[nodiscard]] const P18ReferenceCatalogV1 &p18_reference_catalog_v1() noexcept;
 
-} // namespace engine_sim_offline::reference
+} // namespace crankwave::reference

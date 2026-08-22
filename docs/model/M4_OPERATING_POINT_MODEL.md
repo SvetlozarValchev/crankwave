@@ -164,7 +164,7 @@ The first BMW profile accessory authority is exactly:
 | Configuration ID | `bmw-m52b28-warm-stock-accessories-v1` |
 | Production descriptor | `data/profiles/bmw-m52b28/accessory-configurations/bmw-m52b28-warm-stock-accessories-v1.json` |
 | Descriptor serialization | UTF-8 JSON, LF line endings, exactly one final LF |
-| Descriptor content SHA-256 | `ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97` |
+| Descriptor content SHA-256 | `6e822e04aea523d5980f53241166a43a971c481d03bb9ba033b6bb097b9debc6` |
 
 The descriptor bytes declare the modeled warm positive-speed held-running inventory
 and state, repeat the exact coefficient tuple and `363.15 K` applicability condition
@@ -689,8 +689,8 @@ publication is exactly `bmw-m52b28-m4-torque-sweep-v2.json` plus
 `bmw-m52b28-m4-torque-sweep-v2.json.sha256`.
 
 The JSON wire schema is
-`engine-sim-offline.bmw-m52b28-torque-sweep-evidence.v2`; its canonical grammar is
-`engine-sim-offline.bmw-m52b28-torque-sweep-evidence-canonical-json.v2` and its
+`crankwave.bmw-m52b28-torque-sweep-evidence.v2`; its canonical grammar is
+`crankwave.bmw-m52b28-torque-sweep-evidence-canonical-json.v2` and its
 `schema_version` is `2`. Conditions identify the fixed-sampling method, its
 configuration digest, the 32-cycle count, and fixed-horizon frame. Each point carries
 `simulation_request_v3_sha256`, one `sample_first_cycle`/`sample_last_cycle` range,

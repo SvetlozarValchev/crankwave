@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::scenario_resolution {
+namespace crankwave::compile::detail::scenario_resolution {
 
 void append(authoring::DiagnosticReport &destination,
             authoring::DiagnosticReport source);
@@ -143,4 +143,4 @@ class ScenarioResolver final {
     std::vector<StableIdAssignment> stable_id_assignments_;
 };
 
-} // namespace engine_sim_offline::compile::detail::scenario_resolution
+} // namespace crankwave::compile::detail::scenario_resolution

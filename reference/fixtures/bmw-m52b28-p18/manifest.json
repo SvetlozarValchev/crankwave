@@ -43,7 +43,7 @@
   },
   "source": {
     "upstreamRepository": "https://github.com/ange-yaghi/engine-sim",
-    "forkRepository": "https://github.com/SvetlozarValchev/engine-sim",
+    "forkRepository": "https://github.com/SvetlozarValchev/crankwave",
     "effectiveForkCommit": "9617562a7a5615c2bf84c9ec39cd5ae25c560059",
     "effectiveCommitAvailability": "captured from a local user-fork checkout; public fetchability is not asserted",
     "piranhaCommit": "db28b8f7a8c566b777d226833cd001b6767a79bf",
@@ -57,11 +57,11 @@
   },
   "observationPatch": {
     "path": "../../tooling/p18-reference-audit.patch",
-    "sha256": "c4e075ffaea81364ebbf6266213ad835a88751ff5f3eb06d2a7888ad109fba22",
+    "sha256": "1e3f566a2b37581f108d61c59a1ac7c605948626ddaad454e1e9214cb5950a08",
     "baseCommit": "9617562a7a5615c2bf84c9ec39cd5ae25c560059",
     "cmakeOption": "ENGINE_SIM_REFERENCE_AUDIT_CAPTURE",
     "defaultEnabled": false,
-    "captureEnvironment": "ENGINE_SIM_OFFLINE_REFERENCE_FIXTURE_DIR",
+    "captureEnvironment": "CRANKWAVE_REFERENCE_FIXTURE_DIR",
     "guard": "exactly one baked.loaded_acceleration capture",
     "cleanGeneratorSourceSha256": "b345061519e56e422f7ea135f56cd276de18f81897d655d3061f4308f87ece13",
     "patchedGeneratorSourceSha256": "bb932e8bc40d860a3019a80e2a362a3c71eae4f78695077cd8451803f9bd66b1"
@@ -143,7 +143,7 @@
       "baked.loaded_acceleration"
     ],
     "environment": {
-      "ENGINE_SIM_OFFLINE_REFERENCE_FIXTURE_DIR": "<new-empty-fixture-directory>"
+      "CRANKWAVE_REFERENCE_FIXTURE_DIR": "<new-empty-fixture-directory>"
     },
     "physicsRateHz": 10000,
     "sourceProcessingRateHz": 192000,
@@ -428,8 +428,8 @@
     "publicSeed": 12648430,
     "seedDerivation": "sha256_length_prefixed_capture_component_pcg32_v1",
     "randomKeySha256": "272121adec1fe448dd149b05990e477a816a7e6191352854d7a1dafd92183f5d",
-    "randomKeyDomain": "engine-sim-offline-capture-random-key-v1",
-    "componentSeedDomain": "engine-sim-offline-capture-component-seed-v1",
+    "randomKeyDomain": "crankwave-capture-random-key-v1",
+    "componentSeedDomain": "crankwave-capture-component-seed-v1",
     "componentSeedsHex": {
       "combustion": [
         ["6ba3d060370e05fa", "3e13b1e68ef2f790"],

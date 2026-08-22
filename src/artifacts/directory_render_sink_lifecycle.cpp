@@ -1,7 +1,7 @@
 #include "directory_render_sink_impl.hpp"
 
 #include "directory_render_sink_support.hpp"
-#include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
+#include "crankwave/artifacts/simulation_manifest_encoder.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -19,7 +19,7 @@
 #include <unistd.h>
 #endif
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 
 DirectoryRenderSink::Implementation::Implementation(
     std::filesystem::path publication_root, std::string publication_name)
@@ -352,4 +352,4 @@ RenderSinkStatus DirectoryRenderSink::Implementation::seal_artifact(
     return std::nullopt;
 }
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

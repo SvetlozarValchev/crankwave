@@ -1,6 +1,6 @@
-#include "engine_sim_offline/artifacts/audio_atlas_directory_publisher.hpp"
+#include "crankwave/artifacts/audio_atlas_directory_publisher.hpp"
 
-#include "engine_sim_offline/artifacts/audio_atlas_manifest_encoder.hpp"
+#include "crankwave/artifacts/audio_atlas_manifest_encoder.hpp"
 
 #include "secure_filesystem_support.hpp"
 
@@ -25,7 +25,7 @@
 #include <unistd.h>
 #endif
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 namespace {
 
 using ErrorCode = AudioAtlasDirectoryPublicationErrorCode;
@@ -369,4 +369,4 @@ publish_audio_atlas_directory(const std::filesystem::path &canonical_parent,
     }
 }
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

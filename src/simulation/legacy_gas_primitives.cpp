@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 [[nodiscard]] double legacy_clamp(double value, double lower, double upper) noexcept {
@@ -631,4 +631,4 @@ void legacy_floor_negative_gas_thermal_energy(LegacyGasCell &cell) noexcept {
     }
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

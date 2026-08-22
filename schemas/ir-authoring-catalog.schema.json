@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://engine-sim-offline.dev/schemas/ir-authoring-catalog.schema.json",
-  "title": "Engine Sim Offline IR authoring catalog v1",
+  "$id": "https://crankwave.dev/schemas/ir-authoring-catalog.schema.json",
+  "title": "Crankwave IR authoring catalog v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,8 +19,8 @@
     "entries"
   ],
   "properties": {
-    "schema": {"const": "engine-sim-offline/ir-authoring-catalog.v1"},
-    "catalog_id": {"const": "engine-sim-offline-built-in-ir-library"},
+    "schema": {"const": "crankwave/ir-authoring-catalog.v1"},
+    "catalog_id": {"const": "crankwave-built-in-ir-library"},
     "catalog_revision": {"const": 1},
     "release_identity": {"const": "1.2.0"},
     "entry_count": {"const": 73},
@@ -81,7 +81,7 @@
       ],
       "properties": {
         "repository": {
-          "const": "https://github.com/SvetlozarValchev/engine-sim"
+          "const": "https://github.com/SvetlozarValchev/crankwave"
         },
         "repository_tree_commit": {"$ref": "#/$defs/sha1"},
         "asset_introduction_commit": {"$ref": "#/$defs/sha1"},
@@ -103,7 +103,7 @@
         "collection_thresholds"
       ],
       "properties": {
-        "id": {"const": "engine-sim-offline-ir-objective-analysis-v1"},
+        "id": {"const": "crankwave-ir-objective-analysis-v1"},
         "decoded_domain": {
           "const": "mono-normalized-pcm-without-level-normalization"
         },
@@ -158,7 +158,7 @@
       ],
       "properties": {
         "id": {
-          "const": "engine-sim-offline-ir-measurement-proxy-semantics-v1"
+          "const": "crankwave-ir-measurement-proxy-semantics-v1"
         },
         "objective_proxy_warning": {
           "const": "bright-dark-sharp-smooth-open-muffled-decay-tags-are-relative-measurement-proxies-not-listening-claims"
@@ -265,7 +265,7 @@
       ],
       "properties": {
         "repository": {
-          "const": "https://github.com/SvetlozarValchev/engine-sim"
+          "const": "https://github.com/SvetlozarValchev/crankwave"
         },
         "repository_tree_commit": {"$ref": "#/$defs/sha1"},
         "repository_relative_path": {

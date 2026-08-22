@@ -5,7 +5,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repository_dir=$(CDPATH= cd -- "${script_dir}/.." && pwd)
 workbench_dir="${repository_dir}/.work/browser-workbench/build/workbench"
 server_log="${repository_dir}/.work/browser-workbench/server.log"
-chrome_executable="${ENGINE_SIM_OFFLINE_CHROME:-google-chrome}"
+chrome_executable="${CRANKWAVE_CHROME:-google-chrome}"
 
 node --check "${repository_dir}/web/app.js"
 node --check "${repository_dir}/web/audio-worklet.js"
@@ -18,30 +18,30 @@ node --test "${repository_dir}"/web/tests/runtime/*.test.mjs
 
 node \
     "${repository_dir}/web/tests/integration/operating-bench.integration.mjs" \
-    "${workbench_dir}/web/engine-sim-offline.js" \
+    "${workbench_dir}/web/crankwave.js" \
     "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/engine.json" \
     "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/scenarios/held-dyno-pull-lift-1500-6500rpm.json" \
     "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/scenarios/free-vehicle-launch-first-second.json" \
     smooth-39 \
-    "${repository_dir}/reference/fixtures/engine-sim-ir-library/presentation/smooth_39.wav" \
+    "${repository_dir}/reference/fixtures/crankwave-ir-library/presentation/smooth_39.wav" \
     warm-generic-accessories \
     "${repository_dir}/data/profiles/bmw-m52tub28-cleanroom/accessory-configurations/bmw-m52tub28-cleanroom-warm-generic-accessories-v1.json"
 
 node \
     "${repository_dir}/web/tests/integration/canonical-captures.integration.mjs" \
-    "${workbench_dir}/web/engine-sim-offline.js" \
+    "${workbench_dir}/web/crankwave.js" \
     "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/engine.json" \
     "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-crank-only-0rpm.json" \
     "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-loaded-rise-part-load-coast-1500-4500rpm.json" \
     "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-key-off-shutdown-700rpm.json" \
     smooth-39 \
-    "${repository_dir}/reference/fixtures/engine-sim-ir-library/presentation/smooth_39.wav" \
+    "${repository_dir}/reference/fixtures/crankwave-ir-library/presentation/smooth_39.wav" \
     warm-generic-accessories \
     "${repository_dir}/data/profiles/bmw-m52tub28-cleanroom/accessory-configurations/bmw-m52tub28-cleanroom-warm-generic-accessories-v1.json"
 
 node \
     "${repository_dir}/web/tests/integration/browser-runtime.integration.mjs" \
-    "${workbench_dir}/web/engine-sim-offline.js" \
+    "${workbench_dir}/web/crankwave.js" \
     "${repository_dir}/data/engines/bmw-m52b28/engine.json" \
     "${repository_dir}/tests/wasm/bmw-m52b28-short-live-parity.json" \
     smooth-39 \
@@ -73,7 +73,7 @@ for _attempt in $(seq 1 100); do
     fi
     workbench_url=$(
         sed -n \
-            's/^Engine Sim Offline workbench: \(http:\/\/127\.0\.0\.1:[0-9][0-9]*\/\)$/\1/p' \
+            's/^Crankwave workbench: \(http:\/\/127\.0\.0\.1:[0-9][0-9]*\/\)$/\1/p' \
             "${server_log}" |
             tail -n 1
     )

@@ -10,7 +10,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 // One continuous causal convolution history. Independent route instances
 // share an immutable spectral kernel but never share mutable work or history.
@@ -107,4 +107,4 @@ class CausalConfiguredIrConvolver {
     Implementation implementation_;
 };
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-directional-texture",
+  "schema": "crankwave/responsive-audio-directional-texture",
   "id": "radial-5-cleanroom-directional-transient-live-preview",
   "engine": "radial-5-cleanroom",
   "audio": {
@@ -51,7 +51,7 @@
       "sha256": "6acf480746b42014f0abff3bcb79a331f0af30a8918e3d645b72da5cf93a16dd"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "live-rpm-map-crank-indexed-n-route-dry-directional-units-with-phase-aligned-seam-closure",

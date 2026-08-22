@@ -693,7 +693,7 @@ async function main() {
   const workbenchUrl = new URL(process.argv[2]).href;
   const chromeExecutable = process.argv[3] ?? "google-chrome";
   const profile = await fs.mkdtemp(
-    path.join(os.tmpdir(), "engine-sim-offline-chrome-"),
+    path.join(os.tmpdir(), "crankwave-chrome-"),
   );
   const chrome = spawn(
     chromeExecutable,

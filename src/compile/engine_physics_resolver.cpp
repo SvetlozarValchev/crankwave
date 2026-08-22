@@ -16,7 +16,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 
 constexpr std::string_view kProfileRoot = "engine.physics.low-order-operating-point-v1";
 constexpr double kLegacyRpmScale = 0.104719755;
@@ -322,7 +322,7 @@ contract::MethodIdentity legacy_low_order_method_identity() {
 }
 
 contract::MethodIdentity derived_method_identity(const std::string_view method_id) {
-    const std::string descriptor = "engine-sim-offline.compiler-derived-method." +
+    const std::string descriptor = "crankwave.compiler-derived-method." +
                                    std::string{method_id} + ".configuration-v1";
     return {
         std::string{method_id},
@@ -421,4 +421,4 @@ contract::EngineSpec assemble_engine(const ModelContext &context,
     return engine;
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

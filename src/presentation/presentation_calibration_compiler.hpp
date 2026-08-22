@@ -1,8 +1,8 @@
 #pragma once
 
-#include "engine_sim_offline/contract/engine.hpp"
-#include "engine_sim_offline/contract/presentation.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/engine.hpp"
+#include "crankwave/contract/presentation.hpp"
+#include "crankwave/contract/scenario.hpp"
 #include "presentation/mastering.hpp"
 #include "presentation/presentation_method_registry.hpp"
 #include "presentation/route_conditioning.hpp"
@@ -14,7 +14,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 
 namespace detail {
 struct PresentationCalibrationCompiler;
@@ -118,4 +118,4 @@ compile_presentation_calibration(const contract::PresentationCalibration &calibr
                                  const contract::RenderScenario &scenario,
                                  const contract::ProvenanceLedger &provenance);
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

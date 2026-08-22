@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 LowOrderEngineCoreV1Runtime::LowOrderEngineCoreV1Runtime(
     LegacyLowOrderMechanicsSession mechanics, LegacyLowOrderGasSession gas,
@@ -242,4 +242,4 @@ compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

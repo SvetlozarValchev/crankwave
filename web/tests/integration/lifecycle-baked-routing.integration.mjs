@@ -131,7 +131,7 @@ class CdpSession {
 }
 
 const mutedProbe = String.raw`(() => {
-  const probe = globalThis.__ESO_LIFECYCLE_B_ROUTING = {
+  const probe = globalThis.__CRANKWAVE_LIFECYCLE_B_ROUTING = {
     explicitlyMuted: true,
     audioContextCount: 0,
     workletNodeCount: 0,
@@ -275,7 +275,7 @@ const mutedProbe = String.raw`(() => {
 
 async function pageState(cdp) {
   return cdp.evaluate(`(() => {
-    const probe = globalThis.__ESO_LIFECYCLE_B_ROUTING;
+    const probe = globalThis.__CRANKWAVE_LIFECYCLE_B_ROUTING;
     probe?.drain();
     const text = (selector) =>
       document.querySelector(selector)?.textContent?.trim() ?? "";
@@ -346,7 +346,7 @@ async function toggleIgnition(cdp) {
 
 async function requestLifecycleStatus(cdp) {
   await cdp.evaluate(
-    "globalThis.__ESO_LIFECYCLE_B_ROUTING.requestStatus(); true",
+    "globalThis.__CRANKWAVE_LIFECYCLE_B_ROUTING.requestStatus(); true",
   );
   await delay(40);
 }
@@ -454,7 +454,7 @@ async function runOffStateReselectionRegression(cdp) {
   );
 
   const selectionMessageOrdinal = await cdp.evaluate(
-    "globalThis.__ESO_LIFECYCLE_B_ROUTING.workerMessages.length",
+    "globalThis.__CRANKWAVE_LIFECYCLE_B_ROUTING.workerMessages.length",
   );
   await selectComparisonMode(
     cdp,
@@ -467,7 +467,7 @@ async function runOffStateReselectionRegression(cdp) {
     "M52B28 B reselection while keyed off",
   );
   const selectionMessages = await cdp.evaluate(
-    `globalThis.__ESO_LIFECYCLE_B_ROUTING.workerMessages.slice(${selectionMessageOrdinal})`,
+    `globalThis.__CRANKWAVE_LIFECYCLE_B_ROUTING.workerMessages.slice(${selectionMessageOrdinal})`,
   );
 
   assert.ok(
@@ -589,7 +589,7 @@ async function main() {
   const workbenchUrl = new URL(process.argv[2]).href;
   const chromeExecutable = process.argv[3] ?? "google-chrome";
   const profile = await fs.mkdtemp(
-    path.join(os.tmpdir(), "engine-sim-offline-lifecycle-b-"),
+    path.join(os.tmpdir(), "crankwave-lifecycle-b-"),
   );
   const chrome = spawn(
     chromeExecutable,
@@ -679,7 +679,7 @@ async function main() {
       "Baked B selection",
     );
     const bSelectionOrdinal = await cdp.evaluate(
-      "globalThis.__ESO_LIFECYCLE_B_ROUTING.workerMessages.length",
+      "globalThis.__CRANKWAVE_LIFECYCLE_B_ROUTING.workerMessages.length",
     );
     await cdp.evaluate(
       'document.querySelector("#start-button").click(); true',
@@ -709,7 +709,7 @@ async function main() {
 
     const lifecycleFinal = await pageState(cdp);
     const messagesAfterB = await cdp.evaluate(
-      `globalThis.__ESO_LIFECYCLE_B_ROUTING.workerMessages.slice(${bSelectionOrdinal})`,
+      `globalThis.__CRANKWAVE_LIFECYCLE_B_ROUTING.workerMessages.slice(${bSelectionOrdinal})`,
     );
     const sourceFallbacks = messagesAfterB.filter(
       (message) =>

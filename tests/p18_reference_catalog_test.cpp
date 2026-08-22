@@ -1,7 +1,7 @@
 #include "dsp/fixed_fft.hpp"
 #include "dsp/source_conditioning_primitives.hpp"
 #include "dsp/static_ir_conversion.hpp"
-#include "engine_sim_offline/contract/source_matrix.hpp"
+#include "crankwave/contract/source_matrix.hpp"
 #include "presentation/causal_reconstruction.hpp"
 #include "presentation/exhaust_source_stage.hpp"
 #include "presentation/mastering.hpp"
@@ -28,8 +28,8 @@ namespace {
 constexpr std::uint64_t kFixtureAudibleFrameCount = 2'880'000;
 constexpr std::uint64_t kFixtureFadeFrameCount = 3'840;
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::reference;
+using namespace crankwave;
+using namespace crankwave::reference;
 
 static_assert(
     static_cast<std::size_t>(P18ReferenceLineageFile::kernel_oracle_comparator) + 1U ==

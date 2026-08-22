@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 #include "simulation/live_control.hpp"
 
 #include <cstddef>
@@ -10,7 +10,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::session {
+namespace crankwave::session {
 
 struct SetThrottle {
     double throttle_01 = 0.0;
@@ -235,4 +235,4 @@ class ControlTimeline final {
     std::uint64_t last_sequence_ = 0;
 };
 
-} // namespace engine_sim_offline::session
+} // namespace crankwave::session

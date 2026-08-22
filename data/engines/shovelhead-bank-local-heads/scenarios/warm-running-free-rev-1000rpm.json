@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "shovelhead-bank-local-heads-warm-running-free-rev-1000rpm",
   "engine": "shovelhead-bank-local-heads",
   "fuel": "gasoline-default",

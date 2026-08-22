@@ -1,6 +1,6 @@
 #include "authored_engine_fixture_support.hpp"
-#include "engine_sim_offline/contract.hpp"
-#include "engine_sim_offline/request_identity.hpp"
+#include "crankwave/contract.hpp"
+#include "crankwave/request_identity.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -19,8 +19,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::contract;
+using namespace crankwave;
+using namespace crankwave::contract;
 
 constexpr double kFourStrokeCycleRadians = 4.0 * std::numbers::pi_v<double>;
 constexpr double kLegacyRpmScale = 0.104719755;

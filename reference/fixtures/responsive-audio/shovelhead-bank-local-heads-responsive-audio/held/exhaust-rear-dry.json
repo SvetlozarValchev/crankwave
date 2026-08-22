@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-held-route",
+  "schema": "crankwave/responsive-audio-held-route",
   "id": "shovelhead-bank-local-heads-exact-held-exhaust-rear-dry-live-preview",
   "engine": "shovelhead-bank-local-heads",
   "audio": {
@@ -2126,7 +2126,7 @@
       "sha256": "44ce96943d08ec8cedbca7d44a36e2b767e9e1d110bdeb1618de5b0671b73fd8"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "capture_method": "exact-held-rpm-48-cycle-20ms-exact-sum-horizon-v8",

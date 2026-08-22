@@ -13,7 +13,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::excitation {
+namespace crankwave::excitation {
 namespace {
 
 [[nodiscard]] contract::FailureContext
@@ -199,18 +199,18 @@ std::size_t ExhaustExcitationDiagnosticBlockView::frame_count() const noexcept {
 }
 
 std::span<const double>
-ExhaustExcitationDiagnosticBlockView::pre_delay_cylinder_values_engine_sim_source_unit()
+ExhaustExcitationDiagnosticBlockView::pre_delay_cylinder_values_crankwave_source_unit()
     const noexcept {
     return pre_delay_;
 }
 
 std::span<const double> ExhaustExcitationDiagnosticBlockView::
-    post_delay_cylinder_values_engine_sim_source_unit() const noexcept {
+    post_delay_cylinder_values_crankwave_source_unit() const noexcept {
     return post_delay_;
 }
 
 std::span<const double>
-ExhaustExcitationDiagnosticBlockView::route_bus_values_engine_sim_source_unit()
+ExhaustExcitationDiagnosticBlockView::route_bus_values_crankwave_source_unit()
     const noexcept {
     return route_bus_values_;
 }
@@ -681,4 +681,4 @@ bool CapturedSourceExcitationSession::faulted() const noexcept {
     return state_ == nullptr || state_->terminal_fault.has_value();
 }
 
-} // namespace engine_sim_offline::excitation
+} // namespace crankwave::excitation

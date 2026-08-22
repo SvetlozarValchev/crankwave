@@ -6,11 +6,11 @@ import { createHash, webcrypto } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
-  ESO_CANONICAL_SAMPLE_RATE,
+  CRANKWAVE_CANONICAL_SAMPLE_RATE,
   ProcessKind,
   SessionExecutionKind,
 } from "../web/runtime/c-api-abi.js";
-import { EngineSimCapiClient } from "../web/runtime/c-api-client.js";
+import { CrankwaveCapiClient } from "../web/runtime/c-api-client.js";
 import { loadAudioAtlas } from "../web/runtime/audio-atlas-loader.js";
 import {
   AudioAtlasEngineStateFlag,
@@ -39,7 +39,7 @@ function usage() {
   return [
     "usage:",
     "  node tools/capture-bmw-continuous-atlas-ab.mjs \\",
-    "    --module <engine-sim-offline.js> \\",
+    "    --module <crankwave.js> \\",
     "    --engine <engine.json> \\",
     "    --scenario <held-out-fifth-gear-scenario.json> \\",
     "    --atlas <atlas.json URL-or-path> \\",
@@ -532,7 +532,7 @@ async function main() {
     fetch: atlasFetch,
     crypto: globalThis.crypto ?? webcrypto,
   });
-  if (loadedAtlas.sampleRate !== ESO_CANONICAL_SAMPLE_RATE) {
+  if (loadedAtlas.sampleRate !== CRANKWAVE_CANONICAL_SAMPLE_RATE) {
     fail(`atlas sample rate is ${loadedAtlas.sampleRate}, not canonical 192 kHz`);
   }
   const comparisonSegments = loadedAtlas.movingSegments.filter(
@@ -560,7 +560,7 @@ async function main() {
     );
   }
 
-  const client = await EngineSimCapiClient.create(pathToFileURL(modulePath));
+  const client = await CrankwaveCapiClient.create(pathToFileURL(modulePath));
   let program = null;
   const captureStarted = process.hrtime.bigint();
   try {
@@ -616,7 +616,7 @@ async function main() {
     ) {
       fail("compiled session identities do not match the untouched JSON inputs");
     }
-    if (descriptor.deliveryRateHz !== ESO_CANONICAL_SAMPLE_RATE) {
+    if (descriptor.deliveryRateHz !== CRANKWAVE_CANONICAL_SAMPLE_RATE) {
       fail("held-out source session is not canonical 192 kHz");
     }
     const auditionBuses = session.buses.filter(
@@ -625,7 +625,7 @@ async function main() {
     if (
       auditionBuses.length !== 1 ||
       auditionBuses[0].channelCount !== 1 ||
-      auditionBuses[0].sampleRateHz !== ESO_CANONICAL_SAMPLE_RATE
+      auditionBuses[0].sampleRateHz !== CRANKWAVE_CANONICAL_SAMPLE_RATE
     ) {
       fail("held-out session must expose exactly one mono canonical audition master");
     }
@@ -738,12 +738,12 @@ async function main() {
 
     const sourceWav = encodeFloat32Wav(
       sourcePcm,
-      ESO_CANONICAL_SAMPLE_RATE,
+      CRANKWAVE_CANONICAL_SAMPLE_RATE,
       1,
     );
     const bakedWav = encodeFloat32Wav(
       bakedPcm,
-      ESO_CANONICAL_SAMPLE_RATE,
+      CRANKWAVE_CANONICAL_SAMPLE_RATE,
       1,
     );
     const firstBlock = selectedBlocks[0];
@@ -753,7 +753,7 @@ async function main() {
       ...selectedBlocks.map((block) => block.end),
     ];
     const report = {
-      schema: "engine-sim-offline/continuous-audio-atlas-ab-report",
+      schema: "crankwave/continuous-audio-atlas-ab-report",
       source: "held-out-source-a",
       baked: "chronological-continuous-atlas-b",
       inputs: {

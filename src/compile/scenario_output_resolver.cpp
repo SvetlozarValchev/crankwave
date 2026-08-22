@@ -11,7 +11,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::scenario_resolution {
+namespace crankwave::compile::detail::scenario_resolution {
 
 const ResolvedAudioBusDescriptor *
 ScenarioResolver::find_bus(std::string_view authored_id) {
@@ -222,4 +222,4 @@ contract::SourceMatrixContract ScenarioResolver::build_source_matrix() {
     return matrix;
 }
 
-} // namespace engine_sim_offline::compile::detail::scenario_resolution
+} // namespace crankwave::compile::detail::scenario_resolution

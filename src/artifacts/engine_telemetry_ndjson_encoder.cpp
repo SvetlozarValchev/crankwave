@@ -1,4 +1,4 @@
-#include "engine_sim_offline/artifacts/engine_telemetry_ndjson_encoder.hpp"
+#include "crankwave/artifacts/engine_telemetry_ndjson_encoder.hpp"
 
 #include <algorithm>
 #include <array>
@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 namespace {
 
 using Error = EngineTelemetryNdjsonEncodingError;
@@ -1090,24 +1090,24 @@ template <class Enum, class Mapper>
 [[nodiscard]] bool add_event_counters(const EngineEventCounters &lhs,
                                       const EngineEventCounters &rhs,
                                       EngineEventCounters &result) noexcept {
-#define ESO_ADD_EVENT_COUNTER(member)                                                  \
+#define CRANKWAVE_ADD_EVENT_COUNTER(member)                                                  \
     if (!checked_add(lhs.member, rhs.member, result.member)) {                         \
         return false;                                                                  \
     }
-    ESO_ADD_EVENT_COUNTER(total_event_record_count)
-    ESO_ADD_EVENT_COUNTER(spark_crossing_count)
-    ESO_ADD_EVENT_COUNTER(limiter_transition_count)
-    ESO_ADD_EVENT_COUNTER(limiter_activation_count)
-    ESO_ADD_EVENT_COUNTER(limiter_release_count)
-    ESO_ADD_EVENT_COUNTER(limiter_transition_overspeed_refreshed_count)
-    ESO_ADD_EVENT_COUNTER(ignition_accepted_count)
-    ESO_ADD_EVENT_COUNTER(ignition_rejected_active_flame_count)
-    ESO_ADD_EVENT_COUNTER(ignition_rejected_no_fuel_count)
-    ESO_ADD_EVENT_COUNTER(ignition_rejected_mixture_low_count)
-    ESO_ADD_EVENT_COUNTER(ignition_rejected_mixture_high_count)
-    ESO_ADD_EVENT_COUNTER(flame_extinguished_intake_transfer_count)
-    ESO_ADD_EVENT_COUNTER(flame_extinguished_no_geometric_progress_count)
-#undef ESO_ADD_EVENT_COUNTER
+    CRANKWAVE_ADD_EVENT_COUNTER(total_event_record_count)
+    CRANKWAVE_ADD_EVENT_COUNTER(spark_crossing_count)
+    CRANKWAVE_ADD_EVENT_COUNTER(limiter_transition_count)
+    CRANKWAVE_ADD_EVENT_COUNTER(limiter_activation_count)
+    CRANKWAVE_ADD_EVENT_COUNTER(limiter_release_count)
+    CRANKWAVE_ADD_EVENT_COUNTER(limiter_transition_overspeed_refreshed_count)
+    CRANKWAVE_ADD_EVENT_COUNTER(ignition_accepted_count)
+    CRANKWAVE_ADD_EVENT_COUNTER(ignition_rejected_active_flame_count)
+    CRANKWAVE_ADD_EVENT_COUNTER(ignition_rejected_no_fuel_count)
+    CRANKWAVE_ADD_EVENT_COUNTER(ignition_rejected_mixture_low_count)
+    CRANKWAVE_ADD_EVENT_COUNTER(ignition_rejected_mixture_high_count)
+    CRANKWAVE_ADD_EVENT_COUNTER(flame_extinguished_intake_transfer_count)
+    CRANKWAVE_ADD_EVENT_COUNTER(flame_extinguished_no_geometric_progress_count)
+#undef CRANKWAVE_ADD_EVENT_COUNTER
     return true;
 }
 
@@ -1998,4 +1998,4 @@ EngineTelemetryNdjsonEncoderResult make_engine_telemetry_ndjson_encoder(
     }
 }
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

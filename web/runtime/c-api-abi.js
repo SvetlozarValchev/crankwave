@@ -1,12 +1,12 @@
-// Frozen wasm32 representation of include/engine_sim_offline/c_api.h.
+// Frozen wasm32 representation of include/crankwave/c_api.h.
 //
 // This module deliberately describes one ABI version. A mismatched module is
 // rejected during startup; there is no compatibility decoder.
 
-export const ESO_C_API_VERSION = 10;
-export const ESO_INVALID_HANDLE = 0n;
-export const ESO_CANONICAL_SAMPLE_RATE = 192_000;
-export const ESO_SHA256_DIGEST_SIZE = 32;
+export const CRANKWAVE_C_API_VERSION = 10;
+export const CRANKWAVE_INVALID_HANDLE = 0n;
+export const CRANKWAVE_CANONICAL_SAMPLE_RATE = 192_000;
+export const CRANKWAVE_SHA256_DIGEST_SIZE = 32;
 
 export const Status = Object.freeze({
   ok: 0,
@@ -319,7 +319,7 @@ export function roadLoadDispositionName(disposition) {
 }
 
 // Every offset is a wasm32 clang C layout offset. Startup checks the public
-// eso_abi_layout_t sizes before any of these layouts are used.
+// crankwave_abi_layout_t sizes before any of these layouts are used.
 export const Layout = Object.freeze({
   utf8View: Object.freeze({ size: 8, data: 0, bytes: 4 }),
   byteView: Object.freeze({ size: 8, data: 0, bytes: 4 }),
@@ -332,7 +332,7 @@ export const Layout = Object.freeze({
     payloadData: 12,
     payloadBytes: 16,
   }),
-  vehicleEngineBakeInputs: Object.freeze({
+  crankwaveBakeInputs: Object.freeze({
     size: 104,
     engineJsonData: 0,
     engineJsonBytes: 4,
@@ -347,7 +347,7 @@ export const Layout = Object.freeze({
     wasmModuleSha256: 40,
     assetCatalogSha256: 72,
   }),
-  vehicleEngineDescriptor: Object.freeze({
+  crankwaveDescriptor: Object.freeze({
     size: 112,
     containerBytes: 0,
     entryCount: 8,
@@ -359,7 +359,7 @@ export const Layout = Object.freeze({
     containerSha256: 48,
     cacheIdentitySha256: 80,
   }),
-  vehicleEngineIdentityBuffers: Object.freeze({
+  crankwaveIdentityBuffers: Object.freeze({
     size: 16,
     engineIdData: 0,
     engineIdCapacity: 4,
@@ -638,7 +638,7 @@ export const QUANTITY_FIELDS = Object.freeze([
 ]);
 
 export const WASM32_ABI_WORDS = Object.freeze([
-  ESO_C_API_VERSION,
+  CRANKWAVE_C_API_VERSION,
   4,
   4,
   4,

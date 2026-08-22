@@ -13,7 +13,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::scenario_resolution {
+namespace crankwave::compile::detail::scenario_resolution {
 
 void ScenarioResolver::register_common_provenance() {
     for (const std::string_view path : {
@@ -530,4 +530,4 @@ void ScenarioResolver::bind_resolution_ids() {
         scenario_.mode);
 }
 
-} // namespace engine_sim_offline::compile::detail::scenario_resolution
+} // namespace crankwave::compile::detail::scenario_resolution

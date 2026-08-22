@@ -9,11 +9,11 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 constexpr std::string_view kMethodDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=one-level-master-rod-cycle-mean-equivalent-inertia-v1
 version=1
 operation=full-cycle-mean-crank-referred-kinetic-energy-equivalent-inertia
@@ -168,4 +168,4 @@ calculate_one_level_master_rod_cycle_mean_inertia(
     }
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

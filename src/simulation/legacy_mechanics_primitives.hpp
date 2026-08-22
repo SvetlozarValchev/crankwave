@@ -1,11 +1,11 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <span>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 inline constexpr double kLegacyPi = 3.14159265359;
 inline constexpr double kLegacyRpmScale = 0.104719755;
@@ -143,4 +143,4 @@ evaluate_centered_slider_crank(const CenteredSliderCrankCylinder &cylinder,
                                double theta_cycle_rad,
                                double angular_velocity_rad_s) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

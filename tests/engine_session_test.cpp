@@ -1,6 +1,6 @@
 #include "bmw_m52b28_render_gate_support.hpp"
 
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/session.hpp"
 #include "presentation/mastering.hpp"
 
 #include <algorithm>
@@ -58,8 +58,8 @@ void operator delete[](void *allocation, std::size_t) noexcept {
 
 namespace {
 
-namespace gate = engine_sim_offline::test::bmw_m52b28_render_gate;
-using namespace engine_sim_offline;
+namespace gate = crankwave::test::bmw_m52b28_render_gate;
+using namespace crankwave;
 
 [[nodiscard]] std::uint32_t read_u32le(std::span<const std::byte> bytes,
                                        std::size_t offset) {

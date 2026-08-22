@@ -1,7 +1,7 @@
 #pragma once
 
 #include "dsp/fixed_fft.hpp"
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 #include "reference/p18_reference_audit_reader.hpp"
 #include "reference/p18_reference_catalog.hpp"
 #include "reference/p18_reference_seed_reader.hpp"
@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::reference {
+namespace crankwave::reference {
 
 struct P18ObservedLineageFileIdentity {
     P18ReferenceLineageFile file = P18ReferenceLineageFile::manifest;
@@ -99,4 +99,4 @@ struct P18LoadedReferenceFixture {
 [[nodiscard]] P18LoadedReferenceFixture
 load_p18_reference_fixture(const std::filesystem::path &fixture_root);
 
-} // namespace engine_sim_offline::reference
+} // namespace crankwave::reference

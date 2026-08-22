@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-export const VEHICLEENGINE_MAXIMUM_ENTRY_COUNT = 8_192;
-export const VEHICLEENGINE_MAXIMUM_PATH_BYTES = 512;
-export const VEHICLEENGINE_MAXIMUM_SEGMENT_BYTES = 127;
-export const VEHICLEENGINE_MAXIMUM_ENTRY_BYTES = 2 ** 30;
-export const VEHICLEENGINE_MAXIMUM_CONTAINER_BYTES = 2 ** 32;
-const VEHICLEENGINE_HEADER_BYTES = 128;
-const VEHICLEENGINE_INDEX_ENTRY_PREFIX_BYTES = 56;
+export const CRANKWAVE_MAXIMUM_ENTRY_COUNT = 8_192;
+export const CRANKWAVE_MAXIMUM_PATH_BYTES = 512;
+export const CRANKWAVE_MAXIMUM_SEGMENT_BYTES = 127;
+export const CRANKWAVE_MAXIMUM_ENTRY_BYTES = 2 ** 30;
+export const CRANKWAVE_MAXIMUM_CONTAINER_BYTES = 2 ** 32;
+const CRANKWAVE_HEADER_BYTES = 128;
+const CRANKWAVE_INDEX_ENTRY_PREFIX_BYTES = 56;
 
 function fail(message) {
   throw new Error(message);
@@ -84,11 +84,11 @@ function isReservedPortableSegment(segment) {
   return /^(?:com|lpt)[1-9]$/u.test(stem);
 }
 
-export function isPortableVehicleEnginePath(relativePath) {
+export function isPortableCrankwavePath(relativePath) {
   if (
     typeof relativePath !== "string" ||
     relativePath.length === 0 ||
-    Buffer.byteLength(relativePath, "utf8") > VEHICLEENGINE_MAXIMUM_PATH_BYTES ||
+    Buffer.byteLength(relativePath, "utf8") > CRANKWAVE_MAXIMUM_PATH_BYTES ||
     relativePath.startsWith("/") ||
     relativePath.endsWith("/") ||
     relativePath.includes("\\")
@@ -98,7 +98,7 @@ export function isPortableVehicleEnginePath(relativePath) {
   for (const segment of relativePath.split("/")) {
     if (
       segment.length === 0 ||
-      Buffer.byteLength(segment, "utf8") > VEHICLEENGINE_MAXIMUM_SEGMENT_BYTES ||
+      Buffer.byteLength(segment, "utf8") > CRANKWAVE_MAXIMUM_SEGMENT_BYTES ||
       !isLowerAsciiAlnum(segment[0]) ||
       !isLowerAsciiAlnum(segment.at(-1)) ||
       isReservedPortableSegment(segment) ||
@@ -120,7 +120,7 @@ function scanRegularTree(root, { readPayloads }) {
     for (const name of fs.readdirSync(directory).sort()) {
       const absolute = path.join(directory, name);
       const relative = prefix === "" ? name : `${prefix}/${name}`;
-      if (!isPortableVehicleEnginePath(relative)) {
+      if (!isPortableCrankwavePath(relative)) {
         fail(`package entry has a nonportable relative path: ${relative}`);
       }
       const status = fs.lstatSync(absolute);
@@ -134,11 +134,11 @@ function scanRegularTree(root, { readPayloads }) {
       if (!status.isFile()) {
         fail(`package tree contains a nonregular entry: ${relative}`);
       }
-      if (entries.length >= VEHICLEENGINE_MAXIMUM_ENTRY_COUNT) {
-        fail("package tree entry count is outside the VEHICLEENGINE v1 bounds");
+      if (entries.length >= CRANKWAVE_MAXIMUM_ENTRY_COUNT) {
+        fail("package tree entry count is outside the CRANKWAVE v1 bounds");
       }
-      if (status.size > VEHICLEENGINE_MAXIMUM_ENTRY_BYTES) {
-        fail(`package entry exceeds the VEHICLEENGINE byte limit: ${relative}`);
+      if (status.size > CRANKWAVE_MAXIMUM_ENTRY_BYTES) {
+        fail(`package entry exceeds the CRANKWAVE byte limit: ${relative}`);
       }
       const payload = readPayloads ? fs.readFileSync(absolute) : null;
       if (payload !== null && payload.byteLength !== status.size) {
@@ -215,16 +215,16 @@ function rejectDuplicateObjectKeys(text) {
     if (object?.kind !== "object") continue;
     const key = JSON.parse(text.slice(start, index + 1));
     if (object.keys.has(key)) {
-      fail(`vehicleengine.json repeats object member ${key}`);
+      fail(`crankwave.json repeats object member ${key}`);
     }
     object.keys.add(key);
   }
 }
 
-export function validateVehicleEnginePackageTree(root) {
+export function validateCrankwavePackageTree(root) {
   const entries = scanRegularTree(root, { readPayloads: false });
-  if (entries.length === 0 || entries.length > VEHICLEENGINE_MAXIMUM_ENTRY_COUNT) {
-    fail("package tree entry count is outside the VEHICLEENGINE v1 bounds");
+  if (entries.length === 0 || entries.length > CRANKWAVE_MAXIMUM_ENTRY_COUNT) {
+    fail("package tree entry count is outside the CRANKWAVE v1 bounds");
   }
   let indexBytes = 0n;
   let payloadBytes = 0n;
@@ -233,23 +233,23 @@ export function validateVehicleEnginePackageTree(root) {
     if (byPath.has(entry.path)) fail(`package tree repeats ${entry.path}`);
     byPath.set(entry.path, entry);
     indexBytes += BigInt(
-      VEHICLEENGINE_INDEX_ENTRY_PREFIX_BYTES + Buffer.byteLength(entry.path, "utf8"),
+      CRANKWAVE_INDEX_ENTRY_PREFIX_BYTES + Buffer.byteLength(entry.path, "utf8"),
     );
     payloadBytes += BigInt(entry.byte_count);
   }
-  const containerBytes = BigInt(VEHICLEENGINE_HEADER_BYTES) + indexBytes + payloadBytes;
-  if (containerBytes > BigInt(VEHICLEENGINE_MAXIMUM_CONTAINER_BYTES)) {
-    fail("package tree exceeds the VEHICLEENGINE v1 container byte limit");
+  const containerBytes = BigInt(CRANKWAVE_HEADER_BYTES) + indexBytes + payloadBytes;
+  if (containerBytes > BigInt(CRANKWAVE_MAXIMUM_CONTAINER_BYTES)) {
+    fail("package tree exceeds the CRANKWAVE v1 container byte limit");
   }
 
-  const descriptorEntry = byPath.get("vehicleengine.json");
-  if (descriptorEntry === undefined) fail("package tree omits vehicleengine.json");
+  const descriptorEntry = byPath.get("crankwave.json");
+  if (descriptorEntry === undefined) fail("package tree omits crankwave.json");
   if (descriptorEntry.byte_count > 16 * 1024) {
-    fail("vehicleengine.json exceeds its byte limit");
+    fail("crankwave.json exceeds its byte limit");
   }
   const descriptorBytes = fs.readFileSync(descriptorEntry.absolute_path);
   if (descriptorBytes.byteLength !== descriptorEntry.byte_count) {
-    fail("vehicleengine.json changed while it was read");
+    fail("crankwave.json changed while it was read");
   }
   let descriptor;
   try {
@@ -257,33 +257,33 @@ export function validateVehicleEnginePackageTree(root) {
     descriptor = JSON.parse(descriptorText);
     rejectDuplicateObjectKeys(descriptorText);
   } catch (error) {
-    if (/^vehicleengine\.json repeats object member /u.test(error?.message ?? "")) {
+    if (/^crankwave\.json repeats object member /u.test(error?.message ?? "")) {
       throw error;
     }
-    throw new Error("vehicleengine.json is malformed JSON", { cause: error });
+    throw new Error("crankwave.json is malformed JSON", { cause: error });
   }
   exactKeys(
     descriptor,
     ["schema", "version", "engine_id", "runtime"],
-    "vehicleengine.json",
+    "crankwave.json",
   );
   exactKeys(
     descriptor.runtime,
     ["kind", "manifest_path", "manifest_sha256"],
-    "vehicleengine.json runtime",
+    "crankwave.json runtime",
   );
   if (
-    descriptor.schema !== "engine-sim-offline/vehicleengine-package" ||
+    descriptor.schema !== "crankwave/crankwave-package" ||
     descriptor.version !== 1 ||
     typeof descriptor.engine_id !== "string" ||
     descriptor.engine_id.length > 128 ||
     !/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/u.test(descriptor.engine_id) ||
     descriptor.runtime.kind !== "responsive-audio" ||
-    descriptor.runtime.manifest_path === "vehicleengine.json" ||
-    !isPortableVehicleEnginePath(descriptor.runtime.manifest_path) ||
+    descriptor.runtime.manifest_path === "crankwave.json" ||
+    !isPortableCrankwavePath(descriptor.runtime.manifest_path) ||
     !/^[0-9a-f]{64}$/u.test(descriptor.runtime.manifest_sha256)
   ) {
-    fail("vehicleengine.json does not satisfy the VEHICLEENGINE package contract");
+    fail("crankwave.json does not satisfy the CRANKWAVE package contract");
   }
   const runtimeEntry = byPath.get(descriptor.runtime.manifest_path);
   if (runtimeEntry === undefined) {
@@ -294,7 +294,7 @@ export function validateVehicleEnginePackageTree(root) {
     runtimeBytes.byteLength !== runtimeEntry.byte_count ||
     sha256Hex(runtimeBytes) !== descriptor.runtime.manifest_sha256
   ) {
-    fail("responsive runtime manifest digest differs from vehicleengine.json");
+    fail("responsive runtime manifest digest differs from crankwave.json");
   }
   return Object.freeze({
     entry_count: entries.length,

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://engine-sim-offline.dev/schemas/audio-atlas.schema.json",
-  "title": "Engine Sim Offline responsive audio-atlas manifest",
+  "$id": "https://crankwave.dev/schemas/audio-atlas.schema.json",
+  "title": "Crankwave responsive audio-atlas manifest",
   "$comment": "This is the sole current package schema. A phase-aligned held texture is the normal-running bed; causal directional layers carry sharp throttle gestures; lifecycle performances carry finite start/stop material. There are no legacy moving-segment representations.",
   "type": "object",
   "additionalProperties": false,
@@ -21,7 +21,7 @@
     "provenance"
   ],
   "properties": {
-    "schema": { "const": "engine-sim-offline/audio-atlas" },
+    "schema": { "const": "crankwave/audio-atlas" },
     "id": { "$ref": "#/$defs/id" },
     "engine": { "$ref": "#/$defs/id" },
     "public_seed": { "$ref": "#/$defs/uint64Decimal" },

@@ -1,5 +1,5 @@
 #include "determinism/renderer_numeric_environment.hpp"
-#include "engine_sim_offline_generated/renderer_numeric_policy_generated.hpp"
+#include "crankwave_generated/renderer_numeric_policy_generated.hpp"
 
 #include <cerrno>
 #include <cfenv>
@@ -15,7 +15,7 @@
 #include <unistd.h>
 #endif
 
-#if ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_ADMITTED
+#if CRANKWAVE_RENDERER_NUMERIC_POLICY_ADMITTED
 #if !defined(__linux__) || !defined(__x86_64__) || !defined(__LP64__)
 #error "numeric-policy CMake admission disagrees with the compiler target"
 #endif
@@ -23,7 +23,7 @@ static_assert(sizeof(void *) == 8);
 static_assert(sizeof(long) == 8);
 #endif
 
-namespace engine_sim_offline::determinism {
+namespace crankwave::determinism {
 namespace {
 
 class ErrnoRestore final {
@@ -300,4 +300,4 @@ void restore_admitted_renderer_numeric_controls() noexcept {
 
 } // namespace detail
 
-} // namespace engine_sim_offline::determinism
+} // namespace crankwave::determinism

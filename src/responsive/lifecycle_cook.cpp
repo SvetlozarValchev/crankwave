@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/lifecycle.hpp"
+#include "crankwave/responsive/lifecycle.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 constexpr double kFourStrokeCycleRevolutions = 2.0;
@@ -1041,4 +1041,4 @@ LifecycleResult<LifecycleCookedPackage> assemble_lifecycle_package(
     return result;
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

@@ -48,12 +48,12 @@ void expect(bool condition, std::string_view message) {
     }
 }
 
-using engine_sim_offline::contract::RationalRateHz;
-using engine_sim_offline::simulation::LiveControlOverrides;
-using namespace engine_sim_offline::session;
-namespace contract = engine_sim_offline::contract;
-namespace contract_test = engine_sim_offline::contract::test;
-namespace simulation = engine_sim_offline::simulation;
+using crankwave::contract::RationalRateHz;
+using crankwave::simulation::LiveControlOverrides;
+using namespace crankwave::session;
+namespace contract = crankwave::contract;
+namespace contract_test = crankwave::contract::test;
+namespace simulation = crankwave::simulation;
 
 constexpr RationalRateHz kPhysicsRate{20000, 1};
 constexpr RationalRateHz kDeliveryRate{192000, 1};

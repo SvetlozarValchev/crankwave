@@ -1,8 +1,8 @@
 #pragma once
 
-#include "engine_sim_offline/contract/engine.hpp"
-#include "engine_sim_offline/contract/result.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/engine.hpp"
+#include "crankwave/contract/result.hpp"
+#include "crankwave/contract/scenario.hpp"
 #include "simulation/execution_extent.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
@@ -13,7 +13,7 @@
 #include <string>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct LowOrderPrescribedKinematicStep {
     contract::TorqueTelemetry capture_torque;
@@ -85,4 +85,4 @@ compile_low_order_prescribed_kinematic_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     LowOrderExecutionExtent execution_extent);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

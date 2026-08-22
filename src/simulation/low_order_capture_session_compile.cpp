@@ -8,7 +8,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 using contract::ContractIssueCode;
@@ -155,4 +155,4 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

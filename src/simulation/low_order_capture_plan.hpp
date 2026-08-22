@@ -1,8 +1,8 @@
 #pragma once
 
-#include "engine_sim_offline/contract/engine.hpp"
-#include "engine_sim_offline/contract/parity_model.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/engine.hpp"
+#include "crankwave/contract/parity_model.hpp"
+#include "crankwave/contract/scenario.hpp"
 #include "simulation/execution_extent.hpp"
 #include "simulation/low_order_capture_buffer.hpp"
 
@@ -13,7 +13,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct LowOrderCylinderChamberCaptureBinding {
     contract::CylinderId cylinder_id;
@@ -53,4 +53,4 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
                                const contract::RenderScenario &scenario,
                                LowOrderExecutionExtent execution_extent);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

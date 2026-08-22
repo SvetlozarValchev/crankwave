@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/scenario_template.hpp"
+#include "crankwave/responsive/scenario_template.hpp"
 
 #include <algorithm>
 #include <array>
@@ -11,7 +11,7 @@
 #include <string_view>
 #include <vector>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 constexpr double kLegacyPi = 3.14159265359;
@@ -164,4 +164,4 @@ ResponsiveScenarioTemplateResult make_responsive_scenario_template(
         scenario, template_identity(scenario, profile)};
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

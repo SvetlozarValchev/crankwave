@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 [[nodiscard]] consteval bool
@@ -26,7 +26,7 @@ canonical_lf_descriptor(std::string_view descriptor) noexcept {
 }
 
 constexpr std::string_view kFixedHorizonCycleSamplingDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=fixed-horizon-trailing-complete-cycle-sample-v1
 version=1
 operation=fixed-preparation-horizon-trailing-complete-cycle-sampling
@@ -499,4 +499,4 @@ compile_fixed_horizon_cycle_sampler(FixedHorizonCycleSamplerPlan plan) {
     }
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

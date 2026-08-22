@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 
 async function main() {
   if (process.argv.length !== 3) {
-    throw new Error("usage: node ReadWasmSourceClosure.mjs engine-sim-offline.js");
+    throw new Error("usage: node ReadWasmSourceClosure.mjs crankwave.js");
   }
   const loaderPath = path.resolve(process.argv[2]);
   const imported = await import(pathToFileURL(loaderPath).href);
@@ -19,16 +19,16 @@ async function main() {
   for (const name of [
     "_malloc",
     "_free",
-    "_eso_api_version",
-    "_eso_context_create",
-    "_eso_context_destroy",
-    "_eso_renderer_copy_source_closure_sha256",
+    "_crankwave_api_version",
+    "_crankwave_context_create",
+    "_crankwave_context_destroy",
+    "_crankwave_renderer_copy_source_closure_sha256",
   ]) {
     if (typeof module[name] !== "function") {
       throw new Error(`WASM renderer is missing ${name}`);
     }
   }
-  if (module._eso_api_version() !== 10 || !(module.HEAPU8 instanceof Uint8Array)) {
+  if (module._crankwave_api_version() !== 10 || !(module.HEAPU8 instanceof Uint8Array)) {
     throw new Error("WASM renderer exposes an incompatible C API");
   }
 
@@ -39,7 +39,7 @@ async function main() {
   }
   try {
     module.HEAPU8.fill(0, contextOutput, contextOutput + 4);
-    if (module._eso_context_create(10, contextOutput) !== 0) {
+    if (module._crankwave_context_create(10, contextOutput) !== 0) {
       throw new Error("WASM renderer context creation failed");
     }
     const context = new DataView(
@@ -51,7 +51,7 @@ async function main() {
     try {
       module.HEAPU8.fill(0, closureOutput, closureOutput + 32);
       if (
-        module._eso_renderer_copy_source_closure_sha256(
+        module._crankwave_renderer_copy_source_closure_sha256(
           context,
           closureOutput,
         ) !== 0
@@ -61,7 +61,7 @@ async function main() {
       const digest = module.HEAPU8.subarray(closureOutput, closureOutput + 32);
       process.stdout.write(`${Buffer.from(digest).toString("hex")}\n`);
     } finally {
-      if (module._eso_context_destroy(context) !== 0) {
+      if (module._crankwave_context_destroy(context) !== 0) {
         throw new Error("WASM renderer context destruction failed");
       }
     }

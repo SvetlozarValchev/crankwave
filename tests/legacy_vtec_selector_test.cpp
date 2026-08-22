@@ -9,7 +9,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::simulation;
+using namespace crankwave::simulation;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {

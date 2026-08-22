@@ -1,4 +1,4 @@
-const SCHEMA = "engine-sim-offline/responsive-audio-directional-route";
+const SCHEMA = "crankwave/responsive-audio-directional-route";
 
 export class DirectionalPhaseCellError extends Error {
   constructor(code, message, { recoverable = false } = {}) {

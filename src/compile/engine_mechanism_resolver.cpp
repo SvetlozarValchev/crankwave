@@ -1,6 +1,6 @@
 #include "compile/engine_resolver_internal.hpp"
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 
 void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
                        contract::LowOrderEngineCoreV1 &core) {
@@ -166,4 +166,4 @@ void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
     }
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

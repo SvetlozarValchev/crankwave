@@ -6,7 +6,7 @@
 #include <cmath>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 [[nodiscard]] InertialCrankDynamicsError configuration_error(
@@ -197,4 +197,4 @@ compile_inertial_crank_dynamics(InertialCrankDynamicsConfiguration configuration
     return InertialCrankDynamics{std::move(configuration)};
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

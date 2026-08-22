@@ -6,7 +6,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 using contract::ContractIssueCode;
@@ -350,4 +350,4 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
     };
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

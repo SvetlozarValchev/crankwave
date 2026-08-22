@@ -5,7 +5,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::authoring::detail {
+namespace crankwave::authoring::detail {
 namespace {
 
 void parse_ignition_wire(DocumentReader &reader, JsonValue value, std::string_view path,
@@ -347,4 +347,4 @@ void parse_starter(DocumentReader &reader, JsonValue value, std::string_view pat
     }
 }
 
-} // namespace engine_sim_offline::authoring::detail
+} // namespace crankwave::authoring::detail

@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/torque.hpp"
+#include "crankwave/contract/torque.hpp"
 
 #include "validation_support.hpp"
 
@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 namespace {
 
 bool known(Availability value) noexcept {
@@ -244,4 +244,4 @@ ValidationReport validate(const TorqueCapability &capability) {
     return report;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

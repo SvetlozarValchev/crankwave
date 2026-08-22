@@ -1,12 +1,12 @@
-export interface VehicleEngineBakeAsset {
+export interface CrankwaveBakeAsset {
   readonly kind: "audio" | "accessory-configuration";
   readonly id: string;
   readonly bytes: ArrayBuffer | ArrayBufferView;
 }
 
-export interface VehicleEngineBakeRequest {
+export interface CrankwaveBakeRequest {
   readonly engineJson: string;
-  readonly assets?: readonly VehicleEngineBakeAsset[];
+  readonly assets?: readonly CrankwaveBakeAsset[];
   readonly sharedStarterRuntimeJson: ArrayBuffer | ArrayBufferView;
   readonly sharedStarterAudio: ArrayBuffer | ArrayBufferView;
   readonly releaseIdentity: string;
@@ -14,7 +14,7 @@ export interface VehicleEngineBakeRequest {
   readonly assetCatalogSha256: ArrayBuffer | ArrayBufferView;
 }
 
-export interface BakedVehicleEngine {
+export interface BakedCrankwave {
   readonly bytes: Uint8Array;
   readonly byteCount: number;
   readonly entryCount: number;
@@ -27,8 +27,8 @@ export interface BakedVehicleEngine {
   readonly cacheIdentitySha256: string;
 }
 
-export class EngineSimVehicleEngineBaker {
+export class CrankwaveBaker {
   constructor(module: unknown);
-  bake(request: VehicleEngineBakeRequest): BakedVehicleEngine;
+  bake(request: CrankwaveBakeRequest): BakedCrankwave;
   dispose(): void;
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <array>
 #include <cstdint>
@@ -10,7 +10,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::determinism {
+namespace crankwave::determinism {
 
 // Content identity of one already-loaded ELF provider. Loader paths, mapping
 // addresses, device/inode numbers, and timestamps are deliberately excluded.
@@ -150,4 +150,4 @@ canonical_provider_token(const DynamicProviderIdentity &provider);
 canonical_symbol_token(std::span<const VersionedSymbolIdentity> symbols);
 
 } // namespace detail
-} // namespace engine_sim_offline::determinism
+} // namespace crankwave::determinism

@@ -2,22 +2,22 @@
 
 #include "presentation/presentation_method_descriptor_support.hpp"
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 namespace {
 
 #if defined(__wasm32__)
-#define ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL                                  \
+#define CRANKWAVE_AUDITION_METHOD_ID_LITERAL                                  \
     "ordered-n-route-rate-adjusted-leveler-tanh-quarter-sine-pcm24-wave-master-"       \
     "wasm32-binary128-v4"
-#define ENGINE_SIM_OFFLINE_DURATION_EXTENDED_LABEL "wasm32-ieee754-binary128"
+#define CRANKWAVE_DURATION_EXTENDED_LABEL "wasm32-ieee754-binary128"
 #else
-#define ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL                                  \
+#define CRANKWAVE_AUDITION_METHOD_ID_LITERAL                                  \
     "ordered-n-route-rate-adjusted-leveler-tanh-quarter-sine-pcm24-wave-master-v4"
-#define ENGINE_SIM_OFFLINE_DURATION_EXTENDED_LABEL "x87-extended"
+#define CRANKWAVE_DURATION_EXTENDED_LABEL "x87-extended"
 #endif
 
 constexpr std::string_view kRouteStemPublicationMethodDescriptor =
-    R"method(engine-sim-offline.presentation-method-configuration.v1
+    R"method(crankwave.presentation-method-configuration.v1
 method=exhaust-route-wet-selection-float32-wave-publication-10000-or-20000-to-192000-20ms-clock-v7
 version=7
 operation=exhaust-route-dry-configured-transfer-selected-stem-publication
@@ -68,9 +68,9 @@ float32_execution=ieee754-binary32-nearest-ties-to-even-no-fma-no-ftz-no-daz
 )method";
 
 constexpr std::string_view kOrderedRouteAuditionMethodDescriptor =
-    R"method(engine-sim-offline.presentation-method-configuration.v1
+    R"method(crankwave.presentation-method-configuration.v1
 )method"
-    "method=" ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL "\n"
+    "method=" CRANKWAVE_AUDITION_METHOD_ID_LITERAL "\n"
     R"method(version=4
 operation=ordered-n-route-serial-float32-rate-adjusted-peak-leveler-tanh-quarter-sine-fades-and-pcm24-master
 route_selection=all-active-published-exhaust-source-routes-exactly-once-in-declared-vector-order
@@ -86,7 +86,7 @@ resolved_argument_3=fade_out_duration_s
 resolved_argument_3_domain=finite-canonical-nonnegative-binary64-resolving-to-an-exact-delivery-frame-index
 duration_resolution=contract-resolve-frame-index-at-reduced-rate-192000/1
 )method"
-    "duration_resolution_arithmetic=" ENGINE_SIM_OFFLINE_DURATION_EXTENDED_LABEL
+    "duration_resolution_arithmetic=" CRANKWAVE_DURATION_EXTENDED_LABEL
     R"method((duration-times-192000-divided-by-1)-then-std-round-long-double-half-away-from-zero-with-8-times-binary64-epsilon-times-max(1,absolute-frames)-tolerance
 duration_resolution_bound=resolved-frame-index-less-than-or-equal-to-2^53-minus-1-and-tolerance-strictly-less-than-0.25
 audible_frame_count=positive-resolved-integer
@@ -174,7 +174,7 @@ std::string_view ordered_route_audition_method_descriptor() noexcept {
     return kOrderedRouteAuditionMethodDescriptor;
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation
 
-#undef ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL
-#undef ENGINE_SIM_OFFLINE_DURATION_EXTENDED_LABEL
+#undef CRANKWAVE_AUDITION_METHOD_ID_LITERAL
+#undef CRANKWAVE_DURATION_EXTENDED_LABEL

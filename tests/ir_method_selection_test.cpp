@@ -1,6 +1,6 @@
 #include "compile/compiled_scenario_view.hpp"
-#include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/authoring/parse.hpp"
+#include "crankwave/compile.hpp"
 #include "presentation/presentation_method_registry.hpp"
 
 #include <cstddef>
@@ -19,7 +19,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 struct OwnedAsset {
     compile::AssetKind kind = compile::AssetKind::audio;

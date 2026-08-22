@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/engine",
+  "schema": "crankwave/engine",
   "engine": {
     "identity": {
       "id": "honda-b18c5-cleanroom",
@@ -505,7 +505,7 @@
       {
         "id": "warm-generic-accessories",
         "uri": "../../profiles/honda-b18c5-cleanroom/accessory-configurations/honda-b18c5-cleanroom-warm-generic-accessories-v1.json",
-        "sha256": "f6a52933a69429ee00e48ff47de613c9effb3509215219ab7b1bdae5e8be9c9b"
+        "sha256": "b77df170c2bed0a33b7d5387e5ee4b57a75a4a22df11615948cf2724c859784a"
       }
     ],
     "losses": {
@@ -641,7 +641,7 @@
       {
         "id": "smooth-39",
         "kind": "impulse_response",
-        "uri": "../../../reference/fixtures/engine-sim-ir-library/presentation/smooth_39.wav",
+        "uri": "../../../reference/fixtures/crankwave-ir-library/presentation/smooth_39.wav",
         "sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"
       }
     ],

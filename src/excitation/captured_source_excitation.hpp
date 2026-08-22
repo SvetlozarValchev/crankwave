@@ -1,9 +1,9 @@
 #pragma once
 
-#include "engine_sim_offline/contract/capture.hpp"
-#include "engine_sim_offline/contract/parity_model.hpp"
-#include "engine_sim_offline/contract/result.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/capture.hpp"
+#include "crankwave/contract/parity_model.hpp"
+#include "crankwave/contract/result.hpp"
+#include "crankwave/contract/scenario.hpp"
 #include "presentation/exhaust_excitation_block.hpp"
 
 #include <concepts>
@@ -17,7 +17,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::excitation {
+namespace crankwave::excitation {
 
 inline constexpr contract::RationalRateHz kPreviewCapturedSourceRateHz{10000U, 1U};
 inline constexpr contract::RationalRateHz kCapturedSourceRateHz{20000U, 1U};
@@ -150,11 +150,11 @@ class ExhaustExcitationDiagnosticBlockView final {
     [[nodiscard]] std::size_t route_count() const noexcept;
     [[nodiscard]] std::size_t frame_count() const noexcept;
     [[nodiscard]] std::span<const double>
-    pre_delay_cylinder_values_engine_sim_source_unit() const noexcept;
+    pre_delay_cylinder_values_crankwave_source_unit() const noexcept;
     [[nodiscard]] std::span<const double>
-    post_delay_cylinder_values_engine_sim_source_unit() const noexcept;
+    post_delay_cylinder_values_crankwave_source_unit() const noexcept;
     [[nodiscard]] std::span<const double>
-    route_bus_values_engine_sim_source_unit() const noexcept;
+    route_bus_values_crankwave_source_unit() const noexcept;
 
   private:
     ExhaustExcitationDiagnosticBlockView(
@@ -354,4 +354,4 @@ compile_captured_source_excitation_session(const contract::EngineSpec &engine,
                                            const contract::LowOrderEngineCoreV1 &core,
                                            const contract::RenderScenario &scenario);
 
-} // namespace engine_sim_offline::excitation
+} // namespace crankwave::excitation

@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "schema": "crankwave/responsive-audio-lifecycle",
   "id": "honda-b18c5-cleanroom-lifecycle-preview",
   "engine": "honda-b18c5-cleanroom",
   "audio": {
@@ -125,7 +125,7 @@
     "quiet_rms_threshold": 0.00006103515625
   },
   "startup_admission": {
-    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "schema": "crankwave/continuous-startup-admission-v1",
     "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
     "admission_lane_coordinate": "authored-throttle-01",
     "blend": "constant-power",
@@ -159,8 +159,8 @@
     "evidence": {
       "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
       "path": "evidence/startup-admission.json",
-      "sha256": "389a70360ab2ca3bc10afb96170195477c48cb69809835bb7cc11c1cebfe4003",
-      "corrected_held_manifest_sha256": "0b56dd43d385493991bbccb4db76d5621ba14a73d878288d97460b1c9aa7a313"
+      "sha256": "c5ea3101d3d7afdb3c8307f6bfa0b5b2b32fffb7b2de28b506c9b8db573fd51c",
+      "corrected_held_manifest_sha256": "cb13d82b6c4302f71fa8daf04002d578a40f85491feac71ee4329e6c35a7bcf7"
     }
   },
   "provenance": {
@@ -169,7 +169,7 @@
       "sha256": "beaf656419f9ec7da8d0370e2f575d2a079c1f264ff886be12df0733f7069af8"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
@@ -184,27 +184,27 @@
         "canonical_source_id": "honda-b18c5-cleanroom-lifecycle-starter-candidate",
         "derived_id": "honda-b18c5-cleanroom-lifecycle-starter-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/starter-10khz.json",
-        "sha256": "1a3755d5923ab92ddc5429da2216cb4f22ed395ec789ac4e8f6cfaa8a57a373e",
+        "sha256": "b26854260c2fb8f37bb763967ccbe6af0b3bbf5f2da6cf5fb4bf3881f72bf2f9",
         "evidence_path": "evidence/starter.json",
-        "evidence_sha256": "d07e922aa5cec46b90dbd2a65e7f0d9d687a22de782b04c566a8d3bae15bf0e2"
+        "evidence_sha256": "c13b62258c34357f6f18427d7bc4f28fffd6ed2454af407d60ff68181346bdfd"
       },
       {
         "role": "startup",
         "canonical_source_id": "honda-b18c5-cleanroom-lifecycle-startup-candidate",
         "derived_id": "honda-b18c5-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/startup-10khz.json",
-        "sha256": "59919731ad775729a99ab4713fadfdc7ebc10a42dda565d43e979dfe59799986",
+        "sha256": "2f21f7e09ca9e8b3620cef012087caaa98720a504a75846744552388b5709452",
         "evidence_path": "evidence/startup.json",
-        "evidence_sha256": "d2f9c2b10d62f4681e4859bd5350121e512be5405f4c02e4b13dea668e0878a2"
+        "evidence_sha256": "e7799b6ab25ae647a3ffc3dcc25642182e83cff711864584595c1b37c25849c4"
       },
       {
         "role": "shutdown",
         "canonical_source_id": "honda-b18c5-cleanroom-lifecycle-shutdown-candidate",
         "derived_id": "honda-b18c5-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/shutdown-10khz.json",
-        "sha256": "8d427983f3771178ad49f4217e35ff4a946440367fc2821184af96d82dc260dd",
+        "sha256": "cb34d7553a7e2375e8c6102877c1a7dc2b705add39d7377bbc846c1371b11973",
         "evidence_path": "evidence/shutdown.json",
-        "evidence_sha256": "32e9228447a9a27451cec6477bebf5cd1ce846a14d2d4c55f07ab995306d6399"
+        "evidence_sha256": "bc0fe7e78ade787976d331fa18e35f1cd45e8ae767b3496a4cffc15f74dda312"
       }
     ]
   }

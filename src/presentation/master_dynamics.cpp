@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <stdexcept>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 namespace {
 
 constexpr float kPeakRetentionPerFrame = std::bit_cast<float>(UINT32_C(0x3f7ffef2));
@@ -86,4 +86,4 @@ float MasterDynamics::gain_retention_per_frame() const noexcept {
     return gain_retention_per_frame_;
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

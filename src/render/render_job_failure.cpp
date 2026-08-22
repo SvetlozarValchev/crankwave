@@ -2,7 +2,7 @@
 
 #include <utility>
 
-namespace engine_sim_offline::render_detail {
+namespace crankwave::render_detail {
 
 contract::RenderFailure
 make_job_failure(contract::RenderRequestRecord request, contract::FailureKind kind,
@@ -26,4 +26,4 @@ make_job_failure(contract::RenderRequestRecord request, contract::FailureKind ki
     return {std::move(context), std::move(request), {}};
 }
 
-} // namespace engine_sim_offline::render_detail
+} // namespace crankwave::render_detail

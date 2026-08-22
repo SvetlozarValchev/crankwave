@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-held-route",
+  "schema": "crankwave/responsive-audio-held-route",
   "id": "bmw-m52tub28-cleanroom-exact-held-exhaust-front-dry-live-preview",
   "engine": "bmw-m52tub28-cleanroom",
   "audio": {
@@ -2393,7 +2393,7 @@
       "sha256": "3918d17dc709292fa6d61681b08889647f92f6bcf1b3209cbdc5d70c91c0fa5e"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "capture_method": "exact-held-rpm-48-cycle-20ms-exact-sum-horizon-v8",

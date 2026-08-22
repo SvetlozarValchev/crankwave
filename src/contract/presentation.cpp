@@ -1,7 +1,7 @@
-#include "engine_sim_offline/contract/presentation.hpp"
+#include "crankwave/contract/presentation.hpp"
 
-#include "engine_sim_offline/contract/engine.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/engine.hpp"
+#include "crankwave/contract/scenario.hpp"
 #include "validation_support.hpp"
 
 #include <algorithm>
@@ -12,7 +12,7 @@
 #include <string_view>
 #include <unordered_set>
 
-namespace engine_sim_offline::contract {
+namespace crankwave::contract {
 namespace {
 
 template <class T>
@@ -514,4 +514,4 @@ ValidationReport validate(const PresentationCalibration &calibration,
     return report;
 }
 
-} // namespace engine_sim_offline::contract
+} // namespace crankwave::contract

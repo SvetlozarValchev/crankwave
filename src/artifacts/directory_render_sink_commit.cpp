@@ -1,7 +1,7 @@
 #include "directory_render_sink_impl.hpp"
 
 #include "directory_render_sink_support.hpp"
-#include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
+#include "crankwave/artifacts/simulation_manifest_encoder.hpp"
 
 #include <algorithm>
 #include <array>
@@ -20,7 +20,7 @@
 #include <unistd.h>
 #endif
 
-namespace engine_sim_offline::artifacts {
+namespace crankwave::artifacts {
 
 RenderSinkStatus
 DirectoryRenderSink::Implementation::commit(const contract::RenderManifest &manifest) {
@@ -472,4 +472,4 @@ RenderSinkStatus DirectoryRenderSink::Implementation::write_metadata_file(
 
 #endif
 
-} // namespace engine_sim_offline::artifacts
+} // namespace crankwave::artifacts

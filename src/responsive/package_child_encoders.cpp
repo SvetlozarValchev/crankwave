@@ -1,9 +1,9 @@
-#include "engine_sim_offline/responsive/package_children.hpp"
+#include "crankwave/responsive/package_children.hpp"
 
-#include "engine_sim_offline/artifacts/vehicleengine_container.hpp"
-#include "engine_sim_offline/authoring/json.hpp"
-#include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/contract/provenance.hpp"
+#include "crankwave/artifacts/crankwave_container.hpp"
+#include "crankwave/authoring/json.hpp"
+#include "crankwave/authoring/parse.hpp"
+#include "crankwave/contract/provenance.hpp"
 
 #include <algorithm>
 #include <array>
@@ -24,7 +24,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 using Error = NativeResponsivePackageError;
@@ -35,13 +35,13 @@ constexpr std::uint64_t kLifecyclePhysicsFramesPerBlock = 200U;
 constexpr std::string_view kSharedStarterAudioRelativePath =
     "audio/recorded-starter.cropped.192000hz.mono.f32le";
 constexpr std::string_view kSharedStarterSourceSha256 =
-    "8edcfa21f846098472dd3f57236f23367a7667f4458f7452b565370062635a81";
+    "818adef5e4737957ddb2ca061a50b05666776ce50c06d866fcc72e9c42767df8";
 constexpr std::string_view kSharedStarterManifestSha256 =
-    "1fb698a9c304ecee323361b059dbfc615ab82c06357e01b815faa8f3a008365e";
+    "73110090f07df4523081fac3452ee1cc0b3aab6b0b8a356186ca18db3c011bc2";
 constexpr std::string_view kSharedStarterPayloadSha256 =
-    "1949863ca58aef11146d4a842609ef217f6b7df4ba6db38f478eb918cef2964a";
-constexpr std::size_t kSharedStarterManifestByteCount = 3'120U;
-constexpr std::size_t kSharedStarterPayloadByteCount = 1'037'272U;
+    "b25b6277e375d5dd92cec98e7d33765a6898461e00597935cd526c850db8c0be";
+constexpr std::size_t kSharedStarterManifestByteCount = 3'560U;
+constexpr std::size_t kSharedStarterPayloadByteCount = 5'883'648U;
 
 [[nodiscard]] Error error(const ErrorCode code, std::string detail_code,
                           std::string path, std::string message) {
@@ -852,7 +852,7 @@ validate_scenario(const LifecycleCaptureEvidence &capture,
                   const std::string_view path) {
     const auto &scenario = capture.scenario;
     const auto *mode = std::get_if<authoring::FreeEngineMode>(&scenario.mode);
-    if (scenario.schema != "engine-sim-offline/scenario" ||
+    if (scenario.schema != "crankwave/scenario" ||
         scenario.id.value != capture.scenario_id ||
         scenario.engine.value != capture.engine_id || scenario.fuel.value.empty() ||
         mode == nullptr || mode->attached_inertia.has_value() ||
@@ -1087,7 +1087,7 @@ validate_lifecycle(const LifecycleCookedPackage &lifecycle,
         lifecycle.bus_id != "master.engine.audition" ||
         provenance.compiled_engine_sha256.is_zero() ||
         provenance.renderer_source_sha256.is_zero() ||
-        provenance.renderer_build_id != "engine-sim-offline-renderer-build" ||
+        provenance.renderer_build_id != "crankwave-renderer-build" ||
         held_manifest_sha256.is_zero() ||
         lifecycle.captures.size() != expected_capture_count ||
         lifecycle.shutdown_elevated.has_value() != (lifecycle.captures.size() == 4U) ||
@@ -1285,8 +1285,8 @@ validate_shared_starter_manifest(const authoring::JsonValue root,
     if (!exact_keys(root, {"schema", "id", "purpose", "rights", "audio", "markers",
                            "mix", "provenance"}) ||
         !json_string(root.find("schema"),
-                     "engine-sim-offline/shared-recorded-starter") ||
-        !json_string(root.find("id"), "shared-recorded-starter-licensed") ||
+                     "crankwave/shared-recorded-starter") ||
+        !json_string(root.find("id"), "shared-recorded-starter-cc0-v1") ||
         !json_string(root.find("purpose"), "shared-source-a-and-b-lifecycle-layer")) {
         return error(ErrorCode::malformed_child_manifest,
                      "responsive-shared-starter-root-invalid",
@@ -1294,25 +1294,27 @@ validate_shared_starter_manifest(const authoring::JsonValue root,
                      "shared starter root schema, identity or purpose is invalid");
     }
     const auto rights = root.find("rights");
-    if (!exact_keys(rights, {"status", "basis", "licensee", "audition_only",
+    if (!exact_keys(rights, {"status", "basis", "creator", "source_url",
+                             "license_url", "audition_only",
                              "modification_authorized", "redistribution_authorized",
-                             "attested_by", "attestation_date", "notice"}) ||
-        !json_string(rights.find("status"), "licensed") ||
-        !json_string(rights.find("basis"), "commissioned-original-recording") ||
-        !json_string(rights.find("licensee"), "SvetlozarValchev") ||
+                             "notice"}) ||
+        !json_string(rights.find("status"), "cc0-1.0") ||
+        !json_string(rights.find("basis"), "public-domain-dedication") ||
+        !json_string(rights.find("creator"), "Ika.Komura") ||
+        !json_string(rights.find("source_url"),
+                     "https://freesound.org/people/Ika.Komura/sounds/520773/") ||
+        !json_string(rights.find("license_url"),
+                     "https://creativecommons.org/publicdomain/zero/1.0/") ||
         !json_bool(rights.find("audition_only"), false) ||
         !json_bool(rights.find("modification_authorized"), true) ||
         !json_bool(rights.find("redistribution_authorized"), true) ||
-        !json_string(rights.find("attested_by"), "SvetlozarValchev") ||
-        !json_string(rights.find("attestation_date"), "2026-08-06") ||
         !json_string(rights.find("notice"),
-                     "Commissioned original recording licensed to SvetlozarValchev; "
-                     "modification and redistribution are authorized.")) {
+                     "Car not starting.wav by Ika.Komura is dedicated to the "
+                     "public domain under CC0 1.0.")) {
         return error(ErrorCode::invalid_identity,
                      "responsive-shared-starter-rights-invalid",
                      "shared-recorded-starter/runtime.json/rights",
-                     "shared starter rights attestation does not match the licensed "
-                     "installed asset");
+                     "shared starter rights do not match the installed CC0 asset");
     }
     const auto audio_object = root.find("audio");
     if (!exact_keys(audio_object,
@@ -1440,49 +1442,72 @@ validate_shared_starter_manifest(const authoring::JsonValue root,
     const auto source = provenance.find("source");
     const auto selection = provenance.find("selection");
     const auto canonicalization = provenance.find("canonicalization");
-    const auto accepted_commit =
-        provenance.find("accepted_engine_audio_lab_layer_commit").string();
-    if (!exact_keys(provenance, {"accepted_engine_audio_lab_layer_commit", "source",
-                                 "selection", "canonicalization"}) ||
-        !accepted_commit.has_value() || !lowercase_hex(*accepted_commit, 40U) ||
-        !exact_keys(source, {"origin", "asset_file", "sha256", "byte_count", "codec",
-                             "sample_rate_hz", "channels", "channel_relationship"}) ||
-        !json_string(source.find("origin"), "commissioned-original-recording") ||
-        !json_string(source.find("asset_file"), "recorded-starter-source.mp3") ||
+    if (!exact_keys(provenance, {"source", "selection", "canonicalization"}) ||
+        !exact_keys(source, {"origin", "asset_file", "creator",
+                             "freesound_sound_id", "freesound_url",
+                             "download_page_url", "license", "license_url",
+                             "sha256", "byte_count", "codec", "sample_rate_hz",
+                             "channels", "channel_relationship"}) ||
+        !json_string(source.find("origin"), "freesound-cc0-via-pixabay-mp3") ||
+        !json_string(source.find("asset_file"),
+                     "freesound_community-car-not-starting-40006.mp3") ||
+        !json_string(source.find("creator"), "Ika.Komura") ||
+        json_uint(source.find("freesound_sound_id")) != 520'773U ||
+        !json_string(source.find("freesound_url"),
+                     "https://freesound.org/people/Ika.Komura/sounds/520773/") ||
+        !json_string(source.find("download_page_url"),
+                     "https://pixabay.com/sound-effects/city-car-not-starting-40006/") ||
+        !json_string(source.find("license"), "CC0-1.0") ||
+        !json_string(source.find("license_url"),
+                     "https://creativecommons.org/publicdomain/zero/1.0/") ||
         !json_string(source.find("sha256"), kSharedStarterSourceSha256) ||
-        !json_uint(source.find("byte_count")).has_value() ||
+        json_uint(source.find("byte_count")) != 314'880U ||
         !json_string(source.find("codec"), "mp3") ||
-        json_uint(source.find("sample_rate_hz")) != 44'100U ||
-        json_uint(source.find("channels")) != 2U ||
-        !json_string(source.find("channel_relationship"),
-                     "dual mono; FFmpeg decode is bit-identical and Chromium decode "
-                     "differs by at most one PCM16 LSB") ||
+        json_uint(source.find("sample_rate_hz")) != 48'000U ||
+        json_uint(source.find("channels")) != 1U ||
+        !json_string(source.find("channel_relationship"), "mono") ||
         !exact_keys(selection,
-                    {"description", "accepted_date", "repeat_bed_start_frame",
-                     "repeat_bed_end_frame", "seam_crossfade_frames_at_44100hz"}) ||
+                    {"description", "prepared_date", "repeat_bed_start_frame",
+                     "repeat_bed_end_frame", "seam_crossfade_frames_at_48000hz"}) ||
         !json_string(selection.find("description"),
-                     "user-auditioned accepted starter and handoff settings") ||
-        !json_string(selection.find("accepted_date"), "2026-07-20") ||
-        !json_uint(selection.find("repeat_bed_start_frame")).has_value() ||
-        !json_uint(selection.find("repeat_bed_end_frame")).has_value() ||
-        !json_uint(selection.find("seam_crossfade_frames_at_44100hz")).has_value() ||
+                     "user-selected continuous crank bed from the complete CC0 "
+                     "source; initial EQ and level are matched to the replaced "
+                     "runtime asset") ||
+        !json_string(selection.find("prepared_date"), "2026-08-22") ||
+        json_uint(selection.find("repeat_bed_start_frame")) != 227'616U ||
+        json_uint(selection.find("repeat_bed_end_frame")) != 358'128U ||
+        json_uint(selection.find("seam_crossfade_frames_at_48000hz")) != 2'400U ||
         !exact_keys(canonicalization,
-                    {"method", "source_channel", "source_crop_begin_frame_inclusive",
+                    {"method", "source_crop_begin_frame_inclusive",
                      "source_crop_end_frame_exclusive", "source_crop_frames",
                      "output_sample_rate_hz", "output_frames", "marker_mapping",
                      "ffmpeg_version", "filter_graph"}) ||
         !json_string(
             canonicalization.find("method"),
-            "decode-left-dual-mono-then-exact-source-frame-crop-then-soxr-resample") ||
-        json_uint(canonicalization.find("source_channel")) != 0U ||
+            "decode-mono-then-exact-source-frame-crop-static-eq-rms-match-soxr-"
+            "resample-and-exact-output-trim") ||
+        json_uint(canonicalization.find("source_crop_begin_frame_inclusive")) !=
+            0U ||
+        json_uint(canonicalization.find("source_crop_end_frame_exclusive")) !=
+            367'728U ||
+        json_uint(canonicalization.find("source_crop_frames")) != 367'728U ||
         json_uint(canonicalization.find("output_sample_rate_hz")) != 192'000U ||
         json_uint(canonicalization.find("output_frames")) != *frame_count ||
         !json_string(canonicalization.find("marker_mapping"),
-                     "round(relative_source_frame * 192000 / 44100)")) {
+                     "relative_source_frame * 4") ||
+        !json_string(canonicalization.find("ffmpeg_version"), "6.1.1-3ubuntu5") ||
+        !json_string(
+            canonicalization.find("filter_graph"),
+            "atrim=start_sample=0:end_sample=367728,asetpts=PTS-STARTPTS,"
+            "highpass=f=35:poles=2,equalizer=f=180:t=q:w=0.7:g=3,"
+            "equalizer=f=350:t=q:w=0.8:g=-3,equalizer=f=2800:t=q:w=0.8:g=-3.5,"
+            "equalizer=f=7000:t=q:w=0.7:g=1,volume=-6.966715dB,"
+            "aresample=192000:resampler=soxr:precision=33:cheby=0:"
+            "dither_method=none,atrim=end_sample=1470912")) {
         return error(ErrorCode::invalid_identity,
                      "responsive-shared-starter-provenance-invalid",
                      "shared-recorded-starter/runtime.json/provenance",
-                     "shared starter provenance does not bind the accepted licensed "
+                     "shared starter provenance does not bind the accepted CC0 "
                      "source and canonicalization");
     }
     const auto crop_begin =
@@ -1493,7 +1518,7 @@ validate_shared_starter_manifest(const authoring::JsonValue root,
     const auto selection_begin = json_uint(selection.find("repeat_bed_start_frame"));
     const auto selection_end = json_uint(selection.find("repeat_bed_end_frame"));
     const auto selection_crossfade =
-        json_uint(selection.find("seam_crossfade_frames_at_44100hz"));
+        json_uint(selection.find("seam_crossfade_frames_at_48000hz"));
     const auto ffmpeg = canonicalization.find("ffmpeg_version").string();
     const auto graph = canonicalization.find("filter_graph").string();
     if (!crop_begin || !crop_end || !crop_frames || *crop_begin >= *crop_end ||
@@ -1649,7 +1674,7 @@ encode_responsive_shared_recorded_starter_v1(
             kNativeResponsiveMaximumPackagePayloadBytes - input.runtime_json.size() ||
         !contract::is_valid_semantic_id(package_provenance.engine_id) ||
         package_provenance.compiled_engine_sha256.is_zero() ||
-        package_provenance.renderer_build_id != "engine-sim-offline-renderer-build" ||
+        package_provenance.renderer_build_id != "crankwave-renderer-build" ||
         package_provenance.renderer_source_sha256.is_zero()) {
         return error(ErrorCode::invalid_argument,
                      "responsive-shared-starter-input-invalid",
@@ -1705,4 +1730,4 @@ encode_responsive_shared_recorded_starter_v1(
          2U}};
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <bit>
 #include <cstddef>
@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-namespace engine_sim_offline::responsive::detail {
+namespace crankwave::responsive::detail {
 
 class CanonicalIdentityBytes final {
   public:
@@ -63,4 +63,4 @@ class CanonicalIdentityBytes final {
     std::vector<std::byte> bytes_;
 };
 
-} // namespace engine_sim_offline::responsive::detail
+} // namespace crankwave::responsive::detail

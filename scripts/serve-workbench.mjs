@@ -201,7 +201,7 @@ server.listen(options.port, options.host, () => {
   const listeningPort =
     typeof address === "object" && address !== null ? address.port : options.port;
   console.log(
-    `Engine Sim Offline workbench: http://${options.host}:${listeningPort}/`,
+    `Crankwave workbench: http://${options.host}:${listeningPort}/`,
   );
   console.log(`Serving files from: ${rootDirectory}`);
   console.log("Cross-origin isolation headers are enabled; press Ctrl+C to stop.");

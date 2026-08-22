@@ -1,9 +1,9 @@
-#include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/compile.hpp"
-#include "engine_sim_offline/responsive/finite_capture.hpp"
-#include "engine_sim_offline/responsive/lifecycle.hpp"
-#include "engine_sim_offline/responsive/profile.hpp"
-#include "engine_sim_offline/responsive/scenario_template.hpp"
+#include "crankwave/authoring/parse.hpp"
+#include "crankwave/compile.hpp"
+#include "crankwave/responsive/finite_capture.hpp"
+#include "crankwave/responsive/lifecycle.hpp"
+#include "crankwave/responsive/profile.hpp"
+#include "crankwave/responsive/scenario_template.hpp"
 
 #include <algorithm>
 #include <array>
@@ -26,7 +26,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 struct OwnedAsset {
     compile::AssetKind kind = compile::AssetKind::audio;

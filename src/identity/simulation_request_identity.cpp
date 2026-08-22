@@ -1,4 +1,4 @@
-#include "engine_sim_offline/request_identity.hpp"
+#include "crankwave/request_identity.hpp"
 
 #include "identity/simulation_request_identity_writer.hpp"
 
@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::identity {
+namespace crankwave::identity {
 namespace {
 
 using detail::CanonicalJsonWriter;
@@ -102,4 +102,4 @@ encode_simulation_request_identity_v7(const contract::EngineSpec &engine,
     }
 }
 
-} // namespace engine_sim_offline::identity
+} // namespace crankwave::identity

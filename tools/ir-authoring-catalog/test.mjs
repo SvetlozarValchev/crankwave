@@ -59,7 +59,7 @@ const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, "utf8"));
 assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
 assert.equal(
   schema.$id,
-  "https://engine-sim-offline.dev/schemas/ir-authoring-catalog.schema.json",
+  "https://crankwave.dev/schemas/ir-authoring-catalog.schema.json",
 );
 assert.equal(schema.properties.release_identity.const, "1.2.0");
 assert.equal(schema.properties.entry_count.const, 73);
@@ -79,7 +79,7 @@ exactKeys(catalog, [
   "rights_summary",
   "entries",
 ], "catalog");
-assert.equal(catalog.schema, "engine-sim-offline/ir-authoring-catalog.v1");
+assert.equal(catalog.schema, "crankwave/ir-authoring-catalog.v1");
 assert.equal(catalog.release_identity, "1.2.0");
 assert.equal(catalog.entry_count, 73);
 assert.equal(catalog.entries.length, 73);

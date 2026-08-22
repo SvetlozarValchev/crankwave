@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "subaru-ej25-cleanroom-inertial-dyno-1500-6500rpm-10khz-preview",
   "engine": "subaru-ej25-cleanroom",
   "fuel": "gasoline-default",

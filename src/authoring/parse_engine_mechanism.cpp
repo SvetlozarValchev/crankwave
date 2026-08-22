@@ -3,7 +3,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::authoring::detail {
+namespace crankwave::authoring::detail {
 
 void parse_crankshaft(DocumentReader &reader, JsonValue value, std::string_view path,
                       CrankshaftDefinition &output) {
@@ -204,4 +204,4 @@ void parse_cylinder(DocumentReader &reader, JsonValue value, std::string_view pa
                         pointer_member(path, "exhaust_header_primary_length"), owner);
 }
 
-} // namespace engine_sim_offline::authoring::detail
+} // namespace crankwave::authoring::detail

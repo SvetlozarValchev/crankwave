@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "schema": "crankwave/responsive-audio-lifecycle",
   "id": "shovelhead-bank-local-heads-lifecycle-preview",
   "engine": "shovelhead-bank-local-heads",
   "audio": {
@@ -125,7 +125,7 @@
     "quiet_rms_threshold": 0.0007858667935415543
   },
   "startup_admission": {
-    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "schema": "crankwave/continuous-startup-admission-v1",
     "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
     "admission_lane_coordinate": "authored-throttle-01",
     "blend": "constant-power",
@@ -159,8 +159,8 @@
     "evidence": {
       "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
       "path": "evidence/startup-admission.json",
-      "sha256": "d1e31e6370f1771c08cbcb78a75b861a4c128da509f935aa453ecd017cb5512c",
-      "corrected_held_manifest_sha256": "0a415cfe5d59d3321aab0727c39417372287ecc3108ffa3387817fc33cb087ea"
+      "sha256": "14f159d7610040bb224ef2da7b4600d898a0f6e49da04b393ad7e30a6c5c4e35",
+      "corrected_held_manifest_sha256": "8fc58b09887f90d3706978beeba1be0d8f63979fa527c1267a439574457eeee5"
     }
   },
   "provenance": {
@@ -169,7 +169,7 @@
       "sha256": "44ce96943d08ec8cedbca7d44a36e2b767e9e1d110bdeb1618de5b0671b73fd8"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
@@ -184,27 +184,27 @@
         "canonical_source_id": "shovelhead-bank-local-heads-lifecycle-starter-candidate",
         "derived_id": "shovelhead-bank-local-heads-lifecycle-starter-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/starter-10khz.json",
-        "sha256": "90c7163275d86fbd50494fd7ae4828aec1ab75d6ef308aef1296b12973d4d9ad",
+        "sha256": "3a47ba12bedb8fc03e956923ddc51f7851c82426a012db848cd2160ca6e477d6",
         "evidence_path": "evidence/starter.json",
-        "evidence_sha256": "21f61e1673af907b9d3a4fa8473146f24a149b00f6a2819aadfdc6111817a53a"
+        "evidence_sha256": "6bc2a078e38a925dded868536be363b9ae49310bef95e8e53dd25d1ad45a8099"
       },
       {
         "role": "startup",
         "canonical_source_id": "shovelhead-bank-local-heads-lifecycle-startup-candidate",
         "derived_id": "shovelhead-bank-local-heads-lifecycle-startup-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/startup-10khz.json",
-        "sha256": "fb67eea133be30b5e2fbeefbd0a53247af5f79e93d52385940393dbf4416964e",
+        "sha256": "ba62e11900c8de1913e44644a44ed8190fb929c612f429247e9f1ae0dfa4a278",
         "evidence_path": "evidence/startup.json",
-        "evidence_sha256": "900b23a142fba67edbbb48009017f9e025cb6962bf47f52016ec52e1410705fc"
+        "evidence_sha256": "9d3a06cb20e44b4ec8b476ef5da743330414c024e1b23c09cf4796a030f2435c"
       },
       {
         "role": "shutdown",
         "canonical_source_id": "shovelhead-bank-local-heads-lifecycle-shutdown-candidate",
         "derived_id": "shovelhead-bank-local-heads-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/shutdown-10khz.json",
-        "sha256": "8492597dbb5746706e27e97c102a6e167db13ca02b210dcc0147a766f41f37e1",
+        "sha256": "eb5a9e2c00d00739551fec4cf32c816870634539b962dd804ee7f13b72b6ddaa",
         "evidence_path": "evidence/shutdown.json",
-        "evidence_sha256": "f4971b1af6cc296c2c738047d2d619753cea4870750a9d6c3bf86dfdbf5f6de7"
+        "evidence_sha256": "6745350772977e6201fa476ad0fd43d762a4e5057ed8efedf2b5e66220a68453"
       }
     ]
   }

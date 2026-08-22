@@ -63,8 +63,8 @@ void operator delete[](void *allocation, std::size_t) noexcept {
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::presentation;
+using namespace crankwave;
+using namespace crankwave::presentation;
 
 constexpr std::array<contract::RouteId, 3> kRouteIds{
     contract::RouteId{1},

@@ -1,7 +1,7 @@
-#include "engine_sim_offline/responsive/native_publication.hpp"
+#include "crankwave/responsive/native_publication.hpp"
 
-#include "engine_sim_offline/artifacts/vehicleengine_container.hpp"
-#include "engine_sim_offline/artifacts/vehicleengine_package.hpp"
+#include "crankwave/artifacts/crankwave_container.hpp"
+#include "crankwave/artifacts/crankwave_package.hpp"
 
 #include <algorithm>
 #include <array>
@@ -24,7 +24,7 @@
 #include <unistd.h>
 #endif
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 using Error = NativeResponsivePackageError;
@@ -55,7 +55,7 @@ using ErrorCode = NativeResponsivePackageErrorCode;
 
 [[nodiscard]] bool valid_output_component(const std::string_view value) noexcept {
     return value.find('/') == value.npos &&
-           artifacts::is_portable_vehicleengine_path(value);
+           artifacts::is_portable_crankwave_path(value);
 }
 
 struct VerifiedPackage {
@@ -70,26 +70,26 @@ verify_package(const NativeResponsivePackageV2 &package,
     if (stop_token.stop_requested()) {
         return cancelled_error();
     }
-    if (package.members.empty() || package.vehicleengine_v1.empty() ||
-        package.members.size() > artifacts::kVehicleEngineMaximumEntryCountV1 ||
-        package.vehicleengine_v1.size() >
-            artifacts::kVehicleEngineMaximumContainerByteCountV1) {
+    if (package.members.empty() || package.crankwave_v1.empty() ||
+        package.members.size() > artifacts::kCrankwaveMaximumEntryCountV1 ||
+        package.crankwave_v1.size() >
+            artifacts::kCrankwaveMaximumContainerByteCountV1) {
         return error(ErrorCode::invalid_argument,
                      "native-responsive-publication-package-empty", "",
                      "publication requires a bounded built package and carrier");
     }
     std::uint64_t payload_bytes = 0U;
     std::string_view previous;
-    std::vector<artifacts::VehicleEnginePackEntry> tree;
+    std::vector<artifacts::CrankwavePackEntry> tree;
     tree.reserve(package.members.size());
     for (std::size_t index = 0; index < package.members.size(); ++index) {
         if (stop_token.stop_requested()) {
             return cancelled_error();
         }
         const auto &member = package.members[index];
-        if (!artifacts::is_portable_vehicleengine_path(member.path) ||
+        if (!artifacts::is_portable_crankwave_path(member.path) ||
             (index != 0U && !(previous < member.path)) ||
-            member.bytes.size() > artifacts::kVehicleEngineMaximumEntryByteCountV1 ||
+            member.bytes.size() > artifacts::kCrankwaveMaximumEntryByteCountV1 ||
             member.bytes.size() >
                 kNativeResponsiveMaximumPackagePayloadBytes - payload_bytes) {
             return error(
@@ -101,14 +101,14 @@ verify_package(const NativeResponsivePackageV2 &package,
         payload_bytes += member.bytes.size();
         tree.push_back({member.path, member.bytes});
     }
-    auto tree_result = artifacts::validate_vehicleengine_package_tree(tree);
+    auto tree_result = artifacts::validate_crankwave_package_tree(tree);
     if (const auto *failure =
-            std::get_if<artifacts::VehicleEnginePackageError>(&tree_result)) {
+            std::get_if<artifacts::CrankwavePackageError>(&tree_result)) {
         return error(ErrorCode::invalid_member,
                      "native-responsive-publication-tree-invalid", failure->path,
                      failure->message);
     }
-    if (contract::sha256(package.vehicleengine_v1) != package.vehicleengine_sha256) {
+    if (contract::sha256(package.crankwave_v1) != package.crankwave_sha256) {
         return error(ErrorCode::invalid_argument,
                      "native-responsive-publication-carrier-digest-mismatch", "",
                      "carrier bytes do not match the package carrier digest");
@@ -116,14 +116,14 @@ verify_package(const NativeResponsivePackageV2 &package,
     if (stop_token.stop_requested()) {
         return cancelled_error();
     }
-    auto verified_result = artifacts::verify_vehicleengine(package.vehicleengine_v1);
+    auto verified_result = artifacts::verify_crankwave(package.crankwave_v1);
     if (const auto *failure =
-            std::get_if<artifacts::VehicleEngineContainerError>(&verified_result)) {
+            std::get_if<artifacts::CrankwaveContainerError>(&verified_result)) {
         return error(ErrorCode::invalid_argument,
                      "native-responsive-publication-carrier-invalid", failure->path,
                      failure->message);
     }
-    const auto &index = std::get<artifacts::VehicleEngineContainerIndex>(verified_result);
+    const auto &index = std::get<artifacts::CrankwaveContainerIndex>(verified_result);
     if (index.entries.size() != package.members.size()) {
         return error(ErrorCode::invalid_argument,
                      "native-responsive-publication-carrier-tree-mismatch", "",
@@ -144,7 +144,7 @@ verify_package(const NativeResponsivePackageV2 &package,
                 "carrier entry does not bind the supplied package member bytes");
         }
     }
-    return VerifiedPackage{package.vehicleengine_v1.size()};
+    return VerifiedPackage{package.crankwave_v1.size()};
 }
 
 #if defined(__linux__)
@@ -229,7 +229,7 @@ split_portable_path(const std::string_view path) {
         }
     }
     constexpr std::string_view digits = "0123456789abcdef";
-    std::string result = ".engine-sim-offline-" + std::string{purpose} + "-";
+    std::string result = ".crankwave-" + std::string{purpose} + "-";
     result.reserve(result.size() + random.size() * 2U);
     for (const auto value : random) {
         result.push_back(digits[value >> 4U]);
@@ -896,7 +896,7 @@ publish_native_responsive_package_atomic(const NativeResponsivePackageV2 &packag
 }
 
 NativeResponsiveCarrierPublicationResult
-publish_native_vehicleengine_atomic(const NativeResponsivePackageV2 &package,
+publish_native_crankwave_atomic(const NativeResponsivePackageV2 &package,
                                 const std::filesystem::path &output_file,
                                 const std::stop_token stop_token) {
     const auto file_name = output_file.filename().string();
@@ -958,7 +958,7 @@ publish_native_vehicleengine_atomic(const NativeResponsivePackageV2 &package,
     PrivateEntryGuard cleanup(parent.get(),
                               static_cast<std::uintmax_t>(stage_status.st_dev),
                               static_cast<std::uintmax_t>(stage_status.st_ino));
-    if (const auto failure = write_all(stage.get(), package.vehicleengine_v1,
+    if (const auto failure = write_all(stage.get(), package.crankwave_v1,
                                        output_file.string(), stop_token)) {
         return *failure;
     }
@@ -977,7 +977,7 @@ publish_native_vehicleengine_atomic(const NativeResponsivePackageV2 &package,
         current_status.st_dev != stage_status.st_dev ||
         current_status.st_ino != stage_status.st_ino || current_status.st_size < 0 ||
         static_cast<std::uint64_t>(current_status.st_size) !=
-            package.vehicleengine_v1.size()) {
+            package.crankwave_v1.size()) {
         return publication_error("native-responsive-carrier-stage-identity-mismatch",
                                  output_file.string(),
                                  "private carrier stage identity or extent changed");
@@ -985,18 +985,18 @@ publish_native_vehicleengine_atomic(const NativeResponsivePackageV2 &package,
     constexpr std::size_t kChunkBytes = 1024U * 1024U;
     std::vector<std::byte> buffer(kChunkBytes);
     std::size_t offset = 0U;
-    while (offset < package.vehicleengine_v1.size()) {
+    while (offset < package.crankwave_v1.size()) {
         if (stop_token.stop_requested()) {
             return cancelled_error();
         }
         const auto request =
-            std::min(buffer.size(), package.vehicleengine_v1.size() - offset);
+            std::min(buffer.size(), package.crankwave_v1.size() - offset);
         const auto count =
             ::pread(stage.get(), buffer.data(), request, static_cast<off_t>(offset));
         if (count > 0) {
             const auto received = static_cast<std::size_t>(count);
             if (!std::equal(buffer.begin(), buffer.begin() + received,
-                            package.vehicleengine_v1.begin() + offset)) {
+                            package.crankwave_v1.begin() + offset)) {
                 return publication_error(
                     "native-responsive-carrier-stage-content-mismatch",
                     output_file.string(),
@@ -1030,9 +1030,9 @@ publish_native_vehicleengine_atomic(const NativeResponsivePackageV2 &package,
     stage.reset();
     static_cast<void>(::fsync(parent.get()));
     return NativeResponsiveCarrierPublication{
-        output_file, static_cast<std::uint64_t>(package.vehicleengine_v1.size()),
-        package.vehicleengine_sha256};
+        output_file, static_cast<std::uint64_t>(package.crankwave_v1.size()),
+        package.crankwave_sha256};
 #endif
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

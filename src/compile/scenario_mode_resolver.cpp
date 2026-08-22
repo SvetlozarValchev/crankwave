@@ -18,7 +18,7 @@
 #include <type_traits>
 #include <variant>
 
-namespace engine_sim_offline::compile::detail::scenario_resolution {
+namespace crankwave::compile::detail::scenario_resolution {
 
 void ScenarioResolver::require_initial_speed(double mode_speed_rpm,
                                              std::string_view mode_path) {
@@ -623,4 +623,4 @@ void ScenarioResolver::compile_mode() {
         document_.mode);
 }
 
-} // namespace engine_sim_offline::compile::detail::scenario_resolution
+} // namespace crankwave::compile::detail::scenario_resolution

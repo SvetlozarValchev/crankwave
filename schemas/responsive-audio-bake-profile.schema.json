@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://engine-sim-offline.dev/schemas/responsive-audio-bake-profile.schema.json",
-  "title": "Engine Sim Offline responsive-audio bake profile",
+  "$id": "https://crankwave.dev/schemas/responsive-audio-bake-profile.schema.json",
+  "title": "Crankwave responsive-audio bake profile",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "id", "rpm", "capture", "lifecycle"],
   "properties": {
-    "schema": {"const": "engine-sim-offline/responsive-audio-bake-profile-v1"},
+    "schema": {"const": "crankwave/responsive-audio-bake-profile-v1"},
     "id": {
       "type": "string",
       "minLength": 1,

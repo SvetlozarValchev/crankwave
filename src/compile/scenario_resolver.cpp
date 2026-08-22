@@ -17,7 +17,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 namespace {
 
 constexpr std::string_view kFixedRateRpmMethodDescriptor =
@@ -185,7 +185,7 @@ std::optional<std::uint64_t> ScenarioResolver::physics_frame(double time_s,
 }
 
 void ScenarioResolver::validate_context() {
-    if (document_.schema != "engine-sim-offline/scenario") {
+    if (document_.schema != "crankwave/scenario") {
         add(authoring::DiagnosticCode::unsupported_schema, "/schema",
             "scenario resolver accepts the current scenario schema only");
     }
@@ -275,4 +275,4 @@ resolve_scenario_document(const authoring::ScenarioDocument &document,
     }
 }
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

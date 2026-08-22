@@ -8,7 +8,7 @@
 #include <limits>
 #include <utility>
 
-namespace engine_sim_offline::simulation::detail {
+namespace crankwave::simulation::detail {
 namespace {
 
 constexpr auto kMechanism =
@@ -431,4 +431,4 @@ std::uint64_t LowOrderCaptureBuffer::first_sample_index() const noexcept {
     return first_sample_index_;
 }
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace crankwave::simulation::detail

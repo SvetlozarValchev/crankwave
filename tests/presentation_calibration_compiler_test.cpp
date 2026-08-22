@@ -15,7 +15,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -31,7 +31,7 @@ void expect(bool condition, const char *message) {
 
 struct ResolutionBuilder {
     contract::ProvenanceLedger provenance{
-        "engine-sim-offline.provenance.v1",
+        "crankwave.provenance.v1",
         {"neutral-presentation-inputs-v1", digest(1)},
         {
             {"asset-one-source", "assets/ir-one.wav", std::nullopt, digest(11),

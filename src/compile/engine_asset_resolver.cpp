@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 namespace {
 
 void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
@@ -266,7 +266,7 @@ void attach_asset_evidence(contract::ProvenanceLedger &ledger,
     }
     ledger.bundle.sha256 = contract::canonical_provenance_ledger_digest(
         ledger,
-        "engine-sim-offline.compiler-resolution-provenance-digest.engine");
+        "crankwave.compiler-resolution-provenance-digest.engine");
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

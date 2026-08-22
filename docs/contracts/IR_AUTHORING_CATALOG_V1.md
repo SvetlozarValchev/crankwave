@@ -9,18 +9,18 @@ The authoring catalog explains the choices; the technical catalog resolves only 
 exact asset kind, stable ID, and SHA-256 to verified bytes.
 
 Each installed release carries the authoring artifact at
-`<datadir>/engine-sim-offline/<release_identity>/assets/ir-authoring-catalog.v1.json`.
-Its schema is `engine-sim-offline/ir-authoring-catalog.v1`. The catalog and all
+`<datadir>/crankwave/<release_identity>/assets/ir-authoring-catalog.v1.json`.
+Its schema is `crankwave/ir-authoring-catalog.v1`. The catalog and all
 content-addressed WAV payloads are members of the installed `release.json` closure.
 Their exact bytes therefore contribute to the release binding digest.
 
 Consumers do not discover this filesystem path. They invoke:
 
 ```text
-engine-sim-offline inspect-ir-catalog --result-format json
+crankwave inspect-ir-catalog --result-format json
 ```
 
-Success uses `engine-sim-offline.cli-result.v1` and returns the exact catalog as a
+Success uses `crankwave.cli-result.v1` and returns the exact catalog as a
 JSON object together with its byte SHA-256 and entry count. The command fails closed
 when the catalog is missing or malformed, its `release_identity` differs from the
 running ESO release, or an exposed `id` + `sha256` pair is not admitted as audio by

@@ -5,7 +5,7 @@ import {
 } from "./directional-phase-cell.js";
 
 const RUNTIME_SCHEMA =
-  "engine-sim-offline/responsive-audio-state-phase-texture";
+  "crankwave/responsive-audio-state-phase-texture";
 const RUNTIME_KIND = "responsive-audio-state-phase-texture";
 const CANONICAL_SAMPLE_RATE = 192_000;
 const KNOWN_STATE_MASK = 0x1f;

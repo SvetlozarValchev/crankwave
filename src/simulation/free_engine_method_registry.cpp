@@ -3,7 +3,7 @@
 #include <span>
 #include <string>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 [[nodiscard]] consteval bool
@@ -20,7 +20,7 @@ canonical_lf_descriptor(std::string_view descriptor) noexcept {
 }
 
 constexpr std::string_view kNonnegativeSpeedFreeEngineCenteredSliderCrankDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=nonnegative-speed-free-engine-centered-slider-crank-v1
 version=1
 operation=nonnegative-speed-free-engine-centered-slider-crank-one-degree-of-freedom
@@ -30,7 +30,7 @@ attached-inertia=finite-nonnegative-binary64-constant-crank-referred-inertia-add
 inertia-boundary=analytic-M-of-theta-and-dM-dtheta-are-evaluated-at-the-current-left-boundary
 causal-engine-input=previous-committed-post-gas-indicated-torque-plus-source-crank-friction-plus-source-piston-wall-friction-from-the-current-left-boundary-plus-the-separately-resolved-starter-torque
 crank-friction=pristine-engine-sim-zero-speed-rotation-constraint-saturated-at-negative-authored-running-friction-torque-for-admitted-positive-speed-or-an-engaged-positive-forward-starter
-starter=engine-sim-v1-unilateral-target-speed-starter-v1-consumes-the-signed-preconstraint-speed-predicted-with-gas-source-friction-and-external-resistance-then-adds-positive-forward-torque-up-to-the-authored-maximum
+starter=crankwave-unilateral-target-speed-starter-v1-consumes-the-signed-preconstraint-speed-predicted-with-gas-source-friction-and-external-resistance-then-adds-positive-forward-torque-up-to-the-authored-maximum
 starter-source=ange-yaghi-engine-sim-85f7c3b959a908ed5232ede4f1a4ac7eafe6b630-starter-motor
 starter-solver-source=ange-yaghi-simple-2d-constraint-solver-e009f4ff1c9c4c5874e865e893cdb62e208fb2b3-optimized-nsv-rigid-body-system
 starter-required-torque=instantaneous-configuration-inertia-times-target-speed-minus-signed-preconstraint-speed-divided-by-step-duration-in-written-order
@@ -71,7 +71,7 @@ static_assert(
 
 constexpr std::string_view
     kNonnegativeSpeedFreeEngineCenteredSliderCrankRigidGroupDescriptor =
-        R"method(engine-sim-offline.simulation-method-configuration.v1
+        R"method(crankwave.simulation-method-configuration.v1
 method=nonnegative-speed-free-engine-centered-slider-crank-rigid-group-v1
 version=1
 operation=nonnegative-speed-free-engine-centered-slider-crank-one-degree-of-freedom-for-one-co-centered-co-phased-one-to-one-rigid-crank-group
@@ -95,7 +95,7 @@ static_assert(canonical_lf_descriptor(
     kNonnegativeSpeedFreeEngineCenteredSliderCrankRigidGroupDescriptor));
 
 constexpr std::string_view kNonnegativeSpeedFreeEngineOneLevelMasterRodDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=nonnegative-speed-free-engine-one-level-master-rod-v1
 version=1
 operation=nonnegative-speed-free-engine-one-degree-of-freedom-with-one-level-master-rod-articulated-mechanism
@@ -107,7 +107,7 @@ attached-inertia=finite-nonnegative-binary64-constant-crank-referred-inertia-add
 inertia-boundary=analytic-M-of-theta-and-dM-dtheta-are-evaluated-at-the-current-left-boundary
 causal-engine-input=previous-committed-post-gas-indicated-torque-plus-source-crank-friction-plus-source-piston-wall-friction-from-the-current-left-boundary-plus-the-separately-resolved-starter-torque
 crank-friction=unchanged-pristine-engine-sim-zero-speed-rotation-constraint-and-positive-speed-running-friction-law-from-nonnegative-speed-free-engine-centered-slider-crank-v1
-starter=unchanged-engine-sim-v1-unilateral-target-speed-starter-law-from-nonnegative-speed-free-engine-centered-slider-crank-v1
+starter=crankwave-unilateral-target-speed-starter-law-from-nonnegative-speed-free-engine-centered-slider-crank-v1
 starter-engagement=right-continuous-authored-or-live-level-state-with-no-automatic-release-and-no-dedicated-audio-source
 piston-wall-friction=pristine-engine-sim-cpp-default-stribeck-coulomb-viscous-law-using-each-current-signed-piston-axis-speed-and-that-piston-retained-previous-step-wall-reaction-magnitude
 piston-wall-reaction=leaf-first-coupled-articulated-inverse-dynamics-from-current-left-boundary-phase-speed-acceleration-and-per-cylinder-chamber-pressure
@@ -146,7 +146,7 @@ static_assert(
     canonical_lf_descriptor(kNonnegativeSpeedFreeEngineOneLevelMasterRodDescriptor));
 
 constexpr std::string_view kFreeEngineEquivalentInertiaSumDescriptor =
-    R"method(engine-sim-offline.simulation-method-configuration.v1
+    R"method(crankwave.simulation-method-configuration.v1
 method=free-engine-equivalent-inertia-sum-v1
 version=1
 operation=resolve-total-cycle-mean-crank-referred-inertia-reference
@@ -225,4 +225,4 @@ const contract::MethodIdentity &free_engine_equivalent_inertia_sum_method_identi
     return identity;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

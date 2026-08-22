@@ -1,4 +1,4 @@
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/session.hpp"
 
 #include "compile/compiled_scenario_view.hpp"
 #include "presentation/presentation_audio_session.hpp"
@@ -23,7 +23,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline {
+namespace crankwave {
 namespace {
 
 inline constexpr std::uint64_t kMaximumSessionBlockCount =
@@ -1241,4 +1241,4 @@ create_engine_session(const compile::CompiledScenario &scenario,
     return session_detail::create_engine_session_impl(scenario, execution_kind, {});
 }
 
-} // namespace engine_sim_offline
+} // namespace crankwave

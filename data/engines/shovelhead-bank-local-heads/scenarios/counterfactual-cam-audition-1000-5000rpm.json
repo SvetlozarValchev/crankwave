@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "shovelhead-bank-local-heads-counterfactual-cam-audition-1000-5000rpm",
   "engine": "shovelhead-bank-local-heads",
   "fuel": "gasoline-default",

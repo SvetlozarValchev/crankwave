@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "schema": "crankwave/responsive-audio-directional-route",
   "id": "sequoia-3ur-fe-cleanroom-directional-falling-exhaust-even-dry-live-preview",
   "engine": "sequoia-3ur-fe-cleanroom",
   "audio": {
@@ -923,7 +923,7 @@
       "sha256": "71ce08a1cb0dc63d7eb0eea7070e8625a5fe4628379dadc9e4402440152fa5f2"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "falling-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",

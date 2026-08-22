@@ -19,12 +19,12 @@ impulse_response="${repository_dir}/reference/fixtures/bmw-m52b28-p18/presentati
 accessory_configuration="${repository_dir}/data/profiles/bmw-m52b28/accessory-configurations/bmw-m52b28-warm-stock-accessories-v1.json"
 expectations="${repository_dir}/tests/wasm/parity_expectations.json"
 
-if [[ "${ESO_WASM_PARITY_IN_EMSDK:-0}" != "1" ]]; then
+if [[ "${CRANKWAVE_WASM_PARITY_IN_EMSDK:-0}" != "1" ]]; then
     docker run --rm \
         --user "$(id -u):$(id -g)" \
         -e HOME=/src/.work/wasm-parity/home \
         -e TMPDIR=/src/.work/wasm-parity/tmp/wasm \
-        -e ESO_WASM_PARITY_IN_EMSDK=1 \
+        -e CRANKWAVE_WASM_PARITY_IN_EMSDK=1 \
         -v "${repository_dir}:/src" \
         -w /src \
         "${emsdk_image}" \
@@ -46,15 +46,15 @@ cmake \
     -S "${repository_dir}" \
     -B "${native_build_dir}" \
     -DCMAKE_BUILD_TYPE=Release \
-    -DENGINE_SIM_OFFLINE_BUILD_TESTS=ON \
-    -DENGINE_SIM_OFFLINE_BUILD_CLI=OFF \
-    -DENGINE_SIM_OFFLINE_BUILD_WASM=OFF
+    -DCRANKWAVE_BUILD_TESTS=ON \
+    -DCRANKWAVE_BUILD_CLI=OFF \
+    -DCRANKWAVE_BUILD_WASM=OFF
 cmake \
     --build "${native_build_dir}" \
-    --target engine_sim_offline_wasm_parity_native \
+    --target crankwave_wasm_parity_native \
     --parallel 4
 
-"${native_build_dir}/tests/engine_sim_offline_wasm_parity_native" \
+"${native_build_dir}/tests/crankwave_wasm_parity_native" \
     "${engine_json}" \
     "${scenario_json}" \
     smooth-39 \
@@ -67,15 +67,15 @@ emcmake cmake \
     -S "${repository_dir}" \
     -B "${wasm_build_dir}" \
     -DCMAKE_BUILD_TYPE=Release \
-    -DENGINE_SIM_OFFLINE_BUILD_TESTS=ON \
-    -DENGINE_SIM_OFFLINE_BUILD_CLI=OFF \
-    -DENGINE_SIM_OFFLINE_BUILD_WASM=ON
+    -DCRANKWAVE_BUILD_TESTS=ON \
+    -DCRANKWAVE_BUILD_CLI=OFF \
+    -DCRANKWAVE_BUILD_WASM=ON
 cmake \
     --build "${wasm_build_dir}" \
     --target \
-        engine_sim_offline_wasm \
-        engine_sim_offline_wasm_parity_module \
-        engine_sim_offline_wasm_numeric_contract_tests \
+        crankwave_wasm \
+        crankwave_wasm_parity_module \
+        crankwave_wasm_numeric_contract_tests \
     --parallel 4
 ctest \
     --test-dir "${wasm_build_dir}" \
@@ -83,13 +83,13 @@ ctest \
     -R '^wasm.numeric_contract$'
 
 cmake -E copy_if_different \
-    "${wasm_build_dir}/engine-sim-offline.js" \
-    "${wasm_build_dir}/engine-sim-offline.mjs"
+    "${wasm_build_dir}/crankwave.js" \
+    "${wasm_build_dir}/crankwave.mjs"
 node "${repository_dir}/tests/wasm/smoke_public_module.mjs" \
-    "${wasm_build_dir}/engine-sim-offline.mjs"
+    "${wasm_build_dir}/crankwave.mjs"
 
 node "${repository_dir}/tests/wasm/compare_parity.mjs" \
-    "${wasm_build_dir}/tests/engine-sim-offline-wasm-parity.mjs" \
+    "${wasm_build_dir}/tests/crankwave-wasm-parity.mjs" \
     "${native_bundle}" \
     "${engine_json}" \
     "${scenario_json}" \

@@ -1,13 +1,13 @@
 #pragma once
 
-#include "engine_sim_offline/contract/parity_model.hpp"
+#include "crankwave/contract/parity_model.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct RigidCrankGroupProperties {
     std::size_t crankshaft_count = 0U;
@@ -58,4 +58,4 @@ calculate_rigid_crank_group_authored_inertia(
 [[nodiscard]] RigidCrankGroupCalculation calculate_rigid_crank_group_properties(
     const contract::LegacyMechanismProfile &mechanism) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

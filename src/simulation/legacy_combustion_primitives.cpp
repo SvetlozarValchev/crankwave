@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 [[nodiscard]] constexpr auto make_mean_speed_to_turbulence_table() noexcept {
@@ -309,4 +309,4 @@ bool legacy_extinguish_flame_for_intake_transfer(
     return false;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

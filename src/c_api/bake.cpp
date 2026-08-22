@@ -1,15 +1,15 @@
 #include "c_api/c_api_internal.hpp"
 
 #include "determinism/renderer_source_stamp.hpp"
-#include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/responsive/directional_cook.hpp"
-#include "engine_sim_offline/responsive/finite_capture.hpp"
-#include "engine_sim_offline/responsive/held_texture.hpp"
-#include "engine_sim_offline/responsive/lifecycle.hpp"
-#include "engine_sim_offline/responsive/package_children.hpp"
-#include "engine_sim_offline/responsive/presentation_transfer.hpp"
-#include "engine_sim_offline/responsive/profile.hpp"
-#include "engine_sim_offline/responsive/scenario_template.hpp"
+#include "crankwave/authoring/parse.hpp"
+#include "crankwave/responsive/directional_cook.hpp"
+#include "crankwave/responsive/finite_capture.hpp"
+#include "crankwave/responsive/held_texture.hpp"
+#include "crankwave/responsive/lifecycle.hpp"
+#include "crankwave/responsive/package_children.hpp"
+#include "crankwave/responsive/presentation_transfer.hpp"
+#include "crankwave/responsive/profile.hpp"
+#include "crankwave/responsive/scenario_template.hpp"
 
 #include <algorithm>
 #include <array>
@@ -24,63 +24,63 @@
 
 #if defined(__EMSCRIPTEN__)
 static_assert(
-    sizeof(eso_vehicleengine_bake_inputs_t) == 104U &&
-        offsetof(eso_vehicleengine_bake_inputs_t, engine_json) == 0U &&
-        offsetof(eso_vehicleengine_bake_inputs_t, assets) == 8U &&
-        offsetof(eso_vehicleengine_bake_inputs_t, shared_starter_runtime_json) == 16U &&
-        offsetof(eso_vehicleengine_bake_inputs_t, shared_starter_audio) == 24U &&
-        offsetof(eso_vehicleengine_bake_inputs_t, release_identity) == 32U &&
-        offsetof(eso_vehicleengine_bake_inputs_t, wasm_module_sha256) == 40U &&
-        offsetof(eso_vehicleengine_bake_inputs_t, asset_catalog_sha256) == 72U,
-    "wasm32 VEHICLEENGINE bake-input ABI layout changed");
+    sizeof(crankwave_bake_inputs_t) == 104U &&
+        offsetof(crankwave_bake_inputs_t, engine_json) == 0U &&
+        offsetof(crankwave_bake_inputs_t, assets) == 8U &&
+        offsetof(crankwave_bake_inputs_t, shared_starter_runtime_json) == 16U &&
+        offsetof(crankwave_bake_inputs_t, shared_starter_audio) == 24U &&
+        offsetof(crankwave_bake_inputs_t, release_identity) == 32U &&
+        offsetof(crankwave_bake_inputs_t, wasm_module_sha256) == 40U &&
+        offsetof(crankwave_bake_inputs_t, asset_catalog_sha256) == 72U,
+    "wasm32 CRANKWAVE bake-input ABI layout changed");
 static_assert(
-    sizeof(eso_vehicleengine_descriptor_t) == 112U &&
-        offsetof(eso_vehicleengine_descriptor_t, container_byte_count) == 0U &&
-        offsetof(eso_vehicleengine_descriptor_t, engine_id_utf8_bytes) == 40U &&
-        offsetof(eso_vehicleengine_descriptor_t, container_sha256) == 48U &&
-        offsetof(eso_vehicleengine_descriptor_t, cache_identity_sha256) == 80U,
-    "wasm32 VEHICLEENGINE descriptor ABI layout changed");
-static_assert(sizeof(eso_vehicleengine_identity_buffers_t) == 16U,
-              "wasm32 VEHICLEENGINE identity-buffer ABI layout changed");
+    sizeof(crankwave_package_descriptor_t) == 112U &&
+        offsetof(crankwave_package_descriptor_t, container_byte_count) == 0U &&
+        offsetof(crankwave_package_descriptor_t, engine_id_utf8_bytes) == 40U &&
+        offsetof(crankwave_package_descriptor_t, container_sha256) == 48U &&
+        offsetof(crankwave_package_descriptor_t, cache_identity_sha256) == 80U,
+    "wasm32 CRANKWAVE descriptor ABI layout changed");
+static_assert(sizeof(crankwave_package_identity_buffers_t) == 16U,
+              "wasm32 CRANKWAVE identity-buffer ABI layout changed");
 #endif
 
-namespace engine_sim_offline::c_api {
+namespace crankwave::c_api {
 namespace {
 
 struct BakeFailure {
-    eso_error_code_t code = ESO_ERROR_BAKE_COOK;
+    crankwave_error_code_t code = CRANKWAVE_ERROR_BAKE_COOK;
     std::string detail_code;
     std::string message;
 };
 
 template <class Value> using BakeResult = std::variant<Value, BakeFailure>;
 
-[[nodiscard]] std::string_view text(const eso_utf8_view_t value) noexcept {
+[[nodiscard]] std::string_view text(const crankwave_utf8_view_t value) noexcept {
     return {value.data, value.size};
 }
 
-[[nodiscard]] std::span<const std::byte> bytes(const eso_byte_view_t value) noexcept {
+[[nodiscard]] std::span<const std::byte> bytes(const crankwave_byte_view_t value) noexcept {
     return {reinterpret_cast<const std::byte *>(value.data), value.size};
 }
 
-[[nodiscard]] contract::Sha256Digest digest(const eso_sha256_digest_t &value) noexcept {
+[[nodiscard]] contract::Sha256Digest digest(const crankwave_sha256_digest_t &value) noexcept {
     contract::Sha256Digest result;
     std::copy(std::begin(value.bytes), std::end(value.bytes), result.bytes.begin());
     return result;
 }
 
-[[nodiscard]] eso_sha256_digest_t digest(const contract::Sha256Digest &value) noexcept {
-    eso_sha256_digest_t result{};
+[[nodiscard]] crankwave_sha256_digest_t digest(const contract::Sha256Digest &value) noexcept {
+    crankwave_sha256_digest_t result{};
     std::copy(value.bytes.begin(), value.bytes.end(), std::begin(result.bytes));
     return result;
 }
 
-[[nodiscard]] BakeFailure failure(const eso_error_code_t code, std::string detail_code,
+[[nodiscard]] BakeFailure failure(const crankwave_error_code_t code, std::string detail_code,
                                   std::string message) {
     return {code, std::move(detail_code), std::move(message)};
 }
 
-[[nodiscard]] BakeFailure validation_failure(const eso_error_code_t code,
+[[nodiscard]] BakeFailure validation_failure(const crankwave_error_code_t code,
                                              std::string detail_code, std::string stage,
                                              const contract::ValidationReport &report) {
     std::string message = std::move(stage) + " was rejected";
@@ -100,7 +100,7 @@ capture_failure(std::string stage,
         stage.append(": ");
         stage.append(source.message);
     }
-    return failure(ESO_ERROR_BAKE_CAPTURE,
+    return failure(CRANKWAVE_ERROR_BAKE_CAPTURE,
                    source.detail_code.empty() ? "responsive-capture-failed"
                                               : source.detail_code,
                    std::move(stage));
@@ -112,7 +112,7 @@ capture_failure(std::string stage,
         stage.append(": ");
         stage.append(source.message);
     }
-    return failure(ESO_ERROR_BAKE_COOK,
+    return failure(CRANKWAVE_ERROR_BAKE_COOK,
                    source.detail_code.empty() ? "responsive-lifecycle-failed"
                                               : source.detail_code,
                    std::move(stage));
@@ -125,7 +125,7 @@ package_failure(std::string stage,
         stage.append(": ");
         stage.append(source.message);
     }
-    return failure(ESO_ERROR_BAKE_PACKAGE,
+    return failure(CRANKWAVE_ERROR_BAKE_PACKAGE,
                    source.detail_code.empty() ? "responsive-package-failed"
                                               : source.detail_code,
                    std::move(stage));
@@ -168,7 +168,7 @@ compile_scenario(const compile::CompiledEngine &engine,
             message.append(": ");
             message.append(report->diagnostics.front().message);
         }
-        return failure(ESO_ERROR_BAKE_SCENARIO,
+        return failure(CRANKWAVE_ERROR_BAKE_SCENARIO,
                        "responsive-scenario-compilation-failed", std::move(message));
     }
     return std::get<compile::CompiledScenario>(std::move(compiled));
@@ -211,7 +211,7 @@ resolve_lifecycle_audition_bus(const compile::CompiledScenario &scenario) {
         create_engine_session(scenario, EngineSessionExecutionKind::finite_scenario);
     const auto *session = std::get_if<EngineSession>(&created);
     if (session == nullptr) {
-        return failure(ESO_ERROR_BAKE_SCENARIO,
+        return failure(CRANKWAVE_ERROR_BAKE_SCENARIO,
                        "responsive-lifecycle-bus-session-create-failed",
                        "could not create the template session used to resolve the "
                        "lifecycle audition bus");
@@ -225,7 +225,7 @@ resolve_lifecycle_audition_bus(const compile::CompiledScenario &scenario) {
         }
     }
     if (matches != 1U || resolved.empty()) {
-        return failure(ESO_ERROR_BAKE_SCENARIO,
+        return failure(CRANKWAVE_ERROR_BAKE_SCENARIO,
                        "responsive-lifecycle-audition-bus-resolution-invalid",
                        "the template session must expose exactly one engine audition "
                        "master bus");
@@ -451,7 +451,7 @@ authority_digest(const std::string_view schema,
         kResponsivePartitionedTransferKind,
         kResponsiveTransferSpectrumEncoding,
     };
-    return authority_digest("engine-sim-offline.wasm-responsive-method-authority.v1",
+    return authority_digest("crankwave.wasm-responsive-method-authority.v1",
                             methods);
 }
 
@@ -463,14 +463,14 @@ authority_digest(const std::string_view schema,
         std::string_view{"compiled-authored-presentation-transfer-v1"},
         std::string_view{"shared-recorded-starter-exact-two-member-bundle-v1"},
         std::string_view{"single-worker-canonical-result-order-v1"},
-        std::string_view{"verified-in-memory-vehicleengine-v1"},
+        std::string_view{"verified-in-memory-crankwave-v1"},
     };
-    return authority_digest("engine-sim-offline.wasm-responsive-bake-recipe.v1",
+    return authority_digest("crankwave.wasm-responsive-bake-recipe.v1",
                             recipe);
 }
 
-[[nodiscard]] BakeResult<VehicleEngineEntry>
-bake_vehicleengine(const authoring::EnginePackageDocument &document,
+[[nodiscard]] BakeResult<CrankwaveEntry>
+bake_crankwave(const authoring::EnginePackageDocument &document,
                    const std::span<const compile::AssetPayloadView> assets,
                    const std::span<const std::byte> engine_source,
                    const std::span<const std::byte> starter_runtime,
@@ -480,7 +480,7 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
                    const contract::Sha256Digest &asset_catalog_sha256) {
     auto selected = responsive::derive_engine_redline_affine_profile(document);
     if (const auto *report = std::get_if<contract::ValidationReport>(&selected)) {
-        return validation_failure(ESO_ERROR_BAKE_PROFILE,
+        return validation_failure(CRANKWAVE_ERROR_BAKE_PROFILE,
                                   "responsive-profile-selection-failed",
                                   "responsive profile selection", *report);
     }
@@ -489,7 +489,7 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
         responsive::make_responsive_scenario_template(document, profile);
     if (const auto *report =
             std::get_if<contract::ValidationReport>(&template_result)) {
-        return validation_failure(ESO_ERROR_BAKE_SCENARIO,
+        return validation_failure(CRANKWAVE_ERROR_BAKE_SCENARIO,
                                   "responsive-scenario-template-failed",
                                   "responsive scenario template", *report);
     }
@@ -504,7 +504,7 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
             message.append(": ");
             message.append(report->diagnostics.front().message);
         }
-        return failure(ESO_ERROR_BAKE_SCENARIO, "responsive-engine-compilation-failed",
+        return failure(CRANKWAVE_ERROR_BAKE_SCENARIO, "responsive-engine-compilation-failed",
                        std::move(message));
     }
     auto engine = std::get<compile::CompiledEngine>(std::move(compiled_result));
@@ -519,7 +519,7 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
         responsive::compile_responsive_presentation_transfer(template_scenario);
     if (const auto *report =
             std::get_if<contract::ValidationReport>(&presentation_result)) {
-        return validation_failure(ESO_ERROR_BAKE_SCENARIO,
+        return validation_failure(CRANKWAVE_ERROR_BAKE_SCENARIO,
                                   "responsive-presentation-compilation-failed",
                                   "responsive presentation compilation", *report);
     }
@@ -541,7 +541,7 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
         {profile, scenario_template.document, scenario_template.identity_sha256,
          held_capture_mode(document)});
     if (const auto *report = std::get_if<contract::ValidationReport>(&held_plan)) {
-        return validation_failure(ESO_ERROR_BAKE_SCENARIO,
+        return validation_failure(CRANKWAVE_ERROR_BAKE_SCENARIO,
                                   "responsive-held-planning-failed",
                                   "responsive held planning", *report);
     }
@@ -558,7 +558,7 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
         auto cooked = responsive::cook_held_state(
             spec, std::get<responsive::FiniteResponsiveCapture>(std::move(captured)));
         if (const auto *report = std::get_if<contract::ValidationReport>(&cooked)) {
-            return validation_failure(ESO_ERROR_BAKE_COOK,
+            return validation_failure(CRANKWAVE_ERROR_BAKE_COOK,
                                       "responsive-held-cook-failed",
                                       "responsive held cooking", *report);
         }
@@ -567,7 +567,7 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
     auto held_grid_result = responsive::cook_held_texture_grid(profile, held_cells);
     if (const auto *report =
             std::get_if<contract::ValidationReport>(&held_grid_result)) {
-        return validation_failure(ESO_ERROR_BAKE_COOK, "responsive-held-grid-failed",
+        return validation_failure(CRANKWAVE_ERROR_BAKE_COOK, "responsive-held-grid-failed",
                                   "responsive held grid cooking", *report);
     }
     auto held_grid = std::get<responsive::HeldCookedGrid>(std::move(held_grid_result));
@@ -576,7 +576,7 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
         {profile, scenario_template.document, scenario_template.identity_sha256});
     if (const auto *report =
             std::get_if<contract::ValidationReport>(&directional_plan)) {
-        return validation_failure(ESO_ERROR_BAKE_SCENARIO,
+        return validation_failure(CRANKWAVE_ERROR_BAKE_SCENARIO,
                                   "responsive-directional-planning-failed",
                                   "responsive directional planning", *report);
     }
@@ -595,7 +595,7 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
         auto cooked = responsive::cook_directional_capture(
             spec, std::get<responsive::FiniteResponsiveCapture>(std::move(captured)));
         if (const auto *report = std::get_if<contract::ValidationReport>(&cooked)) {
-            return validation_failure(ESO_ERROR_BAKE_COOK,
+            return validation_failure(CRANKWAVE_ERROR_BAKE_COOK,
                                       "responsive-directional-cook-failed",
                                       "responsive directional cooking", *report);
         }
@@ -606,7 +606,7 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
         profile, std::move(directional_captures));
     if (const auto *report =
             std::get_if<contract::ValidationReport>(&directional_model_result)) {
-        return validation_failure(ESO_ERROR_BAKE_COOK,
+        return validation_failure(CRANKWAVE_ERROR_BAKE_COOK,
                                   "responsive-directional-model-failed",
                                   "responsive directional model assembly", *report);
     }
@@ -625,12 +625,12 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
     const auto *source_closure =
         std::get_if<determinism::RendererSourceClosure>(&source_closure_result);
     if (source_closure == nullptr) {
-        return failure(ESO_ERROR_BAKE_IDENTITY, "responsive-source-closure-unavailable",
+        return failure(CRANKWAVE_ERROR_BAKE_IDENTITY, "responsive-source-closure-unavailable",
                        "the embedded renderer source identity is unavailable");
     }
     const responsive::ResponsivePackageProvenanceV1 provenance{
         std::string{engine.id()}, engine.provenance().bundle.sha256,
-        "engine-sim-offline-renderer-build", source_closure->source_closure_sha256};
+        "crankwave-renderer-build", source_closure->source_closure_sha256};
     responsive::ResponsivePackageChildrenViewV1 children;
     children.profile = &profile;
     children.held = &held_grid;
@@ -677,7 +677,7 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
     responsive::NativeResponsiveBakeIdentityInputV1 identity;
     identity.backend.kind = std::string{responsive::kWasmResponsiveBackendKindV1};
     identity.backend.release_identity = std::string{release_identity};
-    identity.backend.c_api_version = ESO_C_API_VERSION;
+    identity.backend.c_api_version = CRANKWAVE_C_API_VERSION;
     identity.backend.target = std::string{responsive::kWasmResponsiveTargetV1};
     identity.backend.numeric_runtime =
         std::string{responsive::kWasmResponsiveNumericRuntimeV1};
@@ -705,67 +705,67 @@ bake_vehicleengine(const authoring::EnginePackageDocument &document,
          std::nullopt});
     if (const auto *failed =
             std::get_if<responsive::NativeResponsivePackageError>(&built_result)) {
-        return package_failure("VEHICLEENGINE construction", *failed);
+        return package_failure("CRANKWAVE construction", *failed);
     }
     auto built =
         std::get<responsive::NativeResponsiveCookedPackageV2>(std::move(built_result));
-    VehicleEngineEntry result;
-    result.bytes = std::move(built.package.vehicleengine_v1);
+    CrankwaveEntry result;
+    result.bytes = std::move(built.package.crankwave_v1);
     result.engine_id = std::string{engine.id()};
     result.profile_id = profile.id;
     result.entry_count = built.package.members.size();
     result.held_cell_count = held_grid.cells.size();
     result.directional_capture_count = directional_capture_count;
     result.lifecycle_capture_count = lifecycle.capture_count;
-    result.container_sha256 = built.package.vehicleengine_sha256;
+    result.container_sha256 = built.package.crankwave_sha256;
     result.cache_identity_sha256 = built.package.cache_identity.sha256;
     return result;
 }
 
 [[nodiscard]] std::optional<compile::AssetKind>
-asset_kind(const eso_asset_kind_t kind) noexcept {
+asset_kind(const crankwave_asset_kind_t kind) noexcept {
     switch (kind) {
-    case ESO_ASSET_AUDIO:
+    case CRANKWAVE_ASSET_AUDIO:
         return compile::AssetKind::audio;
-    case ESO_ASSET_ACCESSORY_CONFIGURATION:
+    case CRANKWAVE_ASSET_ACCESSORY_CONFIGURATION:
         return compile::AssetKind::accessory_configuration;
     default:
         return std::nullopt;
     }
 }
 
-[[nodiscard]] eso_status_t invalid_argument(eso_context &context, std::string message) {
-    return set_error(context, ESO_STATUS_INVALID_ARGUMENT, ESO_ERROR_STAGE_ARGUMENT,
-                     ESO_ERROR_INVALID_POINTER, "c-api-invalid-bake-argument",
+[[nodiscard]] crankwave_status_t invalid_argument(crankwave_context &context, std::string message) {
+    return set_error(context, CRANKWAVE_STATUS_INVALID_ARGUMENT, CRANKWAVE_ERROR_STAGE_ARGUMENT,
+                     CRANKWAVE_ERROR_INVALID_POINTER, "c-api-invalid-bake-argument",
                      std::move(message));
 }
 
-[[nodiscard]] eso_status_t invalid_handle(eso_context &context, std::string message) {
-    return set_error(context, ESO_STATUS_INVALID_HANDLE, ESO_ERROR_STAGE_HANDLE,
-                     ESO_ERROR_INVALID_HANDLE, "c-api-invalid-handle",
+[[nodiscard]] crankwave_status_t invalid_handle(crankwave_context &context, std::string message) {
+    return set_error(context, CRANKWAVE_STATUS_INVALID_HANDLE, CRANKWAVE_ERROR_STAGE_HANDLE,
+                     CRANKWAVE_ERROR_INVALID_HANDLE, "c-api-invalid-handle",
                      std::move(message));
 }
 
 } // namespace
-} // namespace engine_sim_offline::c_api
+} // namespace crankwave::c_api
 
 extern "C" {
 
-eso_status_t
-eso_bake_vehicleengine(eso_context_t *const context,
-                       const eso_vehicleengine_bake_inputs_t *const inputs,
-                       eso_vehicleengine_handle_t *const out_vehicleengine) noexcept {
+crankwave_status_t
+crankwave_bake_package(crankwave_context_t *const context,
+                       const crankwave_bake_inputs_t *const inputs,
+                       crankwave_package_handle_t *const out_crankwave) noexcept {
     if (context == nullptr) {
-        return ESO_STATUS_INVALID_ARGUMENT;
+        return CRANKWAVE_STATUS_INVALID_ARGUMENT;
     }
-    return engine_sim_offline::c_api::boundary(*context, [&]() -> eso_status_t {
-        using namespace engine_sim_offline;
-        using namespace engine_sim_offline::c_api;
-        if (inputs == nullptr || out_vehicleengine == nullptr) {
+    return crankwave::c_api::boundary(*context, [&]() -> crankwave_status_t {
+        using namespace crankwave;
+        using namespace crankwave::c_api;
+        if (inputs == nullptr || out_crankwave == nullptr) {
             return invalid_argument(*context,
                                     "bake inputs and output handle must not be null");
         }
-        *out_vehicleengine = ESO_INVALID_HANDLE;
+        *out_crankwave = CRANKWAVE_INVALID_HANDLE;
         if (!valid(inputs->engine_json) ||
             !valid(inputs->shared_starter_runtime_json) ||
             !valid(inputs->shared_starter_audio) || !valid(inputs->release_identity) ||
@@ -793,8 +793,8 @@ eso_bake_vehicleengine(eso_context_t *const context,
             const auto &asset = inputs->assets[index];
             const auto kind = asset_kind(asset.kind);
             if (!kind.has_value()) {
-                return set_error(*context, ESO_STATUS_INVALID_ARGUMENT,
-                                 ESO_ERROR_STAGE_ARGUMENT, ESO_ERROR_INVALID_ENUM,
+                return set_error(*context, CRANKWAVE_STATUS_INVALID_ARGUMENT,
+                                 CRANKWAVE_ERROR_STAGE_ARGUMENT, CRANKWAVE_ERROR_INVALID_ENUM,
                                  "c-api-invalid-asset-kind",
                                  "bake asset has an unknown kind");
             }
@@ -807,63 +807,63 @@ eso_bake_vehicleengine(eso_context_t *const context,
 
         auto parsed = authoring::parse_engine_document(text(inputs->engine_json));
         if (auto *report = std::get_if<authoring::DiagnosticReport>(&parsed)) {
-            return set_diagnostics(*context, ESO_STATUS_ENGINE_PARSE_FAILED,
-                                   ESO_ERROR_STAGE_ENGINE_PARSE, "engine-json-invalid",
+            return set_diagnostics(*context, CRANKWAVE_STATUS_ENGINE_PARSE_FAILED,
+                                   CRANKWAVE_ERROR_STAGE_ENGINE_PARSE, "engine-json-invalid",
                                    "engine JSON parsing or schema validation failed",
                                    std::move(*report));
         }
         const auto engine_bytes = std::span<const std::byte>{
             reinterpret_cast<const std::byte *>(inputs->engine_json.data),
             inputs->engine_json.size};
-        auto baked = bake_vehicleengine(
+        auto baked = bake_crankwave(
             std::get<authoring::EnginePackageDocument>(parsed), asset_views,
             engine_bytes, bytes(inputs->shared_starter_runtime_json),
             bytes(inputs->shared_starter_audio), text(inputs->release_identity),
             module_sha256, catalog_sha256);
         if (auto *failed = std::get_if<BakeFailure>(&baked)) {
-            return set_error(*context, ESO_STATUS_BAKE_FAILED, ESO_ERROR_STAGE_BAKE,
+            return set_error(*context, CRANKWAVE_STATUS_BAKE_FAILED, CRANKWAVE_ERROR_STAGE_BAKE,
                              failed->code, std::move(failed->detail_code),
                              std::move(failed->message));
         }
-        *out_vehicleengine = context->vehicleengines.insert(
-            std::get<VehicleEngineEntry>(std::move(baked)));
+        *out_crankwave = context->crankwaves.insert(
+            std::get<CrankwaveEntry>(std::move(baked)));
         clear_error(*context);
-        return ESO_STATUS_OK;
+        return CRANKWAVE_STATUS_OK;
     });
 }
 
-eso_status_t
-eso_destroy_vehicleengine(eso_context_t *const context,
-                          const eso_vehicleengine_handle_t vehicleengine) noexcept {
+crankwave_status_t
+crankwave_destroy_package(crankwave_context_t *const context,
+                          const crankwave_package_handle_t crankwave) noexcept {
     if (context == nullptr) {
-        return ESO_STATUS_INVALID_ARGUMENT;
+        return CRANKWAVE_STATUS_INVALID_ARGUMENT;
     }
-    return engine_sim_offline::c_api::boundary(*context, [&]() -> eso_status_t {
-        using namespace engine_sim_offline::c_api;
-        if (!context->vehicleengines.erase(vehicleengine)) {
+    return crankwave::c_api::boundary(*context, [&]() -> crankwave_status_t {
+        using namespace crankwave::c_api;
+        if (!context->crankwaves.erase(crankwave)) {
             return invalid_handle(
-                *context, "VEHICLEENGINE handle is stale, invalid, or wrong-kind");
+                *context, "CRANKWAVE handle is stale, invalid, or wrong-kind");
         }
         clear_error(*context);
-        return ESO_STATUS_OK;
+        return CRANKWAVE_STATUS_OK;
     });
 }
 
-eso_status_t eso_vehicleengine_get_descriptor(
-    eso_context_t *const context, const eso_vehicleengine_handle_t vehicleengine,
-    eso_vehicleengine_descriptor_t *const out_descriptor) noexcept {
+crankwave_status_t crankwave_package_get_descriptor(
+    crankwave_context_t *const context, const crankwave_package_handle_t crankwave,
+    crankwave_package_descriptor_t *const out_descriptor) noexcept {
     if (context == nullptr) {
-        return ESO_STATUS_INVALID_ARGUMENT;
+        return CRANKWAVE_STATUS_INVALID_ARGUMENT;
     }
-    return engine_sim_offline::c_api::boundary(*context, [&]() -> eso_status_t {
-        using namespace engine_sim_offline::c_api;
+    return crankwave::c_api::boundary(*context, [&]() -> crankwave_status_t {
+        using namespace crankwave::c_api;
         if (out_descriptor == nullptr) {
             return invalid_argument(*context, "descriptor output must not be null");
         }
-        const auto *entry = context->vehicleengines.get(vehicleengine);
+        const auto *entry = context->crankwaves.get(crankwave);
         if (entry == nullptr) {
             return invalid_handle(
-                *context, "VEHICLEENGINE handle is stale, invalid, or wrong-kind");
+                *context, "CRANKWAVE handle is stale, invalid, or wrong-kind");
         }
         *out_descriptor = {
             entry->bytes.size(),
@@ -877,79 +877,79 @@ eso_status_t eso_vehicleengine_get_descriptor(
             digest(entry->cache_identity_sha256),
         };
         clear_error(*context);
-        return ESO_STATUS_OK;
+        return CRANKWAVE_STATUS_OK;
     });
 }
 
-eso_status_t eso_vehicleengine_copy_identity(
-    eso_context_t *const context, const eso_vehicleengine_handle_t vehicleengine,
-    eso_vehicleengine_identity_buffers_t *const buffers) noexcept {
+crankwave_status_t crankwave_package_copy_identity(
+    crankwave_context_t *const context, const crankwave_package_handle_t crankwave,
+    crankwave_package_identity_buffers_t *const buffers) noexcept {
     if (context == nullptr) {
-        return ESO_STATUS_INVALID_ARGUMENT;
+        return CRANKWAVE_STATUS_INVALID_ARGUMENT;
     }
-    return engine_sim_offline::c_api::boundary(*context, [&]() -> eso_status_t {
-        using namespace engine_sim_offline::c_api;
+    return crankwave::c_api::boundary(*context, [&]() -> crankwave_status_t {
+        using namespace crankwave::c_api;
         if (buffers == nullptr) {
             return invalid_argument(*context, "identity buffers must not be null");
         }
-        const auto *entry = context->vehicleengines.get(vehicleengine);
+        const auto *entry = context->crankwaves.get(crankwave);
         if (entry == nullptr) {
             return invalid_handle(
-                *context, "VEHICLEENGINE handle is stale, invalid, or wrong-kind");
+                *context, "CRANKWAVE handle is stale, invalid, or wrong-kind");
         }
         const auto fits = [](const std::string_view value,
-                             const eso_mutable_utf8_buffer_t buffer) {
+                             const crankwave_mutable_utf8_buffer_t buffer) {
             return (buffer.data == nullptr && buffer.capacity == 0U) ||
                    (buffer.data != nullptr && buffer.capacity > value.size());
         };
         if (!fits(entry->engine_id, buffers->engine_id) ||
             !fits(entry->profile_id, buffers->profile_id)) {
-            return set_error(*context, ESO_STATUS_BUFFER_TOO_SMALL,
-                             ESO_ERROR_STAGE_ARGUMENT, ESO_ERROR_BUFFER_CAPACITY,
-                             "c-api-vehicleengine-identity-buffer-too-small",
-                             "VEHICLEENGINE identity output buffer is too small");
+            return set_error(*context, CRANKWAVE_STATUS_BUFFER_TOO_SMALL,
+                             CRANKWAVE_ERROR_STAGE_ARGUMENT, CRANKWAVE_ERROR_BUFFER_CAPACITY,
+                             "c-api-crankwave-identity-buffer-too-small",
+                             "CRANKWAVE identity output buffer is too small");
         }
         (void)copy_text(entry->engine_id, buffers->engine_id);
         (void)copy_text(entry->profile_id, buffers->profile_id);
         clear_error(*context);
-        return ESO_STATUS_OK;
+        return CRANKWAVE_STATUS_OK;
     });
 }
 
-eso_status_t
-eso_vehicleengine_copy_bytes(eso_context_t *const context,
-                             const eso_vehicleengine_handle_t vehicleengine,
+crankwave_status_t
+crankwave_package_copy_bytes(crankwave_context_t *const context,
+                             const crankwave_package_handle_t crankwave,
                              uint8_t *const output, const size_t capacity,
                              size_t *const out_byte_count) noexcept {
     if (context == nullptr) {
-        return ESO_STATUS_INVALID_ARGUMENT;
+        return CRANKWAVE_STATUS_INVALID_ARGUMENT;
     }
-    return engine_sim_offline::c_api::boundary(*context, [&]() -> eso_status_t {
-        using namespace engine_sim_offline::c_api;
+    return crankwave::c_api::boundary(*context, [&]() -> crankwave_status_t {
+        using namespace crankwave::c_api;
         if (out_byte_count == nullptr || (output == nullptr && capacity != 0U)) {
             return invalid_argument(*context, "carrier output arguments are invalid");
         }
-        const auto *entry = context->vehicleengines.get(vehicleengine);
+        const auto *entry = context->crankwaves.get(crankwave);
         if (entry == nullptr) {
             return invalid_handle(
-                *context, "VEHICLEENGINE handle is stale, invalid, or wrong-kind");
+                *context, "CRANKWAVE handle is stale, invalid, or wrong-kind");
         }
         *out_byte_count = entry->bytes.size();
         if (output == nullptr) {
             clear_error(*context);
-            return ESO_STATUS_OK;
+            return CRANKWAVE_STATUS_OK;
         }
         if (capacity < entry->bytes.size()) {
-            return set_error(*context, ESO_STATUS_BUFFER_TOO_SMALL,
-                             ESO_ERROR_STAGE_ARGUMENT, ESO_ERROR_BUFFER_CAPACITY,
-                             "c-api-vehicleengine-buffer-too-small",
-                             "VEHICLEENGINE carrier output buffer is too small");
+            return set_error(*context, CRANKWAVE_STATUS_BUFFER_TOO_SMALL,
+                             CRANKWAVE_ERROR_STAGE_ARGUMENT, CRANKWAVE_ERROR_BUFFER_CAPACITY,
+                             "c-api-crankwave-buffer-too-small",
+                             "CRANKWAVE carrier output buffer is too small");
         }
         if (!entry->bytes.empty()) {
             std::memcpy(output, entry->bytes.data(), entry->bytes.size());
         }
         clear_error(*context);
-        return ESO_STATUS_OK;
+        return CRANKWAVE_STATUS_OK;
     });
 }
 

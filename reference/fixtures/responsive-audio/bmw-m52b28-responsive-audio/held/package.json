@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-held-texture",
+  "schema": "crankwave/responsive-audio-held-texture",
   "id": "bmw-m52b28-exact-held-phase-texture-live-preview",
   "engine": "bmw-m52b28",
   "fidelity": {
@@ -324,7 +324,7 @@
       "sha256": "f8719bde7dbab856ff6e131fbdb30a83ee667419bf72e2a45472b6615b7f198d"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "capture_identity": {

@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::excitation {
+namespace crankwave::excitation {
 namespace {
 
 using contract::ContractIssueCode;
@@ -542,4 +542,4 @@ compile_captured_source_excitation_session(const contract::EngineSpec &engine,
     return CapturedSourceExcitationSession{std::move(state)};
 }
 
-} // namespace engine_sim_offline::excitation
+} // namespace crankwave::excitation

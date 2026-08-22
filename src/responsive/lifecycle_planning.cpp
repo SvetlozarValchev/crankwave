@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/lifecycle.hpp"
+#include "crankwave/responsive/lifecycle.hpp"
 
 #include "identity_bytes.hpp"
 
@@ -13,7 +13,7 @@
 #include <string_view>
 #include <utility>
 
-namespace engine_sim_offline::responsive {
+namespace crankwave::responsive {
 namespace {
 
 constexpr double kIgnitionTimeSeconds = 0.7;
@@ -100,7 +100,7 @@ canonical_suffix(const LifecycleScenarioRole role) noexcept {
 make_base(const LifecycleScenarioPlanRequest &request, const std::string &canonical_id,
           const double duration_seconds) {
     auto scenario = request.trusted_template;
-    scenario.schema = "engine-sim-offline/scenario";
+    scenario.schema = "crankwave/scenario";
     scenario.id.value = canonical_id + "-10khz-lifecycle-preview";
     scenario.engine.value = request.engine.engine.identity.id.value;
     scenario.initial_state.engine_speed = quantity(0.0, "rpm");
@@ -423,4 +423,4 @@ plan_lifecycle_scenario(const LifecycleScenarioPlanRequest &request,
     return spec;
 }
 
-} // namespace engine_sim_offline::responsive
+} // namespace crankwave::responsive

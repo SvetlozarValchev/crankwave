@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 enum class LowOrderExecutionExtentKind : std::uint8_t {
     finite_scenario,
@@ -56,4 +56,4 @@ class LowOrderExecutionExtent final {
     std::uint64_t finite_physics_frame_count_ = 0U;
 };
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

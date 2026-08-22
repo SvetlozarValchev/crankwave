@@ -1,6 +1,6 @@
 #include "render/native_presentation_publisher.hpp"
 
-#include "engine_sim_offline/authoring/parse.hpp"
+#include "crankwave/authoring/parse.hpp"
 
 #include <algorithm>
 #include <array>
@@ -24,8 +24,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::render_detail;
+using namespace crankwave;
+using namespace crankwave::render_detail;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -469,7 +469,7 @@ make_plan(const EngineSessionDescriptor &session) {
             {
                 "Short public EngineSession publication fixture",
                 "Native publisher",
-                "engine-sim-offline-test",
+                "crankwave-test",
             },
             std::move(raw),
             std::move(audition),
@@ -567,14 +567,14 @@ void test_public_session_byte_golden(const compile::CompiledScenario &scenario) 
     // public EngineSession fixture. They replace the temporary runtime dependency
     // on the fused presentation-session oracle used during the exact split proof.
     constexpr std::array<std::string_view, 8> kExpectedSha256{
-        "29d3bc39ddf523a415f8496dfc66390aa0fc7a8cc520a96bfd8123ead0e5ccb5",
-        "96fb05c49867f581c33f9387400b13e8e4cd3fff6121c76eb189eb1711e2a0f8",
-        "96fb05c49867f581c33f9387400b13e8e4cd3fff6121c76eb189eb1711e2a0f8",
-        "8662ef655c86e41ecfb26e38bcf6b90cf6238134c81094a378465ee60658148e",
-        "6e72dbdd2d12e13d748816cc97f24f984f904ba720e6c848b6163cd8f4caf2de",
-        "6e72dbdd2d12e13d748816cc97f24f984f904ba720e6c848b6163cd8f4caf2de",
-        "0f7d73ef90617b52aef89131dc564b8ea9ecf162a175b5bbfa927037891dc92b",
-        "a8a94537a531645a93c445ba80b0acb38fda437dc92424047023bac35fc117d6",
+        "fe53460e459a146a9b36a555f5d0eabdfbad10a33ebdf878ea35c3a7bacb0c5a",
+        "1fa22a92461cebf2b1c0a829b3c57b3164302118d81d5aeaab31a98f969f7359",
+        "1fa22a92461cebf2b1c0a829b3c57b3164302118d81d5aeaab31a98f969f7359",
+        "a2322bf4c942319f8f50c1075c6d6e47a98745188628432c18016bb38ca8de2b",
+        "779fa8f03701bf901437c0dcab1ea08f4bbca0c6ed887824fb93cbd7cf5b2501",
+        "779fa8f03701bf901437c0dcab1ea08f4bbca0c6ed887824fb93cbd7cf5b2501",
+        "678fa9bde4e3e1e79d92b9e1bc9bb3a4c447df00f6b24bf05c44602c506f8f3b",
+        "3177f3a67c31a10b8787f36ce158e4072e8db0157707be16eff4afbbbcc83471",
     };
     std::vector<std::string> actual_sha256;
     actual_sha256.reserve(kExpectedSha256.size());

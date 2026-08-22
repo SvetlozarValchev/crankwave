@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-namespace engine_sim_offline::identity::detail {
+namespace crankwave::identity::detail {
 namespace {
 
 constexpr char kHexDigits[] = "0123456789abcdef";
@@ -403,4 +403,4 @@ bool CanonicalJsonWriter::append_escaped_string(std::string_view value,
     return append_byte('"');
 }
 
-} // namespace engine_sim_offline::identity::detail
+} // namespace crankwave::identity::detail

@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline.reference-media.v1",
+  "schema": "crankwave.reference-media.v1",
   "id": "bmw-m52b28.engine-sim.5th-gear-equivalent-dyno.1500-6500",
   "role": "behavioral_listening_oracle",
   "file": "bmw-m52b28-5th-gear-equivalent-dyno-1500-6500rpm.wav",
@@ -17,7 +17,7 @@
     "duration_seconds": 15.0
   },
   "preservation": {
-    "source_path": "/home/cbethax/depot/dev/engine-sim-offline-failed/engine-sim/workspace/listening/bmw-m52b28-5th-gear-equivalent-dyno-1500-6500rpm.wav",
+    "source_path": "/home/cbethax/depot/dev/crankwave-failed/engine-sim/workspace/listening/bmw-m52b28-5th-gear-equivalent-dyno-1500-6500rpm.wav",
     "source_modified_at": "2026-07-25T00:56:16.232194640+03:00",
     "preserved_at": "2026-07-27",
     "method": "filesystem copy without transcoding",

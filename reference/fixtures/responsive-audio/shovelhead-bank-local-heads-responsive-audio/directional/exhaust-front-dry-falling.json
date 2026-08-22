@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "schema": "crankwave/responsive-audio-directional-route",
   "id": "shovelhead-bank-local-heads-directional-falling-exhaust-front-dry-live-preview",
   "engine": "shovelhead-bank-local-heads",
   "audio": {
@@ -1081,7 +1081,7 @@
       "sha256": "44ce96943d08ec8cedbca7d44a36e2b767e9e1d110bdeb1618de5b0671b73fd8"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "falling-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",

@@ -1,9 +1,9 @@
 # Installed distribution v2
 
 Installed distribution v2 is the fully native production boundary introduced by
-release 1.2.0. It contains one relocatable `engine-sim-offline` executable. That
+release 1.2.0. It contains one relocatable `crankwave` executable. That
 executable owns finite audition rendering and telemetry, native responsive cooking,
-VEHICLEENGINE packing, inspection, verification, and IR-catalog inspection. Responsive
+CRANKWAVE packing, inspection, verification, and IR-catalog inspection. Responsive
 cooking does not launch Node.js, a compiler, a helper executable, or simulation
 WebAssembly.
 
@@ -14,14 +14,14 @@ playback modules, built-in catalogs and payloads, responsive profiles, shared
 recorded starter, licenses, and notices.
 
 Resources live below the configured
-`<datadir>/engine-sim-offline/<release_identity>/`. The executable discovers only
+`<datadir>/crankwave/<release_identity>/`. The executable discovers only
 that prefix-relative resource root unless an explicit developer `--asset-root` is
 provided. Moving the complete prefix does not alter recorded bytes or identities.
 
 ## Manifest
 
 `release.json` has schema
-`engine-sim-offline/installed-distribution.v2`. Its sorted `files` array records the
+`crankwave/installed-distribution.v2`. Its sorted `files` array records the
 portable distribution-relative path, byte count, and lowercase SHA-256 of every
 member except `release.json` and `release.json.sha256`. The sidecar is the lowercase
 SHA-256 of `release.json` followed by one LF.
@@ -33,13 +33,13 @@ The manifest records:
   fixed to false;
 - the simulator-free ESM playback resource directory and entry point;
 - source, toolchain, and installed-input closure identities;
-- the one-step native VEHICLEENGINE bake workflow and its digest; and
+- the one-step native CRANKWAVE bake workflow and its digest; and
 - the unchanged diagnostic telemetry role/schema boundary originating at commit
   `c8d672b59e3046654ad5f818f31725798aef7ffa`.
 
 An ordinary dirty or noncanonical developer install is classified as
 `incomplete_development_install` with `complete: false`. The publishable
-`engine_sim_offline_distribution` target fails unless the native source and installed
+`crankwave_distribution` target fails unless the native source and installed
 resource-input closures are clean, share the recorded Git commit, and use the
 canonical release toolchain. No external renderer pair participates in completeness.
 
@@ -57,12 +57,12 @@ oracles but are not release members or production dependencies.
 
 ## Native workflow
 
-`contracts/vehicleengine-bake-workflow.v2.json` freezes one command:
+`contracts/crankwave-bake-workflow.v2.json` freezes one command:
 
 ```text
-bin/engine-sim-offline bake-vehicleengine \
+bin/crankwave bake-crankwave \
   --engine {engine_json} \
-  --output {new_vehicleengine_file} \
+  --output {new_crankwave_file} \
   --deadline-unix-ms {deadline_unix_ms} \
   --result-format json
 ```

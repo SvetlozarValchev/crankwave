@@ -1,12 +1,12 @@
 #pragma once
 
-#include "engine_sim_offline/authoring/atlas_bake_document.hpp"
-#include "engine_sim_offline/authoring/diagnostic.hpp"
-#include "engine_sim_offline/authoring/engine_document.hpp"
-#include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/authoring/scenario_document.hpp"
-#include "engine_sim_offline/compile.hpp"
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/authoring/atlas_bake_document.hpp"
+#include "crankwave/authoring/diagnostic.hpp"
+#include "crankwave/authoring/engine_document.hpp"
+#include "crankwave/authoring/parse.hpp"
+#include "crankwave/authoring/scenario_document.hpp"
+#include "crankwave/compile.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -17,7 +17,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::cli {
+namespace crankwave::cli {
 
 struct NativeInputLimits {
     std::uintmax_t maximum_document_bytes = 8U * 1024U * 1024U;
@@ -268,4 +268,4 @@ using NativeOutputDirectoryResult =
 [[nodiscard]] NativeOutputDirectoryResult
 preflight_native_output_directory(const std::filesystem::path &output_directory);
 
-} // namespace engine_sim_offline::cli
+} // namespace crankwave::cli

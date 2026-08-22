@@ -8,7 +8,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::reference {
+namespace crankwave::reference {
 
 inline constexpr std::size_t kReferenceParityV1HeaderBytes = 608;
 inline constexpr std::size_t kReferenceParityV1RecordBytes = 224;
@@ -161,4 +161,4 @@ using ReferenceParityV1DecodeResult =
 [[nodiscard]] ReferenceParityV1DecodeResult
 decode_reference_parity_v1(std::span<const std::byte> bytes);
 
-} // namespace engine_sim_offline::reference
+} // namespace crankwave::reference

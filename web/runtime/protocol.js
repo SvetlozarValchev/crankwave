@@ -1,11 +1,11 @@
 import {
   ControlCapability,
-  ESO_C_API_VERSION,
-  ESO_CANONICAL_SAMPLE_RATE,
+  CRANKWAVE_C_API_VERSION,
+  CRANKWAVE_CANONICAL_SAMPLE_RATE,
 } from "./c-api-abi.js";
 import { PCM_RING_HEADER_SCHEMA } from "./pcm-ring-buffer.js";
 
-export const WORKER_PROTOCOL_ID = "engine-sim-offline/browser-worker-v5";
+export const WORKER_PROTOCOL_ID = "crankwave/browser-worker-v5";
 
 export const LIVE_CONTROL_CAPABILITIES = Object.freeze([
   Object.freeze({
@@ -98,8 +98,8 @@ export function readyMessage(requestId, moduleUrl) {
     type: "ready",
     requestId,
     protocol: WORKER_PROTOCOL_ID,
-    apiVersion: ESO_C_API_VERSION,
-    canonicalSampleRate: ESO_CANONICAL_SAMPLE_RATE,
+    apiVersion: CRANKWAVE_C_API_VERSION,
+    canonicalSampleRate: CRANKWAVE_CANONICAL_SAMPLE_RATE,
     moduleUrl,
     ringHeaderSchema: PCM_RING_HEADER_SCHEMA,
     structuralEditContract: "compile-and-replace",

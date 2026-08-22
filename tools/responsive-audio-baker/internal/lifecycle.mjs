@@ -8,16 +8,16 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPOSITORY = path.resolve(HERE, "../../..");
 const ENGINE_ID = process.argv[2] ?? "";
-const INVENTORY_PATH = requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_INVENTORY");
+const INVENTORY_PATH = requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_INVENTORY");
 const INVENTORY = JSON.parse(fs.readFileSync(INVENTORY_PATH, "utf8"));
 const ENGINE_ENTRY = INVENTORY.engines.find(({ engine_id: id }) => id === ENGINE_ID);
 if (!ENGINE_ENTRY) throw new Error(`unknown engine id: ${ENGINE_ID}`);
-const PACKAGE_ROOT = requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_OUTPUT");
-const BAKE_CACHE_ROOT = requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_CACHE");
+const PACKAGE_ROOT = requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_OUTPUT");
+const BAKE_CACHE_ROOT = requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_CACHE");
 const RESPONSIVE_RUNTIME = path.join(PACKAGE_ROOT, "runtime.json");
 const FINAL_PACKAGE = path.join(PACKAGE_ROOT, "lifecycle");
 const MODULE_ROOT = path.join(REPOSITORY, "web");
-const MODULE_PATH = requiredEnvironmentPath("ESO_RESPONSIVE_BAKE_MODULE");
+const MODULE_PATH = requiredEnvironmentPath("CRANKWAVE_RESPONSIVE_BAKE_MODULE");
 const ENGINE_PATH = inventoryPath(ENGINE_ENTRY.engine_path, "engine");
 const HELD_MANIFEST_PATH = path.join(PACKAGE_ROOT, "held/package.json");
 const CANDIDATE_ROOT = path.join(BAKE_CACHE_ROOT, "lifecycle", "candidate");
@@ -333,7 +333,7 @@ function chooseDynamicRelease(probe, runningFloorRpm) {
 
 function derivePreviewScenario(source, role) {
   const scenario = structuredClone(source);
-  assert.equal(scenario.schema, "engine-sim-offline/scenario");
+  assert.equal(scenario.schema, "crankwave/scenario");
   assert.equal(scenario.engine, ENGINE_ID);
   assert.equal(scenario.rates.source_processing.numerator, "192000");
   assert.equal(scenario.rates.acoustics.numerator, "192000");
@@ -975,7 +975,7 @@ function writeArtifact(stageRoot, capture) {
 function writeEvidence(stageRoot, capture) {
   const relativePath = `evidence/${capture.role}.json`;
   const evidence = {
-    schema: "engine-sim-offline/lifecycle-capture-evidence",
+    schema: "crankwave/lifecycle-capture-evidence",
     role: capture.role,
     physics_rate_hz: PHYSICS_RATE_HZ,
     delivery_rate_hz: SAMPLE_RATE_HZ,
@@ -1077,7 +1077,7 @@ function validateManifest(stageRoot, manifest, expected) {
     ],
     "manifest",
   );
-  assert.equal(manifest.schema, "engine-sim-offline/responsive-audio-lifecycle");
+  assert.equal(manifest.schema, "crankwave/responsive-audio-lifecycle");
   assert.equal(manifest.id, `${ENGINE_ID}-lifecycle-preview`);
   assert.equal(manifest.engine, ENGINE_ID);
   assert.deepEqual(manifest.audio, {
@@ -1299,10 +1299,10 @@ async function main() {
   const engineDocument = parseJson(ENGINE_PATH);
   const resistanceNm = outputCrankInertia(engineDocument) *
     heldFloorRpm * 2 * Math.PI / 60 / KEYOFF_DECELERATION_SECONDS;
-  const { EngineSimCapiClient } = await import(pathToFileURL(
+  const { CrankwaveCapiClient } = await import(pathToFileURL(
     path.join(MODULE_ROOT, "runtime/c-api-client.js"),
   ));
-  const client = await EngineSimCapiClient.create(pathToFileURL(MODULE_PATH));
+  const client = await CrankwaveCapiClient.create(pathToFileURL(MODULE_PATH));
   const engineText = readText(ENGINE_PATH);
   const assets = ENGINE_ENTRY.assets.audio.map(({ id, path: relative }) => ({
     kind: "audio",
@@ -1376,7 +1376,7 @@ async function main() {
 
   const loadCoordinate = held.representation.runtime_coordinates[1];
   const admissionEvidence = {
-    schema: "engine-sim-offline/startup-admission-floor-evidence",
+    schema: "crankwave/startup-admission-floor-evidence",
     candidate_status: "generic-variant-3-audition-not-per-engine-fitted",
     atlas_manifest: "../../held/package.json",
     atlas_manifest_sha256: sha256(heldBytes),
@@ -1404,7 +1404,7 @@ async function main() {
   const admissionEvidenceText = stableJson(admissionEvidence);
   fs.writeFileSync(path.join(stageRoot, "evidence/startup-admission.json"), admissionEvidenceText);
   const startupAdmission = {
-    schema: "engine-sim-offline/continuous-startup-admission-v1",
+    schema: "crankwave/continuous-startup-admission-v1",
     running_bed_load_coordinate: loadCoordinate,
     admission_lane_coordinate: "authored-throttle-01",
     blend: "constant-power",
@@ -1428,7 +1428,7 @@ async function main() {
   };
 
   const manifest = {
-    schema: "engine-sim-offline/responsive-audio-lifecycle",
+    schema: "crankwave/responsive-audio-lifecycle",
     id: `${ENGINE_ID}-lifecycle-preview`,
     engine: ENGINE_ID,
     audio: {
@@ -1447,7 +1447,7 @@ async function main() {
         sha256: captures[0].engineSha256,
       },
       renderer_build: {
-        id: "engine-sim-offline-renderer-build",
+        id: "crankwave-renderer-build",
         sha256: captures[0].rendererSha256,
       },
       representation:
@@ -1481,7 +1481,7 @@ async function main() {
   fs.cpSync(CANDIDATE_ROOT, FINAL_PACKAGE, { recursive: true });
   const updatedRoot = parseJson(RESPONSIVE_RUNTIME);
   updatedRoot.lifecycle_package_path = "lifecycle/runtime.json";
-  if (process.env.ESO_RESPONSIVE_BAKE_SHARED_STARTER === "1") {
+  if (process.env.CRANKWAVE_RESPONSIVE_BAKE_SHARED_STARTER === "1") {
     updatedRoot.shared_recorded_starter_package_path =
       "shared-recorded-starter/runtime.json";
   }
@@ -1540,10 +1540,10 @@ async function captureElevatedShutdown() {
   const runRoot = temporaryRunRoot(`${ENGINE_ID}-high-shutdown-`);
   const stageRoot = path.join(runRoot, "lifecycle");
   fs.mkdirSync(stageRoot, { recursive: true });
-  const { EngineSimCapiClient } = await import(pathToFileURL(
+  const { CrankwaveCapiClient } = await import(pathToFileURL(
     path.join(MODULE_ROOT, "runtime/c-api-client.js"),
   ));
-  const client = await EngineSimCapiClient.create(pathToFileURL(MODULE_PATH));
+  const client = await CrankwaveCapiClient.create(pathToFileURL(MODULE_PATH));
   const engineText = readText(ENGINE_PATH);
   const assets = ENGINE_ENTRY.assets.audio.map(({ id, path: relative }) => ({
     kind: "audio",

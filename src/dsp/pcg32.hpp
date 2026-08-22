@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <limits>
 
-namespace engine_sim_offline::dsp {
+namespace crankwave::dsp {
 
 inline constexpr std::uint64_t kMaximumPcg32Stream =
     std::numeric_limits<std::uint64_t>::max() >> 1U;
@@ -27,4 +27,4 @@ class Pcg32 {
     std::uint64_t increment_ = 0;
 };
 
-} // namespace engine_sim_offline::dsp
+} // namespace crankwave::dsp

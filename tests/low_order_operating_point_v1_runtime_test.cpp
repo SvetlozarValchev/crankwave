@@ -21,7 +21,7 @@
 
 namespace {
 
-using namespace engine_sim_offline;
+using namespace crankwave;
 
 constexpr double kHeldRpm = 3000.0;
 constexpr double kFixedPreparationHorizonS = 0.22;

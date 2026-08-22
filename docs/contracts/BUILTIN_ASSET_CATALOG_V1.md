@@ -15,7 +15,7 @@ claims remain separate evidence and release-policy concerns.
 ## Bundle layout
 
 ```text
-engine-sim-offline-assets/
+crankwave-assets/
   catalog.v1.json
   payloads/
     <64-lowercase-hex-sha256>
@@ -27,11 +27,11 @@ engine-sim-offline-assets/
 ```
 
 The tracked catalog source is `assets/builtin/catalog.v1.json`. Its exact schema ID is
-`engine-sim-offline/builtin-asset-catalog.v1`:
+`crankwave/builtin-asset-catalog.v1`:
 
 ```json
 {
-  "schema": "engine-sim-offline/builtin-asset-catalog.v1",
+  "schema": "crankwave/builtin-asset-catalog.v1",
   "assets": [
     {
       "kind": "audio",
@@ -71,7 +71,7 @@ limits still apply.
 
 The Linux CLI observes its current executable path and probes, in order:
 
-1. `<executable-directory>/engine-sim-offline-assets/catalog.v1.json` for a staged
+1. `<executable-directory>/crankwave-assets/catalog.v1.json` for a staged
    build-tree bundle;
 2. the configured GNUInstallDirs datadir, relative to the executable directory, for
    an installed prefix.
@@ -79,7 +79,7 @@ The Linux CLI observes its current executable path and probes, in order:
 CMake assembles the first layout as a dependency of the CLI and copies it beside the
 linked executable. `cmake --install` installs the executable to the configured bindir
 and installs the catalog plus content-addressed payloads beneath
-`<datadir>/engine-sim-offline/assets`. CMake records only the relative path from the
+`<datadir>/crankwave/assets`. CMake records only the relative path from the
 configured bindir to that location; changing a relative `CMAKE_INSTALL_DATADIR` is
 therefore supported and moving the complete installed prefix does not invalidate
 discovery. The tracked catalog, staged payload map, and engine JSON hashes must

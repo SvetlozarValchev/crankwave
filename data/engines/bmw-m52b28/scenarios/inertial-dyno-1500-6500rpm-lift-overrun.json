@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/scenario",
+  "schema": "crankwave/scenario",
   "id": "bmw-m52b28-inertial-dyno-1500-6500rpm-lift-overrun",
   "engine": "bmw-m52b28",
   "fuel": "gasoline",

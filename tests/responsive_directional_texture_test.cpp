@@ -1,4 +1,4 @@
-#include "engine_sim_offline/responsive/directional_texture.hpp"
+#include "crankwave/responsive/directional_texture.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -26,7 +26,7 @@ void expect(const bool condition, const std::string_view message) {
 } // namespace
 
 int main() {
-    using namespace engine_sim_offline::responsive;
+    using namespace crankwave::responsive;
 
     constexpr std::size_t block_frames = 3840U;
     constexpr std::size_t block_count = 100U;
@@ -71,7 +71,7 @@ int main() {
                "phase-normalized source starts at cycle origin");
         expect(result->telemetry.endpoint_count > 0U &&
                    result->telemetry.state_masks ==
-                       std::vector<engine_sim_offline::EngineCycleStateFlagMask>{3U},
+                       std::vector<crankwave::EngineCycleStateFlagMask>{3U},
                "telemetry interval and state masks are retained");
         expect(result->closure.seam_over_source_adjacent_derivative_rms < 3.0,
                "closed seam meets the established derivative bound");

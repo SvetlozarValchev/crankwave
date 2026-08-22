@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace engine_sim_offline::artifacts::detail {
+namespace crankwave::artifacts::detail {
 namespace {
 
 TelemetryEncodingError non_finite(std::string path) {
@@ -295,4 +295,4 @@ validate_all_serialized_values_finite(const contract::CaptureBlockView &block) {
     return std::nullopt;
 }
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace crankwave::artifacts::detail

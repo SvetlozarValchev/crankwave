@@ -1,6 +1,6 @@
 #pragma once
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 struct LegacyVtecSelectorThresholds {
     double minimum_engine_speed_rad_s = 0.0;
@@ -26,4 +26,4 @@ struct LegacyVtecSelectorInput {
 legacy_vtec_alternate_profile_active(const LegacyVtecSelectorThresholds &thresholds,
                                      const LegacyVtecSelectorInput &input) noexcept;
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

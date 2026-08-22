@@ -2,15 +2,15 @@
 
 #include "identity/simulation_request_identity_writer.hpp"
 
-#include "engine_sim_offline/contract/render_manifest.hpp"
-#include "engine_sim_offline/publication.hpp"
+#include "crankwave/contract/render_manifest.hpp"
+#include "crankwave/publication.hpp"
 
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 
-namespace engine_sim_offline::artifacts::detail {
+namespace crankwave::artifacts::detail {
 
 using identity::detail::CanonicalJsonWriter;
 using identity::detail::write_method_identity;
@@ -49,4 +49,4 @@ write_output_bus_records(CanonicalJsonWriter &writer,
 write_artifact_records(CanonicalJsonWriter &writer,
                        std::span<const contract::ArtifactRecord> artifacts);
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace crankwave::artifacts::detail

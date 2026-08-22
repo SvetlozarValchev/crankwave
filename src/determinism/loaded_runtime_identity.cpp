@@ -2,9 +2,9 @@
 
 #if __has_include(<bits/c++config.h>)
 #include <bits/c++config.h>
-#define ENGINE_SIM_OFFLINE_HAS_LIBSTDCXX_HEADERS 1
+#define CRANKWAVE_HAS_LIBSTDCXX_HEADERS 1
 #else
-#define ENGINE_SIM_OFFLINE_HAS_LIBSTDCXX_HEADERS 0
+#define CRANKWAVE_HAS_LIBSTDCXX_HEADERS 0
 #endif
 
 #include <algorithm>
@@ -13,7 +13,7 @@
 #include <tuple>
 #include <utility>
 
-namespace engine_sim_offline::determinism {
+namespace crankwave::determinism {
 namespace {
 
 constexpr std::uint64_t kMaximumProviderBytes = UINT64_C(256) * 1024U * 1024U;
@@ -159,7 +159,7 @@ LoadedRuntimeIdentityResult loaded_runtime_identity() {
 #if !defined(__linux__) || !defined(__x86_64__) || defined(__ILP32__)
     return error(LoadedRuntimeErrorCode::unsupported_platform, "runtime-provider",
                  "runtime identity requires Linux x86_64");
-#elif ENGINE_SIM_OFFLINE_HAS_LIBSTDCXX_HEADERS == 0 || !defined(_GLIBCXX_RELEASE) ||   \
+#elif CRANKWAVE_HAS_LIBSTDCXX_HEADERS == 0 || !defined(_GLIBCXX_RELEASE) ||   \
     !defined(__GLIBCXX__) || !defined(_GLIBCXX_USE_CXX11_ABI) ||                       \
     !defined(__GXX_ABI_VERSION)
     return error(LoadedRuntimeErrorCode::unsupported_headers, "standard-library",
@@ -275,4 +275,4 @@ LoadedRuntimeIdentityResult loaded_runtime_identity() {
 #endif
 }
 
-} // namespace engine_sim_offline::determinism
+} // namespace crankwave::determinism

@@ -1,5 +1,5 @@
 #include "authored_engine_fixture_support.hpp"
-#include "engine_sim_offline/artifacts/telemetry_encoder.hpp"
+#include "crankwave/artifacts/telemetry_encoder.hpp"
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/free_engine_method_registry.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
@@ -32,14 +32,14 @@
 
 namespace {
 
-using namespace engine_sim_offline::contract;
-using namespace engine_sim_offline::simulation;
-using engine_sim_offline::artifacts::make_telemetry_encoder;
-using engine_sim_offline::artifacts::TelemetryEncoder;
-using engine_sim_offline::artifacts::TelemetryEncodingError;
-using engine_sim_offline::artifacts::TelemetryStreamDescriptor;
+using namespace crankwave::contract;
+using namespace crankwave::simulation;
+using crankwave::artifacts::make_telemetry_encoder;
+using crankwave::artifacts::TelemetryEncoder;
+using crankwave::artifacts::TelemetryEncodingError;
+using crankwave::artifacts::TelemetryStreamDescriptor;
 using CoreRuntimeFactory =
-    engine_sim_offline::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
+    crankwave::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
 
 inline constexpr double kOuterStepS = 1.0 / 20000.0;
 inline constexpr double kOperatingHeldRpm = 3000.0;
@@ -91,7 +91,7 @@ void expect_near(double actual, double expected, double tolerance,
 }
 
 [[nodiscard]] TelemetryEncoder
-require_telemetry(engine_sim_offline::artifacts::TelemetryEncoderResult result) {
+require_telemetry(crankwave::artifacts::TelemetryEncoderResult result) {
     if (const auto *failure = std::get_if<TelemetryEncodingError>(&result)) {
         throw std::runtime_error{"telemetry encoder rejected capture: " +
                                  failure->path + ": " + failure->message};
@@ -145,9 +145,9 @@ encode_capture_block(const CaptureBlockView &block) {
     return LowOrderExecutionExtent::finite_scenario(frame_count.value_or(1U));
 }
 
-[[nodiscard]] engine_sim_offline::test::AuthoredEngineFixture
+[[nodiscard]] crankwave::test::AuthoredEngineFixture
 make_operating_capture_request(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     auto request = canonical;
     auto &scenario = request.scenario;
     const auto *inertial = std::get_if<InertialDyno>(&scenario.mode);
@@ -186,9 +186,9 @@ make_operating_capture_request(
     return request;
 }
 
-[[nodiscard]] engine_sim_offline::test::AuthoredEngineFixture
+[[nodiscard]] crankwave::test::AuthoredEngineFixture
 make_free_engine_capture_request(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical,
+    const crankwave::test::AuthoredEngineFixture &canonical,
     double post_boundary_throttle, double initial_resisting_torque_nm,
     double boundary_resisting_torque_nm, double boundary_time_s,
     double total_duration_s = kFreeEngineTotalDurationS) {
@@ -201,7 +201,7 @@ make_free_engine_capture_request(
     auto initial_engine_speed = inertial->initial_engine_speed_rpm;
     initial_engine_speed.value = kOperatingHeldRpm;
     const auto &mechanism =
-        engine_sim_offline::test::operating_profile(request.engine).core.mechanism;
+        crankwave::test::operating_profile(request.engine).core.mechanism;
     const auto inertia_calculation =
         calculate_centered_slider_crank_cycle_mean_inertia(mechanism);
     const auto *derived_inertia =
@@ -261,9 +261,9 @@ make_free_engine_capture_request(
     return request;
 }
 
-[[nodiscard]] engine_sim_offline::test::AuthoredEngineFixture
+[[nodiscard]] crankwave::test::AuthoredEngineFixture
 make_stopped_free_engine_capture_request(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     constexpr double kStoppedDurationS = 0.04;
     auto request = make_free_engine_capture_request(canonical, 0.0, 0.0, 0.0, 0.0,
                                                     kStoppedDurationS);
@@ -292,7 +292,7 @@ make_stopped_free_engine_capture_request(
 [[nodiscard]] CenteredSliderCrankConfigurationInertiaPlan
 configuration_inertia_plan(const EngineSpec &engine, double attached_inertia_kg_m2) {
     const auto &mechanism =
-        engine_sim_offline::test::operating_profile(engine).core.mechanism;
+        crankwave::test::operating_profile(engine).core.mechanism;
     CenteredSliderCrankConfigurationInertiaPlan plan{
         mechanism.cranks.front().authored_crank_inertia_kg_m2.value,
         attached_inertia_kg_m2,
@@ -361,9 +361,9 @@ require_simulation(LowOrderCaptureCompileResult result) {
 }
 
 [[nodiscard]] RandomPlan
-fixture_random_plan(const engine_sim_offline::test::AuthoredEngineFixture &authored,
+fixture_random_plan(const crankwave::test::AuthoredEngineFixture &authored,
                     const EngineSpec &engine, const RenderScenario &scenario) {
-    return engine_sim_offline::test::compile_fixture_random_plan(authored, engine,
+    return crankwave::test::compile_fixture_random_plan(authored, engine,
                                                                  scenario);
 }
 
@@ -379,7 +379,7 @@ struct FreeEngineLiveControlContext {
     double external_resisting_torque_nm = 0.0;
 };
 
-[[nodiscard]] engine_sim_offline::simulation::detail::LowOrderLiveControlStep
+[[nodiscard]] crankwave::simulation::detail::LowOrderLiveControlStep
 drain_free_engine_live_controls(void *context, std::uint64_t physics_step) noexcept {
     auto &controls = *static_cast<FreeEngineLiveControlContext *>(context);
     if (physics_step != controls.next_step) {
@@ -398,7 +398,7 @@ drain_free_engine_live_controls(void *context, std::uint64_t physics_step) noexc
 }
 
 [[nodiscard]] FreeEngineCaptureTrace
-run_free_engine_capture(const engine_sim_offline::test::AuthoredEngineFixture &request,
+run_free_engine_capture(const crankwave::test::AuthoredEngineFixture &request,
                         const bool retain_encoded_capture = false) {
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
@@ -525,7 +525,7 @@ find_cylinder(const LegacyMechanismStep &mechanics, CylinderId id) {
 
 void test_capture_projection_canonicalizes_legacy_mixture_weights() {
     const LegacyGasMixture exact{0.05, 0.74, 0.21};
-    expect(engine_sim_offline::simulation::detail::capture_mixture_for_contract(
+    expect(crankwave::simulation::detail::capture_mixture_for_contract(
                exact, 1.0) == mixture(exact),
            "capture projection changed an already admitted legacy mixture");
 
@@ -541,7 +541,7 @@ void test_capture_projection_canonicalizes_legacy_mixture_weights() {
            "roundoff regression fixture no longer exceeds the public tolerance");
 
     const auto projected =
-        engine_sim_offline::simulation::detail::capture_mixture_for_contract(drifted,
+        crankwave::simulation::detail::capture_mixture_for_contract(drifted,
                                                                              1.0);
     const double projected_sum = projected.fuel + projected.inert + projected.oxygen;
     expect(std::abs(projected_sum - 1.0) <= kMixtureFractionUnityTolerance &&
@@ -555,22 +555,22 @@ void test_capture_projection_canonicalizes_legacy_mixture_weights() {
     // remain valid after any duration rather than relying on a finite drift window.
     const LegacyGasMixture scaled{0.2, 0.2, 0.2};
     const auto projected_scaled =
-        engine_sim_offline::simulation::detail::capture_mixture_for_contract(scaled,
+        crankwave::simulation::detail::capture_mixture_for_contract(scaled,
                                                                              1.0);
     expect(projected_scaled == MixtureFractions{1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0},
            "capture projection retained a noncanonical common species scale");
 
-    expect(engine_sim_offline::simulation::detail::capture_mixture_for_contract(
+    expect(crankwave::simulation::detail::capture_mixture_for_contract(
                exact, 0.0) == MixtureFractions{},
            "empty gas cell retained undefined legacy mixture weights");
 
     const LegacyGasMixture negative{-0.1, 0.8, 0.3};
-    expect(engine_sim_offline::simulation::detail::capture_mixture_for_contract(
+    expect(crankwave::simulation::detail::capture_mixture_for_contract(
                negative, 1.0) == mixture(negative),
            "capture projection masked a negative legacy mixture weight");
 
     const LegacyGasMixture zero_sum{};
-    expect(engine_sim_offline::simulation::detail::capture_mixture_for_contract(
+    expect(crankwave::simulation::detail::capture_mixture_for_contract(
                zero_sum, 1.0) == mixture(zero_sum),
            "capture projection masked a positive cell with zero species weight");
 }
@@ -904,7 +904,7 @@ require_operating_torque(LowOrderOperatingPointV1AdvanceResult &result) {
 }
 
 void test_authored_capture_mapping_and_completion(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     const auto request = make_operating_capture_request(canonical);
     const auto request_identity = nonzero_request_identity();
     const auto random_plan =
@@ -917,7 +917,7 @@ void test_authored_capture_mapping_and_completion(
         fail_report("authored held-speed schedule failed admission", *report);
     }
     const auto &schedule = std::get<KinematicScenarioSchedule>(schedule_result);
-    const auto &core = engine_sim_offline::test::low_order_core(request.engine);
+    const auto &core = crankwave::test::low_order_core(request.engine);
     auto mechanism_plan_result =
         compile_mechanism_kinematics_plan(request.engine, core);
     if (const auto *report = std::get_if<ValidationReport>(&mechanism_plan_result)) {
@@ -1070,13 +1070,13 @@ void test_authored_capture_mapping_and_completion(
 }
 
 void test_twenty_khz_mechanics_gas_and_capture_share_one_clock(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     constexpr RationalRateHz kRate{20000U, 1U};
     constexpr std::uint32_t kFrameCount = 400U;
     constexpr double kDurationS = 0.02;
     constexpr double kRpm = 2400.0;
 
-    auto request = engine_sim_offline::test::make_prescribed_fixture(
+    auto request = crankwave::test::make_prescribed_fixture(
         canonical, std::vector<double>(kFrameCount, kRpm));
     auto &scenario = request.scenario;
     scenario.scenario_id = "authored-20khz-lower-layer-rate-proof";
@@ -1127,7 +1127,7 @@ void test_twenty_khz_mechanics_gas_and_capture_share_one_clock(
         fail_report("20 kHz kinematic schedule failed admission", *report);
     }
     const auto &schedule = std::get<KinematicScenarioSchedule>(schedule_result);
-    const auto &core = engine_sim_offline::test::low_order_core(request.engine);
+    const auto &core = crankwave::test::low_order_core(request.engine);
     auto mechanism_plan_result =
         compile_mechanism_kinematics_plan(request.engine, core);
     if (const auto *report =
@@ -1222,7 +1222,7 @@ void test_twenty_khz_mechanics_gas_and_capture_share_one_clock(
 }
 
 void test_operating_capture_publishes_request_bound_completion_evidence(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     const auto request = make_operating_capture_request(canonical);
     const auto request_identity = nonzero_request_identity();
     auto capture = require_simulation(compile_low_order_capture_session(
@@ -1268,7 +1268,7 @@ void test_operating_capture_publishes_request_bound_completion_evidence(
 }
 
 void test_operating_capture_rejects_zero_request_identity(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     const auto request = make_operating_capture_request(canonical);
     const auto result = compile_low_order_capture_session(
         request.engine, request.scenario,
@@ -1285,7 +1285,7 @@ void test_operating_capture_rejects_zero_request_identity(
 }
 
 void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     const auto high_throttle_request = make_free_engine_capture_request(
         canonical, 0.85, kFreeEngineInitialResistingTorqueNm,
         kFreeEngineBoundaryResistingTorqueNm, kFreeEngineControlBoundaryS);
@@ -1331,7 +1331,7 @@ void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
     const auto &released_actuator = released.torque.actuator;
     const auto &released_reaction = released.torque.dyno_reaction;
     const double expected_crank_friction_nm =
-        -engine_sim_offline::test::operating_profile(high_throttle_request.engine)
+        -crankwave::test::operating_profile(high_throttle_request.engine)
              .core.mechanism.cranks.front()
              .running_friction_torque_magnitude_nm.value;
     const auto expected_source_friction_terms =
@@ -1400,7 +1400,7 @@ void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
 }
 
 void test_free_engine_capture_runs_dynamic_pre_audible_acquisition(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     constexpr double kAudibleStartS = 0.30;
     const auto request = [&] {
         auto value = make_free_engine_capture_request(
@@ -1459,7 +1459,7 @@ void test_free_engine_capture_runs_dynamic_pre_audible_acquisition(
 }
 
 void test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     constexpr double kLiveResistingTorqueNm = 7.5;
     constexpr double kShortHorizonS = 0.24;
     constexpr double kAuthoredLoadBoundaryS = 0.23;
@@ -1480,7 +1480,7 @@ void test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
         release_frame,
         kLiveResistingTorqueNm,
     };
-    const engine_sim_offline::simulation::detail::LowOrderLiveControlProvider provider{
+    const crankwave::simulation::detail::LowOrderLiveControlProvider provider{
         &context,
         request.scenario.rates.physics,
         &drain_free_engine_live_controls,
@@ -1537,7 +1537,7 @@ void test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
 }
 
 void test_open_free_engine_capture_runs_past_authored_horizon_in_full_blocks(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     constexpr double kReleaseThrottle = 0.60;
     constexpr double kReleaseResistanceNm = 10.0;
     constexpr double kIgnoredBoundaryS = 0.24;
@@ -1617,7 +1617,7 @@ void test_open_free_engine_capture_runs_past_authored_horizon_in_full_blocks(
 }
 
 void test_free_engine_capture_advances_canonical_stopped_state(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     const auto request = make_stopped_free_engine_capture_request(canonical);
     const auto trace = run_free_engine_capture(request);
     const auto &free_engine = std::get<FreeEngine>(request.scenario.mode);
@@ -1649,7 +1649,7 @@ void test_free_engine_capture_advances_canonical_stopped_state(
 }
 
 void test_free_engine_capture_commits_stable_stop_without_reverse(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     constexpr double kStallResistingTorqueNm = 1.0e9;
     const auto request = make_free_engine_capture_request(
         canonical, 0.85, kFreeEngineInitialResistingTorqueNm, kStallResistingTorqueNm,
@@ -1727,7 +1727,7 @@ void test_free_engine_capture_commits_stable_stop_without_reverse(
 }
 
 void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     auto request = canonical;
     auto &dyno = std::get<InertialDyno>(request.scenario.mode);
     dyno.throttle_01.points = {
@@ -1803,7 +1803,7 @@ void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(
 }
 
 void test_inertial_capture_rejects_throttle_transition_during_preparation(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     auto request = canonical;
     auto &dyno = std::get<InertialDyno>(request.scenario.mode);
     dyno.throttle_01.points.push_back(
@@ -1825,7 +1825,7 @@ void test_inertial_capture_rejects_throttle_transition_during_preparation(
 }
 
 void test_consumer_rejection_is_a_stable_terminal_fault(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     const auto request = make_operating_capture_request(canonical);
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
@@ -1858,7 +1858,7 @@ void test_consumer_rejection_is_a_stable_terminal_fault(
 }
 
 void test_consumer_exception_is_a_stable_terminal_fault(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     const auto request = make_operating_capture_request(canonical);
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
@@ -1889,7 +1889,7 @@ void test_consumer_exception_is_a_stable_terminal_fault(
 }
 
 void test_reentrant_publication_preserves_outer_view_and_faults(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     const auto request = make_operating_capture_request(canonical);
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
@@ -1950,7 +1950,7 @@ void test_reentrant_publication_preserves_outer_view_and_faults(
 }
 
 void expect_simulation_compile_rejected(
-    const engine_sim_offline::test::AuthoredEngineFixture &request,
+    const crankwave::test::AuthoredEngineFixture &request,
     std::string_view mutation) {
     auto result = compile_low_order_capture_session(
         request.engine, request.scenario,
@@ -1962,7 +1962,7 @@ void expect_simulation_compile_rejected(
 }
 
 void test_declared_capture_capacity_drives_publication(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     auto request = make_operating_capture_request(canonical);
     request.scenario.quality.value.capture_block_capacity_frames = 37U;
     request.scenario.quality.value.event_journal_capacity_records = 37U * 19U;
@@ -2062,7 +2062,7 @@ struct PrescribedLiveControlContext {
     std::uint64_t next_step = 0U;
 };
 
-[[nodiscard]] engine_sim_offline::simulation::detail::LowOrderLiveControlStep
+[[nodiscard]] crankwave::simulation::detail::LowOrderLiveControlStep
 drain_prescribed_live_control(void *context, std::uint64_t physics_step) noexcept {
     auto &state = *static_cast<PrescribedLiveControlContext *>(context);
     if (physics_step != state.next_step) {
@@ -2075,10 +2075,10 @@ drain_prescribed_live_control(void *context, std::uint64_t physics_step) noexcep
     return {true, overrides};
 }
 
-[[nodiscard]] engine_sim_offline::test::AuthoredEngineFixture
+[[nodiscard]] crankwave::test::AuthoredEngineFixture
 make_prescribed_capture_request(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
-    auto request = engine_sim_offline::test::make_prescribed_fixture(
+    const crankwave::test::AuthoredEngineFixture &canonical) {
+    auto request = crankwave::test::make_prescribed_fixture(
         canonical, std::vector<double>(kOperatingStepCount, kOperatingHeldRpm));
     request.scenario.preparation = FixedSettling{
         {0.1, "prescribed-capture-test.warm-up"},
@@ -2092,7 +2092,7 @@ make_prescribed_capture_request(
 }
 
 void test_prescribed_capture_is_finite_and_gas_torque_only(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     const auto request = make_prescribed_capture_request(canonical);
     expect(validate_clock_grid(request.scenario).ok(),
            "happy prescribed capture fixture is not on its declared clocks");
@@ -2141,7 +2141,7 @@ void test_prescribed_capture_is_finite_and_gas_torque_only(
         fixture_random_plan(request, request.engine, request.scenario),
         nonzero_request_identity(), finite_extent(request.scenario)));
     PrescribedLiveControlContext context;
-    const engine_sim_offline::simulation::detail::LowOrderLiveControlProvider provider{
+    const crankwave::simulation::detail::LowOrderLiveControlProvider provider{
         &context, request.scenario.rates.physics, &drain_prescribed_live_control};
     std::size_t callback_count = 0U;
     auto rejected = controlled.publish_next_block(
@@ -2161,7 +2161,7 @@ void test_prescribed_capture_is_finite_and_gas_torque_only(
 }
 
 void test_capture_partition_admission_rejection(
-    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const crankwave::test::AuthoredEngineFixture &canonical) {
     {
         auto request = make_operating_capture_request(canonical);
         request.scenario.rates.capture = {9999, 1};
@@ -2203,7 +2203,7 @@ void test_capture_partition_admission_rejection(
     }
 }
 
-void run_tests(const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+void run_tests(const crankwave::test::AuthoredEngineFixture &canonical) {
     test_capture_projection_canonicalizes_legacy_mixture_weights();
     test_authored_capture_mapping_and_completion(canonical);
     test_twenty_khz_mechanics_gas_and_capture_share_one_clock(canonical);
@@ -2236,7 +2236,7 @@ int main(int argc, char **argv) {
                 "usage: low_order_capture_session_test <repository-root>"};
         }
         const auto canonical =
-            engine_sim_offline::test::load_canonical_authored_engine_fixture(
+            crankwave::test::load_canonical_authored_engine_fixture(
                 std::filesystem::path{argv[1]});
         run_tests(canonical);
     } catch (const std::exception &error) {

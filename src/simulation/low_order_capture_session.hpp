@@ -1,9 +1,9 @@
 #pragma once
 
-#include "engine_sim_offline/contract/capture.hpp"
-#include "engine_sim_offline/contract/randomness.hpp"
-#include "engine_sim_offline/contract/result.hpp"
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/capture.hpp"
+#include "crankwave/contract/randomness.hpp"
+#include "crankwave/contract/result.hpp"
+#include "crankwave/contract/scenario.hpp"
 #include "simulation/live_control.hpp"
 #include "simulation/low_order_dynamic_crank_runtime.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
@@ -21,7 +21,7 @@
 #include <utility>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 /**
  * Non-owning, synchronous callback for one capture publication.
@@ -188,4 +188,4 @@ using LowOrderCaptureCompileResult =
     const contract::Sha256Digest &simulation_request_identity_v7_sha256,
     LowOrderExecutionExtent execution_extent);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

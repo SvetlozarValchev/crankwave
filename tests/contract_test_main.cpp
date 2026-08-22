@@ -4,7 +4,7 @@
 #include <iostream>
 
 int main() {
-    using namespace engine_sim_offline::contract::test;
+    using namespace crankwave::contract::test;
 
     try {
         run_primitives_contract_tests();

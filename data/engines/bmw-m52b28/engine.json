@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/engine",
+  "schema": "crankwave/engine",
   "engine": {
     "identity": {
       "id": "bmw-m52b28",
@@ -755,7 +755,7 @@
       {
         "id": "warm-stock-accessories",
         "uri": "../../profiles/bmw-m52b28/accessory-configurations/bmw-m52b28-warm-stock-accessories-v1.json",
-        "sha256": "ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97"
+        "sha256": "6e822e04aea523d5980f53241166a43a971c481d03bb9ba033b6bb097b9debc6"
       }
     ],
     "losses": {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/capture.hpp"
+#include "crankwave/contract/capture.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
 
@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace engine_sim_offline::simulation::detail {
+namespace crankwave::simulation::detail {
 
 // Legacy engine-sim evolves three nonnegative species weights independently and does
 // not renormalize after transfers. Preserve that solver state, but expose canonical
@@ -104,4 +104,4 @@ class LowOrderCaptureBuffer final {
     std::vector<contract::ReferenceParityCylinderSample> parity_cylinders_;
 };
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace crankwave::simulation::detail

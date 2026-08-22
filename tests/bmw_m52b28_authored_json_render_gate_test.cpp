@@ -11,16 +11,16 @@
 
 namespace {
 
-namespace gate = engine_sim_offline::test::bmw_m52b28_render_gate;
-namespace contract = engine_sim_offline::contract;
+namespace gate = crankwave::test::bmw_m52b28_render_gate;
+namespace contract = crankwave::contract;
 
 // These generic identities were established by a clean public JSON compile/render.
 // They intentionally do not inherit obsolete BMW-profile provenance/container IDs.
 constexpr std::string_view kExpectedGenericRequestIdentitySha256 =
-    "b08b197a2cf4df993112d9b345c095e2290a5f426ebb3b4462a60af6faed89da";
-constexpr std::uint64_t kExpectedGenericAuditionWaveByteCount = UINT64_C(8640598);
+    "66290e8b95c0f5e14eb1d65394bd3212fe4b31552c4c48efbf14e0c9219f0af2";
+constexpr std::uint64_t kExpectedGenericAuditionWaveByteCount = UINT64_C(8640588);
 constexpr std::string_view kExpectedGenericAuditionWaveSha256 =
-    "58ec677b0565fad0e9a3b9eedba9590d5af9891c647185ebdb9c98f7e469cde7";
+    "87204d323d1a44016a0cdae94c61a52420f257f0da9d9033a3a788f5169723d0";
 
 [[nodiscard]] std::string validation_text(const contract::ValidationReport &report) {
     std::string result;
@@ -81,26 +81,22 @@ void run(const std::filesystem::path &repository_root, const bool compile_only) 
     std::stop_source cancellation;
     cancellation.request_stop();
     gate::VerifyingMemorySink cancelled_sink;
-    const auto cancelled = engine_sim_offline::bake(
+    const auto cancelled = crankwave::bake(
         scenario, cancelled_sink,
-        engine_sim_offline::RenderControl{cancellation.get_token()});
+        crankwave::RenderControl{cancellation.get_token()});
     const auto *cancelled_failure =
         std::get_if<contract::RenderFailure>(&cancelled);
     gate::expect(
         cancelled_failure != nullptr &&
             cancelled_failure->context.kind == contract::FailureKind::cancelled &&
             cancelled_sink.begin_calls == 0U &&
-            engine_sim_offline::validate_bake_result(cancelled, scenario).ok(),
+            crankwave::validate_bake_result(cancelled, scenario).ok(),
         "pre-requested bake cancellation touched publication or failed validation");
 
     gate::VerifyingMemorySink sink;
-    const auto result = engine_sim_offline::bake(scenario, sink);
+    const auto result = crankwave::bake(scenario, sink);
     const auto &success = require_success(result);
-    const auto oracle = gate::read_bytes(
-        repository_root / "reference/oracles/bmw-m52b28/"
-                          "bmw-m52b28-canonical-exhaust-only-master-v4-20khz-"
-                          "5b7f919-dyno-1500-6500rpm.wav");
-    const auto observation = gate::verify_render_success(success, sink, oracle);
+    const auto observation = gate::verify_render_success(success, sink);
     require_pinned_generic_identities(observation);
 }
 

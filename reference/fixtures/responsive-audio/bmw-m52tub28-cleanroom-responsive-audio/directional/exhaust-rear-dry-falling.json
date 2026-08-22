@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-directional-route",
+  "schema": "crankwave/responsive-audio-directional-route",
   "id": "bmw-m52tub28-cleanroom-directional-falling-exhaust-rear-dry-live-preview",
   "engine": "bmw-m52tub28-cleanroom",
   "audio": {
@@ -923,7 +923,7 @@
       "sha256": "3918d17dc709292fa6d61681b08889647f92f6bcf1b3209cbdc5d70c91c0fa5e"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "falling-prescribed-exponential-dry-route-three-cycle-phase-units-with-seam-closure",

@@ -1,9 +1,9 @@
-#include "engine_sim_offline/atlas_bake.hpp"
+#include "crankwave/atlas_bake.hpp"
 
 #include "atlas/compiled_atlas_bake_storage.hpp"
 #include "compile/compiled_scenario_view.hpp"
-#include "engine_sim_offline/contract/audio_atlas.hpp"
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/audio_atlas.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -21,7 +21,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline {
+namespace crankwave {
 namespace {
 
 constexpr compile::SiRate kAtlasDeliveryRate{192000U, 1U};
@@ -91,7 +91,7 @@ void validate_document_header(const authoring::AtlasBakeDocument &document,
                               authoring::DiagnosticReport &report) {
     if (document.schema != authoring::kAtlasBakeSchema) {
         add(report, authoring::DiagnosticCode::unsupported_schema, "/schema",
-            "expected schema 'engine-sim-offline/atlas-bake'");
+            "expected schema 'crankwave/atlas-bake'");
     }
     if (!valid_stable_id(document.id.value)) {
         add(report, authoring::DiagnosticCode::invalid_value, "/id",
@@ -534,4 +534,4 @@ AtlasBakeCompileResult compile_atlas_bake(
     return detail::CompiledAtlasBakeBuilder::build(document, engine, scenario_inputs);
 }
 
-} // namespace engine_sim_offline
+} // namespace crankwave

@@ -1,8 +1,8 @@
-#include "engine_sim_offline/artifacts/vehicleengine_container.hpp"
-#include "engine_sim_offline/authoring/json.hpp"
-#include "engine_sim_offline/c_api.h"
-#include "engine_sim_offline/responsive/native_package.hpp"
-#include "engine_sim_offline/responsive/native_publication.hpp"
+#include "crankwave/artifacts/crankwave_container.hpp"
+#include "crankwave/authoring/json.hpp"
+#include "crankwave/c_api.h"
+#include "crankwave/responsive/native_package.hpp"
+#include "crankwave/responsive/native_publication.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -21,8 +21,8 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::responsive;
+using namespace crankwave;
+using namespace crankwave::responsive;
 
 void expect(const bool condition, const std::string_view message) {
     if (!condition) {
@@ -67,7 +67,7 @@ void expect(const bool condition, const std::string_view message) {
 [[nodiscard]] NativeResponsivePackageInputV2 input_fixture() {
     NativeResponsivePackageInputV2 input;
     input.identity.backend.release_identity = "1.1.0";
-    input.identity.backend.c_api_version = ESO_C_API_VERSION;
+    input.identity.backend.c_api_version = CRANKWAVE_C_API_VERSION;
     input.identity.backend.executable_sha256 = digest("native-executable");
     input.identity.backend.source_closure_sha256 = digest("source-closure");
     input.identity.backend.method_registry_sha256 = digest("method-registry");
@@ -91,7 +91,7 @@ void expect(const bool condition, const std::string_view message) {
 
     input.payload_members.push_back(member("held/package.json",
                                            R"JSON({
-  "schema": "engine-sim-offline/responsive-audio-held-texture",
+  "schema": "crankwave/responsive-audio-held-texture",
   "engine": "example-engine",
   "dry_bus_ids": ["exhaust.front.dry", "exhaust.rear.dry"],
   "route_manifests": [
@@ -110,7 +110,7 @@ void expect(const bool condition, const std::string_view message) {
 )JSON"));
     input.payload_members.push_back(member("directional/runtime.json",
                                            R"JSON({
-  "schema": "engine-sim-offline/responsive-audio-directional-texture",
+  "schema": "crankwave/responsive-audio-directional-texture",
   "engine": "example-engine",
   "dry_bus_ids": ["exhaust.front.dry", "exhaust.rear.dry"],
   "route_manifests": [
@@ -202,8 +202,8 @@ void test_native_identity_and_package_are_deterministic() {
         require_package(build_native_responsive_package_v2(std::move(reordered_input)));
     expect(first.cache_identity == second.cache_identity &&
                first.members == second.members &&
-               first.vehicleengine_v1 == second.vehicleengine_v1 &&
-               first.vehicleengine_sha256 == second.vehicleengine_sha256,
+               first.crankwave_v1 == second.crankwave_v1 &&
+               first.crankwave_sha256 == second.crankwave_sha256,
            "identical native package inputs did not produce identical package bytes");
 
     const auto runtime_text = text(find_member(first, "runtime.json").bytes);
@@ -245,21 +245,21 @@ void test_native_identity_and_package_are_deterministic() {
     const auto expected_runtime_sha256 =
         hex(contract::sha256(find_member(first, "runtime.json").bytes));
     const auto expected_descriptor_sha256 =
-        hex(contract::sha256(find_member(first, "vehicleengine.json").bytes));
+        hex(contract::sha256(find_member(first, "crankwave.json").bytes));
     expect(report.size() == 10U &&
                report.find("runtime_manifest_sha256").string() ==
                    std::optional<std::string_view>{expected_runtime_sha256} &&
-               report.find("vehicleengine_descriptor_sha256").string() ==
+               report.find("crankwave_descriptor_sha256").string() ==
                    std::optional<std::string_view>{expected_descriptor_sha256},
            "native v2 report does not bind exact generated manifest bytes");
 
-    const auto verified = artifacts::verify_vehicleengine(first.vehicleengine_v1);
-    expect(std::holds_alternative<artifacts::VehicleEngineContainerIndex>(verified),
-           "built carrier did not pass existing VEHICLEENGINE v1 verification");
-    const auto &index = std::get<artifacts::VehicleEngineContainerIndex>(verified);
-    expect(index.version == artifacts::kVehicleEngineContainerVersionV1 &&
+    const auto verified = artifacts::verify_crankwave(first.crankwave_v1);
+    expect(std::holds_alternative<artifacts::CrankwaveContainerIndex>(verified),
+           "built carrier did not pass existing CRANKWAVE v1 verification");
+    const auto &index = std::get<artifacts::CrankwaveContainerIndex>(verified);
+    expect(index.version == artifacts::kCrankwaveContainerVersionV1 &&
                index.entries.size() == first.members.size(),
-           "built carrier changed the VEHICLEENGINE v1 contract or tree closure");
+           "built carrier changed the CRANKWAVE v1 contract or tree closure");
 }
 
 void test_wasm_identity_builds_the_same_portable_carrier_contract() {
@@ -279,7 +279,7 @@ void test_wasm_identity_builds_the_same_portable_carrier_contract() {
 
     const auto package =
         require_package(build_native_responsive_package_v2(std::move(input)));
-    expect(!package.vehicleengine_v1.empty() &&
+    expect(!package.crankwave_v1.empty() &&
                text(find_member(package, "bake-report.json").bytes)
                        .find("wasm32-ieee754-binary128-strict-v1") != std::string::npos,
            "WASM responsive package did not retain its numeric backend identity");
@@ -372,7 +372,7 @@ class TemporaryDirectory final {
   public:
     TemporaryDirectory() {
         std::string pattern = (std::filesystem::temp_directory_path() /
-                               "eso-native-responsive-package-XXXXXX")
+                               "crankwave-native-responsive-package-XXXXXX")
                                   .string();
         std::vector<char> writable(pattern.begin(), pattern.end());
         writable.push_back('\0');
@@ -442,14 +442,14 @@ void test_atomic_tree_and_carrier_publication() {
                    NativeResponsivePackageErrorCode::output_conflict,
            "directory publisher replaced an existing destination");
 
-    const auto carrier_path = temporary.path() / "example-engine.vehicleengine";
+    const auto carrier_path = temporary.path() / "example-engine.crankwave";
     const auto carrier_result =
-        publish_native_vehicleengine_atomic(package, carrier_path);
+        publish_native_crankwave_atomic(package, carrier_path);
     expect(std::holds_alternative<NativeResponsiveCarrierPublication>(carrier_result) &&
-               read_file(carrier_path) == package.vehicleengine_v1,
+               read_file(carrier_path) == package.crankwave_v1,
            "atomic carrier publication did not preserve exact bytes");
     const auto carrier_conflict =
-        publish_native_vehicleengine_atomic(package, carrier_path);
+        publish_native_crankwave_atomic(package, carrier_path);
     const auto *carrier_failure =
         std::get_if<NativeResponsivePackageError>(&carrier_conflict);
     expect(carrier_failure != nullptr &&
@@ -458,13 +458,13 @@ void test_atomic_tree_and_carrier_publication() {
            "carrier publisher replaced an existing destination");
 
     auto tampered = package;
-    tampered.vehicleengine_v1.back() ^= std::byte{0x01};
-    const auto tampered_result = publish_native_vehicleengine_atomic(
-        tampered, temporary.path() / "tampered.vehicleengine");
+    tampered.crankwave_v1.back() ^= std::byte{0x01};
+    const auto tampered_result = publish_native_crankwave_atomic(
+        tampered, temporary.path() / "tampered.crankwave");
     const auto *tampered_failure =
         std::get_if<NativeResponsivePackageError>(&tampered_result);
     expect(tampered_failure != nullptr &&
-               !std::filesystem::exists(temporary.path() / "tampered.vehicleengine"),
+               !std::filesystem::exists(temporary.path() / "tampered.crankwave"),
            "publication admitted a tampered carrier or left an incomplete output");
 
     auto tampered_tree = package;
@@ -482,17 +482,17 @@ void test_atomic_tree_and_carrier_publication() {
 
     std::stop_source stopped;
     stopped.request_stop();
-    const auto cancelled = publish_native_vehicleengine_atomic(
-        package, temporary.path() / "cancelled.vehicleengine", stopped.get_token());
+    const auto cancelled = publish_native_crankwave_atomic(
+        package, temporary.path() / "cancelled.crankwave", stopped.get_token());
     const auto *cancelled_failure =
         std::get_if<NativeResponsivePackageError>(&cancelled);
     expect(cancelled_failure != nullptr &&
                cancelled_failure->code == NativeResponsivePackageErrorCode::cancelled &&
-               !std::filesystem::exists(temporary.path() / "cancelled.vehicleengine"),
+               !std::filesystem::exists(temporary.path() / "cancelled.crankwave"),
            "cancelled carrier publication left an incomplete output");
 
     for (const auto &entry : std::filesystem::directory_iterator(temporary.path())) {
-        expect(!entry.path().filename().string().starts_with(".engine-sim-offline-"),
+        expect(!entry.path().filename().string().starts_with(".crankwave-"),
                "publication left a private staging entry behind");
     }
 }

@@ -7,23 +7,23 @@ foreach(_required IN ITEMS
         RELEASE_SOURCE_IDENTITY_SCRIPT)
     if(NOT DEFINED ${_required} OR "${${_required}}" STREQUAL "")
         message(FATAL_ERROR
-            "engine_sim_offline_distribution requires ${_required}")
+            "crankwave_distribution requires ${_required}")
     endif()
 endforeach()
 
 if(NOT EXISTS "${SOURCE_STAMP}" OR IS_DIRECTORY "${SOURCE_STAMP}" OR
    IS_SYMLINK "${SOURCE_STAMP}")
     message(FATAL_ERROR
-        "engine_sim_offline_distribution source stamp is absent: ${SOURCE_STAMP}")
+        "crankwave_distribution source stamp is absent: ${SOURCE_STAMP}")
 endif()
 file(READ "${SOURCE_STAMP}" _stamp)
 if(NOT _stamp MATCHES "kRendererSourceState = \"clean\";")
     message(FATAL_ERROR
-        "engine_sim_offline_distribution requires a clean renderer source closure")
+        "crankwave_distribution requires a clean renderer source closure")
 endif()
 if(NOT _stamp MATCHES "kRendererToolchainState = \"available\";")
     message(FATAL_ERROR
-        "engine_sim_offline_distribution requires the canonical release toolchain")
+        "crankwave_distribution requires the canonical release toolchain")
 endif()
 string(REGEX MATCH
     "kRendererFullGitHead = \"([0-9a-f]+)\";"
@@ -39,7 +39,7 @@ if(NOT _git_match OR
    NOT (_git_commit_length EQUAL 40 OR _git_commit_length EQUAL 64) OR
    NOT _closure_match OR NOT _source_closure_length EQUAL 64)
     message(FATAL_ERROR
-        "engine_sim_offline_distribution requires complete source identity")
+        "crankwave_distribution requires complete source identity")
 endif()
 
 execute_process(
@@ -57,7 +57,7 @@ execute_process(
 if(NOT _release_source_result EQUAL 0 OR
    NOT _release_source_stderr STREQUAL "")
     message(FATAL_ERROR
-        "engine_sim_offline_distribution release source identity failed")
+        "crankwave_distribution release source identity failed")
 endif()
 string(JSON _release_source_state GET "${_release_source_json}" state)
 string(JSON _release_source_head GET
@@ -70,5 +70,5 @@ if(NOT _release_source_state STREQUAL "clean" OR
    NOT _release_source_closure MATCHES "^[0-9a-f]+$" OR
    NOT _release_source_closure_length EQUAL 64)
     message(FATAL_ERROR
-        "engine_sim_offline_distribution requires clean installed release inputs")
+        "crankwave_distribution requires clean installed release inputs")
 endif()

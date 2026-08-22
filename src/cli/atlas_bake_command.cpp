@@ -3,11 +3,11 @@
 #include "native_input_files.hpp"
 
 #include "determinism/renderer_determinism_envelope.hpp"
-#include "engine_sim_offline/artifacts/audio_atlas_directory_publisher.hpp"
-#include "engine_sim_offline/atlas_assembly.hpp"
-#include "engine_sim_offline/atlas_bake.hpp"
-#include "engine_sim_offline/atlas_capture.hpp"
-#include "engine_sim_offline/compile.hpp"
+#include "crankwave/artifacts/audio_atlas_directory_publisher.hpp"
+#include "crankwave/atlas_assembly.hpp"
+#include "crankwave/atlas_bake.hpp"
+#include "crankwave/atlas_capture.hpp"
+#include "crankwave/compile.hpp"
 
 #include <chrono>
 #include <cstddef>
@@ -21,7 +21,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::cli {
+namespace crankwave::cli {
 namespace {
 
 [[nodiscard]] int input_exit_code(const NativeInputErrorKind kind) noexcept {
@@ -99,7 +99,7 @@ void append_digest(std::vector<std::byte> &bytes,
     std::vector<std::byte> bytes;
     bytes.reserve(192U);
     append_string(bytes,
-                  "engine-sim-offline.audio-atlas-capture-configuration.v1");
+                  "crankwave.audio-atlas-capture-configuration.v1");
     append_digest(bytes, input.source.sha256);
     append_string(bytes, segment.capture.id.value);
     append_string(bytes, segment.scenario.id());
@@ -111,7 +111,7 @@ void append_digest(std::vector<std::byte> &bytes,
     const NativeAtlasBakeInput &input, const CompiledAtlasBake &bake) {
     std::vector<std::byte> bytes;
     bytes.reserve(96U + input.scenarios.size() * 128U);
-    append_string(bytes, "engine-sim-offline.audio-atlas-source-inputs.v1");
+    append_string(bytes, "crankwave.audio-atlas-source-inputs.v1");
     append_u64(bytes, input.scenarios.size());
     for (const auto &source : input.scenarios) {
         append_string(bytes, source.source_id);
@@ -252,7 +252,7 @@ int execute_bake_atlas(const BakeAtlasCommand &command,
     AudioAtlasAssemblyProvenance provenance{
         {std::string{engine.id()}, engine.provenance().bundle.sha256},
         {std::string{bake.id()}, atlas_input.source.sha256},
-        {"engine-sim-offline-renderer-build",
+        {"crankwave-renderer-build",
          determinism_envelope->source_stamp().source_closure_sha256},
         source_input_identity(atlas_input, bake),
     };
@@ -291,4 +291,4 @@ int execute_bake_atlas(const BakeAtlasCommand &command,
     return kExitSuccess;
 }
 
-} // namespace engine_sim_offline::cli
+} // namespace crankwave::cli

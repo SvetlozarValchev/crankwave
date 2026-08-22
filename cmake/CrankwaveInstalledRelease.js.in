@@ -1,0 +1,7 @@
+// Generated as part of the installed Crankwave resource closure.
+export const CRANKWAVE_RELEASE_IDENTITY =
+  "@CRANKWAVE_RELEASE_IDENTITY@";
+
+export default Object.freeze({
+  releaseIdentity: CRANKWAVE_RELEASE_IDENTITY,
+});

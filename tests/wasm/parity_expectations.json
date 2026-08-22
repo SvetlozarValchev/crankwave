@@ -1,12 +1,12 @@
 {
-  "format": "engine-sim-offline-wasm-parity-expectations-v1",
+  "format": "crankwave-wasm-parity-expectations-v1",
   "fixture": "bmw-m52b28-short-live-parity",
   "pcm_sample_count": 7680,
   "inputs": {
-    "engine_json_sha256": "dd83acb9faacdaa0dce96ee702196bc47c300b465952a0afd0b258bb515085e0",
-    "scenario_json_sha256": "0f4f30bb6b8147e7ba5f20321efc5596f1e741c4279b8767f02483cdf64844d6",
+    "engine_json_sha256": "a48fbfcb6138d342f82f2c1f73682d19b6d20a0fce3970c26dc75b4d2c7ff8b6",
+    "scenario_json_sha256": "3fa32f260af80b448428c65aac5822ce10786f7a6207f9dfc6b970a8b5e604e8",
     "impulse_response_sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc",
-    "accessory_configuration_sha256": "ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97"
+    "accessory_configuration_sha256": "6e822e04aea523d5980f53241166a43a971c481d03bb9ba033b6bb097b9debc6"
   },
   "semantic_sha256": "cfa562577ff0d42da60f30b6b010626cb85ceccc48d0863342b600d241b17286",
   "native": {

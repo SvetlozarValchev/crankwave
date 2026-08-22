@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 namespace {
 
 using contract::ContractIssueCode;
@@ -286,4 +286,4 @@ compile_one_level_master_rod_dynamic_cycle_accounting_plan(
     return compiled;
 }
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

@@ -2,7 +2,7 @@
 
 #include <array>
 
-namespace engine_sim_offline::presentation {
+namespace crankwave::presentation {
 namespace {
 
 constexpr std::size_t kRiffHeaderSize = 12;
@@ -336,4 +336,4 @@ PcmIrV2DecodeResult decode_pcm_ir_wave_v2(std::span<const std::byte> wave_bytes)
     return decoded;
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace crankwave::presentation

@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 
 struct IdNamespace {
     std::string name;
@@ -307,4 +307,4 @@ derived_method_identity(std::string_view method_id);
 [[nodiscard]] authoring::DiagnosticReport invalid(std::string_view path,
                                                   std::string message);
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

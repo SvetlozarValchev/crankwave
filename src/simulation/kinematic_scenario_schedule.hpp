@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/scenario.hpp"
+#include "crankwave/contract/scenario.hpp"
 #include "simulation/execution_extent.hpp"
 
 #include <cstddef>
@@ -9,7 +9,7 @@
 #include <optional>
 #include <variant>
 
-namespace engine_sim_offline::simulation {
+namespace crankwave::simulation {
 
 namespace detail {
 struct KinematicScenarioScheduleFactory;
@@ -197,4 +197,4 @@ using KinematicScenarioScheduleResult =
 [[nodiscard]] KinematicScenarioScheduleResult
 compile_kinematic_scenario_schedule(const contract::RenderScenario &scenario);
 
-} // namespace engine_sim_offline::simulation
+} // namespace crankwave::simulation

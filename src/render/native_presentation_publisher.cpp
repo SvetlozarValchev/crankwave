@@ -1,8 +1,8 @@
 #include "render/native_presentation_publisher.hpp"
 
 #include "contract/sha256_stream.hpp"
-#include "engine_sim_offline/artifacts/engine_telemetry_ndjson_encoder.hpp"
-#include "engine_sim_offline/artifacts/wav_encoder.hpp"
+#include "crankwave/artifacts/engine_telemetry_ndjson_encoder.hpp"
+#include "crankwave/artifacts/wav_encoder.hpp"
 #include "presentation/mastering.hpp"
 
 #include <algorithm>
@@ -23,7 +23,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::render_detail {
+namespace crankwave::render_detail {
 namespace {
 
 using artifacts::WavEncoder;
@@ -1226,4 +1226,4 @@ NativePresentationPublisherState NativePresentationPublisher::state() const noex
     return implementation_->state();
 }
 
-} // namespace engine_sim_offline::render_detail
+} // namespace crankwave::render_detail

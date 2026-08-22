@@ -2,10 +2,10 @@
 
 #include "compile/engine_resolver.hpp"
 #include "compile/scenario_resolver.hpp"
-#include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/compile.hpp"
-#include "engine_sim_offline/contract/capture.hpp"
-#include "engine_sim_offline/session.hpp"
+#include "crankwave/authoring/parse.hpp"
+#include "crankwave/compile.hpp"
+#include "crankwave/contract/capture.hpp"
+#include "crankwave/session.hpp"
 #include "simulation/bounded_dyno_constraint.hpp"
 #include "simulation/chen_flynn_per_cylinder_travel_cycle_mean_loss.hpp"
 #include "simulation/free_engine_method_registry.hpp"
@@ -31,12 +31,12 @@
 
 namespace {
 
-namespace authoring = engine_sim_offline::authoring;
-namespace compile = engine_sim_offline::compile;
-namespace compile_detail = engine_sim_offline::compile::detail;
-namespace contract = engine_sim_offline::contract;
-namespace simulation = engine_sim_offline::simulation;
-namespace test = engine_sim_offline::test;
+namespace authoring = crankwave::authoring;
+namespace compile = crankwave::compile;
+namespace compile_detail = crankwave::compile::detail;
+namespace contract = crankwave::contract;
+namespace simulation = crankwave::simulation;
+namespace test = crankwave::test;
 
 constexpr double kLegacyPi = 3.14159265359;
 constexpr double kDegreesToRadians = kLegacyPi / 180.0;
@@ -1330,18 +1330,18 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
     }
     auto scenario = require(compile::compile_scenario(engine, source.scenario_document),
                             "radial-5 public scenario compilation failed");
-    auto created = engine_sim_offline::create_engine_session(
-        scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
+    auto created = crankwave::create_engine_session(
+        scenario, crankwave::EngineSessionExecutionKind::finite_scenario);
     if (const auto *error =
-            std::get_if<engine_sim_offline::EngineSessionError>(&created)) {
+            std::get_if<crankwave::EngineSessionError>(&created)) {
         throw std::runtime_error{"radial-5 public session creation failed: " +
                                  error->detail_code + ": " + error->message};
     }
-    auto session = std::get<engine_sim_offline::EngineSession>(std::move(created));
+    auto session = std::get<crankwave::EngineSession>(std::move(created));
     const auto descriptor = session.descriptor();
     expect(descriptor.engine_id == "radial-5-cleanroom" &&
                descriptor.motion_mode ==
-                   engine_sim_offline::EngineMotionMode::prescribed_kinematic_sweep &&
+                   crankwave::EngineMotionMode::prescribed_kinematic_sweep &&
                descriptor.total_block_count == 4U &&
                descriptor.preparation_block_count == 0U &&
                descriptor.audio_buses.size() == 8U &&
@@ -1353,9 +1353,9 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
     while (true) {
         auto result = session.process_block();
         if (const auto *block =
-                std::get_if<engine_sim_offline::EngineSessionBlockView>(&result)) {
+                std::get_if<crankwave::EngineSessionBlockView>(&result)) {
             expect(block->phase() ==
-                           engine_sim_offline::EngineSessionBlockPhase::audible &&
+                           crankwave::EngineSessionBlockPhase::audible &&
                        block->physics_frame_count() == 400U &&
                        block->delivery_frame_count() == 3840U &&
                        block->audio_buses().size() == descriptor.audio_buses.size(),
@@ -1375,12 +1375,12 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
             continue;
         }
         if (const auto *error =
-                std::get_if<engine_sim_offline::EngineSessionError>(&result)) {
+                std::get_if<crankwave::EngineSessionError>(&result)) {
             throw std::runtime_error{"radial-5 public session faulted: " +
                                      error->detail_code + ": " + error->message};
         }
         const auto &completed =
-            std::get<engine_sim_offline::EngineSessionCompleted>(result);
+            std::get<crankwave::EngineSessionCompleted>(result);
         expect(block_count == descriptor.total_block_count &&
                    completed.block_count == block_count &&
                    completed.physics_frame_count == 1600U &&
@@ -1393,20 +1393,20 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
     auto free_scenario =
         require(compile::compile_scenario(engine, source.free_engine_scenario_document),
                 "radial-5 public FreeEngine scenario compilation failed");
-    auto free_created = engine_sim_offline::create_engine_session(
-        free_scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
+    auto free_created = crankwave::create_engine_session(
+        free_scenario, crankwave::EngineSessionExecutionKind::finite_scenario);
     if (const auto *error =
-            std::get_if<engine_sim_offline::EngineSessionError>(&free_created)) {
+            std::get_if<crankwave::EngineSessionError>(&free_created)) {
         throw std::runtime_error{
             "radial-5 public FreeEngine session creation failed: " +
             error->detail_code + ": " + error->message};
     }
     auto free_session =
-        std::get<engine_sim_offline::EngineSession>(std::move(free_created));
+        std::get<crankwave::EngineSession>(std::move(free_created));
     const auto free_descriptor = free_session.descriptor();
     expect(free_descriptor.engine_id == "radial-5-cleanroom" &&
                free_descriptor.motion_mode ==
-                   engine_sim_offline::EngineMotionMode::free_engine &&
+                   crankwave::EngineMotionMode::free_engine &&
                free_descriptor.preparation_block_count == 25U &&
                free_descriptor.total_block_count == 260U &&
                free_descriptor.live_control_capabilities != 0U,
@@ -1416,16 +1416,16 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
     while (true) {
         auto result = free_session.process_block();
         if (const auto *error =
-                std::get_if<engine_sim_offline::EngineSessionError>(&result)) {
+                std::get_if<crankwave::EngineSessionError>(&result)) {
             throw std::runtime_error{"radial-5 public FreeEngine session faulted: " +
                                      error->detail_code + ": " + error->message};
         }
         if (const auto *block =
-                std::get_if<engine_sim_offline::EngineSessionBlockView>(&result)) {
+                std::get_if<crankwave::EngineSessionBlockView>(&result)) {
             const auto expected_phase =
                 free_block_count < free_descriptor.preparation_block_count
-                    ? engine_sim_offline::EngineSessionBlockPhase::preparation
-                    : engine_sim_offline::EngineSessionBlockPhase::audible;
+                    ? crankwave::EngineSessionBlockPhase::preparation
+                    : crankwave::EngineSessionBlockPhase::audible;
             expect(block->block_ordinal() == free_block_count &&
                        block->phase() == expected_phase &&
                        std::ranges::all_of(block->audio_buses(),
@@ -1438,7 +1438,7 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
                    "radial-5 public FreeEngine emitted a malformed or nonfinite "
                    "block");
             if (expected_phase ==
-                engine_sim_offline::EngineSessionBlockPhase::audible) {
+                crankwave::EngineSessionBlockPhase::audible) {
                 observed_free_audible_audio =
                     observed_free_audible_audio ||
                     std::ranges::any_of(block->audio_buses(), [](const auto &bus) {
@@ -1450,7 +1450,7 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
             continue;
         }
         const auto &completed =
-            std::get<engine_sim_offline::EngineSessionCompleted>(result);
+            std::get<crankwave::EngineSessionCompleted>(result);
         expect(free_block_count == free_descriptor.total_block_count &&
                    completed.block_count == free_block_count &&
                    completed.physics_frame_count == 104000U &&
@@ -1464,24 +1464,24 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
     auto held_dyno_scenario =
         require(compile::compile_scenario(engine, source.held_dyno_scenario_document),
                 "radial-5 public HeldDyno scenario compilation failed");
-    auto held_dyno_created = engine_sim_offline::create_engine_session(
+    auto held_dyno_created = crankwave::create_engine_session(
         held_dyno_scenario,
-        engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
+        crankwave::EngineSessionExecutionKind::finite_scenario);
     if (const auto *error =
-            std::get_if<engine_sim_offline::EngineSessionError>(&held_dyno_created)) {
+            std::get_if<crankwave::EngineSessionError>(&held_dyno_created)) {
         throw std::runtime_error{"radial-5 public HeldDyno session creation failed: " +
                                  error->detail_code + ": " + error->message};
     }
     auto held_dyno_session =
-        std::get<engine_sim_offline::EngineSession>(std::move(held_dyno_created));
+        std::get<crankwave::EngineSession>(std::move(held_dyno_created));
     const auto held_dyno_descriptor = held_dyno_session.descriptor();
     expect(held_dyno_descriptor.engine_id == "radial-5-cleanroom" &&
                held_dyno_descriptor.motion_mode ==
-                   engine_sim_offline::EngineMotionMode::held_dyno &&
+                   crankwave::EngineMotionMode::held_dyno &&
                held_dyno_descriptor.preparation_block_count == 25U &&
                held_dyno_descriptor.total_block_count == 300U &&
                (held_dyno_descriptor.live_control_capabilities &
-                engine_sim_offline::
+                crankwave::
                     kEngineLiveControlCapabilityHeldDynoTargetEngineSpeed) != 0U,
            "radial-5 public HeldDyno descriptor lost its finite warm/live surface");
     std::uint64_t held_dyno_block_count = 0U;
@@ -1491,16 +1491,16 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
     while (held_dyno_block_count < kHeldDynoSmokeBlockCount) {
         auto result = held_dyno_session.process_block();
         if (const auto *error =
-                std::get_if<engine_sim_offline::EngineSessionError>(&result)) {
+                std::get_if<crankwave::EngineSessionError>(&result)) {
             throw std::runtime_error{"radial-5 public HeldDyno session faulted: " +
                                      error->detail_code + ": " + error->message};
         }
         if (const auto *block =
-                std::get_if<engine_sim_offline::EngineSessionBlockView>(&result)) {
+                std::get_if<crankwave::EngineSessionBlockView>(&result)) {
             const auto expected_phase =
                 held_dyno_block_count < held_dyno_descriptor.preparation_block_count
-                    ? engine_sim_offline::EngineSessionBlockPhase::preparation
-                    : engine_sim_offline::EngineSessionBlockPhase::audible;
+                    ? crankwave::EngineSessionBlockPhase::preparation
+                    : crankwave::EngineSessionBlockPhase::audible;
             expect(block->block_ordinal() == held_dyno_block_count &&
                        block->phase() == expected_phase &&
                        std::ranges::all_of(block->audio_buses(),
@@ -1513,7 +1513,7 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
                    "radial-5 public HeldDyno emitted a malformed or nonfinite "
                    "block");
             if (expected_phase ==
-                engine_sim_offline::EngineSessionBlockPhase::audible) {
+                crankwave::EngineSessionBlockPhase::audible) {
                 observed_held_dyno_audible_audio =
                     observed_held_dyno_audible_audio ||
                     std::ranges::any_of(block->audio_buses(), [](const auto &bus) {

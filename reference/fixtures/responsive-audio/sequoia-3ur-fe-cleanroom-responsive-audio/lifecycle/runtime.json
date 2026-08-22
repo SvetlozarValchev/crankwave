@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "schema": "crankwave/responsive-audio-lifecycle",
   "id": "sequoia-3ur-fe-cleanroom-lifecycle-preview",
   "engine": "sequoia-3ur-fe-cleanroom",
   "audio": {
@@ -125,7 +125,7 @@
     "quiet_rms_threshold": 0.00006103515625
   },
   "startup_admission": {
-    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "schema": "crankwave/continuous-startup-admission-v1",
     "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
     "admission_lane_coordinate": "authored-throttle-01",
     "blend": "constant-power",
@@ -159,8 +159,8 @@
     "evidence": {
       "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
       "path": "evidence/startup-admission.json",
-      "sha256": "7d53ac28783fdad61736f35b9ca892bbde69c9435d35167875dbdae4080342b5",
-      "corrected_held_manifest_sha256": "c50473274f1c8c65d7000a352d358f6d4b1537a21352ddfb6261888ae2e6076e"
+      "sha256": "afd0692577ccda4944ba3e668c5ccb94d7b26e3939131444b83ce7b525264378",
+      "corrected_held_manifest_sha256": "b0160010e104fe44d41a6c7525ceea62cbec12030584815cede5d465b2631dd8"
     }
   },
   "provenance": {
@@ -169,7 +169,7 @@
       "sha256": "71ce08a1cb0dc63d7eb0eea7070e8625a5fe4628379dadc9e4402440152fa5f2"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
@@ -184,27 +184,27 @@
         "canonical_source_id": "sequoia-3ur-fe-cleanroom-lifecycle-starter-candidate",
         "derived_id": "sequoia-3ur-fe-cleanroom-lifecycle-starter-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/starter-10khz.json",
-        "sha256": "43a962967bd474114b74c273e51cf2cbdf45604951fa201547c2284f071edca3",
+        "sha256": "a0906d449868c418144896f2df6fe75eda400e05c196ae131f9921fa96e045be",
         "evidence_path": "evidence/starter.json",
-        "evidence_sha256": "c3cf7c532e550011152be76f23dd1a3fbc2e3bd0fe34e9b7034b40ed86e48920"
+        "evidence_sha256": "1290b1c8f2e420d41a06acc490999805daa4fcfcf9f986c296739006706d4d57"
       },
       {
         "role": "startup",
         "canonical_source_id": "sequoia-3ur-fe-cleanroom-lifecycle-startup-candidate",
         "derived_id": "sequoia-3ur-fe-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/startup-10khz.json",
-        "sha256": "f015a68cfa3131fd1d2e474618afe92804f15527f5d785cf81f7ebfb0fda1481",
+        "sha256": "ade4ae3bfcaaa33d0f99afedf9d4f778c85c42bacf6181af6463c20599aa32d7",
         "evidence_path": "evidence/startup.json",
-        "evidence_sha256": "ebf997a4de5b81ccfe253f568e9ccb6fda6ec48e01cf077d00e8dc1b45831924"
+        "evidence_sha256": "614fe4e3690798f2d981dba45912a5d8102fa7e6b9c07b6be5f9222ef5b5f768"
       },
       {
         "role": "shutdown",
         "canonical_source_id": "sequoia-3ur-fe-cleanroom-lifecycle-shutdown-candidate",
         "derived_id": "sequoia-3ur-fe-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/shutdown-10khz.json",
-        "sha256": "86f8eb37ab250759d563e2481bb7a1fc935d0e9f6f16ccfc90672c235704dba6",
+        "sha256": "6d49001e48a3289bde9338e9c1192e75268051bea3b064d29ada84934dd48e80",
         "evidence_path": "evidence/shutdown.json",
-        "evidence_sha256": "a25ee4a0d38eb54c96a909c8a52f8d90ab5b68be5a35e3200db9abf7bcbef637"
+        "evidence_sha256": "9504d950d60acbbe5f0f935be845a3860a0dfcf7bb08f8d1aa876e4b49a11172"
       }
     ]
   }

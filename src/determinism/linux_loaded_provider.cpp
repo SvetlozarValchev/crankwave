@@ -19,7 +19,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::determinism::detail {
+namespace crankwave::determinism::detail {
 namespace {
 
 constexpr std::uint64_t kMaximumNoteBytes = UINT64_C(1024) * 1024U;
@@ -474,4 +474,4 @@ RuntimeVersionResult observe_linux_glibc_version() {
 #endif
 }
 
-} // namespace engine_sim_offline::determinism::detail
+} // namespace crankwave::determinism::detail

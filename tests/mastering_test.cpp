@@ -1,5 +1,5 @@
 #include "artifacts/audition_wav_encoder.hpp"
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 #include "presentation/mastering.hpp"
 
 #include <algorithm>
@@ -20,9 +20,9 @@
 
 namespace {
 
-using namespace engine_sim_offline;
-using namespace engine_sim_offline::artifacts;
-using namespace engine_sim_offline::presentation;
+using namespace crankwave;
+using namespace crankwave::artifacts;
+using namespace crankwave::presentation;
 
 constexpr std::uint64_t kCanonicalAudibleFrameCount = 2'880'000;
 constexpr std::uint64_t kCanonicalFadeFrameCount = 3'840;
@@ -497,7 +497,7 @@ void test_variable_duration_audition_waves() {
     const AuditionWaveMetadata shorter_metadata{
         "0.500005 s zero-signal encoder test at 192000 Hz",
         "Short variable-duration audition encoder test",
-        "engine-sim-offline-tests",
+        "crankwave-tests",
     };
     auto shorter_encoder = require_audition_encoder(
         make_audition_wave_encoder(shorter_audio, shorter_metadata, {257}));
@@ -519,7 +519,7 @@ void test_variable_duration_audition_waves() {
     const AuditionWaveMetadata longer_metadata{
         "18 s zero-signal encoder test at 192000 Hz",
         "Long variable-duration audition encoder test",
-        "engine-sim-offline-tests",
+        "crankwave-tests",
     };
     auto longer_encoder = require_audition_encoder(
         make_audition_wave_encoder(longer_audio, longer_metadata, {16'384}));

@@ -3,11 +3,11 @@
 #include "determinism/loaded_runtime_identity.hpp"
 #include "determinism/renderer_numeric_environment.hpp"
 #include "determinism/renderer_source_stamp.hpp"
-#include "engine_sim_offline/contract/render_manifest.hpp"
+#include "crankwave/contract/render_manifest.hpp"
 
 #include <variant>
 
-namespace engine_sim_offline::determinism {
+namespace crankwave::determinism {
 
 namespace detail {
 struct RendererDeterminismEnvelopeFactory;
@@ -85,4 +85,4 @@ struct RendererDeterminismObservers {
 compose_renderer_determinism_envelope(const RendererDeterminismObservers &observers);
 
 } // namespace detail
-} // namespace engine_sim_offline::determinism
+} // namespace crankwave::determinism

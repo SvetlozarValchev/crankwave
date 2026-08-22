@@ -80,10 +80,10 @@ advanced the active exact-audio baselines without deleting any historical oracle
 
 - the new generic M52B28 oracle is
   `reference/oracles/bmw-m52b28/bmw-m52b28-canonical-flow-coupled-20khz-4eafff8-dyno-1500-6500rpm.wav`;
-  it is `8,640,586` bytes with complete-WAV SHA-256
-  `220cd6760b4eb991cdac147a99dfcc0f345ddf9fdd86b7c1924e062d87cc2c5b` and decoded
+  it is `8,640,588` bytes with complete-WAV SHA-256
+  `26af20514fd7b814b85b2924c535ce724f3feba8282a3b8489d29683616ae70a` and decoded
   PCM24 SHA-256
-  `c9276854e52c17178a293881bf61735d219a2f2f4467bdaf225398bea617d700`;
+  `9178854c84f7b4752a978cde6a4008d1271da3d9abbb6aee251278869189a5b2`;
 - all four affected native Release gates pass: engine session, authored JSON render,
   native presentation publication, and CLI render. The simulation-request identity
   remains `8c75e9bfa871e88d58031d52c5eb7278a27a9092e252c7a1fb09466755678ced`;

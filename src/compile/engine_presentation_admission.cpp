@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace crankwave::compile::detail::engine_resolution {
 namespace {
 
 void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
@@ -186,4 +186,4 @@ void admit_engine_presentation(const authoring::EnginePackageDocument &document,
     }
 }
 
-} // namespace engine_sim_offline::compile::detail::engine_resolution
+} // namespace crankwave::compile::detail::engine_resolution

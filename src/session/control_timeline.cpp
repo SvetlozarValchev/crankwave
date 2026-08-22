@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace engine_sim_offline::session {
+namespace crankwave::session {
 namespace {
 
 [[nodiscard]] bool valid_rate(contract::RationalRateHz rate) noexcept {
@@ -359,4 +359,4 @@ std::size_t ControlTimeline::tail_index() const noexcept {
 static_assert(std::is_nothrow_copy_assignable_v<TimestampedControlCommand>);
 static_assert(std::is_nothrow_move_assignable_v<TimestampedControlCommand>);
 
-} // namespace engine_sim_offline::session
+} // namespace crankwave::session

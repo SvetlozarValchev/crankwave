@@ -19,9 +19,9 @@
 
 namespace {
 
-using namespace engine_sim_offline::contract;
-using namespace engine_sim_offline::contract::test;
-using namespace engine_sim_offline::simulation;
+using namespace crankwave::contract;
+using namespace crankwave::contract::test;
+using namespace crankwave::simulation;
 
 constexpr double kDegreeSource = kLegacyPi / 180.0;
 constexpr double kMaximumLiftM = 9.0 * (1.0 / 1000.0);

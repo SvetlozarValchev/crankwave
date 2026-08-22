@@ -10,7 +10,7 @@ presentation route without reading an engine-sim working tree.
 This is not clean-room production code and it is not a recommendation to retain these
 models. It records legacy behavior in implementation-independent form so the first
 clean renderer can be isolated from the later clean simulator. The two input channels
-are runtime reference exhaust buses in uncalibrated `engine_sim_source_unit`; they are
+are runtime reference exhaust buses in uncalibrated `crankwave_source_unit`; they are
 not microphone pressures or proven physical outlets.
 
 ## Authority, scope, and arithmetic

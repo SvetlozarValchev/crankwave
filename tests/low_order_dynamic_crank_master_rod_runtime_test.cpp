@@ -1,5 +1,5 @@
 #include "authored_engine_fixture_support.hpp"
-#include "simulation/engine_sim_v1_transient_friction.hpp"
+#include "simulation/crankwave_transient_friction.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 #include "simulation/low_order_capture_plan.hpp"
@@ -26,7 +26,7 @@
 #include <variant>
 #include <vector>
 
-namespace engine_sim_offline::simulation::detail {
+namespace crankwave::simulation::detail {
 
 struct LowOrderDynamicCrankRuntimeTestAccess {
     [[nodiscard]] static LowOrderDynamicCrankRuntime make_cold_free_engine(
@@ -127,12 +127,12 @@ struct LowOrderDynamicCrankRuntimeTestAccess {
     }
 };
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace crankwave::simulation::detail
 
 namespace {
 
-using namespace engine_sim_offline::contract;
-using namespace engine_sim_offline::simulation;
+using namespace crankwave::contract;
+using namespace crankwave::simulation;
 
 static_assert(!std::is_copy_constructible_v<
               LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime>);
@@ -191,7 +191,7 @@ void test_cold_radial_dynamic_crank_executes_across_body_angle_wrap(
     constexpr double test_starter_maximum_torque_nm = 5000.0;
     constexpr double test_starter_target_speed_rad_s = 500.0;
 
-    const auto fixture = engine_sim_offline::test::load_authored_engine_fixture(
+    const auto fixture = crankwave::test::load_authored_engine_fixture(
         repository_root, "data/engines/radial-5-cleanroom/engine.json",
         "data/engines/radial-5-cleanroom/scenarios/prescribed-1500rpm.json");
     const auto frame_count = resolve_frame_index(
@@ -207,7 +207,7 @@ void test_cold_radial_dynamic_crank_executes_across_body_angle_wrap(
     const auto capture_plan =
         std::get<LowOrderCapturePlan>(std::move(capture_compilation));
 
-    const auto &profile = engine_sim_offline::test::operating_profile(fixture.engine);
+    const auto &profile = crankwave::test::operating_profile(fixture.engine);
     auto mechanism_compilation =
         compile_mechanism_kinematics_plan(fixture.engine, profile.core);
     if (const auto *report = std::get_if<ValidationReport>(&mechanism_compilation)) {
@@ -317,10 +317,10 @@ void test_cold_radial_dynamic_crank_executes_across_body_angle_wrap(
            "test did not establish non-identity chamber-binding order");
 
     const auto crank_friction_calculation =
-        calculate_engine_sim_v1_positive_speed_crank_friction(
+        calculate_crankwave_positive_speed_crank_friction(
             {radial_plan->rigid_crank_group.running_friction_torque_magnitude_nm});
     const auto *crank_friction =
-        std::get_if<EngineSimV1PositiveSpeedCrankFriction>(&crank_friction_calculation);
+        std::get_if<CrankwavePositiveSpeedCrankFriction>(&crank_friction_calculation);
     expect(crank_friction != nullptr,
            "radial fixture rejected its rigid crank friction");
 
@@ -331,19 +331,19 @@ void test_cold_radial_dynamic_crank_executes_across_body_angle_wrap(
     const auto *const stable_articulated_owner =
         std::get<LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime>(radial_runtime)
             .articulated_mechanism.get();
-    auto dynamic = engine_sim_offline::simulation::detail::
+    auto dynamic = crankwave::simulation::detail::
         LowOrderDynamicCrankRuntimeTestAccess::make_cold_free_engine(
             control_schedule.fresh_cursor(), mechanism_plan, std::move(radial_runtime),
             std::move(piston_wall_cylinders), scenario.rates.physics, extent,
             initial_theta_rad, crank_friction->torque_nm,
             test_starter_maximum_torque_nm, test_starter_target_speed_rad_s,
             fixture.engine.profile_id.value, scenario.scenario_id, fixture.engine.id);
-    expect(engine_sim_offline::simulation::detail::
+    expect(crankwave::simulation::detail::
                    LowOrderDynamicCrankRuntimeTestAccess::radial_mechanism(dynamic)
                        .articulated_mechanism.get() == stable_articulated_owner,
            "runtime construction changed the reaction workspace's mechanism owner");
 
-    const auto random_plan = engine_sim_offline::test::compile_fixture_random_plan(
+    const auto random_plan = crankwave::test::compile_fixture_random_plan(
         fixture, fixture.engine, scenario);
     auto core_compilation = compile_low_order_engine_core_v1_runtime(
         fixture.engine, scenario, profile.core, random_plan, mechanism_plan, extent);
@@ -402,7 +402,7 @@ void test_cold_radial_dynamic_crank_executes_across_body_angle_wrap(
                    "internal radial dynamic crank lost articulated coordinates");
         }
 
-        const auto &radial = engine_sim_offline::simulation::detail::
+        const auto &radial = crankwave::simulation::detail::
             LowOrderDynamicCrankRuntimeTestAccess::radial_mechanism(dynamic);
         expect(std::bit_cast<std::uint64_t>(radial.configuration_body_angle_psi_rad) ==
                        std::bit_cast<std::uint64_t>(mechanics.body_angle_psi_rad) &&
@@ -410,7 +410,7 @@ void test_cold_radial_dynamic_crank_executes_across_body_angle_wrap(
                "internal radial dynamic crank did not retain exact body psi or "
                "clear its committed left-boundary M/M-prime transaction");
         const double exact_angular_speed_rad_s =
-            engine_sim_offline::simulation::detail::
+            crankwave::simulation::detail::
                 LowOrderDynamicCrankRuntimeTestAccess::exact_crank_angular_speed_rad_s(
                     dynamic);
         expect(std::isfinite(exact_angular_speed_rad_s) &&
@@ -420,7 +420,7 @@ void test_cold_radial_dynamic_crank_executes_across_body_angle_wrap(
             observed_exact_omega_divergence ||
             std::bit_cast<std::uint64_t>(exact_angular_speed_rad_s) !=
                 std::bit_cast<std::uint64_t>(mechanics.angular_speed_rad_s);
-        for (const double reaction : engine_sim_offline::simulation::detail::
+        for (const double reaction : crankwave::simulation::detail::
                  LowOrderDynamicCrankRuntimeTestAccess::retained_wall_reactions(
                      dynamic)) {
             expect(std::isfinite(reaction) && reaction >= 0.0,
@@ -464,10 +464,10 @@ void test_warm_radial_dynamic_crank_finalizes_accounting_and_releases(
     constexpr std::uint64_t release_frame_index = 3400U;
     constexpr std::uint64_t total_frame_count = 3600U;
 
-    const auto fixture = engine_sim_offline::test::load_authored_engine_fixture(
+    const auto fixture = crankwave::test::load_authored_engine_fixture(
         repository_root, "data/engines/radial-5-cleanroom/engine.json",
         "data/engines/radial-5-cleanroom/scenarios/prescribed-1500rpm.json");
-    const auto &profile = engine_sim_offline::test::operating_profile(fixture.engine);
+    const auto &profile = crankwave::test::operating_profile(fixture.engine);
 
     auto mechanism_compilation =
         compile_mechanism_kinematics_plan(fixture.engine, profile.core);
@@ -504,7 +504,7 @@ void test_warm_radial_dynamic_crank_finalizes_accounting_and_releases(
     };
     scenario.mode_resolution_id = "test.radial.internal-warm-free-engine";
     scenario.preparation = FixedHorizonCycleSampling{
-        resolved(engine_sim_offline::contract::
+        resolved(crankwave::contract::
                      fixed_horizon_cycle_sampling_method_identity(),
                  "test.radial.warm.sampling-method"),
         resolved(preparation_horizon_s, "test.radial.warm.preparation-horizon"),
@@ -623,7 +623,7 @@ void test_warm_radial_dynamic_crank_finalizes_accounting_and_releases(
         std::get<OperatingCycleAccountant>(std::move(accountant_compilation));
 
     auto sampler_compilation = compile_fixed_horizon_cycle_sampler({
-        engine_sim_offline::simulation::fixed_horizon_cycle_sampling_method_identity(),
+        crankwave::simulation::fixed_horizon_cycle_sampling_method_identity(),
         1U,
         preparation_horizon_s,
         capture_plan.physical_gas_volume_ids,
@@ -695,10 +695,10 @@ void test_warm_radial_dynamic_crank_finalizes_accounting_and_releases(
     }
 
     const auto crank_friction_calculation =
-        calculate_engine_sim_v1_positive_speed_crank_friction(
+        calculate_crankwave_positive_speed_crank_friction(
             {radial_plan->rigid_crank_group.running_friction_torque_magnitude_nm});
     const auto *crank_friction =
-        std::get_if<EngineSimV1PositiveSpeedCrankFriction>(&crank_friction_calculation);
+        std::get_if<CrankwavePositiveSpeedCrankFriction>(&crank_friction_calculation);
     expect(crank_friction != nullptr,
            "warm radial fixture rejected its rigid crank friction");
 
@@ -712,7 +712,7 @@ void test_warm_radial_dynamic_crank_finalizes_accounting_and_releases(
         LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime{
             std::move(articulated), attached_inertia_kg_m2, initial_body_angle_psi_rad,
             std::move(boundaries)}};
-    auto dynamic = engine_sim_offline::simulation::detail::
+    auto dynamic = crankwave::simulation::detail::
         LowOrderDynamicCrankRuntimeTestAccess::make_warm_free_engine(
             control_schedule.fresh_cursor(), mechanism_plan, std::move(accountant),
             std::move(sampler), std::move(physical_gas_step_indices),
@@ -723,7 +723,7 @@ void test_warm_radial_dynamic_crank_finalizes_accounting_and_releases(
             profile.starter.target_speed_rad_s.value, fixture.engine.profile_id.value,
             scenario.scenario_id, fixture.engine.id);
 
-    const auto random_plan = engine_sim_offline::test::compile_fixture_random_plan(
+    const auto random_plan = crankwave::test::compile_fixture_random_plan(
         fixture, fixture.engine, scenario);
     auto core_compilation = compile_low_order_engine_core_v1_runtime(
         fixture.engine, scenario, profile.core, random_plan, mechanism_plan, extent);

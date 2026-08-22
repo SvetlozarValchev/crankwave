@@ -1,4 +1,4 @@
-#include "engine_sim_offline/contract/result.hpp"
+#include "crankwave/contract/result.hpp"
 
 #include "contract_test_support.hpp"
 
@@ -13,7 +13,7 @@
 
 namespace {
 
-using namespace engine_sim_offline::contract;
+using namespace crankwave::contract;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -150,10 +150,10 @@ void test_request_binding_and_fixed_frames() {
 }
 
 void test_inertial_request_has_one_exact_release_and_identified_brake_method() {
-    engine_sim_offline::contract::test::InputBuilder builder;
-    auto content = engine_sim_offline::contract::test::make_manifest_content(builder);
+    crankwave::contract::test::InputBuilder builder;
+    auto content = crankwave::contract::test::make_manifest_content(builder);
     auto scenario =
-        engine_sim_offline::contract::test::simulation_inputs(content).scenario;
+        crankwave::contract::test::simulation_inputs(content).scenario;
     const auto held = std::get<HeldSpeed>(scenario.mode);
     const auto throttle_resolution_id = held.throttle_01.resolution_id;
     std::get<FixedHorizonCycleSampling>(scenario.preparation)

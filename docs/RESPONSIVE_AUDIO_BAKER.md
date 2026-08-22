@@ -2,7 +2,7 @@
 
 > **Production status:** Since installed distribution v2 / release 1.2.0,
 > responsive authoring is owned by the native
-> `engine-sim-offline bake-vehicleengine` command. It requires neither Node.js nor
+> `crankwave bake-crankwave` command. It requires neither Node.js nor
 > simulation WebAssembly. This document preserves the former 1.1 JavaScript/WASM
 > baker as a source-tree migration and parity oracle; it is not installed and is
 > not the production integration boundary. See
@@ -15,7 +15,7 @@ promotes the accepted research implementation without depending on `.work`
 inventories, hand-selected engine IDs, or already-baked fixture audio.
 
 The command requires Node.js 20.11 or newer. Native CMake installs a relocatable
-Node launcher named `engine-sim-offline-responsive-bake`; it is resource discovery
+Node launcher named `crankwave-responsive-bake`; it is resource discovery
 and version-checking glue, not a native child-process bake implementation.
 
 ## Build and bake
@@ -26,7 +26,7 @@ content-addressed built-in asset bundle, and build the WASM renderer once:
 ```bash
 git lfs pull
 cmake -S . -B build
-cmake --build build --target engine_sim_offline_builtin_assets
+cmake --build build --target crankwave_builtin_assets
 scripts/build-workbench.sh
 ```
 
@@ -38,15 +38,15 @@ node tools/responsive-audio-baker/bake.mjs \
   --profile tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
   --output .work/responsive-bakes/m52tu \
   --cache .work/responsive-bake-cache \
-  --builtin-assets build/generated/engine-sim-offline-assets \
-  --module .work/browser-workbench/build/engine-sim-offline.js \
+  --builtin-assets build/generated/crankwave-assets \
+  --module .work/browser-workbench/build/crankwave.js \
   --jobs 24 \
   --plan
 ```
 
 Remove `--plan` to perform the bake. The output directory must not already
 exist. `--module` selects an adjacent
-`engine-sim-offline.js`/`engine-sim-offline.wasm` pair, `--ir-dumper` can select
+`crankwave.js`/`crankwave.wasm` pair, `--ir-dumper` can select
 a prebuilt IR helper, and `--cxx` selects the compiler used to build that small
 helper on a cache miss. A real bake requires `--module` unless a conventional
 installed/build-tree pair is discoverable; there is no hidden `.work` default.
@@ -86,7 +86,7 @@ The emitted tree contains:
 
 ```text
 runtime.json
-vehicleengine.json
+crankwave.json
 bake-report.json
 held/
 directional/
@@ -95,17 +95,17 @@ shared-recorded-starter/   # when enabled by the profile
 ```
 
 `runtime.json` is directly loadable by the responsive browser runtime.
-`vehicleengine.json` binds those exact bytes, so the complete output is directly
+`crankwave.json` binds those exact bytes, so the complete output is directly
 accepted by the separate container packer. Before publication, the baker
-preflights the complete output against the VEHICLEENGINE v1 portable-tree limits,
+preflights the complete output against the CRANKWAVE v1 portable-tree limits,
 including entry count, total size, path and segment syntax/length, regular-file
 requirements, and descriptor/runtime hash binding:
 
 ```bash
-build/engine-sim-offline pack-vehicleengine \
+build/crankwave pack-crankwave \
   --package-directory .work/responsive-bakes/m52tu \
-  --output .work/m52tu.vehicleengine
-build/engine-sim-offline verify-vehicleengine --input .work/m52tu.vehicleengine
+  --output .work/m52tu.crankwave
+build/crankwave verify-crankwave --input .work/m52tu.crankwave
 ```
 
 ## Identity, cache, and failure behavior
@@ -140,14 +140,14 @@ hashes still match. Successful publication removes lifecycle `runs/` scratch;
 reusable lifecycle candidates are not removed.
 
 Renderer and helper children receive an explicit operational allowlist rather
-than the caller's environment. The baker supplies only controlled `ESO_*`
+than the caller's environment. The baker supplies only controlled `CRANKWAVE_*`
 paths/settings, fixed `LANG=C`, `LC_ALL=C`, and `TZ=UTC`, plus the minimal
 platform process-launch variables (`PATH`, temporary-directory variables, and
 Windows process-launch variables when present). Credential, home-directory,
 proxy, `NODE_OPTIONS`, and unrelated cloud-provider variables are not inherited.
 
 The final stderr line on command failure is one compact JSON object with schema
-`engine-sim-offline/responsive-audio-bake-failure-v1`. Its fixed fields are
+`crankwave/responsive-audio-bake-failure-v1`. Its fixed fields are
 `schema`, `release_identity`, `code`, `exit_code`, `retryable`, `signal`, and
 `message`. The installed launcher supplies its immutable semantic release identity;
 direct source-tree execution reports `null`. Stable codes are `invalid_invocation`,
@@ -211,7 +211,7 @@ is structural test data, not an audition-quality profile.
 
 Everything in this section describes the retired v1 installation boundary. A
 current 1.2+ distribution ships one native CLI and the one-step
-`vehicleengine-bake-workflow.v2.json` contract described above.
+`crankwave-bake-workflow.v2.json` contract described above.
 
 Build and install an explicitly incomplete native development prefix with:
 
@@ -225,15 +225,15 @@ With the default GNUInstallDirs values, the stable installed resource layout is:
 
 ```text
 bin/
-  engine-sim-offline
-  engine-sim-offline-responsive-bake
-libexec/engine-sim-offline/
+  crankwave
+  crankwave-responsive-bake
+libexec/crankwave/
   dump-ir-spectrum
-share/engine-sim-offline/<release>/
+share/crankwave/<release>/
   release.json
   release.json.sha256
   package.json
-  contracts/vehicleengine-bake-workflow.v1.json
+  contracts/crankwave-bake-workflow.v1.json
   docs/contracts/
   assets/
   schemas/responsive-audio-bake-profile.schema.json
@@ -258,20 +258,20 @@ share/engine-sim-offline/<release>/
     renderer-runtime-compatibility.js
     release.js
     responsive-audio-lifecycle-runtime.js
-    vehicleengine-audio-engine.js
-    vehicleengine-package.js
+    crankwave-audio-engine.js
+    crankwave-package.js
     shared-recorded-starter-runtime.js
     state-phase-texture-runtime.js
     steady-transient-envelope.js
     wasm-heap.js
   renderer/                         # required in a complete release
-    engine-sim-offline.js
-    engine-sim-offline.wasm
+    crankwave.js
+    crankwave.wasm
 ```
 
 The C-API files under `web/runtime` are the exact transitive JavaScript dependency
 closure used by the baker stages. The remaining files are the simulator-free
-`VehicleEngineAudioEngine` consumer closure, so an installed distribution can verify and
+`CrankwaveAudioEngine` consumer closure, so an installed distribution can verify and
 play its own carrier without repository sources. Workbench UI, Worker orchestration,
 and unrelated browser modules are deliberately not installed. The IR-helper source
 remains a resource because its bytes participate in the baker cache identity, while
@@ -286,9 +286,9 @@ discovery.
 Plan mode is complete with the native install alone:
 
 ```bash
-/absolute/prefix/bin/engine-sim-offline-responsive-bake \
+/absolute/prefix/bin/crankwave-responsive-bake \
   --engine /absolute/path/to/engine.json \
-  --profile /absolute/prefix/share/engine-sim-offline/1.1.0/tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
+  --profile /absolute/prefix/share/crankwave/1.1.0/tools/responsive-audio-baker/profiles/interactive-preview-v1.json \
   --output /absolute/path/to/new-package \
   --cache /absolute/path/to/cache \
   --plan
@@ -304,12 +304,12 @@ external build directory:
 
 ```bash
 cmake -S . -B build-native \
-  -DENGINE_SIM_OFFLINE_INSTALL_WASM_DIRECTORY=/absolute/path/to/wasm-build
+  -DCRANKWAVE_INSTALL_WASM_DIRECTORY=/absolute/path/to/wasm-build
 ```
 
-CMake validates that this directory contains both `engine-sim-offline.js` and
-`engine-sim-offline.wasm`, exposes the optional
-`engine_sim_offline_install_wasm_inputs` target, and installs the pair under
+CMake validates that this directory contains both `crankwave.js` and
+`crankwave.wasm`, exposes the optional
+`crankwave_install_wasm_inputs` target, and installs the pair under
 `renderer/`. The installed launcher pins that pair, the installed asset bundle, and
 the prebuilt helper. It rejects resource/compiler override arguments and ignores the
 corresponding ambient override variables; direct `node bake.mjs` execution remains
@@ -317,11 +317,11 @@ the development boundary for explicit overrides. Launcher-owned preflight failur
 use the same JSON failure schema and release identity as baker failures. This
 provisioning step does not weaken the renderer's existing numeric or source-identity
 admission.
-Build `engine_sim_offline_distribution` before publishing: that target additionally
+Build `crankwave_distribution` before publishing: that target additionally
 requires both the renderer source closure and the exact installed tools/runtime/assets
 input closure to be clean, and proves that the native and WASM embedded renderer
 source digests agree. It emits the complete relocatable prefix as
-`distribution/<config>/engine-sim-offline-<release>.tar` and writes the archive
+`distribution/<config>/crankwave-<release>.tar` and writes the archive
 SHA-256 to the adjacent `.tar.sha256` sidecar. The tar member order, timestamps,
 ownership, and modes are normalized, and only members bound by `release.json` are
 admitted. The installed `release.json.sha256` is the inner release binding digest

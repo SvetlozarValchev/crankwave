@@ -9,7 +9,7 @@
 #include <string_view>
 #include <variant>
 
-namespace engine_sim_offline::cli {
+namespace crankwave::cli {
 
 inline constexpr int kExitSuccess = 0;
 inline constexpr int kExitUsage = 64;
@@ -49,35 +49,35 @@ struct RenderCommand : MachineResultOptions {
     friend bool operator==(const RenderCommand &, const RenderCommand &) = default;
 };
 
-struct PackVehicleEngineCommand : MachineResultOptions {
+struct PackCrankwaveCommand : MachineResultOptions {
     std::string package_directory;
     std::string output_file;
 
-    friend bool operator==(const PackVehicleEngineCommand &,
-                           const PackVehicleEngineCommand &) = default;
+    friend bool operator==(const PackCrankwaveCommand &,
+                           const PackCrankwaveCommand &) = default;
 };
 
-struct BakeVehicleEngineCommand : MachineResultOptions {
+struct BakeCrankwaveCommand : MachineResultOptions {
     std::string engine_path;
     std::string asset_root;
     std::string output_file;
 
-    friend bool operator==(const BakeVehicleEngineCommand &,
-                           const BakeVehicleEngineCommand &) = default;
+    friend bool operator==(const BakeCrankwaveCommand &,
+                           const BakeCrankwaveCommand &) = default;
 };
 
-struct InspectVehicleEngineCommand : MachineResultOptions {
+struct InspectCrankwaveCommand : MachineResultOptions {
     std::string input_file;
 
-    friend bool operator==(const InspectVehicleEngineCommand &,
-                           const InspectVehicleEngineCommand &) = default;
+    friend bool operator==(const InspectCrankwaveCommand &,
+                           const InspectCrankwaveCommand &) = default;
 };
 
-struct VerifyVehicleEngineCommand : MachineResultOptions {
+struct VerifyCrankwaveCommand : MachineResultOptions {
     std::string input_file;
 
-    friend bool operator==(const VerifyVehicleEngineCommand &,
-                           const VerifyVehicleEngineCommand &) = default;
+    friend bool operator==(const VerifyCrankwaveCommand &,
+                           const VerifyCrankwaveCommand &) = default;
 };
 
 struct InspectIrCatalogCommand : MachineResultOptions {
@@ -86,8 +86,8 @@ struct InspectIrCatalogCommand : MachineResultOptions {
 };
 
 using CliCommand = std::variant<HelpCommand, VersionCommand, RenderCommand,
-                                BakeVehicleEngineCommand, PackVehicleEngineCommand,
-                                InspectVehicleEngineCommand, VerifyVehicleEngineCommand,
+                                BakeCrankwaveCommand, PackCrankwaveCommand,
+                                InspectCrankwaveCommand, VerifyCrankwaveCommand,
                                 InspectIrCatalogCommand>;
 
 struct CliUsageError {
@@ -111,4 +111,4 @@ parse_cli_arguments(std::span<const std::string_view> arguments);
                           std::ostream &standard_out, std::ostream &standard_error,
                           std::stop_token termination_token = {});
 
-} // namespace engine_sim_offline::cli
+} // namespace crankwave::cli

@@ -53,18 +53,18 @@ file(RENAME "${staged_install_prefix}" "${INSTALL_PREFIX}")
 
 set(bin_directory "${INSTALL_PREFIX}/${INSTALL_BINDIR}")
 set(resource_relative
-    "${INSTALL_DATADIR}/engine-sim-offline/${RELEASE_IDENTITY}")
+    "${INSTALL_DATADIR}/crankwave/${RELEASE_IDENTITY}")
 set(resource_root "${INSTALL_PREFIX}/${resource_relative}")
 set(runtime_root "${resource_root}/web/runtime")
-set(cli "${bin_directory}/engine-sim-offline")
+set(cli "${bin_directory}/crankwave")
 set(workflow_path
-    "${resource_root}/contracts/vehicleengine-bake-workflow.v2.json")
+    "${resource_root}/contracts/crankwave-bake-workflow.v2.json")
 set(release_manifest_path "${resource_root}/release.json")
 
 set(required_files
     "${cli}"
     "${resource_root}/package.json"
-    "${resource_root}/licenses/ENGINE-SIM-OFFLINE.txt"
+    "${resource_root}/licenses/CRANKWAVE.txt"
     "${resource_root}/licenses/THIRD-PARTY-NOTICES.md"
     "${release_manifest_path}"
     "${resource_root}/release.json.sha256"
@@ -81,7 +81,7 @@ set(required_files
     "${resource_root}/schemas/responsive-audio-bake-profile.schema.json"
     "${resource_root}/schemas/ir-authoring-catalog.schema.json"
     "${resource_root}/schemas/installed-distribution.v2.schema.json"
-    "${resource_root}/schemas/vehicleengine-bake-workflow.v2.schema.json")
+    "${resource_root}/schemas/crankwave-bake-workflow.v2.schema.json")
 foreach(required_file IN LISTS required_files)
     require_regular_file("${required_file}")
 endforeach()
@@ -89,9 +89,9 @@ endforeach()
 file(READ "${resource_root}/docs/contracts/CLI_RESULT_V1.md"
     cli_result_contract)
 foreach(required_contract_term IN ITEMS
-        "bake-vehicleengine"
+        "bake-crankwave"
         "cache_identity_sha256"
-        "bake-vehicleengine-deadline-exceeded"
+        "bake-crankwave-deadline-exceeded"
         "native-responsive-*"
         "1.2.0")
     string(FIND "${cli_result_contract}" "${required_contract_term}"
@@ -107,6 +107,8 @@ endforeach()
 file(GLOB runtime_entries RELATIVE "${runtime_root}" "${runtime_root}/*")
 list(SORT runtime_entries)
 set(expected_runtime_entries
+    crankwave-audio-engine.js
+    crankwave-package.js
     directional-phase-cell.js
     dry-directional-phase-runtime.js
     held-phase-texture-runtime.js
@@ -116,9 +118,7 @@ set(expected_runtime_entries
     responsive-audio-lifecycle-runtime.js
     shared-recorded-starter-runtime.js
     state-phase-texture-runtime.js
-    steady-transient-envelope.js
-    vehicleengine-audio-engine.js
-    vehicleengine-package.js)
+    steady-transient-envelope.js)
 if(NOT "${runtime_entries}" STREQUAL "${expected_runtime_entries}")
     message(FATAL_ERROR
         "installed simulator-free ESM closure differs: ${runtime_entries}")
@@ -128,12 +128,12 @@ file(GLOB_RECURSE installed_entries LIST_DIRECTORIES FALSE
     RELATIVE "${INSTALL_PREFIX}" "${INSTALL_PREFIX}/*")
 list(SORT installed_entries)
 foreach(installed_entry IN LISTS installed_entries)
-    if(installed_entry MATCHES "(^|/)engine-sim-offline-responsive-bake$" OR
+    if(installed_entry MATCHES "(^|/)crankwave-responsive-bake$" OR
        installed_entry MATCHES "(^|/)dump-ir-spectrum(\\.cpp)?$" OR
        installed_entry MATCHES "(^|/)bake\\.mjs$" OR
        installed_entry MATCHES "(^|/)c-api-(abi|client|errors|session)\\.js$" OR
        installed_entry MATCHES "(^|/)wasm-heap\\.js$" OR
-       installed_entry MATCHES "(^|/)engine-sim-offline\\.(js|wasm)$" OR
+       installed_entry MATCHES "(^|/)crankwave\\.(js|wasm)$" OR
        installed_entry MATCHES "(^|/)tools/responsive-audio-baker(/|$)" OR
        installed_entry MATCHES "(^|/)renderer(/|$)")
         message(FATAL_ERROR
@@ -152,7 +152,7 @@ if(NOT package_type STREQUAL "module" OR
 endif()
 file(READ "${runtime_root}/release.js" javascript_release)
 if(NOT javascript_release MATCHES
-   "ENGINE_SIM_OFFLINE_RELEASE_IDENTITY[ \t\r\n]*=[ \t\r\n]*\"${RELEASE_IDENTITY}\"")
+   "CRANKWAVE_RELEASE_IDENTITY[ \t\r\n]*=[ \t\r\n]*\"${RELEASE_IDENTITY}\"")
     message(FATAL_ERROR "installed ESM release identity differs")
 endif()
 
@@ -164,7 +164,7 @@ execute_process(
 )
 if(NOT cli_version_result EQUAL 0 OR
    NOT cli_version_stdout STREQUAL
-       "engine-sim-offline ${RELEASE_IDENTITY}\n" OR
+       "crankwave ${RELEASE_IDENTITY}\n" OR
    NOT cli_version_stderr STREQUAL "")
     message(FATAL_ERROR
         "installed CLI release identity differs\n"
@@ -178,8 +178,8 @@ execute_process(
     ERROR_VARIABLE cli_help_stderr
 )
 foreach(command IN ITEMS
-        render bake-vehicleengine pack-vehicleengine inspect-vehicleengine
-        verify-vehicleengine inspect-ir-catalog)
+        render bake-crankwave pack-crankwave inspect-crankwave
+        verify-crankwave inspect-ir-catalog)
     if(NOT cli_help_stdout MATCHES "${command}")
         message(FATAL_ERROR "installed CLI help omits ${command}")
     endif()
@@ -213,13 +213,13 @@ string(JSON ir_catalog_entry_count LENGTH
     "${ir_catalog_stdout}" result catalog entries)
 file(SHA256 "${resource_root}/assets/ir-authoring-catalog.v1.json"
     installed_ir_catalog_sha)
-if(NOT ir_result_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
+if(NOT ir_result_schema STREQUAL "crankwave.cli-result.v1" OR
    NOT ir_result_release STREQUAL RELEASE_IDENTITY OR
    NOT ir_result_command STREQUAL "inspect-ir-catalog" OR
    NOT ir_result_ok OR NOT ir_result_count EQUAL 73 OR
    NOT ir_result_sha STREQUAL installed_ir_catalog_sha OR
    NOT ir_catalog_schema STREQUAL
-       "engine-sim-offline/ir-authoring-catalog.v1" OR
+       "crankwave/ir-authoring-catalog.v1" OR
    NOT ir_catalog_release STREQUAL RELEASE_IDENTITY OR
    NOT ir_catalog_entry_count EQUAL 73)
     message(FATAL_ERROR "installed IR authoring release binding differs")
@@ -242,7 +242,7 @@ string(JSON profile_schema GET "${profile}" schema)
 string(JSON profile_id GET "${profile}" id)
 string(JSON profile_anchor_count LENGTH "${profile}" rpm anchors)
 if(NOT profile_schema STREQUAL
-       "engine-sim-offline/responsive-audio-bake-profile-v1" OR
+       "crankwave/responsive-audio-bake-profile-v1" OR
    NOT profile_id STREQUAL "interactive-preview-v1" OR
    NOT profile_anchor_count EQUAL 11)
     message(FATAL_ERROR "installed responsive profile resource differs")
@@ -264,7 +264,7 @@ string(JSON workflow_profile_id GET
 string(JSON workflow_profile_override_type TYPE
     "${workflow}" responsive_profile_selection explicit_override)
 if(NOT workflow_schema STREQUAL
-       "engine-sim-offline/vehicleengine-bake-workflow.v2" OR
+       "crankwave/crankwave-bake-workflow.v2" OR
    NOT workflow_release STREQUAL RELEASE_IDENTITY OR
    NOT workflow_step_count EQUAL 1 OR
    NOT workflow_runtime_kind STREQUAL "native" OR
@@ -286,19 +286,19 @@ foreach(workflow_argument_index RANGE 0 ${workflow_argument_last})
     list(APPEND workflow_arguments "${workflow_argument}")
 endforeach()
 set(expected_workflow_arguments
-    bake-vehicleengine
+    bake-crankwave
     --engine
     {engine_json}
     --output
-    {new_vehicleengine_file}
+    {new_crankwave_file}
     --deadline-unix-ms
     {deadline_unix_ms}
     --result-format
     json)
 if(NOT workflow_step_ordinal EQUAL 1 OR
-   NOT workflow_step_id STREQUAL "bake_vehicleengine" OR
+   NOT workflow_step_id STREQUAL "bake_crankwave" OR
    NOT workflow_step_executable STREQUAL
-       "${INSTALL_BINDIR}/engine-sim-offline" OR
+       "${INSTALL_BINDIR}/crankwave" OR
    NOT "${workflow_arguments}" STREQUAL "${expected_workflow_arguments}")
     message(FATAL_ERROR "installed native bake command sequence differs")
 endif()
@@ -312,9 +312,9 @@ string(JSON workflow_result_ok GET
     "${workflow}" steps 0 required_stdout_record ok)
 string(JSON workflow_result_verified GET
     "${workflow}" steps 0 required_result_fields verified)
-if(NOT workflow_result_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
+if(NOT workflow_result_schema STREQUAL "crankwave.cli-result.v1" OR
    NOT workflow_result_release STREQUAL RELEASE_IDENTITY OR
-   NOT workflow_result_command STREQUAL "bake-vehicleengine" OR
+   NOT workflow_result_command STREQUAL "bake-crankwave" OR
    NOT workflow_result_ok OR NOT workflow_result_verified)
     message(FATAL_ERROR "installed native bake result contract differs")
 endif()
@@ -326,7 +326,7 @@ string(JSON workflow_telemetry_commit GET
     "${workflow}" telemetry_contract originating_commit)
 if(NOT workflow_telemetry_role STREQUAL "diagnostics.engine-telemetry.v1" OR
    NOT workflow_telemetry_schema STREQUAL
-       "engine-sim-offline.engine-telemetry.ndjson.v1" OR
+       "crankwave.engine-telemetry.ndjson.v1" OR
    NOT workflow_telemetry_commit STREQUAL
        "c8d672b59e3046654ad5f818f31725798aef7ffa")
     message(FATAL_ERROR "installed workflow telemetry boundary differs")
@@ -368,28 +368,28 @@ string(JSON release_telemetry_commit GET
     "${release_manifest}" telemetry_contract originating_commit)
 file(SHA256 "${cli}" actual_native_sha256)
 if(NOT release_schema STREQUAL
-       "engine-sim-offline/installed-distribution.v2" OR
+       "crankwave/installed-distribution.v2" OR
    NOT release_identity STREQUAL RELEASE_IDENTITY OR
    NOT release_runtime_kind STREQUAL "native" OR
    release_node_required OR release_wasm_required OR
-   NOT release_native_path STREQUAL "${INSTALL_BINDIR}/engine-sim-offline" OR
+   NOT release_native_path STREQUAL "${INSTALL_BINDIR}/crankwave" OR
    NOT release_native_sha256 STREQUAL actual_native_sha256 OR
    NOT release_command_count EQUAL 6 OR
    NOT release_browser_kind STREQUAL "simulator-free-esm" OR
    NOT release_browser_directory STREQUAL "${resource_relative}/web/runtime" OR
    NOT release_browser_entrypoint STREQUAL
-       "${resource_relative}/web/runtime/vehicleengine-audio-engine.js" OR
+       "${resource_relative}/web/runtime/crankwave-audio-engine.js" OR
    NOT release_resource_root STREQUAL resource_relative OR
    NOT release_telemetry_role STREQUAL "diagnostics.engine-telemetry.v1" OR
    NOT release_telemetry_schema STREQUAL
-       "engine-sim-offline.engine-telemetry.ndjson.v1" OR
+       "crankwave.engine-telemetry.ndjson.v1" OR
    NOT release_telemetry_commit STREQUAL
        "c8d672b59e3046654ad5f818f31725798aef7ffa")
     message(FATAL_ERROR "installed distribution v2 metadata differs")
 endif()
 set(expected_commands
-    render bake-vehicleengine pack-vehicleengine inspect-vehicleengine
-    verify-vehicleengine inspect-ir-catalog)
+    render bake-crankwave pack-crankwave inspect-crankwave
+    verify-crankwave inspect-ir-catalog)
 set(release_commands)
 foreach(command_index RANGE 0 5)
     string(JSON release_command GET
@@ -409,11 +409,11 @@ elseif(NOT release_classification STREQUAL
 endif()
 file(SHA256 "${workflow_path}" actual_workflow_sha256)
 string(JSON release_workflow_path GET
-    "${release_manifest}" vehicleengine_bake_workflow path)
+    "${release_manifest}" crankwave_bake_workflow path)
 string(JSON release_workflow_sha256 GET
-    "${release_manifest}" vehicleengine_bake_workflow sha256)
+    "${release_manifest}" crankwave_bake_workflow sha256)
 if(NOT release_workflow_path STREQUAL
-       "${resource_relative}/contracts/vehicleengine-bake-workflow.v2.json" OR
+       "${resource_relative}/contracts/crankwave-bake-workflow.v2.json" OR
    NOT release_workflow_sha256 STREQUAL actual_workflow_sha256)
     message(FATAL_ERROR "installed workflow manifest binding differs")
 endif()
@@ -552,7 +552,7 @@ if(NOT archive_list_result EQUAL 0 OR
 endif()
 
 set(tampered_member
-    "${repeat_install_prefix}/${resource_relative}/contracts/vehicleengine-bake-workflow.v2.json")
+    "${repeat_install_prefix}/${resource_relative}/contracts/crankwave-bake-workflow.v2.json")
 file(APPEND "${tampered_member}" " ")
 set(tampered_archive "${INSTALL_PREFIX}.tampered.tar")
 file(REMOVE "${tampered_archive}" "${tampered_archive}.sha256")
@@ -597,7 +597,7 @@ if(bake_engine_json MATCHES "smooth-39|smooth_39|75de9db4")
 endif()
 set(bake_engine "${work_root}/kohler-smooth-45.engine.json")
 file(WRITE "${bake_engine}" "${bake_engine_json}")
-set(deadline_output "${work_root}/deadline.vehicleengine")
+set(deadline_output "${work_root}/deadline.crankwave")
 execute_process(
     COMMAND
         "${CMAKE_COMMAND}" -E env
@@ -607,7 +607,7 @@ execute_process(
         "HTTP_PROXY=http://127.0.0.1:1"
         "HTTPS_PROXY=http://127.0.0.1:1"
         "NODE_OPTIONS=must-not-be-consumed"
-        "${cli}" bake-vehicleengine
+        "${cli}" bake-crankwave
         --engine "${bake_engine}"
         --output "${deadline_output}"
         --deadline-unix-ms 1
@@ -628,10 +628,10 @@ string(JSON deadline_release GET "${deadline_stdout}" release_identity)
 string(JSON deadline_command GET "${deadline_stdout}" command)
 string(JSON deadline_ok GET "${deadline_stdout}" ok)
 string(JSON deadline_code GET "${deadline_stdout}" code)
-if(NOT deadline_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
+if(NOT deadline_schema STREQUAL "crankwave.cli-result.v1" OR
    NOT deadline_release STREQUAL RELEASE_IDENTITY OR
-   NOT deadline_command STREQUAL "bake-vehicleengine" OR deadline_ok OR
-   NOT deadline_code STREQUAL "bake-vehicleengine-deadline-exceeded")
+   NOT deadline_command STREQUAL "bake-crankwave" OR deadline_ok OR
+   NOT deadline_code STREQUAL "bake-crankwave-deadline-exceeded")
     message(FATAL_ERROR "installed native deadline JSON differs")
 endif()
 
@@ -639,11 +639,11 @@ if(release_complete)
 find_program(bash_executable NAMES bash REQUIRED)
 # A release must prefer its manifest-bound installed asset catalog even when
 # caller debris mimics the build-tree sibling layout.
-set(adjacent_poison_root "${bin_directory}/engine-sim-offline-assets")
+set(adjacent_poison_root "${bin_directory}/crankwave-assets")
 file(MAKE_DIRECTORY "${adjacent_poison_root}")
 file(WRITE "${adjacent_poison_root}/catalog.v1.json"
     "{\"poisoned_unmanifested_catalog\":true}\n")
-set(signal_output "${work_root}/terminated.vehicleengine")
+set(signal_output "${work_root}/terminated.crankwave")
 set(signal_stdout_path "${work_root}/termination.stdout")
 set(signal_stderr_path "${work_root}/termination.stderr")
 execute_process(
@@ -673,20 +673,20 @@ string(JSON signal_release GET "${signal_stdout}" release_identity)
 string(JSON signal_command GET "${signal_stdout}" command)
 string(JSON signal_ok GET "${signal_stdout}" ok)
 string(JSON signal_code GET "${signal_stdout}" code)
-if(NOT signal_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
+if(NOT signal_schema STREQUAL "crankwave.cli-result.v1" OR
    NOT signal_release STREQUAL RELEASE_IDENTITY OR
-   NOT signal_command STREQUAL "bake-vehicleengine" OR signal_ok OR
-   NOT signal_code STREQUAL "bake-vehicleengine-terminated")
+   NOT signal_command STREQUAL "bake-crankwave" OR signal_ok OR
+   NOT signal_code STREQUAL "bake-crankwave-terminated")
     message(FATAL_ERROR "installed native termination JSON differs")
 endif()
-file(GLOB interrupted_debris "${work_root}/.engine-sim-offline-*")
+file(GLOB interrupted_debris "${work_root}/.crankwave-*")
 if(interrupted_debris)
     message(FATAL_ERROR
         "installed native cancellation left incomplete output: ${interrupted_debris}")
 endif()
 
-set(first_carrier "${work_root}/first.vehicleengine")
-set(second_carrier "${work_root}/second.vehicleengine")
+set(first_carrier "${work_root}/first.crankwave")
+set(second_carrier "${work_root}/second.crankwave")
 set(native_bake_environment
     "${CMAKE_COMMAND}" -E env
     "PATH=${work_root}/empty-path"
@@ -698,7 +698,7 @@ set(native_bake_environment
 execute_process(
     COMMAND
         ${native_bake_environment}
-        "${cli}" bake-vehicleengine
+        "${cli}" bake-crankwave
         --engine "${bake_engine}"
         --output "${first_carrier}"
         --result-format json
@@ -716,7 +716,7 @@ endif()
 execute_process(
     COMMAND
         ${native_bake_environment}
-        "${cli}" bake-vehicleengine
+        "${cli}" bake-crankwave
         --engine "${bake_engine}"
         --output "${second_carrier}"
         --result-format json
@@ -738,9 +738,9 @@ foreach(bake_stdout IN ITEMS first_bake_stdout second_bake_stdout)
     string(JSON bake_ok GET "${${bake_stdout}}" ok)
     string(JSON bake_verified GET "${${bake_stdout}}" result verified)
     string(JSON bake_profile GET "${${bake_stdout}}" result profile_id)
-    if(NOT bake_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
+    if(NOT bake_schema STREQUAL "crankwave.cli-result.v1" OR
        NOT bake_release STREQUAL RELEASE_IDENTITY OR
-       NOT bake_command STREQUAL "bake-vehicleengine" OR
+       NOT bake_command STREQUAL "bake-crankwave" OR
        NOT bake_ok OR NOT bake_verified OR
        NOT bake_profile STREQUAL "interactive-preview-redline-v1")
         message(FATAL_ERROR "installed native bake result identity differs")
@@ -757,14 +757,14 @@ if(first_carrier_bytes LESS 1 OR
 endif()
 
 execute_process(
-    COMMAND "${cli}" inspect-vehicleengine --input "${first_carrier}"
+    COMMAND "${cli}" inspect-crankwave --input "${first_carrier}"
         --result-format json
     RESULT_VARIABLE inspect_result
     OUTPUT_VARIABLE inspect_stdout
     ERROR_VARIABLE inspect_stderr
 )
 execute_process(
-    COMMAND "${cli}" verify-vehicleengine --input "${first_carrier}"
+    COMMAND "${cli}" verify-crankwave --input "${first_carrier}"
         --result-format json
     RESULT_VARIABLE verify_result
     OUTPUT_VARIABLE verify_stdout
@@ -780,20 +780,20 @@ string(JSON verify_release GET "${verify_stdout}" release_identity)
 string(JSON verify_command GET "${verify_stdout}" command)
 string(JSON verify_verified GET "${verify_stdout}" result verified)
 if(NOT inspect_release STREQUAL RELEASE_IDENTITY OR
-   NOT inspect_command STREQUAL "inspect-vehicleengine" OR
+   NOT inspect_command STREQUAL "inspect-crankwave" OR
    NOT verify_release STREQUAL RELEASE_IDENTITY OR
-   NOT verify_command STREQUAL "verify-vehicleengine" OR NOT verify_verified)
+   NOT verify_command STREQUAL "verify-crankwave" OR NOT verify_verified)
     message(FATAL_ERROR "installed native inspect/verify result identity differs")
 endif()
 
 if(DEFINED NODE_EXECUTABLE AND NOT NODE_EXECUTABLE STREQUAL "" AND
    EXISTS "${NODE_EXECUTABLE}" AND
-   EXISTS "${SOURCE_ROOT}/tests/installed_vehicleengine_playback_test.mjs")
+   EXISTS "${SOURCE_ROOT}/tests/installed_crankwave_playback_test.mjs")
     execute_process(
         COMMAND
             "${NODE_EXECUTABLE}"
-            "${SOURCE_ROOT}/tests/installed_vehicleengine_playback_test.mjs"
-            "${runtime_root}/vehicleengine-audio-engine.js"
+            "${SOURCE_ROOT}/tests/installed_crankwave_playback_test.mjs"
+            "${runtime_root}/crankwave-audio-engine.js"
             "${first_carrier}"
         RESULT_VARIABLE playback_result
         OUTPUT_VARIABLE playback_stdout
@@ -810,11 +810,11 @@ if(DEFINED NODE_EXECUTABLE AND NOT NODE_EXECUTABLE STREQUAL "" AND
     endif()
 endif()
 
-set(tampered_carrier "${work_root}/tampered.vehicleengine")
+set(tampered_carrier "${work_root}/tampered.crankwave")
 file(COPY_FILE "${first_carrier}" "${tampered_carrier}")
 file(APPEND "${tampered_carrier}" "tamper")
 execute_process(
-    COMMAND "${cli}" verify-vehicleengine --input "${tampered_carrier}"
+    COMMAND "${cli}" verify-crankwave --input "${tampered_carrier}"
         --result-format json
     RESULT_VARIABLE tampered_verify_result
     OUTPUT_VARIABLE tampered_verify_stdout
@@ -829,9 +829,9 @@ string(JSON tampered_verify_release GET
     "${tampered_verify_stdout}" release_identity)
 string(JSON tampered_verify_command GET "${tampered_verify_stdout}" command)
 string(JSON tampered_verify_ok GET "${tampered_verify_stdout}" ok)
-if(NOT tampered_verify_schema STREQUAL "engine-sim-offline.cli-result.v1" OR
+if(NOT tampered_verify_schema STREQUAL "crankwave.cli-result.v1" OR
    NOT tampered_verify_release STREQUAL RELEASE_IDENTITY OR
-   NOT tampered_verify_command STREQUAL "verify-vehicleengine" OR
+   NOT tampered_verify_command STREQUAL "verify-crankwave" OR
    tampered_verify_ok)
     message(FATAL_ERROR "tampered native carrier failure envelope differs")
 endif()
@@ -840,9 +840,9 @@ else()
     # A dirty development binary deliberately refuses to mint a carrier because its
     # backend identity is not publishable. The complete clean-tree release gate above
     # exercises termination, repeat cooking, verification, and carrier tamper checks.
-    set(incomplete_output "${work_root}/incomplete.vehicleengine")
+    set(incomplete_output "${work_root}/incomplete.crankwave")
     execute_process(
-        COMMAND "${cli}" bake-vehicleengine
+        COMMAND "${cli}" bake-crankwave
             --engine "${bake_engine}"
             --output "${incomplete_output}"
             --result-format json

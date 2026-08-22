@@ -1,9 +1,9 @@
 #pragma once
 
-#include "engine_sim_offline/authoring/diagnostic.hpp"
-#include "engine_sim_offline/authoring/json.hpp"
-#include "engine_sim_offline/authoring/parse.hpp"
-#include "engine_sim_offline/authoring/quantity.hpp"
+#include "crankwave/authoring/diagnostic.hpp"
+#include "crankwave/authoring/json.hpp"
+#include "crankwave/authoring/parse.hpp"
+#include "crankwave/authoring/quantity.hpp"
 
 #include <cstdint>
 #include <initializer_list>
@@ -11,7 +11,7 @@
 #include <string>
 #include <string_view>
 
-namespace engine_sim_offline::authoring::detail {
+namespace crankwave::authoring::detail {
 
 [[nodiscard]] std::string pointer_member(std::string_view parent,
                                          std::string_view member);
@@ -108,4 +108,4 @@ class DocumentReader final {
 [[nodiscard]] std::optional<DiagnosticSubject> subject(std::string kind,
                                                        std::string id);
 
-} // namespace engine_sim_offline::authoring::detail
+} // namespace crankwave::authoring::detail

@@ -5,10 +5,10 @@ encoding; the 2026-08-04 active-intake dyno acceptance was superseded by transie
 rejection on 2026-08-05
 
 Manifest wire schema ID:
-`engine-sim-offline.render-manifest.simulation.v10`
+`crankwave.render-manifest.simulation.v10`
 
 Request-identity wire schema ID:
-`engine-sim-offline.simulation-request-identity.v7`
+`crankwave.simulation-request-identity.v7`
 
 Machine schema:
 [`schemas/render_manifest_simulation_v10.cddl`](../../schemas/render_manifest_simulation_v10.cddl)
@@ -53,7 +53,7 @@ The completed-manifest root is exactly:
 
 ```text
 {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v10",
+  "wire_schema": "crankwave.render-manifest.simulation.v10",
   "content": <RenderManifestContent>,
   "execution": <ExecutionFacts>
 }
@@ -64,7 +64,7 @@ request before presentation and render composition:
 
 ```text
 {
-  "wire_schema": "engine-sim-offline.simulation-request-identity.v7",
+  "wire_schema": "crankwave.simulation-request-identity.v7",
   "engine": <EngineSpec>,
   "scenario": <RenderScenario>,
   "random_plan": <RandomPlan>,
@@ -101,10 +101,10 @@ The sole frozen identities are:
 
 | Role | Final identity |
 |---|---|
-| Completed-manifest wire | `engine-sim-offline.render-manifest.simulation.v10` |
+| Completed-manifest wire | `crankwave.render-manifest.simulation.v10` |
 | Manifest content schema version | `10` |
 | Manifest input kind | `simulation_v9` |
-| Request-identity wire | `engine-sim-offline.simulation-request-identity.v7` |
+| Request-identity wire | `crankwave.simulation-request-identity.v7` |
 | Manifest path | `manifest/render-manifest.v10.json` |
 | Sidecar path | `manifest/render-manifest.v10.json.sha256` |
 
@@ -224,7 +224,7 @@ v9 manifest path, v9 encoder, request-v6 encoder, constants, overloads, and forw
 aliases are deleted.
 
 The `reference_presentation_v1` input belongs exclusively to
-`engine-sim-offline.render-manifest.reference-presentation.v2`. It has no alias,
+`crankwave.render-manifest.reference-presentation.v2`. It has no alias,
 fallback, numeric variant index, or compatibility interpretation in this schema.
 Conversely, `simulation_v9` is not encodable under the reference-presentation schema.
 The superseded simulation inputs and wire APIs are not retained, accepted, or aliased;
@@ -618,7 +618,7 @@ The audition WAVE INFO values are derived exactly as these ASCII concatenations:
 ```text
 ICMT = engine=<engine.engine_id.value>;profile=<engine.profile_id.value>;scenario=<scenario.scenario_id>;presentation=<presentation.calibration_id>;source_matrix=<source_matrix.id>
 INAM = engine=<engine.engine_id.value>;scenario=<scenario.scenario_id>
-ISFT = engine-sim-offline;method=<presentation.methods.audition_mix.value.id>;version=<shortest-u32-decimal>;configuration_sha256=<64-lowercase-hex>
+ISFT = crankwave;method=<presentation.methods.audition_mix.value.id>;version=<shortest-u32-decimal>;configuration_sha256=<64-lowercase-hex>
 ```
 
 The job validates all three derived strings as nonempty, NUL-free, and at most 4,096

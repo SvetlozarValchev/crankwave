@@ -20,7 +20,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-namespace engine_sim_offline::artifacts::detail {
+namespace crankwave::artifacts::detail {
 namespace {
 
 RenderSinkError publication_error(std::string detail_code, std::string message) {
@@ -418,7 +418,7 @@ std::string random_stage_name() {
     }
 
     constexpr std::string_view digits = "0123456789abcdef";
-    std::string name = ".engine-sim-offline-stage-";
+    std::string name = ".crankwave-stage-";
     name.reserve(name.size() + random_bytes.size() * 2);
     for (const auto byte : random_bytes) {
         name.push_back(digits[byte >> 4U]);
@@ -506,6 +506,6 @@ int rename_noreplace(int parent_fd, const char *source, const char *destination)
 #endif
 }
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace crankwave::artifacts::detail
 
 #endif

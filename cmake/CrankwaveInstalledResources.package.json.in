@@ -1,0 +1,7 @@
+{
+  "name": "crankwave-installed-resources",
+  "private": true,
+  "license": "UNLICENSED",
+  "version": "@CRANKWAVE_RELEASE_IDENTITY@",
+  "type": "module"
+}

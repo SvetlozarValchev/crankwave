@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A standalone browser harness for verified CRANKWAVE audio packages."
+    />
+    <title>CRANKWAVE · Audio Bridge Harness</title>
+    <link rel="icon" href="/harness/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/harness/styles.css" />
+  </head>
+  <body>
+    <noscript>
+      <div class="fatal-banner">This harness requires JavaScript.</div>
+    </noscript>
+
+    <div id="security-gate" class="fatal-banner" role="alert" hidden>
+      <strong>Isolated browser audio is unavailable.</strong>
+      Open this page through <code>scripts/serve-crankwave-harness.mjs</code> on
+      localhost. The harness requires Web Audio, Web Workers, Web Crypto, and
+      cross-origin-isolated shared memory.
+    </div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>
+          <span class="brand-kicker">CRANKWAVE</span>
+          <span class="brand-title">Audio bridge harness</span>
+        </span>
+      </div>
+      <div class="status-row" aria-label="Harness status">
+        <span id="security-status" class="status-chip" data-state="pending">
+          Browser checks
+        </span>
+        <span id="package-status" class="status-chip" data-state="idle">
+          No package
+        </span>
+        <span id="audio-status" class="status-chip" data-state="idle">
+          Audio stopped
+        </span>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">EXTERNAL CONSUMER</p>
+          <h1 id="page-title">One file in. Engine sound out.</h1>
+          <p class="lede">
+            This page supplies only RPM, throttle, and load to a packaged audio
+            engine. Its only input asset is the selected carrier.
+          </p>
+        </div>
+        <dl class="facts" aria-label="Loaded package">
+          <div>
+            <dt>Engine</dt>
+            <dd id="engine-id">—</dd>
+          </div>
+          <div>
+            <dt>Coverage</dt>
+            <dd id="rpm-coverage">—</dd>
+          </div>
+          <div>
+            <dt>Package rate</dt>
+            <dd id="package-rate">—</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="panel package-panel" aria-labelledby="package-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">PACKAGE</p>
+            <h2 id="package-title">Load a <code>.crankwave</code></h2>
+          </div>
+          <button id="choose-file-button" class="button button-primary" type="button">
+            Choose file
+          </button>
+        </div>
+        <input
+          id="package-file-input"
+          class="visually-hidden"
+          type="file"
+          accept=".crankwave,application/octet-stream"
+        />
+        <div id="drop-zone" class="drop-zone" tabindex="0" role="button">
+          <span class="drop-icon" aria-hidden="true">↓</span>
+          <span>
+            <strong id="file-name">Drop a CRANKWAVE file here</strong>
+            <small id="file-detail">The file stays in this browser tab.</small>
+          </span>
+        </div>
+        <p id="package-message" class="message" role="status" aria-live="polite">
+          Waiting for a package.
+        </p>
+      </section>
+
+      <section class="panel controls-panel" aria-labelledby="controls-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">OPERATING POINT</p>
+            <h2 id="controls-title">External engine inputs</h2>
+          </div>
+          <div class="transport">
+            <button id="play-button" class="button button-primary" type="button" disabled>
+              Play
+            </button>
+            <button id="stop-button" class="button" type="button" disabled>
+              Stop
+            </button>
+          </div>
+        </div>
+
+        <div class="control-grid">
+          <label class="control" for="rpm-input">
+            <span class="control-header">
+              <span>RPM</span>
+              <output id="rpm-output" for="rpm-input">—</output>
+            </span>
+            <input id="rpm-input" type="range" min="0" max="1" step="1" value="0" disabled />
+            <span class="control-scale">
+              <span id="rpm-minimum">—</span>
+              <span id="rpm-maximum">—</span>
+            </span>
+          </label>
+
+          <label class="control" for="throttle-input">
+            <span class="control-header">
+              <span>Throttle</span>
+              <output id="throttle-output" for="throttle-input">—</output>
+            </span>
+            <input id="throttle-input" type="range" min="0" max="100" step="1" value="20" disabled />
+            <span class="control-scale"><span>0%</span><span>100%</span></span>
+          </label>
+
+          <label class="control" for="load-input">
+            <span class="control-header">
+              <span>Load</span>
+              <output id="load-output" for="load-input">—</output>
+            </span>
+            <input id="load-input" type="range" min="0" max="100" step="1" value="35" disabled />
+            <span class="control-scale"><span>Minimum</span><span>Maximum</span></span>
+          </label>
+        </div>
+
+        <div class="readout-grid">
+          <article class="readout">
+            <span>Derived manifold pressure</span>
+            <strong id="map-output">—</strong>
+          </article>
+          <article class="readout">
+            <span>Browser output</span>
+            <strong id="device-rate">—</strong>
+          </article>
+          <article class="readout">
+            <span>Buffered audio</span>
+            <strong id="buffer-output">—</strong>
+          </article>
+          <article class="readout">
+            <span>Underruns</span>
+            <strong id="underrun-output">0</strong>
+          </article>
+        </div>
+
+        <div class="level-row">
+          <span>Output level</span>
+          <div class="level-track" aria-hidden="true">
+            <span id="level-meter"></span>
+          </div>
+          <output id="level-output">−∞ dBFS</output>
+        </div>
+
+        <p id="audio-message" class="message" role="status" aria-live="polite">
+          Load a package to enable audio.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      Verified carrier playback · local file access only · mono browser output
+    </footer>
+
+    <script type="module" src="/harness/app.js"></script>
+  </body>
+</html>

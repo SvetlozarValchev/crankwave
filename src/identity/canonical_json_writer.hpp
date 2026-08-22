@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/contract/common.hpp"
+#include "crankwave/contract/common.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-namespace engine_sim_offline::identity::detail {
+namespace crankwave::identity::detail {
 
 inline constexpr std::size_t kMaximumCanonicalDocumentBytes = 4U * 1024U * 1024U;
 
@@ -64,4 +64,4 @@ class CanonicalJsonWriter final {
     bool finished_ = false;
 };
 
-} // namespace engine_sim_offline::identity::detail
+} // namespace crankwave::identity::detail

@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace engine_sim_offline::compile::detail {
+namespace crankwave::compile::detail {
 namespace {
 
 [[nodiscard]] bool known(const AssetKind kind) noexcept {
@@ -317,4 +317,4 @@ CompiledScenarioBuilder::build(
     }
 }
 
-} // namespace engine_sim_offline::compile::detail
+} // namespace crankwave::compile::detail

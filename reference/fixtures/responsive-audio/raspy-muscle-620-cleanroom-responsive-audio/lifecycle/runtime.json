@@ -1,5 +1,5 @@
 {
-  "schema": "engine-sim-offline/responsive-audio-lifecycle",
+  "schema": "crankwave/responsive-audio-lifecycle",
   "id": "raspy-muscle-620-cleanroom-lifecycle-preview",
   "engine": "raspy-muscle-620-cleanroom",
   "audio": {
@@ -170,7 +170,7 @@
     "quiet_rms_threshold": 0.0006656037051978662
   },
   "startup_admission": {
-    "schema": "engine-sim-offline/continuous-startup-admission-v1",
+    "schema": "crankwave/continuous-startup-admission-v1",
     "running_bed_load_coordinate": "measured-intake-manifold-pressure-pa-abs",
     "admission_lane_coordinate": "authored-throttle-01",
     "blend": "constant-power",
@@ -204,8 +204,8 @@
     "evidence": {
       "method": "generic accepted Variant 3 semantic-lane gains; audition candidate, not per-engine fitted",
       "path": "evidence/startup-admission.json",
-      "sha256": "d1ce36e7bb0bd27c85b0e2f6e00220423e8ed069208352dbc399053fadd322be",
-      "corrected_held_manifest_sha256": "ad9a5d023815b607767dabb7006726fa4652a39c58159a85675f80e8a43274ce"
+      "sha256": "2d259920f709e1852460de4b95e6ebe9652ccd767bba07f9c7a1139e97012559",
+      "corrected_held_manifest_sha256": "3b51ff291fdd49d974721954044e4c518632352c8414ef239f0861975a27da7c"
     }
   },
   "provenance": {
@@ -214,7 +214,7 @@
       "sha256": "4202640822032216235ec04841804931f8993a539ae3972ca2366b083a018ffb"
     },
     "renderer_build": {
-      "id": "engine-sim-offline-renderer-build",
+      "id": "crankwave-renderer-build",
       "sha256": "5287982ab1fe4846fc6d5008f0415f1901adae0fe4ca06a02c48addcab39b6fb"
     },
     "representation": "fresh-10khz-physics-192khz-presented-master-lifecycle-performances-with-cycle-correlated-event-seams",
@@ -229,36 +229,36 @@
         "canonical_source_id": "raspy-muscle-620-cleanroom-lifecycle-starter-candidate",
         "derived_id": "raspy-muscle-620-cleanroom-lifecycle-starter-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/starter-10khz.json",
-        "sha256": "334a5cb291af539bffe53225841f85059e02165811de8bf3a30ae0cad12da389",
+        "sha256": "f75e22f2494f65cc1f091fcd7ac839e461f0cd1204e6679d388e6d1fc3e8071b",
         "evidence_path": "evidence/starter.json",
-        "evidence_sha256": "c84283f28bd910184bd0432ed77441958179d2228ee6a5863d2230a7ad5e0ebe"
+        "evidence_sha256": "3c7548c6c088cfb3142afb805b8d590aed7cde61535708ed6ea1ae7eae957a30"
       },
       {
         "role": "startup",
         "canonical_source_id": "raspy-muscle-620-cleanroom-lifecycle-startup-candidate",
         "derived_id": "raspy-muscle-620-cleanroom-lifecycle-startup-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/startup-10khz.json",
-        "sha256": "16a3664a291474450dcd1d6701ed55c008323a7379facf1d31c1502208b0ce2a",
+        "sha256": "cec9be6109334be1292ac4e9a0e1e8bb1e61b2ee61c53cb69dd022ce7d8f88c6",
         "evidence_path": "evidence/startup.json",
-        "evidence_sha256": "7645f31743c3647bd36723e7693367cdf9c91b603c081ec9fcce75661e5cdce5"
+        "evidence_sha256": "20ff26b37f84690f4c3c6aa43073ef1f1ece01a6e445eea9f605270d5a178143"
       },
       {
         "role": "shutdown",
         "canonical_source_id": "raspy-muscle-620-cleanroom-lifecycle-shutdown-candidate",
         "derived_id": "raspy-muscle-620-cleanroom-lifecycle-shutdown-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/shutdown-10khz.json",
-        "sha256": "fabba057817e9c10f37d84a19f1c41218f83d6a541c9b39b089831abf86cba12",
+        "sha256": "1338a4401535811dc4e9d560a3ac6d8d1d1f05f6512774991fc915b2e4cbaddd",
         "evidence_path": "evidence/shutdown.json",
-        "evidence_sha256": "7e10d422779634064ace21855471bd92138b5a4760ec32a61e3fd342701e72e6"
+        "evidence_sha256": "c54c0cd875e233f60e5c1204289ac5ebe140ac2caa8c2f410157c3f1e54693dc"
       },
       {
         "role": "shutdown-elevated",
         "canonical_source_id": "raspy-muscle-620-cleanroom-lifecycle-shutdown-high-rpm-candidate",
         "derived_id": "raspy-muscle-620-cleanroom-lifecycle-shutdown-high-rpm-candidate-10khz-lifecycle-preview",
         "path": "source/scenarios/shutdown-high-rpm-10khz.json",
-        "sha256": "64c0d2ce0bb580b4ded2e112cc91dad740e1e47d4ca7e1e2fa3dcfe4c21a194a",
+        "sha256": "7424f56a9b734e12b15435446b54b258b46db2b546ab5a5c5ed3471c663f83c7",
         "evidence_path": "evidence/shutdown-high-rpm.json",
-        "evidence_sha256": "b0c2470ea103cde3fcb9e1d95ca2d79dfda266827b8655efc56c471e6489b4ab"
+        "evidence_sha256": "e2d0e74756b0adfef70fd2ee92e153047f31962fbf9e287c2de6e0307cc45257"
       }
     ]
   }
