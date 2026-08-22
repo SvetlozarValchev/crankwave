@@ -8,7 +8,7 @@ cooking does not launch Node.js, a compiler, a helper executable, or simulation
 WebAssembly.
 
 The immutable release identity is the pair of `release_identity` and the SHA-256 in
-`release.json.sha256`. The semantic identity names a compatible ESO release; the
+`release.json.sha256`. The semantic identity names a compatible Crankwave release; the
 digest binds the exact executable, contracts, schemas, simulator-free browser
 playback modules, built-in catalogs and payloads, responsive profiles, shared
 recorded starter, licenses, and notices.

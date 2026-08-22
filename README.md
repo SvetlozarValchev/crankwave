@@ -47,8 +47,8 @@ session without pacing; the browser Worker runs the same API behind a shared
 PCM ring consumed by an AudioWorklet.
 
 The production path uses 20 kHz physics/capture blocks and 192 kHz presentation
-audio. Exact supported modes and current acceptance gates are documented in
-[PLAN.md](PLAN.md) and the files under [`docs/contracts`](docs/contracts).
+audio. The detailed model is documented in [MODEL.md](MODEL.md); the curated
+documentation map is in [`docs/README.md`](docs/README.md).
 
 ## Build
 
@@ -103,9 +103,15 @@ The carrier contract is documented in
 
 ## SPARQ integration
 
-[sparq-crankwave](https://github.com/SvetlozarValchev/sparq-crankwave)
-provides engine editing, baking, and vehicle runtime integration for
-[SPARQ](https://playsparq.com).
+<a href="https://playsparq.com">
+  <img src="docs/assets/sparq-logo.png" alt="SPARQ logo" width="88">
+</a>
+
+### Crankwave for SPARQ
+
+**[sparq-crankwave](https://github.com/SvetlozarValchev/sparq-crankwave)**
+brings engine editing, deterministic baking, and vehicle runtime integration to
+the [SPARQ native game engine](https://playsparq.com).
 
 ## Browser workbench
 

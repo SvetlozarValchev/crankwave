@@ -355,6 +355,6 @@ compact probe report rather than place an unrestricted trace in a model prompt.
 It does not identify subjective timbre. Statements such as "not raspy enough" or
 "too deep" also require deterministic analysis of the bound audition WAVE (signal
 health, absolute-frequency bands, RPM-normalized orders, modulation/transients, and
-candidate/reference deltas) plus a perceptual judgment. ESO deliberately emits
+candidate/reference deltas) plus a perceptual judgment. Crankwave deliberately emits
 mechanical facts here and leaves product intent, scoring, iteration policy, and
 subjective conclusions to the authoring system.

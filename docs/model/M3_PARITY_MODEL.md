@@ -1,6 +1,6 @@
 # M3 BMW parity algorithm
 
-Status: normative pre-implementation companion
+Status: frozen algorithm reference for the current `legacy_low_order_v1` method
 
 Method ID: `legacy_low_order_v1`
 
@@ -1385,10 +1385,8 @@ excitation can therefore be exercised headlessly at another scenario rate withou
 changing this frozen 10 kHz oracle.
 
 This section records the frozen 10 kHz parity method, not the current production
-clock. The post-parity rate gate subsequently accepted one canonical 20 kHz-to-192 kHz
-native/WASM/browser path; its control, candidate, repeat, and listening decision are in
-[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md). The
-10 kHz method remains historical oracle evidence only.
+clock. Native, WASM, and browser production use the single tested
+20 kHz-to-192 kHz path. The 10 kHz method remains historical oracle evidence only.
 
 The capture is an output of simulated state. Neither the core nor excitation stage
 links the fixture audit reader. Comparator tooling may read candidate capture and

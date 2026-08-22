@@ -343,13 +343,9 @@ The 3,840-frame size is currently part of the executable method, not a caller tr
 choice. It matches the existing FFT/resampling arithmetic. The descriptor publishes
 the session's exact input and output block sizes. A scenario with
 `process_block_capacity_frames < 3840` is rejected; a larger capacity does not
-authorize a different call size.
-The decision, control, candidate, and repeat evidence are recorded in
-[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md). The
-canonical cooker remains 20 kHz. Exact 10 kHz admission is retained solely for the
-isolated, explicitly labelled realtime browser A/B preview described in
-[`../CONTINUOUS_AUDIO_ATLAS_PLAN.md`](../CONTINUOUS_AUDIO_ATLAS_PLAN.md); it is not a
-native publication mode or a second production contract.
+authorize a different call size. The canonical cooker remains 20 kHz. Exact 10 kHz
+admission is retained solely for the explicitly labelled source-tree realtime preview;
+it is not a native publication mode or a second production contract.
 
 For `finite_scenario`, `process_block()` returns blocks until the exact authored
 horizon is exhausted, then returns a stable `EngineSessionCompleted`. For
@@ -592,9 +588,8 @@ simulation diagnostics; they are not microphone audio.
 
 The prior `declared_silent` intake checkpoint and the later active pressure-route
 implementation are historical evidence rather than runtime options or compatibility
-paths. The latter passed its 2026-08-04 held-dyno A/B/C gate but was withdrawn after
-the 2026-08-05 live transient rejection documented in
-[`POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](../POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
+paths. The active route was withdrawn after transient evaluation and remains available
+only through Git history.
 Mechanical route kinds remain reserved and unadmitted until a real signal
 implementation has its own acceptance evidence.
 The sole portable boundary is C ABI v9; there are no earlier-version aliases or
@@ -1007,15 +1002,10 @@ semantics for the continuous benches. The current gate must pin the exhaust-only
 finite export. The active-intake browser WAV identity recorded in section 11 remains
 historical evidence and is not a current expectation.
 
-## 14. Implementation order
+## 14. Maintenance rules
 
-The authoritative execution sequence is [`PLAN.md`](../../PLAN.md). The native
-session/bake cutover is checkpoint 8; C ABI and WASM are checkpoint 9; the
-Worker/ring/AudioWorklet transport and initial workbench are checkpoint 10; and the
-operating-mode/control/telemetry publication is slice 13. All are implemented and
-sealed. Slice 14 adds the visible full operating bench and named procedures. Slice 15
-owns the wider canonical capture-procedure library. Later control capabilities remain
-fail-closed until individually implemented.
-
-Each step preserves one implementation path. No temporary browser synthesizer,
-pre-recorded engine loop, or compatibility parser becomes a production dependency.
+The native session, C ABI, WASM wrapper, Worker transport, AudioWorklet, and workbench
+form one implementation chain. New controls or motion capabilities remain fail-closed
+until implemented and tested across every exposed boundary. Temporary browser
+synthesizers, prerecorded engine-loop fallbacks, and compatibility parsers do not
+become production dependencies.

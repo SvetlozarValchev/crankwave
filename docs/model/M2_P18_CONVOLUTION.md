@@ -1,7 +1,7 @@
 # Exact P1.8 fixed-convolution contract
 
-Status: normative architecture and verification boundary for the isolated M2
-fixed-topology FFT and causal overlap-save checkpoint
+Status: frozen implementation reference for the fixed-topology FFT and causal
+overlap-save regression path
 
 Applies to: the immutable 65,536-point transform plan, immutable configured-IR
 spectrum, and one independent continuous convolution history per route

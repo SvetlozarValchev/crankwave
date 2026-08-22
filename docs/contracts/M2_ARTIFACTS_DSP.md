@@ -1,7 +1,7 @@
 # M2 artifact and focused-DSP contract
 
-Status: normative interface record for the M2 telemetry/WAV sink and focused-DSP
-checkpoints
+Status: current implementation reference for telemetry/WAV publication and focused
+DSP primitives
 
 Applies to: bounded byte encoding, transactional directory publication, and the
 small exact P1.8 primitives used by the source-stage, static-IR, and fixed-convolution

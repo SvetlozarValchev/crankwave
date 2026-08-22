@@ -345,9 +345,7 @@ source route, published stem, or master contribution. The earlier `declared_sile
 topology and later active pressure-route implementation are historical checkpoints,
 not options or compatibility paths. Exhaust routes and masters remain active.
 Mechanical-engine and mechanical-starter remain reserved future route kinds and
-currently fail compilation. The intake decision and exact listening evidence are
-recorded in
-[`POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](../POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
+currently fail compilation.
 The executed IR, wet, HF/derivative, jitter, and noise settings above are fixed when a
 session is built; they do not imply a timestamped presentation-mutation API.
 
@@ -359,9 +357,7 @@ The current executable session quantum is exact: 400 physics frames at 20 kHz be
 3,840; a larger value does not change the current quantum.
 This is the sole admitted production/cooker presentation path in native, WASM, and
 browser execution. Historical 10 kHz fixtures remain parity evidence only; there is
-no legacy rate selector or parallel compatibility mode. The accepted rate decision is
-recorded in
-[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md).
+no legacy rate selector or parallel compatibility mode.
 `quality.event_queue_capacity` bounds caller-authored timestamped control commands, not
 the internal simulation event journal. `quality.telemetry_capacity_frames` bounds
 records returned per call; the current session emits one final-step session-telemetry
@@ -424,11 +420,9 @@ fuel contract replaces the current low-order spark-ignition method family.
 These capability-focused fixtures define the accepted executable scope. They avoid a
 large test matrix while covering the graph shapes that the BMW inline-six cannot.
 
-During cutover checkpoints 1-10, only compiler/graph and deterministic behavior checks
-were blocking. Slice 16 subsequently rendered and accepted the representative
-fixed-cam inline/V, VTEC, governed, master/slave, and drivetrain procedures; exact
-paths and hashes are frozen in
-[`../SLICE_16_PARITY_LISTENING_GATE.md`](../SLICE_16_PARITY_LISTENING_GATE.md).
+The regression suite covers representative fixed-cam inline/V, VTEC, governed,
+master/slave, and drivetrain procedures. Historical listening artifacts remain in
+Git history rather than the active contract set.
 
 | Fixture | Capabilities it must prove | Post-cutover listening |
 |---|---|---|

@@ -1,7 +1,6 @@
 # Exact P1.8 static-IR conversion contract
 
-Status: normative architecture and verification boundary for the M2 static-IR
-checkpoint
+Status: frozen implementation reference for the static-IR regression path
 
 Applies to: strict configured-IR WAVE decoding, meaningful-support detection, and the
 exact 44.1 kHz-to-192 kHz static conversion
@@ -14,8 +13,8 @@ public renderer. A kernel is not a listening candidate.
 
 [`P18_PRESENTATION_RENDERER.md`](../../reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md)
 is the numerical authority for support detection, coefficient construction, operation
-order, configured gain, and floating-point requirements. The pinned input identity is
-typed by [`M2_MANIFEST_INPUTS.md`](../contracts/M2_MANIFEST_INPUTS.md).
+order, configured gain, and floating-point requirements. The P1.8 fixture manifest
+and immutable reference catalog bind the pinned input identity.
 
 This implementation reproduces the narrow P1.8 presentation behavior. The configured
 IR remains unknown-provenance coloration with local-evaluation-only rights. Exact

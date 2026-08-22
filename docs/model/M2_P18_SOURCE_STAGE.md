@@ -1,16 +1,14 @@
 # Exact P1.8 source-stage contract (frozen 10 kHz authority)
 
-Status: historical normative authority for the M2 source-stage checkpoint; superseded
-as the production clock contract by the accepted 20 kHz rate gate
+Status: frozen 10 kHz oracle reference; not a production clock contract
 
 Applies to: the typed two-route excitation seam, causal 10 kHz-to-192 kHz
 reconstruction, and the exact P1.8 jitter and conditioning state machines
 
 The equations, ordering, and 10 kHz fixture values below remain authoritative for the
 frozen P1.8 oracle only. Current production and cooker sessions admit one 20 kHz,
-400-to-3,840-frame method quantum, recorded in
-[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md). This
-document does not define a second production mode.
+400-to-3,840-frame method quantum. This document does not define a second production
+mode.
 
 This checkpoint turns two synchronous 10 kHz exhaust-excitation routes into two
 conditioned binary64 streams at 192 kHz. It deliberately stops before crop, impulse
@@ -21,10 +19,8 @@ not a listening candidate.
 
 [`P18_PRESENTATION_RENDERER.md`](../../reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md)
 is the numerical authority for every constant, operation order, state transition,
-random draw, and floating-point requirement in this document. The typed lineage and
-four executed random streams are fixed separately by
-[`M2_MANIFEST_INPUTS.md`](../contracts/M2_MANIFEST_INPUTS.md), and the integer block
-plan is fixed by [`M2_SCHEDULING.md`](../contracts/M2_SCHEDULING.md).
+random draw, and floating-point requirement in this document. The fixture manifest
+and immutable reference catalog bind its lineage, random streams, and block plan.
 
 This document records component ownership and integration boundaries; it does not
 replace the authority with a second transcription of every equation. A disagreement

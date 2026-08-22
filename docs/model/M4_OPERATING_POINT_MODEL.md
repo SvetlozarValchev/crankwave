@@ -1,17 +1,16 @@
 # M4 operating-point model
 
-Status: frozen historical implementation companion; superseded as current rate and
-session-quantum authority
+Status: frozen operating-model reference; session rates are owned by the current
+session contract
 
 Applies to: M4 held-speed and inertial-dyno BMW M52B28 operation
 
 Date: 2026-07-28
 
 The 10 kHz/200-frame values below freeze the accepted M4 checkpoint and its artifact
-identities. Current production and cooker sessions use the accepted single 20 kHz,
-400-frame clock described in
-[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md). The
-historical equations and evidence are not rewritten into a compatibility mode.
+identities. Current production and cooker sessions use the single tested 20 kHz,
+400-frame clock. The historical equations and evidence are not rewritten into a
+compatibility mode.
 
 ## 1. Purpose and claim boundary
 
@@ -270,9 +269,8 @@ The three `0.85` points isolate RPM; the two `3000 rpm` points isolate throttle.
 `0.25` value is a normalized throttle command, not a target or percentage load. Each
 request returns its achieved net shaft torque, power, and net BMEP from one
 request-v7-bound fixed sample; it neither compares adjacent windows nor claims
-stationarity. Exact point keys, conditions, CLI selectors, source-route non-claims,
-and listening gate are frozen separately in
-[`M4_BMW_HELD_REGRESSION_MATRIX.md`](../M4_BMW_HELD_REGRESSION_MATRIX.md).
+stationarity. Exact point keys and conditions live in the authored scenarios and
+their deterministic tests.
 
 The reused `legacy_low_order_v1` method configuration retains the admitted M3 content
 identity `435441890e0a5f8d01e81995f64f33d4c554144f5b1436895e6816f6db85e34c`.

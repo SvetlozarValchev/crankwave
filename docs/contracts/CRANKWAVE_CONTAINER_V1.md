@@ -8,7 +8,7 @@ of any editor or service. The carrier does not define package JSON,
 licensing, signing authority, runtime compatibility policy, compression, or audio
 reconstruction semantics.
 
-The ESO pack command requires one strictly validated package entry point at
+The Crankwave pack command requires one strictly validated package entry point at
 `crankwave.json`:
 
 ```json

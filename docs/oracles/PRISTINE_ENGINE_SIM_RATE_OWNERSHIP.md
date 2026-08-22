@@ -191,11 +191,9 @@ propagation speed, and deterministic accumulation order. It must not retain a du
 engine-level `delay_rate` or scenario-specific cached `resolved_delay_samples`.
 
 This parity slice generalized headless solver, capture, excitation, and delay ownership
-without itself publishing a new production-audio method. The later post-parity gate did
-render, repeat, and audition the higher physical/capture rate and accepted one canonical
-20 kHz-to-192 kHz production/cooker path. See
-[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md). That
-subsequent decision does not alter the frozen 10 kHz evidence below.
+without itself publishing a new production-audio method. Production now uses one
+tested 20 kHz-to-192 kHz path. That decision does not alter the frozen 10 kHz evidence
+below.
 
 ## Exact 10 kHz preservation requirements
 

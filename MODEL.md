@@ -1,17 +1,18 @@
 # Crankwave model contract
 
-Status: normative pre-implementation record
+Status: current technical reference
 
-Applies to: M2 renderer, M3 BMW parity, M4 operating-point test cells, and the
-admission of later fidelity upgrades
+Applies to: the renderer, source-informed low-order simulation, operating-point
+test cells, and admission of later model changes
 
 Date: 2026-07-28
 
 ## 1. Purpose and claim boundary
 
-This document defines what the simulator means before physics implementation begins.
-It fixes the physical/numerical boundaries, signs, clocks, model maturity, failure
-semantics, and evidence rules that code must obey.
+This document defines the simulator's physical and numerical boundaries, signs,
+clocks, model maturity, failure semantics, and evidence rules. Historical milestone
+labels remain only where they identify a frozen algorithm or oracle still exercised
+by the implementation.
 
 The project deliberately has three different claims:
 
@@ -34,28 +35,23 @@ the intended use, controlled A/B renders, acceptable performance, and user liste
 
 The following records have distinct authority:
 
-1. `PLAN.md` owns scope, milestones, performance limits, and listening stops.
-2. `reference/oracles/bmw-m52b28/SOURCE_MATRIX.md` owns the frozen M2/M3 reference
+1. `reference/oracles/bmw-m52b28/SOURCE_MATRIX.md` owns the frozen M2/M3 reference
    route and omissions.
-3. `docs/PRODUCTION_SOURCE_MATRIX.md` owns production source completeness.
-4. The BMW fixture `manifest.json` owns resolved reference values, identities, seeds,
+2. The BMW fixture `manifest.json` owns resolved reference values, identities, seeds,
    timing, and hashes.
-5. `reference/oracles/bmw-m52b28/PROVENANCE.md` owns source lineage, rights, evidence,
+3. `reference/oracles/bmw-m52b28/PROVENANCE.md` owns source lineage, rights, evidence,
    and unknowns.
-6. `P18_PRESENTATION_RENDERER.md` owns exact P1.8 reference-renderer behavior.
-7. `docs/model/M2_P18_ARTIFACT_MASTERING.md` owns the repository-selected artifact
+4. `P18_PRESENTATION_RENDERER.md` owns exact P1.8 reference-renderer behavior.
+5. `docs/model/M2_P18_ARTIFACT_MASTERING.md` owns the repository-selected artifact
    paths and exact raw/audition mastering behavior derived from the frozen stems and
    oracle.
-8. `docs/contracts/M2_MANIFEST_INPUTS.md` records the historical typed distinction
-   between complete simulation inputs and isolated reference-presentation lineage; it
-   is evidence history, not a current API alternative.
-9. `docs/contracts/M3_BMW_REQUEST.md` owns the concrete resolved engine/scenario
+6. `docs/contracts/M3_BMW_REQUEST.md` owns the concrete resolved engine/scenario
    identities, fixed-rate RPM representation, and explicit parity-scenario metadata.
-10. `docs/contracts/M4_SIMULATION_MANIFEST_WIRE.md` owns the complete current
+7. `docs/contracts/M4_SIMULATION_MANIFEST_WIRE.md` owns the complete current
     simulation-manifest byte grammar, including the resolved randomness policy.
-11. `docs/model/M4_OPERATING_POINT_MODEL.md` owns exact cycle quadrature, held-speed
+8. `docs/model/M4_OPERATING_POINT_MODEL.md` owns exact cycle quadrature, held-speed
     torque-accounting, convergence, and applicability rules introduced by M4.
-12. This document owns model meaning and admission; the focused contract records own
+9. This document owns model meaning and admission; the focused contract records own
     concrete C++ types, schemas, and API signatures.
 
 If two authorities conflict, implementation stops and the contradiction is recorded.
@@ -191,11 +187,10 @@ boundaries do. Half-open intervals are used throughout.
 - Warm-up and pre-roll are causal state history. Audible cropping never resets a
   delay, random stream, filter, integrator, or controller.
 
-The current post-parity production/cooker contract uses 20,000 Hz physics and capture
-with 192,000 Hz source processing, acoustics, and delivery. One 20 ms method quantum
-therefore contains 400 physics/capture frames and 3,840 delivery frames. The accepted
-decision and evidence are in
-[`docs/POST_PARITY_FIDELITY_RATE_GATE.md`](docs/POST_PARITY_FIDELITY_RATE_GATE.md).
+The current production/cooker contract uses 20,000 Hz physics and capture with
+192,000 Hz source processing, acoustics, and delivery. One 20 ms method quantum
+therefore contains 400 physics/capture frames and 3,840 delivery frames. These values
+are enforced by the session contracts and deterministic runtime tests.
 The 10 kHz statements below describe the frozen M3 parity model and its historical
 evidence; they do not define another production mode.
 
@@ -351,10 +346,10 @@ Full-cycle cylinder `p dV` already includes gas-exchange pumping. It must not be
 subtracted a second time. Bare `load` is not an internal physical variable. Control
 uses signed `target_net_bmep_pa` and reports `achieved_net_bmep_pa`.
 
-The four scenario modes in `PLAN.md` are semantic variants, not flags that can be
-combined arbitrarily. A load-target request either reaches its target within declared
-tolerance or returns an unreachable result with the nearest achieved state; it never
-pretends a saturated throttle solved the request.
+The scenario modes published by the session descriptor are semantic variants, not
+flags that can be combined arbitrarily. A load-target request either reaches its
+target within declared tolerance or returns an unreachable result with the nearest
+achieved state; it never pretends a saturated throttle solved the request.
 
 ## 9. M2 reference presentation model
 
@@ -363,10 +358,9 @@ M2 bypasses physics and reads only the two
 complete normative renderer is
 [`P18_PRESENTATION_RENDERER.md`](reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md).
 The frozen 10 kHz fixture-free source-stage boundary and ownership rules are recorded
-in [`M2_P18_SOURCE_STAGE.md`](docs/model/M2_P18_SOURCE_STAGE.md). The current production
-clock and method quantum are recorded in
-[`POST_PARITY_FIDELITY_RATE_GATE.md`](docs/POST_PARITY_FIDELITY_RATE_GATE.md) and the
-implemented presentation method descriptors.
+in [`M2_P18_SOURCE_STAGE.md`](docs/model/M2_P18_SOURCE_STAGE.md). The current 20 kHz
+production clock and method quantum are owned by the implemented presentation method
+descriptors and session contract.
 The strict configured-IR decode and exact static conversion boundary are recorded in
 [`M2_P18_IR_CONVERSION.md`](docs/model/M2_P18_IR_CONVERSION.md).
 The isolated fixed-topology transform, immutable configured-IR spectrum, and causal
@@ -1034,18 +1028,13 @@ provide rollback; runtime compatibility switches do not.
 
 ## 15. Production source completeness
 
-M2/M3's two reference buses cannot become production exhaust outlets by renaming them.
-Production requires the routes and evidence in `docs/PRODUCTION_SOURCE_MATRIX.md`,
-including:
+A package declares only source routes and lifecycle children it actually contains.
+Current packages provide the admitted exhaust presentation, running-state material,
+and the rights-cleared recorded starter. Intake-system physics remains diagnostic and
+does not create an audible route; mechanical-engine and other unimplemented source
+kinds remain unadmitted.
 
-- sourced exhaust topology and outlet radiation;
-- documented intake inlet source/radiation;
-- evidence-backed mechanical engine source;
-- starter child route while engaged;
-- raw stems, audition stems, coherent full mixes, and route-solo/mute evidence;
-- stable physical identities, locations, signed flow, temperatures, areas, geometry,
-  boundary conditions, and rights-cleared assets.
-
-Generic noise, one-shots, the oracle IR, or the legacy two-route split cannot satisfy a
-missing route. A production package is not emitted until every matrix-required source
-is complete and the final listening stop is accepted.
+Package descriptors, child manifests, payload hashes, and rights records must agree
+before publication. Missing sources are not replaced with generic noise, inferred
+one-shots, or compatibility aliases, and the absence of a source is not presented as
+a complete physical vehicle-sound claim.

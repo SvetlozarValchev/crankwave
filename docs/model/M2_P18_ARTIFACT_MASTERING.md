@@ -1,6 +1,6 @@
 # Exact P1.8 artifact and mastering contract
 
-Status: normative local-evaluation contract for the M2 BMW fixture renderer
+Status: frozen local-evaluation contract for the BMW reference fixture
 
 Contract ID: `p18_reference_artifacts_and_mastering_v1`
 

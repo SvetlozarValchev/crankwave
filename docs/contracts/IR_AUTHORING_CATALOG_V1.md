@@ -23,7 +23,7 @@ crankwave inspect-ir-catalog --result-format json
 Success uses `crankwave.cli-result.v1` and returns the exact catalog as a
 JSON object together with its byte SHA-256 and entry count. The command fails closed
 when the catalog is missing or malformed, its `release_identity` differs from the
-running ESO release, or an exposed `id` + `sha256` pair is not admitted as audio by
+running Crankwave release, or an exposed `id` + `sha256` pair is not admitted as audio by
 the adjacent technical catalog.
 
 ## Selection contract
@@ -31,15 +31,15 @@ the adjacent technical catalog.
 An authoring decision is the exact tuple:
 
 ```text
-ESO release_identity + IR id + IR sha256
+Crankwave release_identity + IR id + IR sha256
 ```
 
-The caller first pins the installed ESO release and `release.json` binding, then
+The caller first pins the installed Crankwave release and `release.json` binding, then
 queries that same executable. It may use captions, perceptual tags, measurements,
 recommended ranges, compatibility state, provenance, and rights status to select an
 entry. It must retain the selected release, ID, and digest in its authoring evidence.
 It must not reconstruct an ID from a filename or carry a selection across a different
-ESO release without querying and validating it again.
+Crankwave release without querying and validating it again.
 
 Only the selected, route-used assets belong in `engine.json`. The complete palette
 does not. For example:
@@ -76,7 +76,7 @@ developer asset-root workflow must materialize the exact selected bytes at that
 relative engine-package path. Existing engine JSON remains valid and retains the same
 resolution behavior.
 
-ESO rejects unused asset declarations. An authoring agent must therefore add one
+Crankwave rejects unused asset declarations. An authoring agent must therefore add one
 asset definition for each distinct selected IR, reference it from at least one
 presentation route, and remove definitions no route uses. Multiple routes may share
 one selected definition or select different catalog entries.
@@ -98,6 +98,6 @@ for that release.
 Rights and provenance fields are evidence and policy inputs. The bundled library's
 explicit `MIT` status is based on the upstream repository license recorded by path,
 commit and SHA-256. Redistribution is permitted with that license notice, which the
-installed ESO distribution carries in `licenses/THIRD-PARTY-NOTICES.md`. Consumers
+installed Crankwave distribution carries in `licenses/THIRD-PARTY-NOTICES.md`. Consumers
 must apply the explicit rights status and notice requirement rather than infer terms
 from a filename, source path or caption.

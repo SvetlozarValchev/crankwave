@@ -1,6 +1,6 @@
 # M3 BMW M52B28 resolved request
 
-Status: normative pre-implementation contract
+Status: frozen parity-fixture reference
 
 Request version: `bmw-m52b28-parity-request-v1`
 

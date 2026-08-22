@@ -51,3 +51,12 @@ License: CC0 1.0 Universal
 
 The shared recorded-starter runtime asset is a cropped, equalized,
 level-matched, and resampled derivative of this public-domain recording.
+
+## SPARQ brand mark
+
+Source: `https://playsparq.com/assets/brand/sparq-logo-512.png`
+
+SHA-256: `eef8fee088518ad2a0e60693a5c59ebb47bb7e71cac1b735c0472d21bc3213c1`
+
+The copy at `docs/assets/sparq-logo.png` is displayed only to identify the
+official SPARQ integration. It is not offered under Crankwave's MIT License.

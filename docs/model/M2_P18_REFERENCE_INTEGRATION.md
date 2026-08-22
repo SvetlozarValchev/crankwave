@@ -1,7 +1,6 @@
 # P1.8 isolated reference integration
 
-Status: audio route user-accepted on 2026-07-27; bounded transactional reference
-integration implemented
+Status: opt-in reference tooling retained for deterministic regression
 
 This checkpoint connects the already frozen P1.8 source stage, static IR conversion,
 fixed convolution, mastering, and WAVE encoders without changing their algorithms. It
