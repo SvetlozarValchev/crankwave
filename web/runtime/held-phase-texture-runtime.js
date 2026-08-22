@@ -214,45 +214,6 @@ function cellsByDeclaredLane(row, declaredLoadLanes) {
   return result;
 }
 
-function collapseAliasCoincidentCurves(curves, rpm) {
-  const result = [];
-  for (const curve of curves) {
-    const previous = result.at(-1);
-    if (
-      previous === undefined ||
-      previous.manifoldPressurePaAbs !== curve.manifoldPressurePaAbs
-    ) {
-      result.push(curve);
-      continue;
-    }
-    if (
-      previous.leftCell !== curve.leftCell ||
-      previous.rightCell !== curve.rightCell
-    ) {
-      throw new RangeError(`held load-lane curves coincide at ${rpm} RPM`);
-    }
-    previous.lanes.push(...curve.lanes);
-  }
-  return result;
-}
-
-function combineCellWeights(entries) {
-  const result = [];
-  const byCell = new Map();
-  for (const entry of entries) {
-    if (!(entry.weight > 0)) continue;
-    const existing = byCell.get(entry.cell);
-    if (existing === undefined) {
-      const retained = { cell: entry.cell, weight: entry.weight };
-      byCell.set(entry.cell, retained);
-      result.push(retained);
-    } else {
-      existing.weight += entry.weight;
-    }
-  }
-  return result;
-}
-
 function resolveUrl(value) {
   if (value instanceof URL) return new URL(value.href);
   if (typeof value !== "string" || value.length === 0) {
@@ -1002,6 +963,13 @@ export class HeldPhaseTextureCursor {
   #package;
   #sessionSeed;
   #residualMix;
+  #rowLaneCells;
+  #lanePressures;
+  #laneOrder;
+  #meanRoutes;
+  #residualRoutes;
+  #residualOrdinals;
+  #residualOrdinalCycle = null;
   #active = false;
   #permutationCache = new Map();
   #renderedFrameCount = 0;
@@ -1020,6 +988,21 @@ export class HeldPhaseTextureCursor {
     this.#package = package_;
     this.#sessionSeed = parseUint64(sessionSeed, "sessionSeed");
     this.#residualMix = 1;
+    const declaredLoadLanes = package_.manifest.domain.load_lanes;
+    this.#rowLaneCells = new Map(
+      package_.rows.map((row) => [
+        row,
+        (() => {
+          const byLane = cellsByDeclaredLane(row, declaredLoadLanes);
+          return declaredLoadLanes.map(({ id }) => byLane.get(id));
+        })(),
+      ]),
+    );
+    this.#lanePressures = new Float64Array(declaredLoadLanes.length);
+    this.#laneOrder = new Uint32Array(declaredLoadLanes.length);
+    this.#meanRoutes = new Float64Array(package_.busIds.length);
+    this.#residualRoutes = new Float64Array(package_.busIds.length);
+    this.#residualOrdinals = new Uint32Array(package_.cells.length);
   }
 
   get activeSegmentId() {
@@ -1037,6 +1020,7 @@ export class HeldPhaseTextureCursor {
     this.#cycleBoundaryCount = 0;
     this.#lastCycleOrdinal = null;
     this.#lastDiagnostics = null;
+    this.#residualOrdinalCycle = null;
     this.#minimumMeanGain = Infinity;
     this.#maximumMeanGain = 0;
     this.#minimumResidualGain = Infinity;
@@ -1143,6 +1127,11 @@ export class HeldPhaseTextureCursor {
     let finalMeanGain = 1;
     let finalResidualGain = 1;
     let finalCycleOrdinal = this.#lastCycleOrdinal;
+    const constantWeights =
+      start.rpm === end.rpm &&
+      start.manifoldPressurePaAbs === end.manifoldPressurePaAbs
+        ? this.#weights(start.rpm, start.manifoldPressurePaAbs)
+        : null;
     for (let frame = 0; frame < frameCount; ++frame) {
       const amount = (frame + 1) / frameCount;
       const rpm = interpolate(start.rpm, end.rpm, amount);
@@ -1156,12 +1145,12 @@ export class HeldPhaseTextureCursor {
         end.unwrappedCrankRevolutions,
         amount,
       );
-      const weightedCells = this.#weights(rpm, map);
-      const shiftToCanonicalSamples = weightedCells.reduce(
-        (sum, entry) =>
-          sum + entry.weight * entry.cell.shiftToCanonicalSamples,
-        0,
-      );
+      const weightedCells = constantWeights ?? this.#weights(rpm, map);
+      let shiftToCanonicalSamples = 0;
+      for (const entry of weightedCells) {
+        shiftToCanonicalSamples +=
+          entry.weight * entry.cell.shiftToCanonicalSamples;
+      }
       const phaseCycles = crankRevolutions / 2;
       const enginePhaseSamples =
         positiveModulo(phaseCycles, 1) * this.#package.samplesPerCycle;
@@ -1179,10 +1168,11 @@ export class HeldPhaseTextureCursor {
       }
       this.#lastCycleOrdinal = cycleOrdinalNumber;
       finalCycleOrdinal = cycleOrdinalNumber;
-      const cycleOrdinal = BigInt(cycleOrdinalNumber);
-
-      const meanRoutes = new Float64Array(this.#package.busIds.length);
-      const residualRoutes = new Float64Array(this.#package.busIds.length);
+      this.#prepareResidualOrdinals(cycleOrdinalNumber);
+      const meanRoutes = this.#meanRoutes;
+      const residualRoutes = this.#residualRoutes;
+      meanRoutes.fill(0);
+      residualRoutes.fill(0);
       let targetMeanRms = 0;
       let targetResidualPower = 0;
       let rawResidualExpectedPower = 0;
@@ -1204,7 +1194,7 @@ export class HeldPhaseTextureCursor {
         }
         targetMeanRms += weight * cell.meanCombinedRms;
 
-        const residualCycle = this.#residualOrdinal(cell, cycleOrdinal);
+        const residualCycle = this.#residualOrdinals[cell.index];
         entry.residualOrdinal = residualCycle;
         const residualOffset =
           residualCycle * this.#package.samplesPerCycle;
@@ -1316,72 +1306,98 @@ export class HeldPhaseTextureCursor {
       }
     }
 
-    const declaredLoadLanes = this.#package.manifest.domain.load_lanes;
-    const leftByLane = cellsByDeclaredLane(leftRow, declaredLoadLanes);
-    const rightByLane = leftRow === rightRow
-      ? leftByLane
-      : cellsByDeclaredLane(rightRow, declaredLoadLanes);
-    const laneCurves = collapseAliasCoincidentCurves(
-      declaredLoadLanes.map(({ id: lane }) => {
-        const leftCell = leftByLane.get(lane);
-        const rightCell = rightByLane.get(lane);
-        return {
-          lanes: [lane],
-          leftCell,
-          rightCell,
-          manifoldPressurePaAbs: interpolate(
-            leftCell.manifoldPressurePaAbs,
-            rightCell.manifoldPressurePaAbs,
-            rpmAmount,
-          ),
-        };
-      }).sort(
-        (left, right) =>
-          left.manifoldPressurePaAbs - right.manifoldPressurePaAbs,
-      ),
-      rpm,
-    );
-    for (let index = 1; index < laneCurves.length; ++index) {
-      if (
-        !(laneCurves[index].manifoldPressurePaAbs >
-          laneCurves[index - 1].manifoldPressurePaAbs)
+    const leftCells = this.#rowLaneCells.get(leftRow);
+    const rightCells = leftRow === rightRow
+      ? leftCells
+      : this.#rowLaneCells.get(rightRow);
+    const pressures = this.#lanePressures;
+    const order = this.#laneOrder;
+    for (let lane = 0; lane < leftCells.length; ++lane) {
+      pressures[lane] = interpolate(
+        leftCells[lane].manifoldPressurePaAbs,
+        rightCells[lane].manifoldPressurePaAbs,
+        rpmAmount,
+      );
+      order[lane] = lane;
+    }
+    // The authored lane count is tiny, so a stable insertion sort avoids the
+    // per-sample arrays, objects and comparator calls of Array#sort.
+    for (let index = 1; index < order.length; ++index) {
+      const lane = order[index];
+      let insertion = index;
+      while (
+        insertion > 0 &&
+        pressures[order[insertion - 1]] > pressures[lane]
       ) {
+        order[insertion] = order[insertion - 1];
+        --insertion;
+      }
+      order[insertion] = lane;
+    }
+
+    let curveCount = 0;
+    for (let index = 0; index < order.length; ++index) {
+      const lane = order[index];
+      if (curveCount !== 0) {
+        const previousLane = order[curveCount - 1];
+        if (pressures[lane] === pressures[previousLane]) {
+          if (
+            leftCells[lane] !== leftCells[previousLane] ||
+            rightCells[lane] !== rightCells[previousLane]
+          ) {
+            throw new RangeError(`held load-lane curves coincide at ${rpm} RPM`);
+          }
+          continue;
+        }
+      }
+      order[curveCount++] = lane;
+    }
+    for (let index = 1; index < curveCount; ++index) {
+      if (!(pressures[order[index]] > pressures[order[index - 1]])) {
         throw new RangeError(
           `held load-lane curves are not strictly ordered at ${rpm} RPM`,
         );
       }
     }
 
-    let loadCurves;
-    if (map <= laneCurves[0].manifoldPressurePaAbs) {
-      loadCurves = [{ curve: laneCurves[0], weight: 1 }];
-    } else if (map >= laneCurves.at(-1).manifoldPressurePaAbs) {
-      loadCurves = [{ curve: laneCurves.at(-1), weight: 1 }];
-    } else {
+    let firstCurve = 0;
+    let secondCurve = -1;
+    let firstLoadWeight = 1;
+    let secondLoadWeight = 0;
+    if (map >= pressures[order[curveCount - 1]]) {
+      firstCurve = curveCount - 1;
+    } else if (map > pressures[order[0]]) {
       let rightIndex = 1;
-      while (laneCurves[rightIndex].manifoldPressurePaAbs < map) ++rightIndex;
-      const left = laneCurves[rightIndex - 1];
-      const right = laneCurves[rightIndex];
-      const amount =
-        (map - left.manifoldPressurePaAbs) /
-        (right.manifoldPressurePaAbs - left.manifoldPressurePaAbs);
-      loadCurves = [
-        { curve: left, weight: 1 - amount },
-        { curve: right, weight: amount },
-      ];
+      while (pressures[order[rightIndex]] < map) ++rightIndex;
+      firstCurve = rightIndex - 1;
+      secondCurve = rightIndex;
+      secondLoadWeight =
+        (map - pressures[order[firstCurve]]) /
+        (pressures[order[secondCurve]] - pressures[order[firstCurve]]);
+      firstLoadWeight = 1 - secondLoadWeight;
     }
+
     const result = [];
-    for (const { curve, weight } of loadCurves) {
+    const add = (cell, weight) => {
+      if (!(weight > 0)) return;
+      const existing = result.find((entry) => entry.cell === cell);
+      if (existing === undefined) result.push({ cell, weight });
+      else existing.weight += weight;
+    };
+    for (const [curve, loadWeight] of [
+      [firstCurve, firstLoadWeight],
+      [secondCurve, secondLoadWeight],
+    ]) {
+      if (curve < 0 || !(loadWeight > 0)) continue;
+      const lane = order[curve];
       if (leftRow === rightRow || rpmAmount === 0) {
-        if (weight > 0) result.push({ cell: curve.leftCell, weight });
-        continue;
+        add(leftCells[lane], loadWeight);
+      } else {
+        add(leftCells[lane], loadWeight * (1 - rpmAmount));
+        add(rightCells[lane], loadWeight * rpmAmount);
       }
-      const leftWeight = weight * (1 - rpmAmount);
-      const rightWeight = weight * rpmAmount;
-      if (leftWeight > 0) result.push({ cell: curve.leftCell, weight: leftWeight });
-      if (rightWeight > 0) result.push({ cell: curve.rightCell, weight: rightWeight });
     }
-    return combineCellWeights(result);
+    return result;
   }
 
   #residualOrdinal(cell, cycleOrdinal) {
@@ -1389,6 +1405,16 @@ export class HeldPhaseTextureCursor {
     const bagOrdinal = floorDivBigInt(cycleOrdinal, bagSize);
     const slot = Number(floorModuloBigInt(cycleOrdinal, bagSize));
     return this.#permutation(cell, bagOrdinal)[slot];
+  }
+
+  #prepareResidualOrdinals(cycleOrdinalNumber) {
+    if (this.#residualOrdinalCycle === cycleOrdinalNumber) return;
+    const cycleOrdinal = BigInt(cycleOrdinalNumber);
+    for (const cell of this.#package.cells) {
+      this.#residualOrdinals[cell.index] =
+        this.#residualOrdinal(cell, cycleOrdinal);
+    }
+    this.#residualOrdinalCycle = cycleOrdinalNumber;
   }
 
   #permutation(cell, bagOrdinal) {
