@@ -111,7 +111,7 @@ The carrier contract is documented in
 
 **[sparq-crankwave](https://github.com/SvetlozarValchev/sparq-crankwave)**
 brings engine editing, deterministic baking, and vehicle runtime integration to
-the [SPARQ native game engine](https://playsparq.com).
+the [SPARQ game engine](https://playsparq.com).
 
 ## Browser workbench
 
