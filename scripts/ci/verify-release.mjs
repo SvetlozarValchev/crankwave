@@ -177,6 +177,8 @@ assert(cliRecord, "native CLI is absent from release files");
 assert.equal(cliRecord.sha256, release.native_cli.sha256);
 
 const browserModuleNames = [
+  "crankwave-audio-engine.js",
+  "crankwave-package.js",
   "directional-phase-cell.js",
   "dry-directional-phase-runtime.js",
   "held-phase-texture-runtime.js",
@@ -184,8 +186,6 @@ const browserModuleNames = [
   "release.js",
   "renderer-runtime-compatibility.js",
   "responsive-audio-lifecycle-runtime.js",
-  "crankwave-audio-engine.js",
-  "crankwave-package.js",
   "shared-recorded-starter-runtime.js",
   "state-phase-texture-runtime.js",
   "steady-transient-envelope.js",
