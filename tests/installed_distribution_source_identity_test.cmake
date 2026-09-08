@@ -150,4 +150,37 @@ endif()
 run_git(update-index --no-assume-unchanged
     src/cli/bake_crankwave_command.cpp)
 
+# Release attachments count as clean only when their actual bytes match a clean,
+# tracked manifest. Git ignore must not hide changes to an installed payload.
+run_git(checkout -- src/cli/bake_crankwave_command.cpp web/runtime/runtime.js)
+file(MAKE_DIRECTORY "${source_root}/assets")
+file(WRITE "${source_root}/assets/runtime.bin" "original asset\n")
+file(SHA256 "${source_root}/assets/runtime.bin" asset_sha)
+file(SIZE "${source_root}/assets/runtime.bin" asset_size)
+file(WRITE "${source_root}/.gitignore" "/assets/runtime.bin\n")
+file(WRITE "${source_root}/source-assets.lock.json"
+    "{\"version\":1,\"files\":[{\"path\":\"assets/runtime.bin\",\"size\":${asset_size},\"sha256\":\"${asset_sha}\"}]}\n")
+file(WRITE "${input_paths}"
+    "assets/runtime.bin\nsource-assets.lock.json\nsrc/cli/bake_crankwave_command.cpp\nweb/runtime/runtime.js\n")
+run_git(add -- .gitignore source-assets.lock.json)
+run_git(commit --quiet -m "pin release attachment")
+read_source_identity(asset_identity)
+string(JSON asset_state GET "${asset_identity}" state)
+if(NOT asset_state STREQUAL "clean")
+    message(FATAL_ERROR "verified attachment did not count as clean source")
+endif()
+file(WRITE "${source_root}/assets/runtime.bin" "modified asset\n")
+read_source_identity(changed_asset_identity)
+string(JSON changed_asset_state GET "${changed_asset_identity}" state)
+if(NOT changed_asset_state STREQUAL "dirty")
+    message(FATAL_ERROR "modified ignored attachment did not dirty source identity")
+endif()
+file(WRITE "${source_root}/assets/runtime.bin" "original asset\n")
+file(APPEND "${source_root}/source-assets.lock.json" " \n")
+read_source_identity(changed_lock_identity)
+string(JSON changed_lock_state GET "${changed_lock_identity}" state)
+if(NOT changed_lock_state STREQUAL "dirty")
+    message(FATAL_ERROR "modified asset manifest did not dirty source identity")
+endif()
+
 file(REMOVE_RECURSE "${TEST_DIRECTORY}")
