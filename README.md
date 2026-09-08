@@ -56,15 +56,25 @@ Requirements:
 
 - CMake 3.21 or newer
 - A C++20 compiler
-- Node.js only for browser tooling and JavaScript tests
+- Node.js 20 or newer and GNU tar for the one-time source asset download
 
 ```bash
+node scripts/source-assets.mjs fetch
 cmake -S . -B build -DCRANKWAVE_BUILD_TESTS=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
 The native executable is `build/crankwave`.
+
+Audio and binary test fixtures are distributed as versioned GitHub Release
+attachments. Cloning the repository does not download them or require Git LFS.
+The setup command above restores their original paths, checks the archive and
+every file against `source-assets.lock.json`, and reuses verified local files
+on subsequent runs. No GitHub token is required.
+
+See [source asset setup and maintenance](docs/SOURCE_ASSETS.md) for offline use
+and publishing updated fixtures.
 
 ## Render a scenario
 

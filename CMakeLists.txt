@@ -42,6 +42,14 @@ option(
     "Build the fixed-memory browser WebAssembly module"
     "${EMSCRIPTEN}"
 )
+if(CRANKWAVE_BUILD_TESTS OR CRANKWAVE_BUILD_CLI OR CRANKWAVE_BUILD_WASM)
+    file(READ "${PROJECT_SOURCE_DIR}/source-assets.lock.json" _source_assets_lock)
+    string(JSON _first_source_asset GET "${_source_assets_lock}" files 0 path)
+    if(NOT EXISTS "${PROJECT_SOURCE_DIR}/${_first_source_asset}")
+        message(FATAL_ERROR
+            "Source assets are not installed. Run: node scripts/source-assets.mjs fetch")
+    endif()
+endif()
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
@@ -1285,6 +1293,7 @@ if(CRANKWAVE_BUILD_CLI)
     )
     set(
         _crankwave_release_source_inputs
+        "${PROJECT_SOURCE_DIR}/source-assets.lock.json"
         "${_crankwave_builtin_asset_catalog_source}"
         "${_crankwave_ir_authoring_catalog_source}"
         "${PROJECT_SOURCE_DIR}/LICENSE"

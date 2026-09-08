@@ -27,12 +27,21 @@ jobs:
       matrix:
         replica: [a, b]
     steps:
-      - name: Check out exact tag and LFS payloads
+      - name: Check out exact tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          lfs: true
+          lfs: false
           persist-credentials: false
+
+      - name: Cache source asset attachment
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .work/source-assets/*.tar.gz
+          key: source-assets-${{ hashFiles('source-assets.lock.json') }}
+
+      - name: Fetch verified source assets
+        run: node scripts/source-assets.mjs fetch
 
       - name: Validate tag and release identity
         id: release
@@ -45,8 +54,8 @@ jobs:
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
 
-      - name: Verify LFS materialization
-        run: git lfs fsck
+      - name: Verify source assets
+        run: node scripts/source-assets.mjs verify
 
       - name: Assemble pinned native build environment
         shell: bash
