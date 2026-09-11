@@ -16,6 +16,8 @@ inline constexpr std::string_view kCrankwavePackageSchema =
 inline constexpr std::uint32_t kCrankwavePackageSchemaVersion = 1;
 inline constexpr std::string_view kCrankwaveResponsiveAudioRuntimeKind =
     "responsive-audio";
+inline constexpr std::string_view kCrankwaveDieselMechanicalRuntimeKind =
+    "diesel-mechanical-audio-v1";
 inline constexpr std::size_t kCrankwaveMaximumDescriptorByteCount = 16U * 1024U;
 
 struct CrankwaveRuntimeDescriptor {

@@ -1,4 +1,5 @@
 import { loadHeldTexturePresentationRuntime } from "./held-texture-presentation-runtime.js";
+import { loadDieselMechanicalRuntime } from "./diesel-mechanical-runtime.js";
 import {
   loadSharedRecordedStarterRuntime,
   resolveSharedRecordedStarterManifestUrl,
@@ -187,7 +188,7 @@ function parseDescriptor(entryBytes, entries) {
     ["kind", "manifest_path", "manifest_sha256"],
     "descriptor.runtime",
   );
-  if (runtime.kind !== "responsive-audio") {
+  if (!["responsive-audio", "diesel-mechanical-audio-v1"].includes(runtime.kind)) {
     fail("invalid-descriptor", "descriptor.runtime.kind is unsupported");
   }
   if (!isPortableCrankwavePath(runtime.manifest_path)) {
@@ -477,6 +478,20 @@ export async function loadResponsiveAudioCrankwave(
   });
   const fetchImplementation = createCrankwaveFetch(package_);
   const manifestUrl = `${VIRTUAL_ORIGIN}/${package_.descriptor.runtime.manifestPath}`;
+  if (package_.descriptor.runtime.kind === "diesel-mechanical-audio-v1") {
+    const runtime = await loadDieselMechanicalRuntime(manifestUrl, {
+      fetch: fetchImplementation, crypto: cryptoImplementation,
+    });
+    if (runtime.manifest.engine !== package_.descriptor.engineId) {
+      fail("runtime-identity-mismatch", "diesel runtime engine does not match crankwave.json");
+    }
+    const sourcePath = new URL("engine.json", manifestUrl).pathname.slice(1);
+    const sourceEntry = package_.entries.find((entry) => entry.path === sourcePath);
+    if (sourceEntry?.sha256 !== runtime.manifest.source_sha256) {
+      fail("runtime-identity-mismatch", "diesel source identity does not bind the packaged engine definition");
+    }
+    return Object.freeze({ package: package_, runtime });
+  }
   const runtime = await loadHeldTexturePresentationRuntime(manifestUrl, {
     fetch: fetchImplementation,
     crypto: cryptoImplementation,

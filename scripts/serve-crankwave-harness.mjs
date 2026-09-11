@@ -57,10 +57,12 @@ const mimeTypes = new Map([
 // heap modules that happen to live beside these files in the source tree.
 const runtimeFiles = new Set([
   "device-resampler.js",
+  "diesel-mechanical-runtime.js",
   "directional-phase-cell.js",
   "dry-directional-phase-runtime.js",
   "held-phase-texture-runtime.js",
   "held-texture-presentation-runtime.js",
+  "limiter-performance-runtime.js",
   "pcm-ring-buffer.js",
   "renderer-runtime-compatibility.js",
   "responsive-audio-lifecycle-runtime.js",

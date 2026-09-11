@@ -2,6 +2,7 @@ import {
   HeldTexturePresentationRuntimeCursor,
 } from "./held-texture-presentation-runtime.js";
 import { loadResponsiveAudioCrankwave } from "./crankwave-package.js";
+import { DieselMechanicalRuntimeCursor } from "./diesel-mechanical-runtime.js";
 
 const RUNNING_STATE_MASK = 0x03;
 const DEFAULT_RENDER_FRAMES = 8_192;
@@ -49,7 +50,7 @@ function positiveFrameCount(value) {
   return value;
 }
 
-function copyOperatingPoint(value, minimumRpm, maximumRpm) {
+function copyOperatingPoint(value, minimumRpm, maximumRpm, hasLimiter = false) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     fail("invalid-operating-point", "operating point must be an object");
   }
@@ -60,7 +61,12 @@ function copyOperatingPoint(value, minimumRpm, maximumRpm) {
       `rpm must lie in the CRANKWAVE range ${minimumRpm}..${maximumRpm}`,
     );
   }
+  if (value.limiterCutActive === true && !hasLimiter)
+    fail("limiter-unavailable", "This carrier has no captured limiter performance.");
+  if (value.limiterCutActive !== undefined && typeof value.limiterCutActive !== 'boolean')
+    fail("invalid-operating-point", "limiterCutActive must be boolean");
   return Object.freeze({
+    ...(value.limiterCutActive === undefined ? {} : { limiterCutActive: value.limiterCutActive }),
     rpm,
     throttle01: unitInterval(value.throttle01, "throttle01"),
     load01: unitInterval(value.load01, "load01"),
@@ -240,7 +246,7 @@ export class CrankwaveAudioEngine {
   constructor(loaded, { sessionSeed = "0" } = {}) {
     if (
       loaded?.package?.kind !== "crankwave-package" ||
-      loaded?.runtime?.kind !== "responsive-audio-preview"
+      !["responsive-audio-preview", "diesel-mechanical-audio"].includes(loaded?.runtime?.kind)
     ) {
       fail(
         "invalid-runtime-package",
@@ -249,10 +255,9 @@ export class CrankwaveAudioEngine {
     }
     this.#loaded = loaded;
     this.#runtime = loaded.runtime;
-    this.#cursor = new HeldTexturePresentationRuntimeCursor(
-      this.#runtime,
-      { sessionSeed },
-    );
+    this.#cursor = this.#runtime.kind === "diesel-mechanical-audio"
+      ? new DieselMechanicalRuntimeCursor(this.#runtime)
+      : new HeldTexturePresentationRuntimeCursor(this.#runtime, { sessionSeed });
     const defaultRpm = Math.max(
       this.minimumRpm,
       Math.min(this.maximumRpm, 1_000),
@@ -275,6 +280,16 @@ export class CrankwaveAudioEngine {
 
   get channelCount() {
     return 1;
+  }
+
+  get loadCoordinate() {
+    return this.#runtime.kind === "diesel-mechanical-audio"
+      ? "normalized-fueling" : "manifold-pressure-pa-absolute";
+  }
+
+  get limiter() {
+    const value = this.#runtime.limiterPackage?.manifest;
+    return value ? Object.freeze({ activationRpm: value.activation_rpm, cutSeconds: value.cut_seconds, idleRpm: value.idle_rpm }) : null;
   }
 
   get minimumRpm() {
@@ -325,6 +340,9 @@ export class CrankwaveAudioEngine {
         `rpm must lie in the CRANKWAVE range ${this.minimumRpm}..${this.maximumRpm}`,
       );
     }
+    if (this.#runtime.kind === "diesel-mechanical-audio") {
+      return this.#cursor.manifoldPressure(checkedRpm, unitInterval(load01, "load01"));
+    }
     return mapLoadToPressure(
       this.#runtime.heldPackage,
       checkedRpm,
@@ -337,6 +355,7 @@ export class CrankwaveAudioEngine {
       value,
       this.minimumRpm,
       this.maximumRpm,
+      this.limiter !== null,
     );
     return this.#operatingPoint;
   }
@@ -390,6 +409,7 @@ export class CrankwaveAudioEngine {
       value,
       this.minimumRpm,
       this.maximumRpm,
+      this.limiter !== null,
     );
     if (this.#renderMode === "offline") {
       fail(
@@ -487,6 +507,7 @@ export class CrankwaveAudioEngine {
 
   #endpoint(point, crankRevolutions, rpmSlopeRpmPerSecond) {
     return Object.freeze({
+      ...(this.#runtime.kind === "diesel-mechanical-audio" ? { fueling01: point.load01 } : {}),
       rpm: point.rpm,
       requestedThrottle01: point.throttle01,
       manifoldPressurePaAbs: this.loadManifoldPressurePa(
@@ -495,7 +516,7 @@ export class CrankwaveAudioEngine {
       ),
       unwrappedCrankRevolutions: crankRevolutions,
       rpmSlopeRpmPerSecond,
-      stateMask: RUNNING_STATE_MASK,
+      stateMask: RUNNING_STATE_MASK | (point.limiterCutActive === true ? 0x18 : 0),
     });
   }
 

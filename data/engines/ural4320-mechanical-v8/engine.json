@@ -1,0 +1,240 @@
+{
+  "schema": "crankwave/engine",
+  "model": "mechanical-diesel-v1",
+  "engine": {
+    "id": "ural4320-mechanical-v8",
+    "cylinder": {
+      "bore_m": 0.13,
+      "stroke_m": 0.14,
+      "connecting_rod_length_m": 0.26,
+      "compression_ratio": 16.5,
+      "gas_constant_j_per_kg_k": 287,
+      "specific_heat_ratio": 1.36,
+      "injected_fuel_sensible_energy_j_per_kg": 279027.7777777778,
+      "wall_temperature_k": 450,
+      "wall_conductance_w_per_k": 9.5,
+      "crankcase_pressure_pa_abs": 101325,
+      "initial_charge": {
+        "pressure_pa_abs": 101325,
+        "temperature_k": 350,
+        "oxygen_mass_fraction": 0.23
+      },
+      "intake": {
+        "pressure_pa_abs": 101325,
+        "temperature_k": 320,
+        "oxygen_mass_fraction": 0.23
+      },
+      "exhaust": {
+        "pressure_pa_abs": 105000,
+        "temperature_k": 700,
+        "oxygen_mass_fraction": 0.08
+      },
+      "intake_valve": {
+        "open_angle_atdc_rad": 5.934119456780721,
+        "close_angle_atdc_rad": 10.402162341886203,
+        "maximum_effective_area_m2": 0.0014
+      },
+      "exhaust_valve": {
+        "open_angle_atdc_rad": 2.1642082724729685,
+        "close_angle_atdc_rad": 6.632251157578453,
+        "maximum_effective_area_m2": 0.0012
+      },
+      "combustion": {
+        "lower_heating_value_j_per_kg": 42500000,
+        "stoichiometric_oxygen_kg_per_kg_fuel": 3.4,
+        "preparation_time_s": 0.0004,
+        "premixed_burn_time_s": 8e-05,
+        "reference_ignition_delay_s": 0.001,
+        "reference_temperature_k": 800,
+        "reference_pressure_pa_abs": 4000000,
+        "reference_oxygen_mass_fraction": 0.23,
+        "activation_temperature_k": 4000,
+        "pressure_exponent": 0.5,
+        "oxygen_exponent": 0.5
+      }
+    },
+    "injection_pulses": [
+      {
+        "id": 1,
+        "start_angle_atdc_rad": -0.2617993877991494,
+        "duration_rad": 0.3141592653589793,
+        "full_fuel_mass_kg": 8.3e-05,
+        "opening_fraction_01": 0.1,
+        "closing_fraction_01": 0.2,
+        "minimum_duration_fraction_01": 0.08
+      }
+    ],
+    "cylinders": [
+      {
+        "id": "cylinder-1",
+        "firing_angle_rad": 0,
+        "fuel_trim": 0.98,
+        "structural_gain": 1
+      },
+      {
+        "id": "cylinder-5",
+        "firing_angle_rad": 1.5707963267948966,
+        "fuel_trim": 1.01,
+        "structural_gain": 0.82
+      },
+      {
+        "id": "cylinder-4",
+        "firing_angle_rad": 3.141592653589793,
+        "fuel_trim": 0.97,
+        "structural_gain": 0.94
+      },
+      {
+        "id": "cylinder-2",
+        "firing_angle_rad": 4.71238898038469,
+        "fuel_trim": 1.02,
+        "structural_gain": 0.98
+      },
+      {
+        "id": "cylinder-6",
+        "firing_angle_rad": 6.283185307179586,
+        "fuel_trim": 1,
+        "structural_gain": 0.79
+      },
+      {
+        "id": "cylinder-3",
+        "firing_angle_rad": 7.853981633974483,
+        "fuel_trim": 0.99,
+        "structural_gain": 0.91
+      },
+      {
+        "id": "cylinder-7",
+        "firing_angle_rad": 9.42477796076938,
+        "fuel_trim": 1.015,
+        "structural_gain": 0.8
+      },
+      {
+        "id": "cylinder-8",
+        "firing_angle_rad": 10.995574287564276,
+        "fuel_trim": 0.985,
+        "structural_gain": 0.76
+      }
+    ]
+  },
+  "presentation": {
+    "block_modes": [
+      {
+        "frequency_hz": 410,
+        "q": 1.1,
+        "gain_pcm_per_n": 2.24e-07
+      },
+      {
+        "frequency_hz": 760,
+        "q": 1.1,
+        "gain_pcm_per_n": 3.2e-07
+      },
+      {
+        "frequency_hz": 1210,
+        "q": 1.1,
+        "gain_pcm_per_n": 3.2e-07
+      },
+      {
+        "frequency_hz": 1870,
+        "q": 1.1,
+        "gain_pcm_per_n": 1.4400000000000002e-07
+      },
+      {
+        "frequency_hz": 2760,
+        "q": 1.1,
+        "gain_pcm_per_n": 1.6e-08
+      },
+      {
+        "frequency_hz": 3950,
+        "q": 1.1,
+        "gain_pcm_per_n": 0
+      }
+    ],
+    "block_lowpass_hz": 2000,
+    "exhaust_gain_pcm_per_kg_s": 5,
+    "exhaust_lowpass_hz": 1300,
+    "master_gain": 0.5,
+    "articulation": {
+      "block_highpass_hz": 400,
+      "exhaust_highpass_hz": 30,
+      "cycle_fuel_spread_01": 0.15,
+      "cycle_timing_spread_deg": 2,
+      "variation_seed": 81743
+    },
+    "exhaust_system": {
+      "branches": [
+        {
+          "id": "right-bank",
+          "cylinder_ids": [
+            "cylinder-1",
+            "cylinder-2",
+            "cylinder-3",
+            "cylinder-4"
+          ],
+          "delay_s": 0.0042,
+          "reflection": -0.65,
+          "loss_lowpass_hz": 1800,
+          "gain": 1
+        },
+        {
+          "id": "left-bank",
+          "cylinder_ids": [
+            "cylinder-5",
+            "cylinder-6",
+            "cylinder-7",
+            "cylinder-8"
+          ],
+          "delay_s": 0.0040992,
+          "reflection": -0.65,
+          "loss_lowpass_hz": 1800,
+          "gain": 0.2
+        }
+      ],
+      "radiation_gain_pcm_s2_per_kg": 0.014,
+      "flow_noise_gain_pcm_per_kg_s": 3,
+      "noise_highpass_hz": 100,
+      "noise_seed": 2384320
+    },
+    "pressure_texture": {
+      "decay_s": 0.018,
+      "coherent_gain": 0.25,
+      "compression_gain": 0.12,
+      "stochastic_gain": 16.970562748477143,
+      "seed": 238650
+    }
+  },
+  "bake": {
+    "rpms": [
+      550,
+      650,
+      800,
+      1000,
+      1250,
+      1500,
+      1800,
+      2100,
+      2275
+    ],
+    "fueling": [
+      0,
+      0.06,
+      0.12,
+      0.25,
+      0.5,
+      0.75,
+      1
+    ],
+    "samples_per_cycle": 8192,
+    "minimum_settling_cycles": 10,
+    "maximum_settling_cycles": 40,
+    "settling_relative_tolerance": 0.0005
+  },
+  "provenance": {
+    "physical_parameters": {
+      "origin": "inferred",
+      "note": "Ural-4320 YaMZ-238M2-style working variant; the engine in the user ZapSplat clip is unconfirmed. Manufacturer manual 236-3902150-B RE (2010), pp.6 and 30: V8, bore 130 mm, stroke 140 mm, compression ratio 16.5, firing order 1-5-4-2-6-3-7-8, nominal 2100 RPM, 550-650 RPM idle, static pump timing 15 deg BTDC. Hydraulic SOI is approximated by that setting; dynamic pump advance is not modeled. Full fuel mass 83 mg inferred from 96-100 mm3/cycle and assumed fuel density 850 kg/m3. Rod length, effective valve areas, thermal state and combustion coefficients are authored approximations. This is not a validated YaMZ pressure or torque model. Overlapping valve windows (intake 340-596 deg, exhaust 124-380 deg) and larger effective areas replace restrictive nonoverlapping audition values; window timing and effective-area profiles are authored, not verified from the reference vehicle."
+    },
+    "presentation": {
+      "origin": "artistic",
+      "note": "Authored heavy V8 block and exhaust transfer, intended for comparison with Ural-4320 recordings. Pole Position identifies its Ural recording as a 14.9-litre V8; that does not identify the engine or microphone position in the separate SmartSound/ZapSplat recording. No recording or measured transfer function is embedded. Fuel/cycle timing variation remains a playback approximation. Separate bank delay coloration, mass-flow-rate radiation, and authored flow-gated stochastic jet texture approximate an exhaust-microphone perspective; none are measured exhaust geometry or validated turbulent jet acoustics. Corrected Soundsnap public stream (90.7 s) and publisher startup previews guided acoustic tuning. A per-cylinder positive-rise envelope of fired minus motored pressure excites seeded stochastic block texture, with a separate coherent residual and compression contribution. Exhaust highpass, lossy bank reflections and lower-band flow texture are authored acoustic approximations; no reference PCM, waveform table or measured impulse response is embedded. No within-cycle crankshaft dynamics or physical turbulent flow is claimed."
+    }
+  }
+}

@@ -185,6 +185,8 @@ const browserModuleNames = [
   "renderer-runtime-compatibility.js",
   "responsive-audio-lifecycle-runtime.js",
   "crankwave-audio-engine.js",
+  "diesel-mechanical-runtime.js",
+  "limiter-performance-runtime.js",
   "crankwave-package.js",
   "shared-recorded-starter-runtime.js",
   "state-phase-texture-runtime.js",

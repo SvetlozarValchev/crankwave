@@ -234,6 +234,8 @@ add_library(
         src/simulation/bounded_dyno_constraint.cpp
         src/simulation/centered_slider_crank_equivalent_inertia.cpp
         src/simulation/coupled_free_vehicle_drivetrain.cpp
+        src/simulation/diesel_combustion_v1.cpp
+        src/simulation/diesel_cylinder_v1.cpp
         src/simulation/fixed_horizon_cycle_sampling.cpp
         src/simulation/free_engine_method_registry.cpp
         src/simulation/free_vehicle_method_registry.cpp
@@ -1111,6 +1113,8 @@ if(CRANKWAVE_BUILD_CLI)
         crankwave_cli_support
         STATIC
             src/cli/bake_crankwave_command.cpp
+            src/cli/bake_diesel_command.cpp
+            src/diesel/diesel_sound.cpp
             src/cli/cli_app.cpp
             src/cli/native_asset_root.cpp
             src/cli/native_builtin_asset_catalog.cpp
@@ -1273,6 +1277,8 @@ if(CRANKWAVE_BUILD_CLI)
         "${PROJECT_SOURCE_DIR}/web/runtime/renderer-runtime-compatibility.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/responsive-audio-lifecycle-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/crankwave-audio-engine.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/diesel-mechanical-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/limiter-performance-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/crankwave-package.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/shared-recorded-starter-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/state-phase-texture-runtime.js"

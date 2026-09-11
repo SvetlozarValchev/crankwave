@@ -1,6 +1,7 @@
 #include "bake_crankwave_command.hpp"
 
 #include "bake_crankwave_command_support.hpp"
+#include "bake_diesel_command.hpp"
 #include "native_input_files.hpp"
 #include "native_input_files_support.hpp"
 #include "native_responsive_bake_identity.hpp"
@@ -740,6 +741,10 @@ BakeCrankwaveResult bake_crankwave_native(const BakeCrankwaveRequest &request,
     }
     const auto output = std::get<NativeOutputDirectory>(std::move(output_result));
     const auto canonical_output = output.publication_root / output.publication_name;
+
+    if (auto diesel = try_bake_mechanical_diesel(request, stop_token)) {
+        return std::move(*diesel);
+    }
 
     auto catalog_result = load_builtin_asset_catalog_identity_with_builtin_assets();
     if (const auto *failure = std::get_if<NativeInputError>(&catalog_result)) {

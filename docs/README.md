@@ -33,6 +33,15 @@ versions; they are not retained product-name compatibility layers.
 
 ## Internal technical references
 
+- [`model/DIESEL_COMBUSTION_V1.md`](model/DIESEL_COMBUSTION_V1.md) documents the
+  diesel injection/combustion component and its numerical verification.
+- [`model/DIESEL_CYLINDER_V1.md`](model/DIESEL_CYLINDER_V1.md) documents the internal
+  held-speed diesel cylinder runtime, repeated cycles, valve flow, and conserved
+  gas/fuel/energy accounting.
+- [`model/MECHANICAL_DIESEL_SOUND.md`](model/MECHANICAL_DIESEL_SOUND.md) documents
+  the executable experimental diesel JSON bake, pressure/flow source carrier,
+  mechanical/exhaust playback, and supported application paths.
+
 The remaining files under [`model`](model) and milestone-prefixed contracts
 describe algorithms or frozen oracle behavior still exercised by the current
 implementation. Files under [`oracles`](oracles) record the pinned upstream

@@ -300,9 +300,21 @@ function fakeAudioBootstrap() {
       }
       connect(destination) {
         stats.connections += 1;
+        // Drain silently at device cadence so streaming latency and driving progress
+        // are exercised. A non-consuming fake would freeze at the initial audio lead.
+        const config = this.options.processorOptions;
+        const header = new Int32Array(config.sharedBuffer, 0, config.headerBytes / 4);
+        this.timer = setInterval(() => {
+          const indices = config.indices;
+          if (Atomics.load(header, indices.producerState) !== 1) return;
+          const count = Math.min(960, Atomics.load(header, indices.availableFrames));
+          const read = Atomics.load(header, indices.readFrame);
+          Atomics.store(header, indices.readFrame, (read + count) % config.capacityFrames);
+          Atomics.sub(header, indices.availableFrames, count);
+        }, 20);
         return destination;
       }
-      disconnect() {}
+      disconnect() { clearInterval(this.timer); }
     }
     class DisabledAudioContext {
       constructor() {
@@ -371,6 +383,12 @@ async function pageState(cdp) {
       loadInput: value("#load-input"),
       load: value("#load-output"),
       manifoldPressure: text("#map-output"),
+      loadLabel: text("#load-label"),
+      speed: Number(value("#speed-output")),
+      driveRpm: Number(value("#drive-rpm-output").replaceAll(",", "")),
+      gear: text("#gear-output"),
+      shift: text("#shift-output"),
+      manualVisible: !document.querySelector("#manual-controls").hidden,
       playDisabled: document.querySelector("#play-button")?.disabled ?? true,
       errorMessages: [...document.querySelectorAll(".message.is-error")]
         .map((element) => element.textContent.trim()),
@@ -602,6 +620,10 @@ async function main() {
     assert.match(ready.coverage, /RPM$/u);
     assert.match(ready.packageRate, /kHz$/u);
     assert.match(ready.manifoldPressure, /kPa abs$/u);
+    if (ready.loadLabel === "Fueling") {
+      assert.equal(ready.load, "12%", "Drive idle must keep the diesel firing");
+      assert.match(ready.shift, /^Fueling 12%$/u);
+    }
     const initialMap = ready.manifoldPressure;
 
     await cdp.evaluate(
@@ -635,6 +657,37 @@ async function main() {
       "/harness/audio-worklet.js",
     ]);
 
+    await cdp.evaluate(`(() => {
+      const pedal = document.querySelector("#accelerator-input");
+      pedal.value = "100";
+      pedal.dispatchEvent(new Event("input", { bubbles: true }));
+    })()`);
+    const driven = await waitUntil(
+      () => pageState(cdp),
+      (state) => state.speed > 20 && /D · [234]/u.test(state.gear),
+      "throttle-driven acceleration and automatic upshift", 30_000,
+    );
+    assert.ok(driven.driveRpm > Number(driven.rpmMinimum));
+    assert.deepEqual(driven.errorMessages, []);
+    await cdp.evaluate(`document.querySelector("#reset-drive").click()`);
+    await waitUntil(() => pageState(cdp), (state) => state.speed === 0 && state.gear === "D · 1", "drive reset");
+    if (process.env.CRANKWAVE_TEST_CAPTURED_LIMITER === "1") {
+      await cdp.evaluate(`(() => {
+        document.querySelector("#neutral-button").click();
+        const pedal = document.querySelector("#accelerator-input");
+        pedal.value = "100";
+        pedal.dispatchEvent(new Event("input", { bubbles: true }));
+      })()`);
+      const limited = await waitUntil(() => pageState(cdp),
+        state => state.gear === "N" && /[2-9] cuts/u.test(state.shift),
+        "repeated captured neutral limiter performances", 30_000);
+      assert.ok(limited.driveRpm > 4100 && limited.driveRpm < 4600);
+      assert.deepEqual(limited.errorMessages, []);
+      process.stdout.write(JSON.stringify({limiter: limited.shift, rpm: limited.driveRpm}) + "\n");
+    }
+    await cdp.evaluate(`document.querySelector("#manual-mode").click()`);
+    await waitUntil(() => pageState(cdp), (state) => state.manualVisible, "manual input mode");
+
     const controlled = await cdp.evaluate(`(() => {
       const rpm = document.querySelector("#rpm-input");
       const throttle = document.querySelector("#throttle-input");
@@ -659,7 +712,7 @@ async function main() {
         state.throttle === "73%" &&
         state.load === "81%" &&
         state.manifoldPressure.endsWith("kPa abs") &&
-        state.manifoldPressure !== initialMap,
+        (state.loadLabel === "Fueling" ? state.manifoldPressure === initialMap : state.manifoldPressure !== initialMap),
       "RPM, throttle, load, and derived MAP control update",
       30_000,
     );

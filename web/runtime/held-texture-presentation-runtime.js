@@ -18,6 +18,7 @@ import {
   StatePhaseTextureCursor,
   StatePhaseTextureRuntimeError,
 } from "./state-phase-texture-runtime.js";
+import { loadLimiterPerformance, LimiterPerformanceCursor } from "./limiter-performance-runtime.js";
 import { SteadyTransientEnvelope } from "./steady-transient-envelope.js";
 import { loadResponsiveAudioLifecycleRuntime } from "./responsive-audio-lifecycle-runtime.js";
 import { loadRendererRuntimeCompatibility } from "./renderer-runtime-compatibility.js";
@@ -629,6 +630,13 @@ export async function loadHeldTexturePresentationRuntime(
     manifestUrl,
     { fetch: fetchImplementation, crypto: cryptoImplementation },
   );
+  const limiterPackage = manifest.limiter_package_path === undefined ? null
+    : await loadLimiterPerformance(relativeUrl(manifestUrl, manifest.limiter_package_path, "limiter_package_path"),
+      { fetch: fetchImplementation, crypto: cryptoImplementation });
+  if (limiterPackage !== null && (limiterPackage.manifest.engine !== manifest.engine ||
+      limiterPackage.routes.length !== presentation.routes.length ||
+      limiterPackage.routes.some((r, i) => r.busId !== heldPackage.busIds[i])))
+    fail("limiter performances do not match the running engine's dry routes");
   const motoringPackage = motoringPackageUrl === null
     ? null
     : await loadStatePhaseTextureRuntime(motoringPackageUrl, {
@@ -758,7 +766,8 @@ export async function loadHeldTexturePresentationRuntime(
     sampleRate: CANONICAL_SAMPLE_RATE,
     busIds: Object.freeze([busId]),
     minimumRpm,
-    maximumRpm,
+    maximumRpm: Math.max(maximumRpm, limiterPackage?.manifest.maximum_rpm ?? maximumRpm),
+    limiterPackage,
     heldMinimumRpm: heldPackage.minimumRpm,
     heldMaximumRpm: heldPackage.maximumRpm,
     batchFrames: hasPartitionedTransfer
@@ -823,6 +832,7 @@ export class HeldTexturePresentationRuntimeCursor {
   #directionalBuffers = null;
   #directionalBufferCapacity = 0;
   #motoringCursor = null;
+  #limiterCursor = null;
   #envelope = null;
   #lastEndpoint = null;
   #envelopeFrame = 0;
@@ -871,6 +881,7 @@ export class HeldTexturePresentationRuntimeCursor {
       }),
     );
     this.#envelope = new SteadyTransientEnvelope();
+    this.#limiterCursor = package_.limiterPackage == null ? null : new LimiterPerformanceCursor(package_.limiterPackage);
     this.#motoringCursor = package_.motoringPackage === null
       ? null
       : new StatePhaseTextureCursor(package_.motoringPackage);
@@ -926,6 +937,7 @@ export class HeldTexturePresentationRuntimeCursor {
     }
     this.#envelope?.reset();
     this.#motoringCursor?.reset();
+    this.#limiterCursor?.reset();
     for (const convolver of this.#convolvers) convolver.reset();
     this.#sharedConvolver?.reset();
     this.#master.reset();
@@ -1338,6 +1350,7 @@ export class HeldTexturePresentationRuntimeCursor {
         motoringToRunningTransitionCount:
           this.#motoringToRunningTransitionCount,
       }),
+      limiter: { available: this.#limiterCursor !== null, triggers: this.#limiterCursor?.triggerCount ?? 0 },
       master: this.#master.diagnostics(),
     });
   }
@@ -1363,6 +1376,8 @@ export class HeldTexturePresentationRuntimeCursor {
   #normalizeDirectionalEndpoint(endpoint) {
     return Object.freeze({
       ...endpoint,
+      rpm: this.#limiterCursor === null ? endpoint.rpm : clamp(endpoint.rpm,
+        this.#package.manifest.domain.minimum_rpm, this.#package.manifest.domain.maximum_rpm),
       stateMask: endpoint.stateMask & ~LIMITER_CUT_STATE_MASK,
     });
   }
@@ -1440,9 +1455,9 @@ export class HeldTexturePresentationRuntimeCursor {
     this.#renderHeldRoutes(frameCount, start, end);
     const outputs = this.#heldBuffers.map(() => new Float64Array(frameCount));
     const startCombustionGain =
-      (start.stateMask & LIMITER_CUT_STATE_MASK) === 0 ? 1 : 0;
+      this.#limiterCursor !== null || (start.stateMask & LIMITER_CUT_STATE_MASK) === 0 ? 1 : 0;
     const endCombustionGain =
-      (end.stateMask & LIMITER_CUT_STATE_MASK) === 0 ? 1 : 0;
+      this.#limiterCursor !== null || (end.stateMask & LIMITER_CUT_STATE_MASK) === 0 ? 1 : 0;
     for (let frame = 0; frame < frameCount; ++frame) {
       const amount = (frame + 1) / frameCount;
       const combustionGain =
@@ -1462,7 +1477,9 @@ export class HeldTexturePresentationRuntimeCursor {
         outputs[routeIndex][frame] = drySourceUnits;
       }
     }
-    return outputs;
+    return this.#limiterCursor === null ? outputs : this.#limiterCursor.mix(outputs,
+      (end.stateMask & LIMITER_CUT_STATE_MASK) !== 0,
+      this.#package.sharedFullWetTransfer ? 1 : this.#package.capturedToSourceScale);
   }
 
   #renderDirectionalRoutes(frameCount, start, end, direction) {
@@ -1561,9 +1578,9 @@ export class HeldTexturePresentationRuntimeCursor {
 
     const outputs = this.#heldBuffers.map(() => new Float64Array(frameCount));
     const startCombustionGain =
-      (start.stateMask & LIMITER_CUT_STATE_MASK) === 0 ? 1 : 0;
+      this.#limiterCursor !== null || (start.stateMask & LIMITER_CUT_STATE_MASK) === 0 ? 1 : 0;
     const endCombustionGain =
-      (end.stateMask & LIMITER_CUT_STATE_MASK) === 0 ? 1 : 0;
+      this.#limiterCursor !== null || (end.stateMask & LIMITER_CUT_STATE_MASK) === 0 ? 1 : 0;
     for (let frame = 0; frame < frameCount; ++frame) {
       const risingGain = envelope.risingGain[frame];
       const fallingGain = envelope.fallingGain[frame];
@@ -1595,7 +1612,9 @@ export class HeldTexturePresentationRuntimeCursor {
         outputs[routeIndex][frame] = drySourceUnits;
       }
     }
-    return outputs;
+    return this.#limiterCursor === null ? outputs : this.#limiterCursor.mix(outputs,
+      (end.stateMask & LIMITER_CUT_STATE_MASK) !== 0,
+      this.#package.sharedFullWetTransfer ? 1 : this.#package.capturedToSourceScale);
   }
 
   #renderMotoringDryRoutes(frameCount, start, end) {

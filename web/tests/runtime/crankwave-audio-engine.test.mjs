@@ -621,3 +621,12 @@ test("streaming validates endpoints and counts before advancing", () => {
   assert.equal(engine.diagnostics().renderedFrames, 0);
   assert.equal(engine.diagnostics().runtime.audibleInputFrameCount, 0);
 });
+
+
+test("limiter controls require captured material instead of silently gating running audio", () => {
+  const engine = new CrankwaveAudioEngine(loadedRuntimeFixture());
+  const point = {rpm:1500,throttle01:1,load01:.15,limiterCutActive:true};
+  assert.equal(engine.limiter, null);
+  assert.throws(() => engine.setOperatingPoint(point), assertFacadeError("limiter-unavailable"));
+  assert.throws(() => engine.process(point, 8), assertFacadeError("limiter-unavailable"));
+});

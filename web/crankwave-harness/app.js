@@ -10,7 +10,7 @@ const WORKER_URL = "/harness/harness-worker.js";
 const WORKLET_URL = "/harness/audio-worklet.js";
 const PROCESSOR_NAME = "crankwave-ring-output";
 const MAXIMUM_CARRIER_BYTES = 2 ** 32;
-const OUTPUT_LEAD_SECONDS = 0.35;
+const OUTPUT_LEAD_SECONDS = 0.12;
 
 const elements = {
   securityGate: document.querySelector("#security-gate"),
@@ -33,6 +33,9 @@ const elements = {
   rpmMinimum: document.querySelector("#rpm-minimum"),
   rpmMaximum: document.querySelector("#rpm-maximum"),
   throttleInput: document.querySelector("#throttle-input"),
+  throttleControl: document.querySelector("#throttle-control"),
+  loadLabel: document.querySelector("#load-label"),
+  mapLabel: document.querySelector("#map-label"),
   throttleOutput: document.querySelector("#throttle-output"),
   loadInput: document.querySelector("#load-input"),
   loadOutput: document.querySelector("#load-output"),
@@ -43,6 +46,22 @@ const elements = {
   levelMeter: document.querySelector("#level-meter"),
   levelOutput: document.querySelector("#level-output"),
   audioMessage: document.querySelector("#audio-message"),
+  driveMode: document.querySelector("#drive-mode"),
+  manualMode: document.querySelector("#manual-mode"),
+  drivingControls: document.querySelector("#driving-controls"),
+  manualControls: document.querySelector("#manual-controls"),
+  driveButton: document.querySelector("#drive-button"),
+  neutralButton: document.querySelector("#neutral-button"),
+  resetDrive: document.querySelector("#reset-drive"),
+  acceleratorInput: document.querySelector("#accelerator-input"),
+  brakeInput: document.querySelector("#brake-input"),
+  acceleratorOutput: document.querySelector("#accelerator-output"),
+  brakeOutput: document.querySelector("#brake-output"),
+  speedOutput: document.querySelector("#speed-output"),
+  driveRpmOutput: document.querySelector("#drive-rpm-output"),
+  gearOutput: document.querySelector("#gear-output"),
+  shiftOutput: document.querySelector("#shift-output"),
+  tachometer: document.querySelector("#tachometer"),
 };
 
 const state = {
@@ -61,6 +80,11 @@ const state = {
   audioNode: null,
   ring: null,
   generation: 1,
+  mode: "drive",
+  selector: "D",
+  changingMode: false,
+  driverScheduled: false,
+  keys: new Set(),
 };
 
 function setChip(element, text, chipState) {
@@ -98,7 +122,11 @@ function formatMap(value) {
 }
 
 function updateButtons() {
-  const packageReady = state.metadata !== null && !state.busy;
+  const diesel = state.metadata?.loadCoordinate === "normalized-fueling";
+  elements.throttleControl.hidden = diesel;
+  elements.loadLabel.textContent = diesel ? "Fueling" : "Load";
+  elements.mapLabel.textContent = diesel ? "Intake pressure" : "Derived manifold pressure";
+  const packageReady = state.metadata !== null && !state.busy && !state.changingMode;
   elements.chooseFileButton.disabled = !state.securityAdmitted || state.busy;
   elements.playButton.disabled =
     !state.securityAdmitted || !packageReady || state.playing || state.priming;
@@ -108,8 +136,106 @@ function updateButtons() {
     elements.throttleInput,
     elements.loadInput,
   ]) {
-    input.disabled = !packageReady;
+    input.disabled = !packageReady || state.mode !== "manual";
   }
+  for (const input of [elements.driveMode, elements.manualMode]) input.disabled = !packageReady;
+  for (const input of [elements.driveButton, elements.neutralButton, elements.resetDrive,
+    elements.acceleratorInput, elements.brakeInput]) {
+    input.disabled = !packageReady || state.mode !== "drive";
+  }
+  elements.drivingControls.hidden = state.mode !== "drive";
+  elements.manualControls.hidden = state.mode !== "manual";
+  elements.driveMode.setAttribute("aria-pressed", String(state.mode === "drive"));
+  elements.manualMode.setAttribute("aria-pressed", String(state.mode === "manual"));
+  elements.driveButton.setAttribute("aria-pressed", String(state.selector === "D"));
+  elements.neutralButton.setAttribute("aria-pressed", String(state.selector === "N"));
+}
+
+function renderDriving(driving) {
+  if (driving === null || state.mode !== "drive") return;
+  elements.speedOutput.value = Math.round(driving.speedKph).toString();
+  elements.driveRpmOutput.value = formatRpm(driving.rpm);
+  elements.gearOutput.textContent = driving.selector === "N" ? "N" : `D · ${driving.gear}`;
+  elements.shiftOutput.textContent = driving.limiterCuts > 0 && driving.selector === "N"
+    ? `Limiter ${driving.limiterCutActive ? "CUT" : "recovery"} · ${driving.limiterCuts} cuts`
+    : driving.shifting ? "Shifting…" :
+    driving.selector === "N" ? "Free revving" :
+    `${state.metadata?.loadCoordinate === "normalized-fueling" ? "Fueling" : "Engine load"} ${Math.round(driving.load01 * 100)}%`;
+  elements.tachometer.value = driving.rpm;
+}
+
+function readDriverControls() {
+  const accelerating = state.keys.has("KeyW") || state.keys.has("ArrowUp");
+  const braking = state.keys.has("KeyS") || state.keys.has("ArrowDown");
+  return {
+    selector: state.selector,
+    throttle01: accelerating ? 1 : Number(elements.acceleratorInput.value) / 100,
+    brake01: braking ? 1 : Number(elements.brakeInput.value) / 100,
+  };
+}
+
+function scheduleDriverControls() {
+  const controls = readDriverControls();
+  elements.acceleratorOutput.value = `${Math.round(controls.throttle01 * 100)}%`;
+  elements.brakeOutput.value = `${Math.round(controls.brake01 * 100)}%`;
+  if (state.metadata === null || state.busy || state.mode !== "drive" || state.changingMode) return;
+  if (state.driverScheduled) return;
+  state.driverScheduled = true;
+  // Pedal commands are bounded to display cadence; the Worker owns the driving clock.
+  requestAnimationFrame(() => {
+    state.driverScheduled = false;
+    if (state.mode !== "drive" || state.busy || state.metadata === null || state.changingMode) return;
+    command("set-driver", { controls: readDriverControls() })
+      .then((result) => { if (!state.playing && !state.priming) renderDriving(result.driving); })
+      .catch((error) => setMessage(elements.audioMessage, error.message, true));
+  });
+}
+
+function clearPedals() {
+  state.keys.clear();
+  elements.acceleratorInput.value = "0";
+  elements.brakeInput.value = "0";
+  elements.acceleratorOutput.value = "0%";
+  elements.brakeOutput.value = "0%";
+}
+
+async function changeMode(mode) {
+  if (state.metadata === null || state.busy || state.changingMode || state.mode === mode) return;
+  state.changingMode = true;
+  state.controlRevision += 1;
+  clearPedals();
+  updateButtons();
+  try {
+    const result = await command("set-mode", { mode });
+    state.mode = result.mode;
+    state.selector = result.driving.selector;
+    applyOperatingPoint(result.operatingPoint, result.manifoldPressurePaAbs);
+    renderDriving(result.driving);
+  } catch (error) {
+    setMessage(elements.audioMessage, error.message, true);
+  } finally {
+    state.changingMode = false;
+    updateButtons();
+  }
+}
+
+function selectGear(selector) {
+  if (elements.driveButton.disabled) return;
+  state.selector = selector;
+  updateButtons();
+  scheduleDriverControls();
+}
+
+async function resetDrive() {
+  clearPedals();
+  state.selector = "D";
+  try {
+    const result = await command("reset-drive");
+    renderDriving(result.driving);
+  } catch (error) {
+    setMessage(elements.audioMessage, error.message, true);
+  }
+  updateButtons();
 }
 
 function readOperatingPoint() {
@@ -165,6 +291,10 @@ function rejectPendingRequests(error) {
 }
 
 function acceptStats(message) {
+  if (message.mode === "drive" && state.mode === "drive") {
+    renderDriving(message.driving);
+    elements.mapOutput.textContent = formatMap(message.manifoldPressurePaAbs);
+  }
   const sampleRate = Number(message.sampleRate);
   const availableFrames = Number(message.availableFrames);
   elements.bufferOutput.textContent =
@@ -305,6 +435,15 @@ async function loadFile(file) {
     const bytes = await file.arrayBuffer();
     const result = await command("load-package", { bytes }, [bytes]);
     state.metadata = result;
+    state.mode = result.mode;
+    state.selector = "D";
+    clearPedals();
+    elements.tachometer.min = "0";
+    elements.tachometer.max = String(result.maximumRpm);
+    elements.tachometer.low = "0";
+    elements.tachometer.high = String(result.maximumRpm * 0.9);
+    elements.tachometer.optimum = String(result.minimumRpm);
+    renderDriving(result.driving);
 
     elements.engineId.textContent = result.engineId;
     elements.rpmCoverage.textContent =
@@ -334,12 +473,13 @@ async function loadFile(file) {
 
 function scheduleOperatingPoint() {
   renderControlValues();
-  if (state.metadata === null || state.busy) return;
+  if (state.metadata === null || state.busy || state.mode !== "manual" || state.changingMode) return;
   state.controlRevision += 1;
   if (state.controlScheduled) return;
   state.controlScheduled = true;
   requestAnimationFrame(() => {
     state.controlScheduled = false;
+    if (state.mode !== "manual" || state.busy || state.changingMode || state.metadata === null) return;
     const revision = state.controlRevision;
     const operatingPoint = readOperatingPoint();
     command("set-operating-point", { operatingPoint })
@@ -426,6 +566,8 @@ async function play() {
 
 async function stop() {
   if (!state.playing && !state.priming) return;
+  clearPedals();
+  scheduleDriverControls();
   try {
     await command("stop");
   } catch (error) {
@@ -502,6 +644,44 @@ function bindEvents() {
   }
   elements.playButton.addEventListener("click", () => void play());
   elements.stopButton.addEventListener("click", () => void stop());
+  elements.driveMode.addEventListener("click", () => void changeMode("drive"));
+  elements.manualMode.addEventListener("click", () => void changeMode("manual"));
+  elements.driveButton.addEventListener("click", () => selectGear("D"));
+  elements.neutralButton.addEventListener("click", () => selectGear("N"));
+  elements.resetDrive.addEventListener("click", () => void resetDrive());
+  elements.acceleratorInput.addEventListener("input", scheduleDriverControls);
+  elements.brakeInput.addEventListener("input", scheduleDriverControls);
+  window.addEventListener("keydown", (event) => {
+    if (event.ctrlKey || event.altKey || event.metaKey || event.repeat ||
+        elements.acceleratorInput.disabled || event.target?.isContentEditable ||
+        ["TEXTAREA", "SELECT"].includes(event.target?.tagName)) return;
+    // Arrow keys still operate a focused slider. Letter pedal keys work throughout the page.
+    if (event.target?.tagName === "INPUT" && event.code.startsWith("Arrow")) return;
+    if (event.code === "KeyD" || event.code === "KeyN") {
+      event.preventDefault();
+      selectGear(event.code === "KeyD" ? "D" : "N");
+    } else if (["KeyW", "KeyS", "ArrowUp", "ArrowDown"].includes(event.code)) {
+      event.preventDefault();
+      state.keys.add(event.code);
+      scheduleDriverControls();
+    }
+  });
+  window.addEventListener("keyup", (event) => {
+    if (state.keys.delete(event.code)) scheduleDriverControls();
+  });
+  const releaseKeys = () => {
+    if (state.keys.size === 0) return;
+    state.keys.clear();
+    // Send directly: requestAnimationFrame is suspended in a hidden tab.
+    const controls = readDriverControls();
+    elements.acceleratorOutput.value = `${Math.round(controls.throttle01 * 100)}%`;
+    elements.brakeOutput.value = `${Math.round(controls.brake01 * 100)}%`;
+    if (state.metadata !== null && state.mode === "drive" && !state.busy && !state.changingMode) {
+      void command("set-driver", { controls }).catch((error) => setMessage(elements.audioMessage, error.message, true));
+    }
+  };
+  window.addEventListener("blur", releaseKeys);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) releaseKeys(); });
 }
 
 window.addEventListener("beforeunload", () => {

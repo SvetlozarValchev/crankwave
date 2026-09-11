@@ -184,7 +184,8 @@ parse_crankwave_package_descriptor(const std::string_view json) {
         return *failure;
     }
     const auto kind = std::get<std::string_view>(kind_result);
-    if (kind != kCrankwaveResponsiveAudioRuntimeKind) {
+    if (kind != kCrankwaveResponsiveAudioRuntimeKind &&
+        kind != kCrankwaveDieselMechanicalRuntimeKind) {
         return error(CrankwavePackageErrorCode::invalid_value, "/runtime/kind",
                      "CRANKWAVE runtime kind is unsupported");
     }
