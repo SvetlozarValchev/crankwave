@@ -3,7 +3,7 @@ import {webcrypto} from "node:crypto";
 import test from "node:test";
 
 import {CrankwaveAudioEngine} from "../../runtime/crankwave-audio-engine.js";
-import {DieselBiquad, DieselExhaustSystem, DieselPressureTexture, DieselMechanicalTexture, DieselLowFuelExhaust, DieselCoastingBalance, DieselCoastingFlowTexture} from "../../runtime/diesel-mechanical-runtime.js";
+import {DieselBiquad, DieselExhaustSystem, DieselPressureTexture, DieselMechanicalTexture, DieselLowFuelExhaust, DieselCoastingBalance, DieselCoastingFlowTexture, DieselLoadedPressureTexture} from "../../runtime/diesel-mechanical-runtime.js";
 
 import {digest, jsonBytes, packTestCarrier} from "./crankwave-test-carrier.mjs";
 
@@ -952,4 +952,90 @@ test('coasting flow requires version 10, its dependencies and a bounded spectrum
     m => {m.presentation.coasting_flow_texture.seed = 0.5;},
     m => {m.presentation.coasting_flow_texture.extra = 1;}
   ]) await assert.rejects(load(flowingCoastFixture(mutate)));
+});
+
+const loadedPressureParameters = {decay_s: 0.012, attack_s: 0.004,
+  secondary_bank_gain: 0.55, fueling_start_01: 0.2, fueling_full_01: 0.5, transition_s: 0.04};
+function roundedLoadedFixture(mutate = () => {}) {
+  return flowingCoastFixture((m, samples) => {
+    m.version = 11;m.methods[2] = 'pressure-force-modal-radiation-v11';
+    m.presentation.loaded_pressure_texture = {...loadedPressureParameters};
+    mutate(m, samples);
+  });
+}
+
+test('rounded loaded texture preserves low fuel PCM and changes only combustion radiation', async () => {
+  const prior = await load(flowingCoastFixture()), current = await load(roundedLoadedFixture());
+  for (const fuel of [0, 0.06, 0.12, 0.2]) {
+    for (const e of [prior, current]) {e.setOperatingPoint({rpm: 1200, load01: fuel, throttle01: 0});e.reset();}
+    assert.deepEqual(current.render(45000), prior.render(45000));
+  }
+  const signals = [], stats = [];
+  for (const e of [prior, current]) {
+    e.setOperatingPoint({rpm: 1600, load01: 0.75, throttle01: 0.75});e.reset();
+    signals.push(e.render(192000));stats.push(e.diagnostics().runtime);
+  }
+  assert.notDeepEqual(signals[0], signals[1]);
+  assert.notEqual(stats[0].blockRms, stats[1].blockRms);
+  for (const stem of ['exhaustRms', 'valveRms', 'pumpingRms', 'coastingFlowRms'])
+    assert.equal(stats[0][stem], stats[1][stem]);
+});
+
+test('rounded bank excitation has a delayed attack, bounded load fade and no extra motoring force', () => {
+  const base = {decay_s: 0.018, coherent_gain: 0, compression_gain: 0.12, stochastic_gain: 17, seed: 123};
+  const cylinders = [{id: 'one', structural_gain: 1}, {id: 'two', structural_gain: 0.8}];
+  const branches = [{gain: 1, cylinder_ids: ['one']}, {gain: 0.2, cylinder_ids: ['two']}];
+  for (const rate of [24000, 192000]) {
+    const texture = new DieselLoadedPressureTexture(base, loadedPressureParameters, cylinders, branches, rate);
+    texture.setFueling(0.75);
+    const pcm = Float64Array.from({length: rate * 0.1}, (_, i) => texture.process(0, i === 0 ? 1000 : 0, 0));
+    assert.ok(rms(pcm.subarray(rate * 0.004, rate * 0.006)) > rms(pcm.subarray(0, rate * 0.0005)) * 2,
+        'stochastic pulse rises over milliseconds rather than arriving as a bang');
+    const energy = texture.weights.reduce((s, w, i) => s + (w * cylinders[i].structural_gain) ** 2, 0);
+    assert.ok(Math.abs(energy - 1.64) < 1e-12);
+    texture.reset();texture.setFueling(0);
+    for (let i = 0; i < rate; ++i) {
+      const old = texture.amount;texture.setFueling(0.75);
+      assert.ok(texture.amount >= old && texture.amount - old <= 1 / (rate * 0.04));
+    }
+    assert.equal(texture.amount, 1);
+    for (let i = 0; i < rate; ++i) texture.setFueling(0);
+    assert.equal(texture.amount, 0);
+    texture.reset();texture.setFueling(0.75);
+    for (let i = 0; i < 1000; ++i) assert.equal(texture.process(0, 123, 123), 123 * 0.12);
+    const silent = new DieselLoadedPressureTexture(base, loadedPressureParameters,
+        cylinders.map(c => ({...c, structural_gain: 0})), branches, rate);
+    silent.setFueling(1);
+    assert.ok(Number.isFinite(silent.process(0, 100, 0)), 'muted structural routing remains finite');
+  }
+});
+
+test('rounded loaded playback replays across partitions and repeated fuel transitions', async () => {
+  const e = await load(roundedLoadedFixture());
+  e.setOperatingPoint({rpm: 1200, load01: 0.75, throttle01: 0.75});e.reset();
+  const pcm = e.render(45000);e.reset();
+  assert.deepEqual(Float32Array.from([1, 127, 8193, 36679].flatMap(n => [...e.render(n)])), pcm);
+  const run = () => {
+    e.setOperatingPoint({rpm: 1200, load01: 0.12, throttle01: 0});e.reset();
+    return Array.from({length: 100}, (_, i) => e.process({rpm: 1200 + (i % 40) * 10,
+      load01: i % 50 < 20 ? 0.75 : 0, throttle01: i % 50 < 20 ? 0.75 : 0}));
+  };
+  const first = run();assert.ok(first.every(b => b.every(x => Number.isFinite(x) && Math.abs(x) < 1)));
+  assert.deepEqual(run(), first);
+});
+
+test('rounded loaded texture requires version 11 and a valid fade interval', async () => {
+  for (const mutate of [
+    m => {delete m.presentation.loaded_pressure_texture;},
+    m => {delete m.presentation.coasting_flow_texture;},
+    m => {m.version = 10;m.methods[2] = 'pressure-force-modal-radiation-v10';},
+    m => {m.version = 12;m.methods[2] = 'pressure-force-modal-radiation-v12';},
+    m => {m.presentation.loaded_pressure_texture.decay_s = 0;},
+    m => {m.presentation.loaded_pressure_texture.attack_s = 0;},
+    m => {m.presentation.loaded_pressure_texture.secondary_bank_gain = 2;},
+    m => {m.presentation.loaded_pressure_texture.fueling_start_01 = 0;},
+    m => {m.presentation.loaded_pressure_texture.fueling_full_01 = 0.2;},
+    m => {m.presentation.loaded_pressure_texture.transition_s = 0;},
+    m => {m.presentation.loaded_pressure_texture.extra = 1;}
+  ]) await assert.rejects(load(roundedLoadedFixture(mutate)));
 });

@@ -792,6 +792,51 @@
             }
           },
           "description": "Authored bank-flow-gated coasting texture. Native and runtime admission additionally require lowpass_hz >= 2 * highpass_hz."
+        },
+        "loaded_pressure_texture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decay_s",
+            "attack_s",
+            "secondary_bank_gain",
+            "fueling_start_01",
+            "fueling_full_01",
+            "transition_s"
+          ],
+          "properties": {
+            "decay_s": {
+              "type": "number",
+              "minimum": 0.005,
+              "maximum": 0.03
+            },
+            "attack_s": {
+              "type": "number",
+              "minimum": 0.001,
+              "maximum": 0.01
+            },
+            "secondary_bank_gain": {
+              "type": "number",
+              "minimum": 0.2,
+              "maximum": 1
+            },
+            "fueling_start_01": {
+              "type": "number",
+              "minimum": 0.12,
+              "maximum": 0.4
+            },
+            "fueling_full_01": {
+              "type": "number",
+              "minimum": 0.2,
+              "maximum": 1
+            },
+            "transition_s": {
+              "type": "number",
+              "minimum": 0.005,
+              "maximum": 0.2
+            }
+          },
+          "description": "Rounded stochastic combustion radiation under load. Native and runtime admission additionally require fueling_full_01 > fueling_start_01."
         }
       },
       "dependentRequired": {
@@ -818,6 +863,9 @@
         ],
         "coasting_flow_texture": [
           "coasting_balance"
+        ],
+        "loaded_pressure_texture": [
+          "coasting_flow_texture"
         ]
       },
       "allOf": [

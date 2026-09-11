@@ -112,7 +112,7 @@ int main() {
                "Ural bank/exhaust model compiles");
         const auto &ural_definition =
             std::get<crankwave::diesel::SoundDefinition>(ural);
-        expect(ural_definition.runtime_version == 10 &&
+        expect(ural_definition.runtime_version == 11 &&
                    ural_definition.cylinder.bore_m == 0.13 &&
                    ural_definition.cylinder.stroke_m == 0.14 &&
                    ural_definition.cylinder.compression_ratio == 16.5,
@@ -143,7 +143,12 @@ int main() {
               std::pair{"\"lowpass_hz\": 1800", "\"lowpass_hz\": 4000"},
               std::pair{"\"envelope_s\": 0.002", "\"envelope_s\": 0"},
               std::pair{"\"seed\": 432008", "\"seed\": 0.5"},
-              std::pair{"\"coasting_balance\"", "\"missing_coasting_balance\""}}) {
+              std::pair{"\"coasting_balance\"", "\"missing_coasting_balance\""},
+              std::pair{"\"decay_s\": 0.012", "\"decay_s\": 0"},
+              std::pair{"\"attack_s\": 0.004", "\"attack_s\": 0"},
+              std::pair{"\"secondary_bank_gain\": 0.55", "\"secondary_bank_gain\": 2"},
+              std::pair{"\"fueling_start_01\": 0.2", "\"fueling_start_01\": 0"},
+              std::pair{"\"fueling_full_01\": 0.5", "\"fueling_full_01\": 0.2"}}) {
             auto invalid = ural_source;
             replace(invalid, from, to);
             expect(std::holds_alternative<crankwave::diesel::SoundError>(

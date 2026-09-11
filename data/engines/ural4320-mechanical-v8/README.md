@@ -79,6 +79,16 @@ The earlier idle-only gain adjustment was rejected and removed. This definition
 uses the corrected reference to guide a new excitation and exhaust response.
 It remains an experimental acoustic approximation, not a measured Ural reproduction.
 
+Version 11 integrates the softer rev texture accepted after the first bank-pulse
+experiment was too sharp. Under load, stochastic combustion radiation uses a
+4 ms rounded attack, 12 ms decay and energy-normalized dominant/secondary bank
+weights of 1:0.55. It fades in between 0.2 and 0.5 fueling with a 40 ms transition.
+The quieter idle and coasting retain their accepted response; coherent pressure,
+exhaust flow, valve contacts, intake breath and the physical captures are unchanged.
+See [REV_CHARACTER.md](REV_CHARACTER.md) for the reference analysis and listening
+feedback that led to this choice, and [COASTING_BASELINE.md](COASTING_BASELINE.md)
+for the earlier accepted checkpoint.
+
 ```bash
 mkdir -p artifacts/diesel-sound
 build/crankwave bake-crankwave \

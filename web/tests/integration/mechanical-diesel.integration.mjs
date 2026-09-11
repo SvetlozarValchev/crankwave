@@ -70,7 +70,8 @@ try {
   {
     const {manifest, samples} = loaded.runtime;
     if (authored.presentation.mechanical_texture) {
-      assert.equal(manifest.version, authored.presentation.coasting_flow_texture ? 10 :
+      assert.equal(manifest.version, authored.presentation.loaded_pressure_texture ? 11 :
+          authored.presentation.coasting_flow_texture ? 10 :
           authored.presentation.coasting_balance ? 9 :
           authored.presentation.low_fuel_exhaust ? 8 :
           authored.presentation.mechanical_texture.valve_attack_s ? 7 : 6);

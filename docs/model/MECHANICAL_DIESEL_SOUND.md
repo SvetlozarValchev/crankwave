@@ -297,6 +297,35 @@ This extension requires `coasting_balance` and its dependencies. `coastingFlowRm
 reports its contribution after the coasting fade, before master gain; it is also
 included in `exhaustRms`. Prior version playback and settled fueled PCM are retained.
 
+Version 11 adds `loaded_pressure_texture`, integrating the user-accepted softer
+rev experiment. It maintains the original pressure-texture history and a second
+envelope driven by the same positive fired-minus-motored pressure increments.
+The second envelope decays with `decay_s`, then passes through first-order amplitude
+smoothing with time constant `attack_s`. Both use the same deterministic per-cylinder
+noise stream. This rounds the pulse onset without low-passing the final audio.
+
+The strongest authored exhaust bank(s) receive stochastic radiation weight 1;
+the other banks receive `secondary_bank_gain`. Weights are normalized by the sum
+of squared structural cylinder gains, with a finite fallback for muted routing.
+An approximate isolated-pulse energy correction of
+`sqrt(base_decay * (decay_s + attack_s) / decay_s**2)` scales stochastic gain.
+Coherent pressure and motored compression retain their original contributions.
+This is an acoustic perspective approximation, not changed cylinder fueling.
+
+The Ural uses 4 ms attack smoothing, 12 ms decay and secondary-bank gain 0.55.
+A smoothstep target between 0.2 and 0.5 normalized fueling, followed by a 40 ms
+exponential fade, blends the original and rounded pressure textures before the
+existing block radiation filters. Both histories remain warm while bypassed.
+Reset clears both envelopes and the load fade. Fully loaded playback reproduces
+the accepted standalone rounded-rev audition; settled idle/coasting and old
+carriers preserve their earlier PCM.
+
+Admission bounds are decay 5–30 ms, attack 1–10 ms, secondary-bank gain 0.2–1,
+starting fuel 0.12–0.4, full fuel 0.2–1 and transition 5–200 ms. Full fuel must
+exceed starting fuel. This version requires `coasting_flow_texture` and its
+dependencies. The existing `blockRms` diagnostic includes the mixed radiation;
+exhaust, valve, intake-breath and coasting-flow diagnostics are unchanged.
+
 The diesel cursor uses 3,840-frame batches. Streaming `process()` retains the
 facade's one-batch latency rule, giving 20 ms of declared internal latency; the
 browser ring adds its own lead. Offline `render()` has no added streaming delay.
@@ -324,7 +353,9 @@ Version 7 additionally requires `mechanical_texture.valve_attack_s` and selects
 Version 9 additionally requires `coasting_balance` and selects
 `pressure-force-modal-radiation-v9`. Version 10 additionally requires
 `coasting_flow_texture` and selects `pressure-force-modal-radiation-v10`.
-Versions 1–3 and 5–9 retain their existing playback paths.
+Version 11 additionally requires `loaded_pressure_texture` and selects
+`pressure-force-modal-radiation-v11`. Versions 1–3 and 5–10 retain their existing
+playback paths.
 All versions bind:
 
 - engine ID, method IDs, clocks, and the normalized-fueling coordinate;

@@ -285,7 +285,8 @@ parse_sound_definition(std::string_view source) {
              {"block_modes", "block_lowpass_hz", "exhaust_gain_pcm_per_kg_s",
               "exhaust_lowpass_hz", "master_gain"},
              {"articulation", "exhaust_system", "pressure_texture", "mechanical_texture",
-              "low_fuel_exhaust", "coasting_balance", "coasting_flow_texture"});
+              "low_fuel_exhaust", "coasting_balance", "coasting_flow_texture",
+              "loaded_pressure_texture"});
         number(presentation, "block_lowpass_hz", "/presentation", 2000, 8000);
         number(presentation, "exhaust_lowpass_hz", "/presentation", 100, 3000);
         number(presentation, "exhaust_gain_pcm_per_kg_s", "/presentation", 0, 100);
@@ -443,6 +444,21 @@ parse_sound_definition(std::string_view source) {
             const auto seed = number(flow, "seed", path, 0, 4294967295.0);
             require(std::floor(seed) == seed, path + "/seed", "expected integer");
             d.runtime_version = 10;
+        }
+        if (const auto loaded = presentation.find("loaded_pressure_texture"); loaded.valid()) {
+            const std::string path = "/presentation/loaded_pressure_texture";
+            require(d.runtime_version == 10, path,
+                    "loaded pressure texture requires coasting flow texture and its dependencies");
+            keys(loaded, path, {"decay_s", "attack_s", "secondary_bank_gain",
+                                "fueling_start_01", "fueling_full_01", "transition_s"});
+            number(loaded, "decay_s", path, 0.005, 0.03);
+            number(loaded, "attack_s", path, 0.001, 0.01);
+            number(loaded, "secondary_bank_gain", path, 0.2, 1);
+            const auto start = number(loaded, "fueling_start_01", path, 0.12, 0.4);
+            const auto full = number(loaded, "fueling_full_01", path, 0.2, 1);
+            require(full > start, path, "loaded fuel interval must be positive");
+            number(loaded, "transition_s", path, 0.005, 0.2);
+            d.runtime_version = 11;
         }
         d.presentation_json = json(presentation);
         const auto provenance = root.find("provenance");

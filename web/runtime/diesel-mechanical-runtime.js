@@ -95,7 +95,7 @@ export async function loadDieselMechanicalRuntime(
       ],
       "manifest");
   requireValue(
-      m.schema === SCHEMA && [1, 2, 3, 5, 6, 7, 8, 9, 10].includes(m.version) &&
+      m.schema === SCHEMA && [1, 2, 3, 5, 6, 7, 8, 9, 10, 11].includes(m.version) &&
           m.model === "mechanical-diesel-v1",
       "Unsupported diesel model");
   requireValue(
@@ -190,7 +190,8 @@ export async function loadDieselMechanicalRuntime(
         ...(m.version >= 6 ? ["mechanical_texture"] : []),
         ...(m.version >= 8 ? ["low_fuel_exhaust"] : []),
         ...(m.version >= 9 ? ["coasting_balance"] : []),
-        ...(m.version >= 10 ? ["coasting_flow_texture"] : [])
+        ...(m.version >= 10 ? ["coasting_flow_texture"] : []),
+        ...(m.version >= 11 ? ["loaded_pressure_texture"] : [])
       ],
       "presentation");
   if (m.version >= 2) {
@@ -314,6 +315,18 @@ export async function loadDieselMechanicalRuntime(
     number(c.envelope_s, 0.0005, 0.02, "coasting flow envelope");
     number(c.seed, 0, 0xffffffff, "coasting flow seed");
     requireValue(Number.isInteger(c.seed), "Coasting flow seed must be integral");
+  }
+  if (m.version >= 11) {
+    const c = p.loaded_pressure_texture;
+    object(c, ["decay_s", "attack_s", "secondary_bank_gain", "fueling_start_01",
+      "fueling_full_01", "transition_s"], "loaded pressure texture");
+    number(c.decay_s, 0.005, 0.03, "loaded decay");
+    number(c.attack_s, 0.001, 0.01, "loaded attack");
+    number(c.secondary_bank_gain, 0.2, 1, "secondary bank gain");
+    number(c.fueling_start_01, 0.12, 0.4, "loaded starting fuel");
+    number(c.fueling_full_01, 0.2, 1, "loaded full fuel");
+    requireValue(c.fueling_full_01 > c.fueling_start_01, "Loaded fuel interval must be positive");
+    number(c.transition_s, 0.005, 0.2, "loaded transition");
   }
   number(p.block_lowpass_hz, 2000, 8000, "block lowpass");
   number(p.exhaust_lowpass_hz, 100, 3000, "exhaust lowpass");
@@ -639,6 +652,59 @@ export class DieselPressureTexture {
   }
 }
 
+// Rounded combustion radiation under load. Both envelopes follow the same
+// pressure increments and seeded noise. Bank weighting affects only stochastic
+// radiation, not injection, coherent pressure, exhaust or valve contact sources.
+export class DieselLoadedPressureTexture {
+  constructor(baseParameters, parameters, cylinders, branches, sampleRate = SAMPLE_RATE) {
+    this.base = new DieselPressureTexture(baseParameters, cylinders, sampleRate);
+    this.parameters = parameters;
+    this.release = Math.exp(-1 / (sampleRate * parameters.decay_s));
+    this.attackStep = -Math.expm1(-1 / (sampleRate * parameters.attack_s));
+    this.mixStep = -Math.expm1(-1 / (sampleRate * parameters.transition_s));
+    this.gain = baseParameters.stochastic_gain * Math.sqrt(baseParameters.decay_s *
+        (parameters.decay_s + parameters.attack_s) / parameters.decay_s ** 2);
+    const dominant = Math.max(...branches.map(b => b.gain));
+    const raw = cylinders.map(c => branches.find(b => b.cylinder_ids.includes(c.id)).gain ===
+        dominant ? 1 : parameters.secondary_bank_gain);
+    const energy = cylinders.reduce((s, c) => s + c.structural_gain ** 2, 0);
+    const weighted = cylinders.reduce((s, c, i) => s + (c.structural_gain * raw[i]) ** 2, 0);
+    const normalization = weighted > 0 ? Math.sqrt(energy / weighted) : 1;
+    this.weights = raw.map(w => w * normalization);
+    this.envelopes = cylinders.map(() => ({decay: 0, rounded: 0}));
+    this.reset();
+  }
+  reset() {
+    this.base.reset();
+    this.amount = null;
+    for (const e of this.envelopes) { e.decay = 0; e.rounded = 0; }
+  }
+  setFueling(fueling) {
+    const p = this.parameters;
+    const u = Math.max(0, Math.min(1,
+        (fueling - p.fueling_start_01) / (p.fueling_full_01 - p.fueling_start_01)));
+    const target = u * u * (3 - 2 * u);
+    if (this.amount === null) this.amount = target;
+    this.amount += (target - this.amount) * this.mixStep;
+    if (Math.abs(target - this.amount) < 1e-9) this.amount = target;
+  }
+  process(index, fired, motored) {
+    const previous = this.base.cylinders[index].previous;
+    const baseline = this.base.process(index, fired, motored);
+    const residual = fired - motored;
+    const e = this.envelopes[index];
+    e.decay = e.decay * this.release + Math.max(0, residual - previous);
+    e.rounded += (e.decay - e.rounded) * this.attackStep;
+    const noise = (this.base.cylinders[index].rng / 0x80000000 - 1) * this.base.noiseScale;
+    const p = this.base.parameters;
+    const rounded = p.compression_gain * motored + p.coherent_gain * residual +
+        this.gain * e.rounded * noise * this.weights[index];
+    // Keep both histories warm and bypass exactly after the load fade settles.
+    return this.amount === 0 ? baseline : this.amount === 1 ? rounded :
+        baseline + (rounded - baseline) * this.amount;
+  }
+}
+
 // Authored valvetrain impacts and intake breath, independent of injected fuel.
 // Closure phases come from the native valve windows; resonances decay in seconds.
 // This does not solve contact forces or intake gas flow. No recorded audio is used.
@@ -789,7 +855,9 @@ export class DieselMechanicalRuntimeCursor {
     this.coastingFlowTexture = p.coasting_flow_texture ?
         new DieselCoastingFlowTexture(p.coasting_flow_texture, p.exhaust_system.branches,
             this.cylinders) : null;
-    this.pressureTexture = p.pressure_texture ?
+    this.pressureTexture = p.loaded_pressure_texture ?
+        new DieselLoadedPressureTexture(p.pressure_texture, p.loaded_pressure_texture,
+            this.cylinders, p.exhaust_system.branches) : p.pressure_texture ?
         new DieselPressureTexture(p.pressure_texture, this.cylinders) : null;
     this.mechanicalTexture = p.mechanical_texture ?
         new DieselMechanicalTexture(p.mechanical_texture, runtime.manifest.mechanical_timing,
@@ -878,6 +946,7 @@ export class DieselMechanicalRuntimeCursor {
       const t = (i + 0.5) / SAMPLE_RATE;
       const rpm = start.rpm + (end.rpm - start.rpm) * amount;
       const fueling = start.fueling01 + (end.fueling01 - start.fueling01) * amount;
+      this.pressureTexture?.setFueling?.(fueling);
       const revolutions =
           start.unwrappedCrankRevolutions + (start.rpm * t + 0.5 * slope * t * t) / 60;
       const ri = lowerIndex(r.rows, rpm, (row) => row.rpm);
