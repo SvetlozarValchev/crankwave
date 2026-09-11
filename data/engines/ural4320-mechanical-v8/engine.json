@@ -199,6 +199,36 @@
       "compression_gain": 0.12,
       "stochastic_gain": 16.970562748477143,
       "seed": 238650
+    },
+    "mechanical_texture": {
+      "valve_gain_pcm": 0.14,
+      "valve_frequency_hz": 650,
+      "valve_decay_s": 0.0018,
+      "pumping_gain_pcm": 0.012,
+      "pumping_lowpass_hz": 850,
+      "seed": 4320725,
+      "valve_attack_s": 0.0012
+    },
+    "low_fuel_exhaust": {
+      "fueling_threshold_01": 0.2,
+      "gain": 0.16,
+      "lowpass_hz": 550,
+      "transition_s": 0.04
+    },
+    "coasting_balance": {
+      "fueling_threshold_01": 0.06,
+      "bass_gain": 0.18,
+      "movement_gain": 0.48,
+      "crossover_hz": 180,
+      "mechanical_gain": 1.6,
+      "transition_s": 0.04
+    },
+    "coasting_flow_texture": {
+      "gain_pcm_per_kg_s": 0.4,
+      "highpass_hz": 250,
+      "lowpass_hz": 1800,
+      "envelope_s": 0.002,
+      "seed": 432008
     }
   },
   "bake": {
@@ -234,7 +264,7 @@
     },
     "presentation": {
       "origin": "artistic",
-      "note": "Authored heavy V8 block and exhaust transfer, intended for comparison with Ural-4320 recordings. Pole Position identifies its Ural recording as a 14.9-litre V8; that does not identify the engine or microphone position in the separate SmartSound/ZapSplat recording. No recording or measured transfer function is embedded. Fuel/cycle timing variation remains a playback approximation. Separate bank delay coloration, mass-flow-rate radiation, and authored flow-gated stochastic jet texture approximate an exhaust-microphone perspective; none are measured exhaust geometry or validated turbulent jet acoustics. Corrected Soundsnap public stream (90.7 s) and publisher startup previews guided acoustic tuning. A per-cylinder positive-rise envelope of fired minus motored pressure excites seeded stochastic block texture, with a separate coherent residual and compression contribution. Exhaust highpass, lossy bank reflections and lower-band flow texture are authored acoustic approximations; no reference PCM, waveform table or measured impulse response is embedded. No within-cycle crankshaft dynamics or physical turbulent flow is claimed."
+      "note": "Authored heavy V8 block and exhaust transfer, intended for comparison with Ural-4320 recordings. Pole Position identifies its Ural recording as a 14.9-litre V8; that does not identify the engine or microphone position in the separate SmartSound/ZapSplat recording. No recording or measured transfer function is embedded. Fuel/cycle timing variation remains a playback approximation. Separate bank delay coloration, mass-flow-rate radiation, and authored flow-gated stochastic jet texture approximate an exhaust-microphone perspective; none are measured exhaust geometry or validated turbulent jet acoustics. Corrected Soundsnap public stream (90.7 s) and publisher startup previews guided acoustic tuning. A per-cylinder positive-rise envelope of fired minus motored pressure excites seeded stochastic block texture, with a separate coherent residual and compression contribution. Exhaust highpass, lossy bank reflections and lower-band flow texture are authored acoustic approximations; no reference PCM, waveform table or measured impulse response is embedded. No within-cycle crankshaft dynamics or physical turbulent flow is claimed. Version 6 adds authored damped valve-closing impacts timed from the physical valve windows, plus smooth intake-window-gated breath; both follow crank rotation independently of fueling. Contact forces and intake flow are not solved by these acoustic proxies. Version 5 combustion/exhaust settings are unchanged. Version 7 replaces instantaneous valve excitation with a 1.2 ms smooth contact pulse and a lower resonance to address the reported crackles; this remains an authored acoustic model. Version 8 applies an authored quieter, low-passed exhaust transfer at low fueling, strongest on fuel cut and partially active at idle. It returns to the accepted loaded transfer at 0.2 fueling. This addresses excessive brake-like pumping pulses without altering gas captures, adding a compression-release brake or gating mechanical layers. Version 9 restores exhaust movement below 0.06 fueling using a complementary 180 Hz split of the original tailpipe signal, with reduced low rumble and more upper pulse content, and increases the existing mechanical sources on overrun. The version 8 idle and loaded paths are preserved. Coasting flow texture is an artistic bank-flow-gated 250\u20131800 Hz excitation with a 2 ms envelope, guided by the user-selected gear-change passages around 0:08 in the publisher exhaust and engine microphone previews. No recorded PCM or measured fuel/RPM trace is embedded."
     }
   }
 }

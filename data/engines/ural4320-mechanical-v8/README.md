@@ -36,8 +36,44 @@ waveform. Broadly damped modes avoid the rejected idle's concentrated ringing.
 The exhaust uses a 30 Hz high-pass, 1,300 Hz low-pass, and separate bank delays with
 negative reflections. A dominant bank represents the chosen exhaust perspective.
 Flow texture occupies a lower band, and the output gain leaves headroom under load.
-All audio derives from generated pressure/flow and seeded procedural excitation;
+All audio derives from generated pressure/flow, crank-timed impacts and seeded excitation;
 no recording, reference waveform table or measured impulse response is embedded.
+
+Version 7 preserves the accepted version 5 combustion and exhaust parameters and
+adds a separate valvetrain and intake layer. Valve-closing events use the existing
+340–596° intake and 124–380° exhaust windows. The first mechanical audition's
+instantaneous impacts are the main suspect in the reported crackles; this version feeds the
+valve resonances with smooth 1.2 ms contact pulses, a 650 Hz base resonance and
+1.8 ms decay. The intake breath stays quieter than the valve layer. Both remain
+active at zero fueling while the crank rotates. These are authored acoustic
+approximations; valve contact forces and intake turbulence are not physically
+simulated. Versions 5 and 6 remain playable with their original sound. See
+[BASELINE.md](BASELINE.md) for the preserved approved package and checkpoint.
+
+Version 8 reduces the exhaust emphasis at idle and on fuel-cut coasting, which
+the user described as sounding brake-like. A quieter 550 Hz exhaust path is mixed
+in below 0.2 fueling, with a 40 ms transition time. Idle receives a partial mix;
+zero fuel uses the full coasting response. The accepted combustion and mechanical
+layers remain active, and loaded revving bypasses this extra transfer. The existing
+gas model and physical pressure/flow captures are unchanged.
+
+Version 9 restores coasting movement after version 8 became too quiet and hollow.
+Below 0.06 fueling it mixes the original exhaust through separate low-rumble and
+upper-pulse gains, split at 180 Hz, and brings the existing valve and intake layers
+forward by 1.6 times. It keeps the 40 ms fades and the smooth valve-contact model.
+Idle and loaded playback retain version 8's sound; physical captures are unchanged.
+
+Version 10 adds a separate coasting exhaust texture after comparison with the
+user-selected gear-change passages around 0:08 in the publisher's
+[exhaust preview](https://soundcloud.com/polepositionproduction/ural-4320-onboard-driving)
+and [engine preview](https://soundcloud.com/polepositionproduction/ural-4320-engine-mics-driving).
+Version 9's coast retained concentrated mechanical tones but too little broad flow
+texture. Each bank's positive captured exhaust flow now drives an independent
+seeded excitation, smoothed over 2 ms and filtered to 250–1,800 Hz, with gain 0.4.
+The existing coasting fade blends it in below 0.06 fueling. Idle, loaded output,
+valve contacts, compression and the coherent exhaust paths retain their previous
+parameters. This is an authored turbulence approximation; the previews do not
+provide synchronized microphones or measured fuel, brake or RPM traces.
 
 The earlier idle-only gain adjustment was rejected and removed. This definition
 uses the corrected reference to guide a new excitation and exhaust response.
@@ -71,5 +107,5 @@ Numerical descriptors do not establish a perceptual match.
 Cold starting, stopping and a complete vehicle lifecycle are not implemented.
 
 See [the model and playback contract](../../../docs/model/MECHANICAL_DIESEL_SOUND.md)
-for supported paths, version 5 pressure texture, exhaust semantics, validation
+for supported paths, pressure and mechanical texture, exhaust semantics, validation
 and limits.

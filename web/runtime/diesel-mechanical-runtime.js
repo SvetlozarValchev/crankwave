@@ -91,11 +91,11 @@ export async function loadDieselMechanicalRuntime(
         "schema", "version", "engine", "model", "sample_rate_hz", "physics_rate_hz",
         "gas_substeps", "load_coordinate", "source_sha256", "backend", "methods",
         "samples_per_cycle", "cells", "cylinders", "presentation", "provenance",
-        "sources"
+        "sources", ...(m.version >= 6 ? ["mechanical_timing"] : [])
       ],
       "manifest");
   requireValue(
-      m.schema === SCHEMA && [1, 2, 3, 5].includes(m.version) &&
+      m.schema === SCHEMA && [1, 2, 3, 5, 6, 7, 8, 9, 10].includes(m.version) &&
           m.model === "mechanical-diesel-v1",
       "Unsupported diesel model");
   requireValue(
@@ -186,7 +186,11 @@ export async function loadDieselMechanicalRuntime(
         "exhaust_lowpass_hz", "master_gain",
         ...(m.version >= 2 ? ["articulation"] : []),
         ...(m.version >= 3 ? ["exhaust_system"] : []),
-        ...(m.version === 5 ? ["pressure_texture"] : [])
+        ...(m.version >= 5 ? ["pressure_texture"] : []),
+        ...(m.version >= 6 ? ["mechanical_texture"] : []),
+        ...(m.version >= 8 ? ["low_fuel_exhaust"] : []),
+        ...(m.version >= 9 ? ["coasting_balance"] : []),
+        ...(m.version >= 10 ? ["coasting_flow_texture"] : [])
       ],
       "presentation");
   if (m.version >= 2) {
@@ -248,7 +252,7 @@ export async function loadDieselMechanicalRuntime(
     }
     requireValue(assigned.size === ids.size, "Every cylinder needs one exhaust branch");
   }
-  if (m.version === 5) {
+  if (m.version >= 5) {
     const t = p.pressure_texture;
     object(t, ["decay_s", "coherent_gain", "compression_gain", "stochastic_gain", "seed"],
         "pressure texture");
@@ -258,6 +262,58 @@ export async function loadDieselMechanicalRuntime(
     number(t.stochastic_gain, 0, 32, "stochastic pressure gain");
     number(t.seed, 0, 0xffffffff, "pressure texture seed");
     requireValue(Number.isInteger(t.seed), "Pressure texture seed must be integral");
+  }
+  if (m.version >= 6) {
+    const t = p.mechanical_texture;
+    object(t, ["valve_gain_pcm", "valve_frequency_hz", "valve_decay_s",
+      "pumping_gain_pcm", "pumping_lowpass_hz", "seed",
+      ...(m.version >= 7 ? ["valve_attack_s"] : [])], "mechanical texture");
+    number(t.valve_gain_pcm, 0, 0.5, "valve gain");
+    number(t.valve_frequency_hz, 400, 3000, "valve frequency");
+    number(t.valve_decay_s, 0.0005, 0.008, "valve decay");
+    if (m.version >= 7) number(t.valve_attack_s, 0.00025, 0.004, "valve attack");
+    number(t.pumping_gain_pcm, 0, 0.2, "pumping gain");
+    number(t.pumping_lowpass_hz, 300, 2000, "pumping lowpass");
+    number(t.seed, 0, 0xffffffff, "mechanical seed");
+    requireValue(Number.isInteger(t.seed), "Mechanical seed must be integral");
+    const timing = m.mechanical_timing;
+    object(timing, ["intake_open_angle_rad", "intake_close_angle_rad",
+      "exhaust_close_angle_rad"], "mechanical timing");
+    for (const [key, value] of Object.entries(timing)) number(value, 0, 4 * Math.PI, key);
+    requireValue(timing.intake_close_angle_rad > timing.intake_open_angle_rad,
+        "Intake timing must have positive duration");
+  }
+  if (m.version >= 8) {
+    const c = p.low_fuel_exhaust;
+    object(c, ["fueling_threshold_01", "gain", "lowpass_hz", "transition_s"],
+        "low-fuel exhaust");
+    number(c.fueling_threshold_01, 0.01, 0.4, "exhaust fuel threshold");
+    number(c.gain, 0, 1, "low-fuel exhaust gain");
+    number(c.lowpass_hz, 250, 1500, "low-fuel exhaust lowpass");
+    number(c.transition_s, 0.005, 0.2, "exhaust transition");
+  }
+  if (m.version >= 9) {
+    const c = p.coasting_balance;
+    object(c, ["fueling_threshold_01", "bass_gain", "movement_gain", "crossover_hz",
+      "mechanical_gain", "transition_s"], "coasting balance");
+    number(c.fueling_threshold_01, 0.01, 0.12, "coasting fuel threshold");
+    number(c.bass_gain, 0, 1, "coasting bass gain");
+    number(c.movement_gain, 0, 1, "coasting movement gain");
+    number(c.crossover_hz, 80, 400, "coasting crossover");
+    number(c.mechanical_gain, 1, 2, "coasting mechanical gain");
+    number(c.transition_s, 0.005, 0.2, "coasting transition");
+  }
+  if (m.version >= 10) {
+    const c = p.coasting_flow_texture;
+    object(c, ["gain_pcm_per_kg_s", "highpass_hz", "lowpass_hz", "envelope_s", "seed"],
+        "coasting flow texture");
+    number(c.gain_pcm_per_kg_s, 0, 4, "coasting flow gain");
+    number(c.highpass_hz, 150, 800, "coasting flow highpass");
+    number(c.lowpass_hz, 800, 3000, "coasting flow lowpass");
+    requireValue(c.lowpass_hz >= 2 * c.highpass_hz, "Coasting flow band is too narrow");
+    number(c.envelope_s, 0.0005, 0.02, "coasting flow envelope");
+    number(c.seed, 0, 0xffffffff, "coasting flow seed");
+    requireValue(Number.isInteger(c.seed), "Coasting flow seed must be integral");
   }
   number(p.block_lowpass_hz, 2000, 8000, "block lowpass");
   number(p.exhaust_lowpass_hz, 100, 3000, "exhaust lowpass");
@@ -442,6 +498,110 @@ export class DieselExhaustSystem {
   }
 }
 
+// Authored exhaust transfer at low fueling, including idle and unbraked coast.
+// Pumped air is given less emphasis than loaded firing. Only the exhaust is mixed;
+// mechanical rotation remains audible independently. This does not model a brake.
+export class DieselLowFuelExhaust {
+  constructor(parameters, sampleRate = SAMPLE_RATE) {
+    this.parameters = parameters;
+    this.smoothing = -Math.expm1(-1 / (sampleRate * parameters.transition_s));
+    this.lowpass = new DieselBiquad("lowpass", parameters.lowpass_hz, Math.SQRT1_2, sampleRate);
+    this.reset();
+  }
+  reset() {
+    this.amount = null;
+    this.lowpass.reset();
+  }
+  process(input, fueling) {
+    const p = this.parameters;
+    const u = Math.max(0, Math.min(1, fueling / p.fueling_threshold_01));
+    const target = 1 - u * u * (3 - 2 * u);
+    if (this.amount === null) this.amount = target;
+    this.amount += (target - this.amount) * this.smoothing;
+    if (Math.abs(target - this.amount) < 1e-9) this.amount = target;
+    // Keep the quiet path warm even when bypassed, so entry into fuel cut has
+    // no filter initialization transient. Preserve fueled PCM exactly at bypass.
+    const quiet = this.lowpass.process(input) * p.gain;
+    return this.amount === 0 ? input : input + (quiet - input) * this.amount;
+  }
+}
+
+// Split raw tailpipe sound into complementary low/body and upper/pulse paths on
+// overrun. This restores flow movement without bringing back the full low rumble.
+// Mechanical gain changes only the existing valve and intake sources, never fuel.
+export class DieselCoastingBalance {
+  constructor(parameters, sampleRate = SAMPLE_RATE) {
+    this.parameters = parameters;
+    this.lowpassStep = -Math.expm1(-TAU * parameters.crossover_hz / sampleRate);
+    this.mixStep = -Math.expm1(-1 / (sampleRate * parameters.transition_s));
+    this.reset();
+  }
+  reset() {
+    this.low = 0;
+    this.amount = null;
+    this.mechanicalGain = 1;
+  }
+  process(rawExhaust, shapedExhaust, fueling) {
+    const p = this.parameters;
+    const u = Math.max(0, Math.min(1, fueling / p.fueling_threshold_01));
+    const target = 1 - u * u * (3 - 2 * u);
+    if (this.amount === null) this.amount = target;
+    this.amount += (target - this.amount) * this.mixStep;
+    if (Math.abs(target - this.amount) < 1e-9) this.amount = target;
+    // A first-order complementary split keeps equal gains spectrally flat.
+    // Both states run during bypass, avoiding a cold-filter pulse on release.
+    this.low += (rawExhaust - this.low) * this.lowpassStep;
+    const coast = this.low * p.bass_gain + (rawExhaust - this.low) * p.movement_gain;
+    this.mechanicalGain = 1 + this.amount * (p.mechanical_gain - 1);
+    return this.amount === 0 ? shapedExhaust :
+        shapedExhaust + (coast - shapedExhaust) * this.amount;
+  }
+}
+
+// Broad exhaust movement survives fuel cut because the rotating engine still
+// pumps gas. Each bank's captured outward flow drives a smooth noise envelope.
+// This is an authored turbulence proxy, not combustion or a recorded noise bed.
+// The cursor mixes it with the existing coasting fade; filters and PRNGs continue
+// while bypassed so a gear change cannot start a cold filter or repeat a grain.
+export class DieselCoastingFlowTexture {
+  constructor(parameters, branches, cylinders, sampleRate = SAMPLE_RATE) {
+    this.parameters = parameters;
+    this.envelopeStep = -Math.expm1(-1 / (sampleRate * parameters.envelope_s));
+    this.noiseScale = Math.sqrt(3 * sampleRate /
+        (Math.PI * (parameters.lowpass_hz - parameters.highpass_hz)));
+    this.branches = branches.map(b => ({
+      indices: b.cylinder_ids.map(id => cylinders.findIndex(c => c.id === id)),
+      gain: b.gain,
+      seed: cylinderSeed(b.id, parameters.seed) || 1,
+      highpass: new DieselBiquad("highpass", parameters.highpass_hz, Math.SQRT1_2, sampleRate),
+      lowpass: new DieselBiquad("lowpass", parameters.lowpass_hz, Math.SQRT1_2, sampleRate)
+    }));
+    this.reset();
+  }
+  reset() {
+    for (const b of this.branches) {
+      b.envelope = 0;
+      b.rng = b.seed;
+      b.highpass.reset();
+      b.lowpass.reset();
+    }
+  }
+  process(flows) {
+    let sum = 0;
+    for (const b of this.branches) {
+      let flow = 0;
+      for (const i of b.indices) flow += Math.max(0, flows[i]);
+      b.envelope += (flow - b.envelope) * this.envelopeStep;
+      let x = b.rng;
+      x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
+      b.rng = x >>> 0;
+      const noise = (b.rng / 0x80000000 - 1) * this.noiseScale * b.envelope;
+      sum += b.gain * b.lowpass.process(b.highpass.process(noise));
+    }
+    return sum * this.parameters.gain_pcm_per_kg_s;
+  }
+}
+
 // Combustion-driven stochastic excitation. Subtract the motored cylinder at the
 // same phase before accumulating positive pressure increments. Each cylinder's
 // decaying envelope excites independent noise, giving different fine structure
@@ -479,6 +639,125 @@ export class DieselPressureTexture {
   }
 }
 
+// Authored valvetrain impacts and intake breath, independent of injected fuel.
+// Closure phases come from the native valve windows; resonances decay in seconds.
+// This does not solve contact forces or intake gas flow. No recorded audio is used.
+export class DieselMechanicalTexture {
+  constructor(parameters, timing, cylinders, sampleRate = SAMPLE_RATE) {
+    this.parameters = parameters;
+    this.sampleRate = sampleRate;
+    this.contactDuration = parameters.valve_attack_s ?? 0;
+    this.intakeOpen = timing.intake_open_angle_rad / (2 * TAU);
+    this.intakeSpan = (timing.intake_close_angle_rad - timing.intake_open_angle_rad) /
+        (2 * TAU);
+    this.cylinders = cylinders.map(c => ({
+      phase: c.firing_angle_rad / (2 * TAU),
+      gain: c.structural_gain,
+      seed: cylinderSeed(c.id, parameters.seed) || 1
+    }));
+    this.voices = this.cylinders.flatMap(c => [
+      [timing.intake_close_angle_rad, 0.75, 0x63d83595],
+      [timing.exhaust_close_angle_rad, 1, 0xa511e9b3]
+    ].map(([angle, gain, lane]) => {
+      const frequency = parameters.valve_frequency_hz *
+          (1 + 0.12 * eventValue(c.seed, 0, lane));
+      return {
+        phase: c.phase + angle / (2 * TAU), seed: c.seed, lane, gain: c.gain * gain,
+        modes: [1, 1.67].map((ratio, index) => {
+          const damping = 1 / (parameters.valve_decay_s * (index ? 0.55 : 1));
+          const omega = TAU * frequency * ratio;
+          const release = Math.exp(-damping / sampleRate);
+          return {damping, omega, gain: index ? 0.35 : 1,
+            real: release * Math.cos(omega / sampleRate),
+            imaginary: release * Math.sin(omega / sampleRate)};
+        })
+      };
+    }));
+    this.pumpingHighpass = new DieselBiquad("highpass", 120, Math.SQRT1_2, sampleRate);
+    this.pumpingLowpass = new DieselBiquad(
+        "lowpass", parameters.pumping_lowpass_hz, Math.SQRT1_2, sampleRate);
+    // Approximate bandwidth normalization keeps the authored gain usable at any
+    // test sample rate. Per-cylinder independent noise sums by energy, not count.
+    this.noiseScale = Math.sqrt(3 * sampleRate /
+        (Math.PI * parameters.pumping_lowpass_hz * cylinders.length));
+    this.reset();
+  }
+  reset() {
+    this.previousCycle = null;
+    this.valves = 0;
+    this.pumping = 0;
+    this.events = 0;
+    for (const v of this.voices) {
+      v.contactAge = Infinity;
+      v.contactAmplitude = 0;
+      for (const m of v.modes) { m.x = 0; m.y = 0; }
+    }
+    for (const c of this.cylinders) c.rng = c.seed;
+    this.pumpingHighpass.reset();
+    this.pumpingLowpass.reset();
+  }
+  process(revolutions, rpm) {
+    const cycle = revolutions / 2;
+    const previous = this.previousCycle ?? cycle;
+    const advance = cycle - previous;
+    // Authored speed scaling; no extra firing or throttle-dependent gain on coast.
+    const speed = Math.sqrt(Math.max(0, rpm) / 750);
+    let valves = 0;
+    for (const v of this.voices) {
+      const event = Math.floor(cycle - v.phase);
+      const triggered = advance > 0 && event > Math.floor(previous - v.phase);
+      const age = triggered ? Math.max(0, Math.min(1, (cycle - v.phase - event) / advance)) /
+          this.sampleRate : 0;
+      const amplitude = triggered ? v.gain * speed * this.parameters.valve_gain_pcm *
+          (1 + 0.25 * eventValue(v.seed, event, v.lane)) : 0;
+      if (triggered) {
+        ++this.events;
+        v.contactAge = age;
+        v.contactAmplitude = amplitude;
+      }
+      // Version 7 spreads contact over physical time. A Hann pulse has zero
+      // value and slope at both ends, unlike an instantaneous resonator kick.
+      // Unit area preserves the meaning of valve gain across contact durations.
+      let contact = 0;
+      if (this.contactDuration > 0 && v.contactAge < this.contactDuration) {
+        const phase = v.contactAge / this.contactDuration;
+        contact = v.contactAmplitude * (1 - Math.cos(TAU * phase)) /
+            (this.contactDuration * this.sampleRate);
+      }
+      for (const m of v.modes) {
+        const x = m.x * m.real - m.y * m.imaginary;
+        m.y = m.x * m.imaginary + m.y * m.real;
+        m.x = x;
+        if (this.contactDuration > 0) {
+          m.x += contact;
+        } else if (triggered) {
+          const a = amplitude * Math.exp(-m.damping * age);
+          m.x += a * Math.cos(m.omega * age);
+          m.y += a * Math.sin(m.omega * age);
+        }
+        valves += m.gain * m.y;
+      }
+      v.contactAge += 1 / this.sampleRate;
+    }
+    let breath = 0;
+    for (const c of this.cylinders) {
+      const phase = cycle - c.phase - this.intakeOpen;
+      const u = (phase - Math.floor(phase)) / this.intakeSpan;
+      // Smooth opening/closing gate, an acoustic proxy rather than a flow capture.
+      const window = u < 1 ? Math.sin(Math.PI * u) ** 2 : 0;
+      let x = c.rng;
+      x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
+      c.rng = x >>> 0;
+      breath += window * c.gain * (c.rng / 0x80000000 - 1);
+    }
+    this.previousCycle = cycle;
+    this.valves = valves;
+    this.pumping = this.pumpingLowpass.process(this.pumpingHighpass.process(
+        breath * this.noiseScale * speed * this.parameters.pumping_gain_pcm));
+    return this.valves + this.pumping;
+  }
+}
+
 export class DieselMechanicalRuntimeCursor {
   constructor(runtime) {
     this.runtime = runtime;
@@ -503,8 +782,18 @@ export class DieselMechanicalRuntimeCursor {
     this.exhaustSystem = p.exhaust_system ?
         new DieselExhaustSystem(p.exhaust_system, this.cylinders) :
         null;
+    this.lowFuelExhaust = p.low_fuel_exhaust ?
+        new DieselLowFuelExhaust(p.low_fuel_exhaust) : null;
+    this.coastingBalance = p.coasting_balance ?
+        new DieselCoastingBalance(p.coasting_balance) : null;
+    this.coastingFlowTexture = p.coasting_flow_texture ?
+        new DieselCoastingFlowTexture(p.coasting_flow_texture, p.exhaust_system.branches,
+            this.cylinders) : null;
     this.pressureTexture = p.pressure_texture ?
         new DieselPressureTexture(p.pressure_texture, this.cylinders) : null;
+    this.mechanicalTexture = p.mechanical_texture ?
+        new DieselMechanicalTexture(p.mechanical_texture, runtime.manifest.mechanical_timing,
+            this.cylinders) : null;
     this.cylinderFlows = new Float64Array(this.cylinders.length);
     this.pending = new Float32Array(runtime.batchFrames);
     this.reset();
@@ -516,7 +805,11 @@ export class DieselMechanicalRuntimeCursor {
     this.blockHighpass?.reset();
     this.exhaustHighpassFilter?.reset();
     this.exhaustSystem?.reset();
+    this.lowFuelExhaust?.reset();
+    this.coastingBalance?.reset();
+    this.coastingFlowTexture?.reset();
     this.pressureTexture?.reset();
+    this.mechanicalTexture?.reset();
     this.radiationPrevious = 0;
     this.exhaustPrevious = 0;
     this.exhaustHighpass = 0;
@@ -527,6 +820,9 @@ export class DieselMechanicalRuntimeCursor {
     this.peak = 0;
     this.blockEnergy = 0;
     this.exhaustEnergy = 0;
+    this.valveEnergy = 0;
+    this.pumpingEnergy = 0;
+    this.coastingFlowEnergy = 0;
   }
   initialize(endpoint) {
     number(endpoint.rpm, this.runtime.minimumRpm, this.runtime.maximumRpm, "RPM");
@@ -657,8 +953,16 @@ export class DieselMechanicalRuntimeCursor {
         tailpipe = this.exhaustLowpass.process(exhaustExcitation) *
             p.exhaust_gain_pcm_per_kg_s;
       }
+      const rawTailpipe = tailpipe;
+      if (this.lowFuelExhaust) tailpipe = this.lowFuelExhaust.process(tailpipe, fueling);
+      if (this.coastingBalance) tailpipe = this.coastingBalance.process(rawTailpipe, tailpipe, fueling);
+      const coastingFlow = this.coastingFlowTexture ?
+          this.coastingFlowTexture.process(this.cylinderFlows) * this.coastingBalance.amount : 0;
+      if (coastingFlow !== 0) tailpipe += coastingFlow;
+      const mechanicalGain = this.coastingBalance?.mechanicalGain ?? 1;
       // Explicit artistic saturating output stage; physics captures remain SI.
-      let sample = Math.tanh((block + tailpipe) * p.master_gain);
+      const mechanical = (this.mechanicalTexture?.process(revolutions, rpm) ?? 0) * mechanicalGain;
+      let sample = Math.tanh((block + tailpipe + mechanical) * p.master_gain);
       requireValue(Number.isFinite(sample), "Diesel DSP produced nonfinite audio");
       if (keep) sample *= Math.min(1, ++this.audibleFrames / 3840);
       // Warmup may contain a large filter-initialization impulse that is never
@@ -667,6 +971,9 @@ export class DieselMechanicalRuntimeCursor {
         this.peak = Math.max(this.peak, Math.abs(sample));
         this.blockEnergy += block * block;
         this.exhaustEnergy += tailpipe * tailpipe;
+        this.valveEnergy += ((this.mechanicalTexture?.valves ?? 0) * mechanicalGain) ** 2;
+        this.pumpingEnergy += ((this.mechanicalTexture?.pumping ?? 0) * mechanicalGain) ** 2;
+        this.coastingFlowEnergy += coastingFlow * coastingFlow;
       }
       this.pending[this.pendingCount++] = sample;
       ++this.frames;
@@ -688,6 +995,9 @@ export class DieselMechanicalRuntimeCursor {
       peak: this.peak,
       blockRms: Math.sqrt(this.blockEnergy / Math.max(1, this.audibleFrames)),
       exhaustRms: Math.sqrt(this.exhaustEnergy / Math.max(1, this.audibleFrames)),
+      valveRms: Math.sqrt(this.valveEnergy / Math.max(1, this.audibleFrames)),
+      pumpingRms: Math.sqrt(this.pumpingEnergy / Math.max(1, this.audibleFrames)),
+      coastingFlowRms: Math.sqrt(this.coastingFlowEnergy / Math.max(1, this.audibleFrames)),
       cylinderIds: this.runtime.manifest.cylinders.map((c) => c.id),
       structuralFrequenciesHz:
           this.runtime.manifest.presentation.block_modes.map((m) => m.frequency_hz)

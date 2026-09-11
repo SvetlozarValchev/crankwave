@@ -69,6 +69,17 @@ try {
   assert.equal(engine.loadCoordinate, "normalized-fueling");
   {
     const {manifest, samples} = loaded.runtime;
+    if (authored.presentation.mechanical_texture) {
+      assert.equal(manifest.version, authored.presentation.coasting_flow_texture ? 10 :
+          authored.presentation.coasting_balance ? 9 :
+          authored.presentation.low_fuel_exhaust ? 8 :
+          authored.presentation.mechanical_texture.valve_attack_s ? 7 : 6);
+      assert.deepEqual(manifest.mechanical_timing, {
+        intake_open_angle_rad: authored.engine.cylinder.intake_valve.open_angle_atdc_rad,
+        intake_close_angle_rad: authored.engine.cylinder.intake_valve.close_angle_atdc_rad,
+        exhaust_close_angle_rad: authored.engine.cylinder.exhaust_valve.close_angle_atdc_rad
+      }, 'native manifest must derive mechanical timing from the physical valve windows');
+    }
     const n = manifest.samples_per_cycle;
     const area = Math.PI * authored.engine.cylinder.bore_m ** 2 / 4;
     for (let cell = 0; cell < manifest.cells.length; ++cell) {
@@ -148,7 +159,9 @@ try {
       highbandRatio,
       crestFactor,
       blockRms: diagnostics.blockRms,
-      exhaustRms: diagnostics.exhaustRms
+      exhaustRms: diagnostics.exhaustRms,
+      valveRms: diagnostics.valveRms,
+      pumpingRms: diagnostics.pumpingRms
     });
   }
   const fuelRms = [];

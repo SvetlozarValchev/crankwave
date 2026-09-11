@@ -194,6 +194,109 @@ payload and its SI units are unchanged. This is pressure-driven stochastic acous
 excitation, not solved turbulence, a mechanical-impact simulation, or added cylinder
 energy. No recorded waveform or impulse response is used.
 
+Version 6 adds optional `mechanical_texture`, mixed alongside the existing block
+and exhaust paths before output saturation. It has two sources independent of
+fueling. Each cylinder triggers a short pair of damped resonances at intake and
+exhaust valve closure. Resonant frequencies vary by cylinder, closure amplitudes
+vary deterministically by cycle, and tails decay in seconds. A quieter filtered
+noise source follows a smooth intake-valve window. This breath is an acoustic
+proxy; it is not an additional gas-flow capture. Neither source adds combustion
+on fuel cut. Both use an authored square-root RPM gain relative to 750 RPM.
+
+The native baker derives `mechanical_timing` from the same physical intake opening,
+intake closure and exhaust closure angles used by the gas model. Mechanical timing
+uses unperturbed crank phase, independent of the combustion timing spread. Valve
+impacts use two modes at the authored frequency and 1.67 times that frequency,
+with a shorter upper-mode decay. The breath path uses a 120 Hz high-pass and the
+authored low-pass. Its bandwidth and cylinder-count normalization limit gain changes
+with sample rate and cylinder count. These are authored sound sources, not solved
+valve contact forces, lash, intake turbulence or accessory dynamics.
+
+`valve_gain_pcm` is bounded to 0–0.5, `valve_frequency_hz` to 400–3,000 Hz,
+`valve_decay_s` to 0.5–8 ms, `pumping_gain_pcm` to 0–0.2, and
+`pumping_lowpass_hz` to 300–2,000 Hz; `seed` is an unsigned 32-bit integer.
+Mechanical texture requires pressure texture and its dependencies. Muting both
+new gains recovers version 5 PCM exactly. Diagnostics expose pre-master `valveRms`
+and `pumpingRms` alongside block and exhaust levels. The physical source payload
+remains unchanged, and old packages retain their existing sound.
+
+Version 7 replaces the instantaneous valve kicks with a finite contact force.
+`valve_attack_s` (0.25–4 ms) sets the duration of a unit-area Hann pulse feeding
+each valve's two resonators. Its value and slope are zero at both ends, removing
+the abrupt onset targeted by the crackle report from the first mechanical audition.
+Duration lives in seconds, independently of RPM. Pending contact and resonance
+state survive audio block boundaries and are cleared on reset. The intake breath,
+combustion and exhaust paths are unchanged. Version 6 retains instantaneous
+excitation for reproducible comparisons with its original carrier.
+
+Version 8 adds `low_fuel_exhaust`, a downstream exhaust-only transfer for idle
+and unbraked coasting. The existing tailpipe signal continuously feeds a quieter
+low-pass path. Its mix rises smoothly as normalized fueling falls below
+`fueling_threshold_01`, reaching the authored `gain` and `lowpass_hz` response at
+zero fuel. Above the threshold, settled playback bypasses it exactly. An exponential
+mix transition with time constant `transition_s` prevents sudden gain changes on
+pedal release or fuel restoration. The quiet filter stays warm during bypass.
+
+For this Ural, the threshold is 0.2, coast gain 0.16, low-pass 550 Hz, and transition
+40 ms. At the audition's 0.12 idle fueling the mix is only partially active; loaded
+revving retains its accepted transfer. Combustion, valve and intake-breath paths
+are unaffected, so reducing exhaust pulses does not silence mechanical rotation.
+This is an authored acoustic balance, not a change to gas captures or a physical
+compression-release brake. The old transfer gave motored flow nearly as much
+exhaust emphasis as loaded firing, which the user described as brake-like.
+
+Admission bounds are 0.01–0.4 for the fuel threshold, 0–1 for coast gain,
+250–1,500 Hz for the low-pass, and 5–200 ms for the transition time. This extension
+requires version 7's smooth mechanical texture and all earlier dependencies.
+
+Version 9 adds `coasting_balance` below a separate, lower fuel threshold. The
+version 8 reduction left coasting too quiet and dominated by a low hum. This
+extension instead uses a complementary first-order split of the original tailpipe
+signal: a low component and the remainder. `bass_gain` scales the low component;
+`movement_gain` scales the remainder. This retains upper exhaust-pulse detail while
+keeping the low rumble restrained. Equal gains give a flat amplitude response.
+
+For this Ural, the split is 180 Hz, bass gain 0.18 and movement gain 0.48. Below
+0.06 fueling it also fades the existing valve and intake-breath sources toward
+1.6 times their ordinary level. No new combustion, noise source or brake is added.
+Both the exhaust replacement and mechanical gain use a 40 ms transition. At idle
+fueling (0.12) and under load, settled playback bypasses this extension exactly,
+preserving version 8's quieter idle and the accepted loaded sound.
+
+The bounds are 0.01–0.12 for the fuel threshold, 0–1 for each exhaust gain,
+80–400 Hz for the crossover, 1–2 for mechanical gain, and 5–200 ms for transition
+time. This extension requires `low_fuel_exhaust` and its dependencies. Diagnostics
+include the applied mechanical gain in valve and pumping RMS. The physical source
+captures are unchanged; these controls specify an authored acoustic balance.
+
+Version 10 adds `coasting_flow_texture` to retain broad exhaust movement between
+firing events and during fuel cut. Per bank, the sum of positive captured cylinder
+flows drives a first-order envelope with time constant `envelope_s`. Independent
+seeded excitation is multiplied by that envelope, then passes through second-order
+high-pass and low-pass filters and the existing bank gain. Approximate bandwidth
+normalization keeps the authored gain usable across sample rates. The result is
+added to the tailpipe after the earlier exhaust transfers, multiplied by version
+9's existing smooth coasting amount. The filters, envelope and PRNG continue during
+bypass; reset clears their states. Zero flow from rest produces silence, and a
+stopped flow decays rather than leaving a permanent noise bed. This path models no
+heat release, injection, valve restriction or engine brake.
+
+The Ural uses gain 0.4 PCM per kg/s, a 250–1,800 Hz band and a 2 ms envelope.
+The user identified gear changes around 0:08 in the publisher's exhaust and engine
+microphone previews. Within those passages the 500–2,000 Hz spectral flatness
+remains higher on coast than in version 9's audition. This motivates adding broad
+flow texture rather than increasing the existing narrow tonal components. These
+are independently edited previews with unknown RPM, fuel, processing and road
+noise contributions, so this is an artistic approximation, not identification of
+a measured turbulence source. It does not change the captured pressure/flow arrays.
+
+Admission bounds are gain 0–4, high-pass 150–800 Hz, low-pass 800–3,000 Hz and an
+envelope time constant of 0.5–20 ms, with a 32-bit integer seed. Native and runtime
+admission additionally require low-pass frequency at least twice the high-pass.
+This extension requires `coasting_balance` and its dependencies. `coastingFlowRms`
+reports its contribution after the coasting fade, before master gain; it is also
+included in `exhaustRms`. Prior version playback and settled fueled PCM are retained.
+
 The diesel cursor uses 3,840-frame batches. Streaming `process()` retains the
 facade's one-batch latency rule, giving 20 ms of declared internal latency; the
 browser ring adds its own lead. Offline `render()` has no added streaming delay.
@@ -213,7 +316,15 @@ cycle fuel/timing bounds, and a variation seed. Version 3 additionally requires
 `exhaust_system` and selects `pressure-force-modal-radiation-v3`.
 Version 5 additionally requires `pressure_texture` and selects
 `pressure-force-modal-radiation-v5`. Version 4, the withdrawn idle-gain experiment,
-is not admitted. Versions 1–3 keep their existing playback path.
+is not admitted. Version 6 additionally requires `mechanical_texture` and the
+natively derived `mechanical_timing`, and selects `pressure-force-modal-radiation-v6`.
+Version 7 additionally requires `mechanical_texture.valve_attack_s` and selects
+`pressure-force-modal-radiation-v7`. Version 8 additionally requires
+`low_fuel_exhaust` and selects `pressure-force-modal-radiation-v8`.
+Version 9 additionally requires `coasting_balance` and selects
+`pressure-force-modal-radiation-v9`. Version 10 additionally requires
+`coasting_flow_texture` and selects `pressure-force-modal-radiation-v10`.
+Versions 1–3 and 5–9 retain their existing playback paths.
 All versions bind:
 
 - engine ID, method IDs, clocks, and the normalized-fueling coordinate;

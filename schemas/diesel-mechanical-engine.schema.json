@@ -628,6 +628,170 @@
               "maximum": 4294967295
             }
           }
+        },
+        "mechanical_texture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "valve_gain_pcm",
+            "valve_frequency_hz",
+            "valve_decay_s",
+            "pumping_gain_pcm",
+            "pumping_lowpass_hz",
+            "seed"
+          ],
+          "properties": {
+            "valve_gain_pcm": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.5
+            },
+            "valve_frequency_hz": {
+              "type": "number",
+              "minimum": 400,
+              "maximum": 3000
+            },
+            "valve_decay_s": {
+              "type": "number",
+              "minimum": 0.0005,
+              "maximum": 0.008
+            },
+            "pumping_gain_pcm": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.2
+            },
+            "pumping_lowpass_hz": {
+              "type": "number",
+              "minimum": 300,
+              "maximum": 2000
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "valve_attack_s": {
+              "type": "number",
+              "minimum": 0.00025,
+              "maximum": 0.004
+            }
+          }
+        },
+        "low_fuel_exhaust": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fueling_threshold_01",
+            "gain",
+            "lowpass_hz",
+            "transition_s"
+          ],
+          "properties": {
+            "fueling_threshold_01": {
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 0.4
+            },
+            "gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "lowpass_hz": {
+              "type": "number",
+              "minimum": 250,
+              "maximum": 1500
+            },
+            "transition_s": {
+              "type": "number",
+              "minimum": 0.005,
+              "maximum": 0.2
+            }
+          }
+        },
+        "coasting_balance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fueling_threshold_01",
+            "bass_gain",
+            "movement_gain",
+            "crossover_hz",
+            "mechanical_gain",
+            "transition_s"
+          ],
+          "properties": {
+            "fueling_threshold_01": {
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 0.12
+            },
+            "bass_gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "movement_gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "crossover_hz": {
+              "type": "number",
+              "minimum": 80,
+              "maximum": 400
+            },
+            "mechanical_gain": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 2
+            },
+            "transition_s": {
+              "type": "number",
+              "minimum": 0.005,
+              "maximum": 0.2
+            }
+          }
+        },
+        "coasting_flow_texture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gain_pcm_per_kg_s",
+            "highpass_hz",
+            "lowpass_hz",
+            "envelope_s",
+            "seed"
+          ],
+          "properties": {
+            "gain_pcm_per_kg_s": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 4
+            },
+            "highpass_hz": {
+              "type": "number",
+              "minimum": 150,
+              "maximum": 800
+            },
+            "lowpass_hz": {
+              "type": "number",
+              "minimum": 800,
+              "maximum": 3000
+            },
+            "envelope_s": {
+              "type": "number",
+              "minimum": 0.0005,
+              "maximum": 0.02
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "description": "Authored bank-flow-gated coasting texture. Native and runtime admission additionally require lowpass_hz >= 2 * highpass_hz."
         }
       },
       "dependentRequired": {
@@ -637,8 +801,43 @@
         "pressure_texture": [
           "articulation",
           "exhaust_system"
+        ],
+        "mechanical_texture": [
+          "articulation",
+          "exhaust_system",
+          "pressure_texture"
+        ],
+        "low_fuel_exhaust": [
+          "articulation",
+          "exhaust_system",
+          "pressure_texture",
+          "mechanical_texture"
+        ],
+        "coasting_balance": [
+          "low_fuel_exhaust"
+        ],
+        "coasting_flow_texture": [
+          "coasting_balance"
         ]
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "low_fuel_exhaust"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mechanical_texture": {
+                "required": [
+                  "valve_attack_s"
+                ]
+              }
+            }
+          }
+        }
+      ]
     },
     "bake": {
       "type": "object",

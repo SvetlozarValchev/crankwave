@@ -284,7 +284,8 @@ parse_sound_definition(std::string_view source) {
         keys(presentation, "/presentation",
              {"block_modes", "block_lowpass_hz", "exhaust_gain_pcm_per_kg_s",
               "exhaust_lowpass_hz", "master_gain"},
-             {"articulation", "exhaust_system", "pressure_texture"});
+             {"articulation", "exhaust_system", "pressure_texture", "mechanical_texture",
+              "low_fuel_exhaust", "coasting_balance", "coasting_flow_texture"});
         number(presentation, "block_lowpass_hz", "/presentation", 2000, 8000);
         number(presentation, "exhaust_lowpass_hz", "/presentation", 100, 3000);
         number(presentation, "exhaust_gain_pcm_per_kg_s", "/presentation", 0, 100);
@@ -382,6 +383,66 @@ parse_sound_definition(std::string_view source) {
             require(std::floor(seed) == seed, path + "/seed", "expected integer");
             // Version 4 belonged to the withdrawn idle-gain experiment.
             d.runtime_version = 5;
+        }
+        if (const auto texture = presentation.find("mechanical_texture"); texture.valid()) {
+            const std::string path = "/presentation/mechanical_texture";
+            require(d.runtime_version == 5, path,
+                    "mechanical texture requires pressure texture and its dependencies");
+            keys(texture, path, {"valve_gain_pcm", "valve_frequency_hz", "valve_decay_s",
+                                 "pumping_gain_pcm", "pumping_lowpass_hz", "seed"},
+                 {"valve_attack_s"});
+            number(texture, "valve_gain_pcm", path, 0, 0.5);
+            number(texture, "valve_frequency_hz", path, 400, 3000);
+            number(texture, "valve_decay_s", path, 0.0005, 0.008);
+            number(texture, "pumping_gain_pcm", path, 0, 0.2);
+            number(texture, "pumping_lowpass_hz", path, 300, 2000);
+            const auto seed = number(texture, "seed", path, 0, 4294967295.0);
+            require(std::floor(seed) == seed, path + "/seed", "expected integer");
+            d.runtime_version = 6;
+            if (texture.find("valve_attack_s").valid()) {
+                number(texture, "valve_attack_s", path, 0.00025, 0.004);
+                d.runtime_version = 7;
+            }
+        }
+        if (const auto coast = presentation.find("low_fuel_exhaust"); coast.valid()) {
+            const std::string path = "/presentation/low_fuel_exhaust";
+            require(d.runtime_version == 7, path,
+                    "low-fuel exhaust requires smooth mechanical texture and its dependencies");
+            keys(coast, path, {"fueling_threshold_01", "gain", "lowpass_hz", "transition_s"});
+            number(coast, "fueling_threshold_01", path, 0.01, 0.4);
+            number(coast, "gain", path, 0, 1);
+            number(coast, "lowpass_hz", path, 250, 1500);
+            number(coast, "transition_s", path, 0.005, 0.2);
+            d.runtime_version = 8;
+        }
+        if (const auto balance = presentation.find("coasting_balance"); balance.valid()) {
+            const std::string path = "/presentation/coasting_balance";
+            require(d.runtime_version == 8, path,
+                    "coasting balance requires low-fuel exhaust and its dependencies");
+            keys(balance, path, {"fueling_threshold_01", "bass_gain", "movement_gain",
+                                 "crossover_hz", "mechanical_gain", "transition_s"});
+            number(balance, "fueling_threshold_01", path, 0.01, 0.12);
+            number(balance, "bass_gain", path, 0, 1);
+            number(balance, "movement_gain", path, 0, 1);
+            number(balance, "crossover_hz", path, 80, 400);
+            number(balance, "mechanical_gain", path, 1, 2);
+            number(balance, "transition_s", path, 0.005, 0.2);
+            d.runtime_version = 9;
+        }
+        if (const auto flow = presentation.find("coasting_flow_texture"); flow.valid()) {
+            const std::string path = "/presentation/coasting_flow_texture";
+            require(d.runtime_version == 9, path,
+                    "coasting flow texture requires coasting balance and its dependencies");
+            keys(flow, path, {"gain_pcm_per_kg_s", "highpass_hz", "lowpass_hz",
+                              "envelope_s", "seed"});
+            number(flow, "gain_pcm_per_kg_s", path, 0, 4);
+            const auto highpass = number(flow, "highpass_hz", path, 150, 800);
+            const auto lowpass = number(flow, "lowpass_hz", path, 800, 3000);
+            require(lowpass >= 2 * highpass, path, "coasting flow band is too narrow");
+            number(flow, "envelope_s", path, 0.0005, 0.02);
+            const auto seed = number(flow, "seed", path, 0, 4294967295.0);
+            require(std::floor(seed) == seed, path + "/seed", "expected integer");
+            d.runtime_version = 10;
         }
         d.presentation_json = json(presentation);
         const auto provenance = root.find("provenance");
@@ -585,8 +646,18 @@ std::variant<BakedSound, SoundError> bake_sound(std::string_view source_json,
             << d.runtime_version << "\"]"
             << ",\"samples_per_cycle\":" << d.samples_per_cycle
             << ",\"cells\":" << cells.str() << ",\"cylinders\":" << d.cylinders_json
-            << ",\"presentation\":" << d.presentation_json
-            << ",\"provenance\":" << d.provenance_json
+            << ",\"presentation\":" << d.presentation_json;
+        if (d.runtime_version >= 6) {
+            // Bind mechanical events to the same valve windows used by the gas
+            // capture. Presentation authors do not duplicate engine timing.
+            manifest << ",\"mechanical_timing\":{\"intake_open_angle_rad\":"
+                     << d.cylinder.intake_valve.open_angle_atdc_rad
+                     << ",\"intake_close_angle_rad\":"
+                     << d.cylinder.intake_valve.close_angle_atdc_rad
+                     << ",\"exhaust_close_angle_rad\":"
+                     << d.cylinder.exhaust_valve.close_angle_atdc_rad << '}';
+        }
+        manifest << ",\"provenance\":" << d.provenance_json
             << ",\"sources\":{\"path\":\"sources.f32le\",\"sha256\":"
             << quote(hex(contract::sha256(payload)))
             << ",\"layout\":\"cell-phase-force-n-exhaust-kg-s\",\"byte_count\":"

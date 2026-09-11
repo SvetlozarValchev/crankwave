@@ -112,7 +112,7 @@ int main() {
                "Ural bank/exhaust model compiles");
         const auto &ural_definition =
             std::get<crankwave::diesel::SoundDefinition>(ural);
-        expect(ural_definition.runtime_version == 5 &&
+        expect(ural_definition.runtime_version == 10 &&
                    ural_definition.cylinder.bore_m == 0.13 &&
                    ural_definition.cylinder.stroke_m == 0.14 &&
                    ural_definition.cylinder.compression_ratio == 16.5,
@@ -122,12 +122,33 @@ int main() {
               std::pair{"\"delay_s\": 0.0042", "\"delay_s\": 0"},
               std::pair{"\"right-bank\"", "\"left-bank\""},
               std::pair{"\"decay_s\": 0.018", "\"decay_s\": 0"},
-              std::pair{"\"seed\": 238650", "\"seed\": 1.5"}}) {
+              std::pair{"\"seed\": 238650", "\"seed\": 1.5"},
+              std::pair{"\"valve_gain_pcm\": 0.14", "\"valve_gain_pcm\": -1"},
+              std::pair{"\"valve_decay_s\": 0.0018", "\"valve_decay_s\": 1"},
+              std::pair{"\"valve_frequency_hz\": 650", "\"valve_frequency_hz\": 1"},
+              std::pair{"\"pumping_gain_pcm\": 0.012", "\"pumping_gain_pcm\": 1"},
+              std::pair{"\"pumping_lowpass_hz\": 850", "\"pumping_lowpass_hz\": 1"},
+              std::pair{"\"seed\": 4320725", "\"seed\": 0.5"},
+              std::pair{"\"valve_attack_s\": 0.0012", "\"valve_attack_s\": 0"},
+              std::pair{"\"fueling_threshold_01\": 0.2", "\"fueling_threshold_01\": 0"},
+              std::pair{"\"gain\": 0.16", "\"gain\": 2"},
+              std::pair{"\"lowpass_hz\": 550", "\"lowpass_hz\": 10"},
+              std::pair{"\"transition_s\": 0.04", "\"transition_s\": 0"},
+              std::pair{"\"bass_gain\": 0.18", "\"bass_gain\": -1"},
+              std::pair{"\"movement_gain\": 0.48", "\"movement_gain\": 2"},
+              std::pair{"\"crossover_hz\": 180", "\"crossover_hz\": 1"},
+              std::pair{"\"mechanical_gain\": 1.6", "\"mechanical_gain\": 3"},
+              std::pair{"\"gain_pcm_per_kg_s\": 0.4", "\"gain_pcm_per_kg_s\": 5"},
+              std::pair{"\"highpass_hz\": 250", "\"highpass_hz\": 0"},
+              std::pair{"\"lowpass_hz\": 1800", "\"lowpass_hz\": 4000"},
+              std::pair{"\"envelope_s\": 0.002", "\"envelope_s\": 0"},
+              std::pair{"\"seed\": 432008", "\"seed\": 0.5"},
+              std::pair{"\"coasting_balance\"", "\"missing_coasting_balance\""}}) {
             auto invalid = ural_source;
             replace(invalid, from, to);
             expect(std::holds_alternative<crankwave::diesel::SoundError>(
                        crankwave::diesel::parse_sound_definition(invalid)),
-                   "malformed exhaust branch rejected natively");
+                   "malformed acoustic parameters rejected natively");
         }
         std::cout << "diesel definition, deterministic settled capture, cancellation "
                      "and carrier binding passed\n";

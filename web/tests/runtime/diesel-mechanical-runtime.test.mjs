@@ -3,7 +3,7 @@ import {webcrypto} from "node:crypto";
 import test from "node:test";
 
 import {CrankwaveAudioEngine} from "../../runtime/crankwave-audio-engine.js";
-import {DieselBiquad, DieselExhaustSystem, DieselPressureTexture} from "../../runtime/diesel-mechanical-runtime.js";
+import {DieselBiquad, DieselExhaustSystem, DieselPressureTexture, DieselMechanicalTexture, DieselLowFuelExhaust, DieselCoastingBalance, DieselCoastingFlowTexture} from "../../runtime/diesel-mechanical-runtime.js";
 
 import {digest, jsonBytes, packTestCarrier} from "./crankwave-test-carrier.mjs";
 
@@ -490,3 +490,466 @@ test(
         await assert.rejects(
             load(exhaustFixture((m) => mutate(m.presentation.exhaust_system))));
     });
+
+const mechanicalParameters = {
+  valve_gain_pcm: 0.16, valve_frequency_hz: 1050, valve_decay_s: 0.0018,
+  pumping_gain_pcm: 0.045, pumping_lowpass_hz: 850, seed: 4320725
+};
+const mechanicalTiming = {
+  intake_open_angle_rad: Math.PI,
+  intake_close_angle_rad: 3 * Math.PI,
+  exhaust_close_angle_rad: Math.PI
+};
+function mechanicalFixture(mutate = () => {}) {
+  return texturedFixture((m, samples) => {
+    m.version = 6;
+    m.methods[2] = 'pressure-force-modal-radiation-v6';
+    m.mechanical_timing = {...mechanicalTiming};
+    m.presentation.mechanical_texture = {...mechanicalParameters};
+    mutate(m, samples);
+  });
+}
+
+test('mechanical closures follow cylinder phases and stop exciting at a stationary crank', () => {
+  for (const rate of [24000, 192000]) {
+    const texture = new DieselMechanicalTexture(mechanicalParameters, mechanicalTiming,
+        [{id: 'one', firing_angle_rad: 0, structural_gain: 1}], rate);
+    const run = () => {
+      const out = new Float64Array(rate);
+      for (let i = 0; i < rate; ++i) out[i] = texture.process(2 * i / rate, 120);
+      assert.equal(texture.events, 2, 'one intake and one exhaust closure per 720 degrees');
+      assert.equal(rms(out.subarray(0, rate / 4)), 0, 'nothing before first valve opening/closure');
+      return out;
+    };
+    const first = run();
+    texture.reset();
+    assert.deepEqual(run(), first);
+    const stopped = new Float64Array(rate / 4);
+    for (let i = 0; i < stopped.length; ++i) stopped[i] = texture.process(2 - 2 / rate, 0);
+    assert.equal(texture.events, 2, 'stationary crank adds no new impacts');
+    assert.ok(rms(stopped.subarray(rate / 5)) < 1e-12, 'only physical-time filter tails remain');
+    texture.reset();
+    for (let i = 0; i < rate; ++i) texture.process(4 * i / rate, 240);
+    assert.equal(texture.events, 4, 'doubling RPM doubles event count');
+    const shifted = new DieselMechanicalTexture(mechanicalParameters, mechanicalTiming,
+        [{id: 'one', firing_angle_rad: Math.PI, structural_gain: 1}], rate);
+    for (let i = 0; i < rate / 2; ++i) shifted.process(2 * i / rate, 120);
+    assert.equal(shifted.events, 0, 'cylinder binding shifts both closures');
+  }
+});
+
+test('mechanical layers survive fuel cut without changing their excitation', async () => {
+  const engine = await load(mechanicalFixture());
+  const stats = [];
+  for (const load01 of [0, 1]) {
+    engine.setOperatingPoint({rpm: 1000, load01, throttle01: load01});
+    engine.reset();
+    engine.render(192000);
+    stats.push(engine.diagnostics().runtime);
+  }
+  assert.ok(stats[0].valveRms > 0.001 && stats[0].pumpingRms > 0.001);
+  assert.equal(stats[0].valveRms, stats[1].valveRms);
+  assert.equal(stats[0].pumpingRms, stats[1].pumpingRms);
+  assert.ok(stats[0].blockRms < stats[1].blockRms,
+      'combustion still drops away when mechanical sources continue');
+});
+
+test('muting new sources recovers version 5 PCM exactly at idle, load and coast', async () => {
+  const old = await load(texturedFixture());
+  const next = await load(mechanicalFixture(m => {
+    m.presentation.mechanical_texture.valve_gain_pcm = 0;
+    m.presentation.mechanical_texture.pumping_gain_pcm = 0;
+  }));
+  for (const [rpm, load01] of [[800, 0.12], [1600, 1], [1600, 0]]) {
+    for (const e of [old, next]) { e.setOperatingPoint({rpm, load01, throttle01: load01}); e.reset(); }
+    assert.deepEqual(next.render(45000), old.render(45000));
+  }
+});
+
+test('mechanical events and noise replay across read partitions and dense controls', async () => {
+  const engine = await load(mechanicalFixture());
+  const whole = engine.render(45000);
+  engine.reset();
+  assert.deepEqual(Float32Array.from([1, 127, 8193, 36679].flatMap(n => [...engine.render(n)])), whole);
+  const other = await load(mechanicalFixture(m => m.presentation.mechanical_texture.seed++));
+  assert.notDeepEqual(other.render(45000), whole);
+  const sequence = () => {
+    engine.setOperatingPoint({rpm: 800, load01: 0.12, throttle01: 0}); engine.reset();
+    return Array.from({length: 60}, (_, i) => engine.process({
+      rpm: 800 + (i < 30 ? i : 60 - i) * 20,
+      load01: i < 30 ? 0.6 : 0, throttle01: i < 30 ? 0.6 : 0
+    }));
+  };
+  const first = sequence();
+  assert.ok(first.every(block => block.every(x => Number.isFinite(x) && Math.abs(x) < 1)));
+  assert.deepEqual(sequence(), first);
+});
+
+test('mechanical runtime strictly admits timing, bounds and version dependencies', async () => {
+  for (const mutate of [
+    m => { delete m.mechanical_timing; },
+    m => { delete m.presentation.mechanical_texture; },
+    m => { delete m.presentation.pressure_texture; },
+    m => { m.mechanical_timing.intake_open_angle_rad = m.mechanical_timing.intake_close_angle_rad; },
+    m => { m.mechanical_timing.exhaust_close_angle_rad = 13; },
+    m => { m.mechanical_timing.extra = 1; },
+    m => { m.presentation.mechanical_texture.valve_gain_pcm = -1; },
+    m => { m.presentation.mechanical_texture.valve_frequency_hz = 9000; },
+    m => { m.presentation.mechanical_texture.valve_decay_s = 0.1; },
+    m => { m.presentation.mechanical_texture.pumping_gain_pcm = 1; },
+    m => { m.presentation.mechanical_texture.pumping_lowpass_hz = 0; },
+    m => { m.presentation.mechanical_texture.seed = 0.5; },
+    m => { m.presentation.mechanical_texture.extra = 1; },
+    m => { m.version = 5; m.methods[2] = 'pressure-force-modal-radiation-v5'; },
+    m => { m.version = 7; m.methods[2] = 'pressure-force-modal-radiation-v7'; }
+  ]) await assert.rejects(load(mechanicalFixture(mutate)));
+});
+
+function smoothMechanicalFixture(mutate = () => {}) {
+  return mechanicalFixture((m, samples) => {
+    m.version = 7;
+    m.methods[2] = 'pressure-force-modal-radiation-v7';
+    m.presentation.mechanical_texture.valve_attack_s = 0.0012;
+    mutate(m, samples);
+  });
+}
+
+test('finite valve contact removes the onset step at matched event energy', () => {
+  for (const rate of [24000, 192000]) {
+    const render = attack => {
+      const parameters = {...mechanicalParameters, pumping_gain_pcm: 0};
+      if (attack) parameters.valve_attack_s = attack;
+      const texture = new DieselMechanicalTexture(parameters, mechanicalTiming,
+          [{id: 'one', firing_angle_rad: 0, structural_gain: 1}], rate);
+      const pcm = Float64Array.from({length: rate / 3}, (_, i) => texture.process(2 * i / rate, 120));
+      assert.equal(texture.events, 1);
+      return pcm.slice(rate / 4, rate / 4 + Math.round(rate * 0.02));
+    };
+    const instant = render(0), contact = render(0.0012);
+    assert.equal(contact[0], 0);
+    assert.equal(contact[1], 0, 'zero force and slope at contact onset');
+    const maxStep = x => x.reduce((max, sample, i) => i ? Math.max(max, Math.abs(sample - x[i - 1])) : max, 0);
+    assert.ok(rms(contact) > rms(instant) * 0.1, 'smoothing retains a mechanical event');
+    assert.ok(maxStep(contact) / rms(contact) < maxStep(instant) / rms(instant) * 0.5,
+        'the onset is smoother even after equalizing event RMS');
+    // A finite force pulse preserves timing and decay when the rendering rate changes.
+    assert.ok(rms(contact.slice(-Math.round(rate * 0.005))) < rms(contact) * 0.001);
+  }
+});
+
+test('smooth mechanical excitation remains independent of fuel and replays exactly', async () => {
+  const engine = await load(smoothMechanicalFixture());
+  const first = engine.render(45000);
+  engine.reset();
+  assert.deepEqual(Float32Array.from([1, 127, 8193, 36679].flatMap(n => [...engine.render(n)])), first);
+  const stats = [];
+  for (const load01 of [1, 0]) {
+    engine.setOperatingPoint({rpm: 1000, load01, throttle01: load01}); engine.reset();
+    engine.render(96000); stats.push(engine.diagnostics().runtime);
+  }
+  assert.equal(stats[0].valveRms, stats[1].valveRms);
+  assert.equal(stats[0].pumpingRms, stats[1].pumpingRms);
+  assert.ok(stats[1].valveRms > 0);
+  const sequence = () => {
+    engine.setOperatingPoint({rpm: 800, load01: 0.12, throttle01: 0}); engine.reset();
+    return Array.from({length: 60}, (_, i) => engine.process({
+      rpm: 800 + (i < 30 ? i : 60 - i) * 20,
+      load01: i < 30 ? 0.6 : 0, throttle01: i < 30 ? 0.6 : 0
+    }));
+  };
+  assert.deepEqual(sequence(), sequence());
+});
+
+test('smooth valve contact requires version 7 and a bounded duration', async () => {
+  for (const mutate of [
+    m => { delete m.presentation.mechanical_texture.valve_attack_s; },
+    m => { m.presentation.mechanical_texture.valve_attack_s = 0; },
+    m => { m.presentation.mechanical_texture.valve_attack_s = 0.02; },
+    m => { m.version = 6; m.methods[2] = 'pressure-force-modal-radiation-v6'; }
+  ]) await assert.rejects(load(smoothMechanicalFixture(mutate)));
+});
+
+const coastingParameters = {
+  fueling_threshold_01: 0.2, gain: 0.16, lowpass_hz: 550, transition_s: 0.04
+};
+function coastingFixture(mutate = () => {}) {
+  return smoothMechanicalFixture((m, samples) => {
+    m.version = 8;
+    m.methods[2] = 'pressure-force-modal-radiation-v8';
+    m.presentation.low_fuel_exhaust = {...coastingParameters};
+    mutate(m, samples);
+  });
+}
+
+test('low-fuel exhaust bypasses loaded firing and softens fuel cut without a gain step', () => {
+  for (const rate of [24000, 192000]) {
+    const coast = new DieselLowFuelExhaust(coastingParameters, rate);
+    for (let i = 0; i < rate / 10; ++i) assert.equal(coast.process(1, 0.3), 1);
+    const transition = Float64Array.from({length: rate / 2}, () => coast.process(1, 0));
+    const stepLimit = (1 - coastingParameters.gain) / (rate * coastingParameters.transition_s);
+    assert.ok(1 - transition[0] <= stepLimit * 1.001, 'fuel cut cannot switch gain instantaneously');
+    for (let i = 1; i < transition.length; ++i)
+      assert.ok(Math.abs(transition[i] - transition[i - 1]) <= stepLimit * 1.001);
+    assert.ok(Math.abs(transition.at(-1) - coastingParameters.gain) < 0.00001);
+    const recover = Float64Array.from({length: rate}, () => coast.process(1, 0.3));
+    assert.ok(Math.abs(recover[0] - transition.at(-1)) < stepLimit * 1.001);
+    assert.equal(recover.at(-1), 1, 'restored firing eventually returns to exact bypass');
+    coast.reset();
+    for (let i = 0; i < rate / 10; ++i) assert.equal(coast.process(0, 0), 0);
+  }
+});
+
+test('low-fuel exhaust preserves loaded PCM and keeps mechanical layers at idle and on coast', async () => {
+  const previous = await load(smoothMechanicalFixture());
+  const current = await load(coastingFixture());
+  for (const [rpm, load01] of [[800, 0.2], [1200, 0.3], [1600, 0.85]]) {
+    for (const e of [previous, current]) { e.setOperatingPoint({rpm, load01, throttle01: load01}); e.reset(); }
+    assert.deepEqual(current.render(45000), previous.render(45000));
+  }
+  const stats = [];
+  for (const e of [previous, current]) {
+    e.setOperatingPoint({rpm: 1600, load01: 0, throttle01: 0}); e.reset();
+    e.render(192000); stats.push(e.diagnostics().runtime);
+  }
+  for (const stem of ['blockRms', 'valveRms', 'pumpingRms']) assert.equal(stats[0][stem], stats[1][stem]);
+  assert.ok(stats[1].exhaustRms > 0, 'coasting keeps a pumped-air exhaust contribution');
+  assert.ok(stats[1].exhaustRms < stats[0].exhaustRms * 0.2);
+  const idle = [];
+  for (const e of [previous, current]) {
+    e.setOperatingPoint({rpm: 800, load01: 0.12, throttle01: 0}); e.reset();
+    e.render(192000); idle.push(e.diagnostics().runtime);
+  }
+  for (const stem of ['blockRms', 'valveRms', 'pumpingRms']) assert.equal(idle[0][stem], idle[1][stem]);
+  assert.ok(idle[1].exhaustRms < idle[0].exhaustRms * 0.9, 'idle receives some exhaust reduction');
+  assert.ok(idle[1].exhaustRms > idle[0].exhaustRms * 0.5, 'idle retains more exhaust than full coast');
+});
+
+test('coast entry and fuel restoration replay across reset and read partitions', async () => {
+  const engine = await load(coastingFixture());
+  engine.setOperatingPoint({rpm: 1200, load01: 0, throttle01: 0}); engine.reset();
+  const first = engine.render(45000); engine.reset();
+  assert.deepEqual(Float32Array.from([1, 127, 8193, 36679].flatMap(n => [...engine.render(n)])), first);
+  const sequence = () => {
+    engine.setOperatingPoint({rpm: 1600, load01: 0.85, throttle01: 0.85}); engine.reset();
+    return Array.from({length: 75}, (_, i) => engine.process({
+      rpm: 1600 - Math.min(i, 40) * 20,
+      load01: i < 10 ? 0.85 : i < 50 ? 0 : 0.12, throttle01: i < 10 ? 0.85 : 0
+    }));
+  };
+  const a = sequence();
+  assert.ok(a.every(block => block.every(x => Number.isFinite(x) && Math.abs(x) < 1)));
+  assert.deepEqual(sequence(), a);
+});
+
+test('coasting transfer requires version 8 and bounded parameters', async () => {
+  for (const mutate of [
+    m => { delete m.presentation.low_fuel_exhaust; },
+    m => { delete m.presentation.mechanical_texture.valve_attack_s; },
+    m => { m.presentation.low_fuel_exhaust.fueling_threshold_01 = 0; },
+    m => { m.presentation.low_fuel_exhaust.gain = 2; },
+    m => { m.presentation.low_fuel_exhaust.lowpass_hz = 0; },
+    m => { m.presentation.low_fuel_exhaust.transition_s = 0; },
+    m => { m.presentation.low_fuel_exhaust.extra = 1; },
+    m => { m.version = 7; m.methods[2] = 'pressure-force-modal-radiation-v7'; },
+    m => { m.version = 9; m.methods[2] = 'pressure-force-modal-radiation-v9'; }
+  ]) await assert.rejects(load(coastingFixture(mutate)));
+});
+
+const coastBalanceParameters = {
+  fueling_threshold_01: 0.06, bass_gain: 0.18, movement_gain: 0.48,
+  crossover_hz: 180, mechanical_gain: 1.6, transition_s: 0.04
+};
+function balancedCoastFixture(mutate = () => {}) {
+  return coastingFixture((m, samples) => {
+    m.version = 9;
+    m.methods[2] = 'pressure-force-modal-radiation-v9';
+    m.presentation.coasting_balance = {...coastBalanceParameters};
+    mutate(m, samples);
+  });
+}
+
+test('coasting split remains complementary and fades mechanical gain in physical time', () => {
+  for (const rate of [24000, 192000]) {
+    const flat = new DieselCoastingBalance({...coastBalanceParameters, bass_gain: 0.4, movement_gain: 0.4}, rate);
+    for (let i = 0; i < rate / 10; ++i) {
+      const source = Math.sin(i / rate * 2 * Math.PI * 500);
+      assert.ok(Math.abs(flat.process(source, 0, 0) - 0.4 * source) < 1e-15,
+          'equal gains must not color the signal');
+    }
+    const balance = new DieselCoastingBalance(coastBalanceParameters, rate);
+    for (let i = 0; i < rate / 10; ++i) {
+      assert.equal(balance.process(1, 0.16, 0.12), 0.16);
+      assert.equal(balance.mechanicalGain, 1);
+    }
+    let previous = 1;
+    for (let i = 0; i < rate; ++i) {
+      balance.process(1, 0.16, 0);
+      assert.ok(balance.mechanicalGain - previous < 0.601 / (rate * 0.04));
+      previous = balance.mechanicalGain;
+    }
+    assert.equal(balance.mechanicalGain, 1.6);
+    for (let i = 0; i < rate; ++i) balance.process(1, 0.16, 0.12);
+    assert.equal(balance.mechanicalGain, 1);
+    assert.equal(balance.process(1, 0.16, 0.12), 0.16, 'idle returns to exact bypass');
+    balance.reset();
+    assert.equal(balance.process(0, 0, 0), 0);
+  }
+});
+
+test('coasting balance preserves quieter idle and loaded PCM while restoring movement and mechanics', async () => {
+  const previous = await load(coastingFixture()), current = await load(balancedCoastFixture());
+  for (const [rpm, load01] of [[800, 0.12], [1200, 0.3], [1600, 0.85]]) {
+    for (const e of [previous, current]) {e.setOperatingPoint({rpm, load01, throttle01: load01});e.reset();}
+    assert.deepEqual(current.render(45000), previous.render(45000));
+  }
+  const stats = [];
+  for (const e of [previous, current]) {
+    e.setOperatingPoint({rpm: 1600, load01: 0, throttle01: 0});e.reset();e.render(192000);
+    stats.push(e.diagnostics().runtime);
+  }
+  assert.equal(stats[0].blockRms, stats[1].blockRms, 'no extra combustion is added on coast');
+  for (const stem of ['valveRms', 'pumpingRms'])
+    assert.ok(Math.abs(stats[1][stem] / stats[0][stem] - 1.6) < 1e-10);
+  assert.ok(stats[1].exhaustRms > stats[0].exhaustRms, 'exhaust movement is restored');
+});
+
+test('balanced coasting replays exactly across partitions, fuel cut, and restoration', async () => {
+  const engine = await load(balancedCoastFixture());
+  engine.setOperatingPoint({rpm: 1200, load01: 0, throttle01: 0});engine.reset();
+  const first = engine.render(45000);engine.reset();
+  assert.deepEqual(Float32Array.from([1, 127, 8193, 36679].flatMap(n => [...engine.render(n)])), first);
+  const sequence = () => {
+    engine.setOperatingPoint({rpm: 1600, load01: 0.85, throttle01: 0.85});engine.reset();
+    return Array.from({length: 75}, (_, i) => engine.process({
+      rpm: 1600 - Math.min(i, 40) * 20,
+      load01: i < 10 ? 0.85 : i < 50 ? 0 : 0.12, throttle01: i < 10 ? 0.85 : 0
+    }));
+  };
+  const a = sequence();
+  assert.ok(a.every(block => block.every(x => Number.isFinite(x) && Math.abs(x) < 1)));
+  assert.deepEqual(sequence(), a);
+});
+
+test('coasting balance requires version 9 and bounded parameters', async () => {
+  for (const mutate of [
+    m => {delete m.presentation.coasting_balance;},
+    m => {delete m.presentation.low_fuel_exhaust;},
+    m => {m.presentation.coasting_balance.fueling_threshold_01 = 0;},
+    m => {m.presentation.coasting_balance.bass_gain = -1;},
+    m => {m.presentation.coasting_balance.movement_gain = 2;},
+    m => {m.presentation.coasting_balance.crossover_hz = 0;},
+    m => {m.presentation.coasting_balance.mechanical_gain = 3;},
+    m => {m.presentation.coasting_balance.transition_s = 0;},
+    m => {m.presentation.coasting_balance.extra = 1;},
+    m => {m.version = 8;m.methods[2] = 'pressure-force-modal-radiation-v8';},
+    m => {m.version = 10;m.methods[2] = 'pressure-force-modal-radiation-v10';}
+  ]) await assert.rejects(load(balancedCoastFixture(mutate)));
+});
+
+const coastingFlowParameters = {
+  gain_pcm_per_kg_s: 0.8, highpass_hz: 250, lowpass_hz: 1800,
+  envelope_s: 0.002, seed: 432008
+};
+function flowingCoastFixture(mutate = () => {}) {
+  return balancedCoastFixture((m, samples) => {
+    m.version = 10;
+    m.methods[2] = 'pressure-force-modal-radiation-v10';
+    m.presentation.coasting_flow_texture = {...coastingFlowParameters};
+    mutate(m, samples);
+  });
+}
+
+test('coasting texture follows outward gas flow, decays at rest, and replays by seed', () => {
+  const energies = [];
+  for (const rate of [24000, 192000]) {
+    const make = () => new DieselCoastingFlowTexture(coastingFlowParameters,
+        [{id: 'right', cylinder_ids: ['one'], gain: 1}], [{id: 'one'}], rate);
+    const a = make(), b = make();
+    for (let i = 0; i < 100; i++) assert.equal(a.process([0]), 0);
+    a.reset();
+    const signal = new Float64Array(rate), doubled = new Float64Array(rate);
+    for (let i = 0; i < rate; i++) {
+      const flow = 0.03 * (1 + Math.sin(2 * Math.PI * 47 * i / rate));
+      signal[i] = a.process([flow]);doubled[i] = b.process([flow * 2]);
+    }
+    assert.ok(rms(signal) > 0.005);
+    assert.deepEqual(doubled, signal.map(x => x * 2), 'amplitude follows captured flow');
+    energies.push(rms(signal));
+    a.reset();
+    for (let i = 0; i < rate; i++) {
+      assert.equal(a.process([0.03 * (1 + Math.sin(2 * Math.PI * 47 * i / rate))]), signal[i]);
+    }
+    let tail;
+    for (let i = 0; i < rate / 2; i++) tail = a.process([0]);
+    assert.ok(Math.abs(tail) < 1e-12, 'no permanent noise bed after gas flow ends');
+    a.reset();
+    for (let i = 0; i < 1000; i++) assert.equal(a.process([-0.1]), 0, 'reverse flow is not an outward jet');
+  }
+  assert.ok(energies[1] / energies[0] > 0.9 && energies[1] / energies[0] < 1.1,
+      'authored texture level is consistent across sample rates');
+});
+
+test('coasting flow respects bank routing and changes its fine structure with the seed', () => {
+  const make = (seed) => new DieselCoastingFlowTexture({...coastingFlowParameters, seed},
+      [{id: 'right', cylinder_ids: ['two'], gain: 1}], [{id: 'one'}, {id: 'two'}], 24000);
+  const a = make(10), b = make(11);
+  for (let i = 0; i < 1000; i++) assert.equal(a.process([1, 0]), 0);
+  a.reset();
+  const first = Float64Array.from({length: 24000}, () => a.process([0, 0.04]));
+  const second = Float64Array.from({length: 24000}, () => b.process([0, 0.04]));
+  assert.notDeepEqual(first, second);
+  assert.ok(rms(first) / rms(second) > 0.9 && rms(first) / rms(second) < 1.1);
+});
+
+test('flowing coast preserves fueled PCM and existing mechanics while adding only exhaust energy', async () => {
+  const previous = await load(balancedCoastFixture()), current = await load(flowingCoastFixture());
+  for (const fuel of [0.06, 0.12, 0.65, 1]) {
+    for (const e of [previous, current]) {e.setOperatingPoint({rpm: 1200, load01: fuel, throttle01: 0});e.reset();}
+    assert.deepEqual(current.render(45000), previous.render(45000));
+    assert.equal(current.diagnostics().runtime.coastingFlowRms, 0);
+  }
+  const pcm = [], stats = [];
+  for (const e of [previous, current]) {
+    e.setOperatingPoint({rpm: 1600, load01: 0, throttle01: 0});e.reset();
+    pcm.push(e.render(192000));stats.push(e.diagnostics().runtime);
+  }
+  assert.notDeepEqual(pcm[0], pcm[1]);
+  assert.ok(stats[1].coastingFlowRms > 0);
+  assert.equal(stats[0].coastingFlowRms, 0);
+  for (const stem of ['blockRms', 'valveRms', 'pumpingRms']) assert.equal(stats[0][stem], stats[1][stem]);
+  assert.ok(stats[1].exhaustRms > stats[0].exhaustRms);
+});
+
+test('flowing coast stays deterministic across read partitions and repeated gear changes', async () => {
+  const engine = await load(flowingCoastFixture());
+  engine.setOperatingPoint({rpm: 1200, load01: 0, throttle01: 0});engine.reset();
+  const whole = engine.render(45000);engine.reset();
+  assert.deepEqual(Float32Array.from([1, 127, 8193, 36679].flatMap(n => [...engine.render(n)])), whole);
+  const sequence = () => {
+    engine.setOperatingPoint({rpm: 1600, load01: 0.85, throttle01: 0.85});engine.reset();
+    return Array.from({length: 100}, (_, i) => engine.process({
+      rpm: 1600 - Math.min(i % 50, 30) * 20,
+      load01: i % 50 < 10 || i % 50 >= 35 ? 0.85 : 0,
+      throttle01: i % 50 < 10 || i % 50 >= 35 ? 0.85 : 0
+    }));
+  };
+  const first = sequence();
+  assert.ok(first.every(block => block.every(x => Number.isFinite(x) && Math.abs(x) < 1)));
+  assert.deepEqual(sequence(), first);
+});
+
+test('coasting flow requires version 10, its dependencies and a bounded spectrum', async () => {
+  for (const mutate of [
+    m => {delete m.presentation.coasting_flow_texture;},
+    m => {delete m.presentation.coasting_balance;},
+    m => {m.version = 9;m.methods[2] = 'pressure-force-modal-radiation-v9';},
+    m => {m.version = 11;m.methods[2] = 'pressure-force-modal-radiation-v11';},
+    m => {m.presentation.coasting_flow_texture.gain_pcm_per_kg_s = 5;},
+    m => {m.presentation.coasting_flow_texture.highpass_hz = 0;},
+    m => {m.presentation.coasting_flow_texture.lowpass_hz = 4000;},
+    m => {m.presentation.coasting_flow_texture.highpass_hz = 800;m.presentation.coasting_flow_texture.lowpass_hz = 800;},
+    m => {m.presentation.coasting_flow_texture.envelope_s = 0;},
+    m => {m.presentation.coasting_flow_texture.seed = 0.5;},
+    m => {m.presentation.coasting_flow_texture.extra = 1;}
+  ]) await assert.rejects(load(flowingCoastFixture(mutate)));
+});
