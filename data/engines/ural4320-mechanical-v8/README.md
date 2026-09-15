@@ -114,8 +114,13 @@ acoustic tuning through spectral, temporal and audio-embedding comparisons; its 
 is unmeasured. Those descriptors do not establish subjective sound quality.
 Reference files remain local analysis material, outside the tracked definition.
 Numerical descriptors do not establish a perceptual match.
-Cold starting, stopping and a complete vehicle lifecycle are not implemented.
+Physical cold starting, stopping and a complete vehicle lifecycle are not implemented.
 
 See [the model and playback contract](../../../docs/model/MECHANICAL_DIESEL_SOUND.md)
 for supported paths, pressure and mechanical texture, exhaust semantics, validation
 and limits.
+
+The [packaged harness driving setup](HARNESS_DRIVE.md) includes the reused heavy
+recorded starter, harder pickup and accepted engaged coast in a single file.
+It uses the updated harness's Start engine button and authored heavy-truck driving
+controls. The [original starter audition](STARTER_AUDITION.md) remains reproducible.

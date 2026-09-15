@@ -2722,6 +2722,8 @@ if(TARGET crankwave_cli_support)
             COMMAND ${_crankwave_node_for_installed_test} --test
                 ${PROJECT_SOURCE_DIR}/web/tests/runtime/diesel-mechanical-runtime.test.mjs
                 ${PROJECT_SOURCE_DIR}/web/tests/runtime/diesel-driving-model.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/diesel-drive-runtime.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/backdrive-coast-audition.test.mjs
         )
         set_tests_properties(runtime.diesel_mechanical PROPERTIES LABELS "javascript;runtime" TIMEOUT 120)
         add_test(

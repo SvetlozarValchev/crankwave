@@ -186,6 +186,9 @@ const browserModuleNames = [
   "responsive-audio-lifecycle-runtime.js",
   "crankwave-audio-engine.js",
   "diesel-mechanical-runtime.js",
+  "diesel-backdrive-runtime.js",
+  "diesel-drive-runtime.js",
+  "diesel-drive-session.js",
   "limiter-performance-runtime.js",
   "crankwave-package.js",
   "shared-recorded-starter-runtime.js",
@@ -198,7 +201,7 @@ const actualBrowserModules = release.files
   .filter(file => file.startsWith(browserDirectory) && file.endsWith(".js"))
   .map(file => file.slice(browserDirectory.length))
   .sort();
-assert.deepEqual(actualBrowserModules, browserModuleNames);
+assert.deepEqual(actualBrowserModules, browserModuleNames.toSorted());
 
 for (const required of [
   `${resourceRelative}/licenses/CRANKWAVE.txt`,

@@ -109,10 +109,15 @@ list(SORT runtime_entries)
 set(expected_runtime_entries
     crankwave-audio-engine.js
     crankwave-package.js
+    diesel-backdrive-runtime.js
+    diesel-drive-runtime.js
+    diesel-drive-session.js
+    diesel-mechanical-runtime.js
     directional-phase-cell.js
     dry-directional-phase-runtime.js
     held-phase-texture-runtime.js
     held-texture-presentation-runtime.js
+    limiter-performance-runtime.js
     release.js
     renderer-runtime-compatibility.js
     responsive-audio-lifecycle-runtime.js

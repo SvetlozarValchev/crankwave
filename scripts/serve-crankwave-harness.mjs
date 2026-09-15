@@ -58,6 +58,9 @@ const mimeTypes = new Map([
 const runtimeFiles = new Set([
   "device-resampler.js",
   "diesel-mechanical-runtime.js",
+  "diesel-backdrive-runtime.js",
+  "diesel-drive-runtime.js",
+  "diesel-drive-session.js",
   "directional-phase-cell.js",
   "dry-directional-phase-runtime.js",
   "held-phase-texture-runtime.js",

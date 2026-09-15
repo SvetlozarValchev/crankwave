@@ -1,5 +1,6 @@
 import { loadHeldTexturePresentationRuntime } from "./held-texture-presentation-runtime.js";
 import { loadDieselMechanicalRuntime } from "./diesel-mechanical-runtime.js";
+import {DIESEL_DRIVE_PATH, loadDieselDriveRuntime} from './diesel-drive-runtime.js';
 import {
   loadSharedRecordedStarterRuntime,
   resolveSharedRecordedStarterManifestUrl,
@@ -489,6 +490,13 @@ export async function loadResponsiveAudioCrankwave(
     const sourceEntry = package_.entries.find((entry) => entry.path === sourcePath);
     if (sourceEntry?.sha256 !== runtime.manifest.source_sha256) {
       fail("runtime-identity-mismatch", "diesel source identity does not bind the packaged engine definition");
+    }
+    if (package_.entries.some(entry => entry.path === DIESEL_DRIVE_PATH)) {
+      const response = await fetchImplementation(`${VIRTUAL_ORIGIN}/${sourcePath}`);
+      const definition = JSON.parse(new TextDecoder().decode(await response.arrayBuffer()));
+      const drivePackage = await loadDieselDriveRuntime(`${VIRTUAL_ORIGIN}/${DIESEL_DRIVE_PATH}`,
+        runtime, definition.engine.cylinder, {fetch: fetchImplementation, crypto: cryptoImplementation});
+      return Object.freeze({package: package_, runtime: Object.freeze({...runtime, drivePackage})});
     }
     return Object.freeze({ package: package_, runtime });
   }

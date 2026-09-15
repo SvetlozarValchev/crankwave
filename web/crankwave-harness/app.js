@@ -123,6 +123,11 @@ function formatMap(value) {
 
 function updateButtons() {
   const diesel = state.metadata?.loadCoordinate === "normalized-fueling";
+  const packagedDrive = state.metadata?.packagedDriving && state.mode === 'drive';
+  elements.playButton.textContent = packagedDrive ? 'Start engine' : 'Play';
+  document.querySelector('.rig-note').textContent = state.metadata?.packagedDriving
+    ? 'Heavy-truck audition rig · automatic clutch and shifts. Start engine plays the packaged starter and pickup. Release the accelerator in Drive to coast; Neutral lets the engine rev freely.'
+    : 'UAZ-469 audition rig · 4 speeds · automatic clutch and shifts · 1,650 kg. This driving model supplies RPM and load to the selected engine.';
   elements.throttleControl.hidden = diesel;
   elements.loadLabel.textContent = diesel ? "Fueling" : "Load";
   elements.mapLabel.textContent = diesel ? "Intake pressure" : "Derived manifold pressure";
@@ -156,7 +161,9 @@ function renderDriving(driving) {
   elements.speedOutput.value = Math.round(driving.speedKph).toString();
   elements.driveRpmOutput.value = formatRpm(driving.rpm);
   elements.gearOutput.textContent = driving.selector === "N" ? "N" : `D · ${driving.gear}`;
-  elements.shiftOutput.textContent = driving.limiterCuts > 0 && driving.selector === "N"
+  elements.shiftOutput.textContent = driving.stage && driving.stage !== 'Running' ? `${driving.stage}…` :
+    driving.backdriveTorqueNm > 0 && driving.coupling01 > .5 ? 'Coasting in gear' :
+    driving.limiterCuts > 0 && driving.selector === "N"
     ? `Limiter ${driving.limiterCutActive ? "CUT" : "recovery"} · ${driving.limiterCuts} cuts`
     : driving.shifting ? "Shifting…" :
     driving.selector === "N" ? "Free revving" :

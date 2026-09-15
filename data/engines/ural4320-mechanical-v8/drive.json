@@ -1,0 +1,108 @@
+{
+  "schema": "crankwave/diesel-drive-v1",
+  "engine": "ural4320-mechanical-v8",
+  "source_sha256": "",
+  "gain_db": -5.678079962336634,
+  "starter": {
+    "processed_path": "starter-heavy.f32le",
+    "processed_sha256": "",
+    "filter_graph": "highpass=f=32:poles=2,equalizer=f=180:t=q:w=0.7:g=4,equalizer=f=520:t=q:w=0.9:g=-2,equalizer=f=2400:t=q:w=0.7:g=-3,lowpass=f=4300:poles=2",
+    "overrides": {
+      "basePlaybackRate": 0.74,
+      "catchPlaybackRate": 0.9,
+      "speedUpStartRpm": 180,
+      "speedUpEndRpm": 650,
+      "rpmSmoothingMilliseconds": 55,
+      "attackMilliseconds": 14,
+      "catchStarterGain": 0.35,
+      "handoffMilliseconds": 220
+    }
+  },
+  "pickup": {
+    "crank_seconds": 0.4,
+    "crank_rpm": 155,
+    "running_seconds": 3.02,
+    "release_seconds": 0.16,
+    "onset_seconds": 0.055,
+    "curve": [
+      {
+        "seconds": 0,
+        "rpm": 550,
+        "fuel": 0.42
+      },
+      {
+        "seconds": 0.12,
+        "rpm": 900,
+        "fuel": 0.62
+      },
+      {
+        "seconds": 0.3,
+        "rpm": 1150,
+        "fuel": 0.48
+      },
+      {
+        "seconds": 0.5,
+        "rpm": 1000,
+        "fuel": 0.18
+      },
+      {
+        "seconds": 0.95,
+        "rpm": 735,
+        "fuel": 0.09
+      },
+      {
+        "seconds": 1.2,
+        "rpm": 690,
+        "fuel": 0.12
+      },
+      {
+        "seconds": 1.6,
+        "rpm": 725,
+        "fuel": 0.12
+      }
+    ]
+  },
+  "backdrive": {
+    "engineInertiaKgM2": 3.2,
+    "vehicleReflectedInertiaKgM2": 27,
+    "frictionConstantNm": 35,
+    "frictionNmPerRpm": 0.025,
+    "reflectedRoadDragNm": 20,
+    "takeupSeconds": 0.22,
+    "referenceBackdriveTorqueNm": 140,
+    "radiationHighpassHz": 65,
+    "radiationLowpassHz": 750,
+    "modes": [
+      {
+        "frequencyHz": 140,
+        "q": 0.85,
+        "gainPcmPerNm": 0.00015
+      },
+      {
+        "frequencyHz": 320,
+        "q": 1.1,
+        "gainPcmPerNm": 0.0001
+      },
+      {
+        "frequencyHz": 580,
+        "q": 0.9,
+        "gainPcmPerNm": 0.000045
+      }
+    ]
+  },
+  "vehicle": {
+    "shaft_rpm_per_mps": [
+      321.42857142857144,
+      180,
+      117,
+      81,
+      60
+    ],
+    "inertia_reference_gear": 2,
+    "shift_seconds": 1.5,
+    "minimum_gear_seconds": 6,
+    "shift_rpm": 2050,
+    "idle_rpm": 725
+  },
+  "note": "Authored heavy-truck listening rig. Native gas work plus authored friction, reflected inertia, road drag, ratios and automatic clutch/shift policy. Not measured Ural vehicle specifications. Reuses the canonical CC0 starter with the accepted heavy treatment."
+}

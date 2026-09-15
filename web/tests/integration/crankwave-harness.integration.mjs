@@ -3,7 +3,9 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { webcrypto } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
+import { CrankwaveAudioEngine } from "../../runtime/crankwave-audio-engine.js";
 
 const PACKAGE_TIMEOUT_MS = 120_000;
 const PLAYBACK_TIMEOUT_MS = 120_000;
@@ -390,6 +392,8 @@ async function pageState(cdp) {
       shift: text("#shift-output"),
       manualVisible: !document.querySelector("#manual-controls").hidden,
       playDisabled: document.querySelector("#play-button")?.disabled ?? true,
+      playLabel: text('#play-button'),
+      underruns: Number(text('#underrun-output')),
       errorMessages: [...document.querySelectorAll(".message.is-error")]
         .map((element) => element.textContent.trim()),
       fakeAudio: globalThis.__crankwaveHarnessTestAudio ?? null
@@ -537,6 +541,8 @@ async function main() {
     "the harness integration must target a localhost HTTP server",
   );
   const carrierPath = await requireCarrier(process.argv[3]);
+  const expectedEngine = await CrankwaveAudioEngine.load(await fs.readFile(carrierPath), {crypto: webcrypto});
+  const realAudio = process.env.CRANKWAVE_TEST_REAL_AUDIO === '1';
   const chromeExecutable = process.argv[4] ?? "google-chrome";
   const profile = await fs.mkdtemp(
     path.join(os.tmpdir(), "crankwave-harness-chrome-"),
@@ -584,7 +590,7 @@ async function main() {
         flatten: true,
       }),
     ]);
-    await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    if (!realAudio) await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
       source: fakeAudioBootstrap(),
     });
     await cdp.send("Page.navigate", { url: harnessUrl });
@@ -600,7 +606,7 @@ async function main() {
       30_000,
     );
     assert.deepEqual(admitted.errorMessages, []);
-    assert.ok(
+    if (!realAudio) assert.ok(
       admitted.fakeAudio,
       "output-disabled AudioContext was not injected",
     );
@@ -624,7 +630,6 @@ async function main() {
       assert.equal(ready.load, "12%", "Drive idle must keep the diesel firing");
       assert.match(ready.shift, /^Fueling 12%$/u);
     }
-    const initialMap = ready.manifoldPressure;
 
     await cdp.evaluate(
       `document.querySelector("#play-button").click(); true`,
@@ -649,13 +654,22 @@ async function main() {
     );
     assert.deepEqual(running.errorMessages, []);
     assert.match(running.deviceRate, /kHz$/u);
-    assert.equal(running.fakeAudio.contexts, 1);
-    assert.equal(running.fakeAudio.resumes, 1);
-    assert.equal(running.fakeAudio.nodes, 1);
-    assert.equal(running.fakeAudio.connections, 1);
-    assert.deepEqual(running.fakeAudio.modules, [
-      "/harness/audio-worklet.js",
-    ]);
+    if (!realAudio) {
+      assert.equal(running.fakeAudio.contexts, 1);
+      assert.equal(running.fakeAudio.resumes, 1);
+      assert.equal(running.fakeAudio.nodes, 1);
+      assert.equal(running.fakeAudio.connections, 1);
+      assert.deepEqual(running.fakeAudio.modules, ["/harness/audio-worklet.js"]);
+    }
+    const packagedDrive = ready.playLabel === 'Start engine';
+    if (packagedDrive) {
+      assert.equal(running.shift, 'Starting…');
+      assert.equal(running.driveRpm, 155);
+      await waitUntil(()=>pageState(cdp), state=>state.shift==='Pickup…' && state.driveRpm>800,
+        'starter catch and pickup overshoot');
+      await waitUntil(()=>pageState(cdp), state=>state.shift==='Fueling 12%' && state.driveRpm===725,
+        'pickup settling into the packaged idle');
+    }
 
     await cdp.evaluate(`(() => {
       const pedal = document.querySelector("#accelerator-input");
@@ -669,6 +683,20 @@ async function main() {
     );
     assert.ok(driven.driveRpm > Number(driven.rpmMinimum));
     assert.deepEqual(driven.errorMessages, []);
+    if (packagedDrive) {
+      await cdp.evaluate(`(() => {
+        const pedal = document.querySelector('#accelerator-input');
+        pedal.value = '0'; pedal.dispatchEvent(new Event('input', {bubbles:true}));
+      })()`);
+      const coasting = await waitUntil(()=>pageState(cdp), state=>state.shift==='Coasting in gear',
+        'wheel-driven fuel-cut coast');
+      await waitUntil(()=>pageState(cdp), state=>state.shift==='Coasting in gear' &&
+        state.driveRpm<coasting.driveRpm-40 && state.speed<coasting.speed,
+        'coupled engine and wheel rundown');
+      await cdp.evaluate(`document.querySelector('#neutral-button').click()`);
+      await waitUntil(()=>pageState(cdp), state=>state.gear==='N' && state.shift==='Free revving' && state.driveRpm===725,
+        'neutral releases the backdrive layer and returns to idle');
+    }
     await cdp.evaluate(`document.querySelector("#reset-drive").click()`);
     await waitUntil(() => pageState(cdp), (state) => state.speed === 0 && state.gear === "D · 1", "drive reset");
     if (process.env.CRANKWAVE_TEST_CAPTURED_LIMITER === "1") {
@@ -702,6 +730,7 @@ async function main() {
       }
       return { rpm: rpm.value, throttle: throttle.value, load: load.value };
     })()`);
+    const expectedMapKpa = expectedEngine.loadManifoldPressurePa(Number(controlled.rpm), 0.81) / 1000;
     const updated = await waitUntil(
       () => pageState(cdp),
       (state) =>
@@ -712,7 +741,7 @@ async function main() {
         state.throttle === "73%" &&
         state.load === "81%" &&
         state.manifoldPressure.endsWith("kPa abs") &&
-        (state.loadLabel === "Fueling" ? state.manifoldPressure === initialMap : state.manifoldPressure !== initialMap),
+        Math.abs(Number.parseFloat(state.manifoldPressure) - expectedMapKpa) < 0.051,
       "RPM, throttle, load, and derived MAP control update",
       30_000,
     );
@@ -724,6 +753,7 @@ async function main() {
     assert.deepEqual(cdp.consoleErrors, []);
     assert.deepEqual(cdp.logErrors, []);
     assert.deepEqual(cdp.targetErrors, []);
+    if (realAudio) assert.equal(updated.underruns, 0, 'real AudioWorklet playback must not underrun');
 
     process.stdout.write(
       JSON.stringify({
@@ -737,6 +767,9 @@ async function main() {
         throttle: updated.throttle,
         load: updated.load,
         manifoldPressure: updated.manifoldPressure,
+        realAudioWorklet: realAudio,
+        packagedStarterPickupCoast: packagedDrive,
+        underruns: updated.underruns,
         networkResponses: cdp.responses.map(({ url, status, type }) => ({
           url,
           status,
