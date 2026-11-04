@@ -1276,6 +1276,7 @@ if(CRANKWAVE_BUILD_CLI)
         "${PROJECT_SOURCE_DIR}/web/runtime/held-texture-presentation-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/renderer-runtime-compatibility.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/responsive-audio-lifecycle-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/responsive-drive-session.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/crankwave-audio-engine.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/diesel-mechanical-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/diesel-backdrive-runtime.js"

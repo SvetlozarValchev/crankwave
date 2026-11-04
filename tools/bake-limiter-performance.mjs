@@ -7,8 +7,8 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { loadResponsiveAudioCrankwave } from '../web/runtime/crankwave-package.js';
 
-const [carrierFile, engineFile, renderDirectory, outputDirectory, outputCarrier] = process.argv.slice(2);
-if (!outputCarrier) throw new Error('Usage: node tools/bake-limiter-performance.mjs <carrier> <engine.json> <native-render-directory> <new-package-directory> <new-output.crankwave>');
+const [carrierFile, engineFile, renderDirectory, outputDirectory, outputCarrier, binary = 'build/crankwave'] = process.argv.slice(2);
+if (!outputCarrier) throw new Error('Usage: node tools/bake-limiter-performance.mjs <carrier> <engine.json> <native-render-directory> <new-package-directory> <new-output.crankwave> [crankwave-binary]');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = async file => JSON.parse(await fs.readFile(file, 'utf8'));
 const writeJson = (file, value) => fs.writeFile(file, JSON.stringify(value, null, 2) + '\n');
@@ -25,6 +25,15 @@ if (engineId !== loaded.package.descriptor.engineId || header.engine_id !== engi
   throw new Error('Limiter capture must be the same engine in free-engine mode.');
 const limiter = authored.engine.ignition.limiter;
 if (limiter.activation_speed.unit !== 'rpm' || limiter.cut_duration.unit !== 's') throw new Error('Expected RPM/seconds limiter units.');
+// Startup can begin at zero RPM. Publish settled pre-rev idle, not the first
+// cranking telemetry sample, because the harness uses this as its idle target.
+const firstThrottle = blocks.findIndex(b => b.telemetry.engine.requested_throttle_01 > .05);
+const idleCandidates = blocks.slice(0, firstThrottle < 0 ? blocks.length : firstThrottle)
+  .filter(b => !b.telemetry.engine.starter_enabled && b.telemetry.engine.ignition_enabled &&
+    b.telemetry.engine.fuel_enabled && b.telemetry.engine.engine_speed_rpm > loaded.runtime.minimumRpm)
+  .slice(-100).map(b => b.telemetry.engine.engine_speed_rpm).sort((a,b) => a-b);
+if (idleCandidates.length < 25) throw new Error('Limiter capture needs at least 0.5 seconds of running idle before throttle.');
+const idleRpm = (idleCandidates[Math.floor((idleCandidates.length-1)/2)] + idleCandidates[Math.floor(idleCandidates.length/2)])/2;
 const rate = Number(header.delivery_rate_hz.numerator) / Number(header.delivery_rate_hz.denominator);
 if (rate !== 192000) throw new Error('Limiter dry stems must use canonical 192 kHz presentation.');
 const activations = blocks.filter(b => Number(b.event_counters.limiter_activation_count) === 1);
@@ -86,7 +95,7 @@ for (const route of loaded.runtime.routePresentations) {
 }
 const rpmValues = blocks.filter(b => b.telemetry.engine.limiter_cut_active).map(b => b.telemetry.engine.engine_speed_rpm);
 const manifest = { schema: 'crankwave/limiter-performance-v1', engine: engineId, sample_rate_hz: rate,
-  idle_rpm: records.find(r => r.record_type === "block").telemetry.engine.engine_speed_rpm,
+  idle_rpm: idleRpm,
   activation_rpm: limiter.activation_speed.value, cut_seconds: limiter.cut_duration.value,
   maximum_rpm: limiter.activation_speed.value + 200, fade_frames: fadeFrames,
   frame_count: outputFrames, clips, routes,
@@ -94,6 +103,7 @@ const manifest = { schema: 'crankwave/limiter-performance-v1', engine: engineId,
     telemetry_sha256: hash(telemetryBytes), simulation_request_sha256: header.simulation_request_identity_v7_sha256,
     physics_rate_hz: Number(header.physics_rate_hz.numerator), event_resolution_frames: header.delivery_frames_per_block,
     activation_count: activations.length, release_count: releases.length,
+    idle_rpm_method: 'median-of-last-up-to-100-running-idle-blocks-before-first-throttle',
     cut_rpm_minimum: Math.min(...rpmValues), cut_rpm_maximum: Math.max(...rpmValues),
     representation: 'native-free-engine-dry-limiter-cut-and-recovery-performances;unpitched;20ms-event-bounds' } };
 await writeJson(path.join(outputDirectory, 'limiter/runtime.json'), manifest);
@@ -106,7 +116,7 @@ const descriptorFile = path.join(outputDirectory, 'crankwave.json');
 const descriptor = await json(descriptorFile);
 descriptor.runtime.manifest_sha256 = hash(await fs.readFile(runtimeFile));
 await writeJson(descriptorFile, descriptor);
-const result = spawnSync(path.resolve('build/crankwave'), ['pack-crankwave', '--package-directory', path.resolve(outputDirectory), '--output', path.resolve(outputCarrier), '--result-format', 'json'], { encoding: 'utf8' });
+const result = spawnSync(path.resolve(binary), ['pack-crankwave', '--package-directory', path.resolve(outputDirectory), '--output', path.resolve(outputCarrier), '--result-format', 'json'], { encoding: 'utf8' });
 if (result.status !== 0) throw new Error(result.stdout + result.stderr);
 console.log(result.stdout.trim());
 console.log(JSON.stringify({ clips: clips.length, frame_count: outputFrames, manifest }, null, 2));

@@ -199,6 +199,15 @@ void test_planner(PlanningFixture &value) {
                startup.starter_release_seconds == 0.875,
            "dynamic startup horizon or release event changed");
 
+    auto extended_request = value.request;
+    extended_request.minimum_startup_duration_seconds = 10.01;
+    const auto extended = require_lifecycle(responsive::plan_lifecycle_scenario(
+        extended_request, LifecycleScenarioRole::startup, release), "extended startup plan");
+    expect(extended.total_duration_seconds == 10.02 &&
+               extended.scenario.events == startup.scenario.events &&
+               extended.identity_sha256 != startup.identity_sha256,
+           "extending startup must preserve its controls and bind its new horizon");
+
     const auto shutdown =
         require_lifecycle(responsive::plan_lifecycle_scenario(
                               value.request, LifecycleScenarioRole::shutdown),
@@ -802,6 +811,39 @@ void test_real_capture_mapping(const std::filesystem::path &repository_root,
            "mapped capture cancellation did not fail closed");
 }
 
+void test_startup_handoff_horizon() {
+    responsive::LifecycleCaptureEvidence capture;
+    capture.role = responsive::LifecycleScenarioRole::startup;
+    // A slow pickup continuously makes new speed peaks. It can cross the
+    // running floor and have valid seams without completing coast admission.
+    for (int tick = 1; tick <= 250; ++tick) {
+        responsive::LifecycleCapturePoint point;
+        point.simulation_seconds = tick * 0.02;
+        point.rpm = 300.0 + tick * 2.0;
+        point.ignition_enabled = point.fuel_enabled = true;
+        point.starter_enabled = tick < 100;
+        point.indicated_gas_availability =
+            responsive::LifecycleCapturePoint::PublishedAvailability::available;
+        point.indicated_gas_torque_nm = 10.0;
+        capture.points.push_back(point);
+    }
+    expect(!responsive::startup_handoff_completion_seconds(capture, 550.0),
+           "still-accelerating startup falsely admitted a finite handoff");
+    // Native capture continues beyond the pickup peak into settled idle.
+    for (int tick = 251; tick <= 300; ++tick) {
+        auto point = capture.points.back();
+        point.simulation_seconds = tick * 0.02;
+        point.rpm = 790.0;
+        capture.points.push_back(point);
+    }
+    const auto complete = responsive::startup_handoff_completion_seconds(capture, 550.0);
+    expect(complete && *complete > 5.4 && *complete < 5.6,
+           "extended idle did not supply the six post-peak admission revolutions");
+    for (auto &point : capture.points) point.starter_enabled = true;
+    expect(!responsive::startup_handoff_completion_seconds(capture, 550.0),
+           "starter-held capture must not certify coast handoff");
+}
+
 } // namespace
 
 int main(const int argc, const char *const *argv) {
@@ -814,6 +856,7 @@ int main(const int argc, const char *const *argv) {
         test_planner(value);
         test_low_rpm_planning_and_compile(value);
         test_cooking(value);
+        test_startup_handoff_horizon();
         test_real_capture_mapping(repository_root, value);
         std::cout << "responsive lifecycle tests passed\n";
         return 0;

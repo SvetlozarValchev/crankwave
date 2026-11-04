@@ -662,13 +662,20 @@ async function main() {
       assert.deepEqual(running.fakeAudio.modules, ["/harness/audio-worklet.js"]);
     }
     const packagedDrive = ready.playLabel === 'Start engine';
-    if (packagedDrive) {
+    if (packagedDrive && ready.loadLabel === 'Fueling') {
       assert.equal(running.shift, 'Starting…');
       assert.equal(running.driveRpm, 155);
       await waitUntil(()=>pageState(cdp), state=>state.shift==='Pickup…' && state.driveRpm>800,
         'starter catch and pickup overshoot');
       await waitUntil(()=>pageState(cdp), state=>state.shift==='Fueling 12%' && state.driveRpm===725,
         'pickup settling into the packaged idle');
+    } else if (packagedDrive) {
+      assert.match(running.shift, /^(Starting|Pickup)…$/u);
+      const settled = await waitUntil(()=>pageState(cdp), state=>
+        !/^(Starting|Pickup)…$/u.test(state.shift) && state.driveRpm >= expectedEngine.minimumRpm,
+        'responsive recorded starter and pickup handing over to running material', 60_000);
+      assert.deepEqual(settled.errorMessages, []);
+      if (expectedEngine.limiter) assert.ok(Math.abs(settled.driveRpm - expectedEngine.limiter.idleRpm) < 2);
     }
 
     await cdp.evaluate(`(() => {
@@ -683,7 +690,7 @@ async function main() {
     );
     assert.ok(driven.driveRpm > Number(driven.rpmMinimum));
     assert.deepEqual(driven.errorMessages, []);
-    if (packagedDrive) {
+    if (packagedDrive && ready.loadLabel === 'Fueling') {
       await cdp.evaluate(`(() => {
         const pedal = document.querySelector('#accelerator-input');
         pedal.value = '0'; pedal.dispatchEvent(new Event('input', {bubbles:true}));

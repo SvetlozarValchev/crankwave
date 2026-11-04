@@ -429,7 +429,7 @@ cook_lifecycle(const responsive::ResponsiveBakeProfile &profile,
                const std::string_view audition_bus_id,
                const std::uint64_t maximum_presentation_transfer_coefficient_count,
                const std::stop_token stop_token) {
-    const responsive::LifecycleScenarioPlanRequest request{
+    responsive::LifecycleScenarioPlanRequest request{
         profile, engine_document, scenario_template.document,
         scenario_template.identity_sha256,
         maximum_presentation_transfer_coefficient_count};
@@ -514,6 +514,31 @@ cook_lifecycle(const responsive::ResponsiveBakeProfile &profile,
     }
     auto startup_capture = std::get<responsive::LifecycleCaptureEvidence>(
         std::move(startup_capture_result));
+
+    // A valid seam alone does not prove that the runtime can finish its
+    // coast-lane admission before the finite first-fire tape runs out.
+    // Re-capture a longer identical startup; never truncate or force the handoff.
+    for (;;) {
+        const auto completion = responsive::startup_handoff_completion_seconds(
+            startup_capture, profile.rpm.outer_minimum_rpm);
+        if (completion && *completion + 0.5 <= startup_spec.total_duration_seconds)
+            break;
+        if (startup_spec.total_duration_seconds >= 60.0)
+            return error(ErrorKind::unavailable, "startup-handoff-not-captured",
+                         "lifecycle startup admission",
+                         "startup did not complete running admission within 60 seconds");
+        request.minimum_startup_duration_seconds =
+            std::min(60.0, std::max(8.0, startup_spec.total_duration_seconds * 2.0));
+        startup_spec_result = plan_role(
+            responsive::LifecycleScenarioRole::startup, "extended startup", release);
+        if (auto *failure = std::get_if<Error>(&startup_spec_result))
+            return std::move(*failure);
+        startup_spec = std::get<responsive::LifecycleScenarioSpec>(std::move(startup_spec_result));
+        startup_capture_result = capture_role(startup_spec, "extended startup");
+        if (auto *failure = std::get_if<Error>(&startup_capture_result))
+            return std::move(*failure);
+        startup_capture = std::get<responsive::LifecycleCaptureEvidence>(std::move(startup_capture_result));
+    }
 
     auto shutdown_spec_result =
         plan_role(responsive::LifecycleScenarioRole::shutdown, "shutdown");

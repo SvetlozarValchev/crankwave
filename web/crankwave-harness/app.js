@@ -125,8 +125,10 @@ function updateButtons() {
   const diesel = state.metadata?.loadCoordinate === "normalized-fueling";
   const packagedDrive = state.metadata?.packagedDriving && state.mode === 'drive';
   elements.playButton.textContent = packagedDrive ? 'Start engine' : 'Play';
-  document.querySelector('.rig-note').textContent = state.metadata?.packagedDriving
+  document.querySelector('.rig-note').textContent = state.metadata?.packagedDriving && state.metadata?.drivingKind === 'diesel'
     ? 'Heavy-truck audition rig · automatic clutch and shifts. Start engine plays the packaged starter and pickup. Release the accelerator in Drive to coast; Neutral lets the engine rev freely.'
+    : state.metadata?.packagedDriving
+    ? 'Start engine plays the packaged starter and pickup. The UAZ-469 audition rig supplies RPM and load after startup; Neutral lets the engine rev freely.'
     : 'UAZ-469 audition rig · 4 speeds · automatic clutch and shifts · 1,650 kg. This driving model supplies RPM and load to the selected engine.';
   elements.throttleControl.hidden = diesel;
   elements.loadLabel.textContent = diesel ? "Fueling" : "Load";

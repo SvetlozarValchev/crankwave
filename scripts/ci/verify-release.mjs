@@ -184,6 +184,7 @@ const browserModuleNames = [
   "release.js",
   "renderer-runtime-compatibility.js",
   "responsive-audio-lifecycle-runtime.js",
+  "responsive-drive-session.js",
   "crankwave-audio-engine.js",
   "diesel-mechanical-runtime.js",
   "diesel-backdrive-runtime.js",

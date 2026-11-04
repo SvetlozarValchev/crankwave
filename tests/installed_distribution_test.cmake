@@ -121,6 +121,7 @@ set(expected_runtime_entries
     release.js
     renderer-runtime-compatibility.js
     responsive-audio-lifecycle-runtime.js
+    responsive-drive-session.js
     shared-recorded-starter-runtime.js
     state-phase-texture-runtime.js
     steady-transient-envelope.js)

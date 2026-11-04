@@ -143,6 +143,8 @@ struct LifecycleScenarioPlanRequest {
     contract::Sha256Digest trusted_template_sha256;
     std::uint64_t maximum_presentation_transfer_coefficient_count =
         kLifecycleFixedPresentationCoefficientCount;
+    // Allows the native baker to extend a slow pickup without changing controls.
+    double minimum_startup_duration_seconds = 0.0;
 };
 
 struct LifecycleScenarioSpec {
@@ -208,6 +210,12 @@ map_lifecycle_capture(const LifecycleScenarioSpec &spec,
 choose_dynamic_starter_release(const LifecycleCaptureEvidence &startup_probe,
                                double running_floor_rpm,
                                std::stop_token cancellation = {});
+
+// Predict the zero-throttle runtime admission clock from captured endpoints:
+// four crank revolutions after the pickup peak, then two to finish the handoff.
+// No value means the finite capture does not yet support that transition.
+[[nodiscard]] std::optional<double> startup_handoff_completion_seconds(
+    const LifecycleCaptureEvidence &capture, double running_floor_rpm);
 
 struct LifecycleSeam {
     std::uint64_t source_frame = 0U;

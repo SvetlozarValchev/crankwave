@@ -8,6 +8,7 @@ import { DrivingModel } from "/harness/driving-model.js";
 import { DieselDrivingModel } from "/harness/diesel-driving-model.js";
 import {loadResponsiveAudioCrankwave} from '/runtime/crankwave-package.js';
 import {DieselDriveSession} from '/runtime/diesel-drive-session.js';
+import {ResponsiveDriveSession} from '/runtime/responsive-drive-session.js';
 import {DieselCoupledDrivingModel} from '/harness/diesel-coupled-driving-model.js';
 
 const MAXIMUM_CARRIER_BYTES = 2 ** 32;
@@ -84,6 +85,7 @@ function metadata() {
     blockFrames: current.blockFrames,
     mode,
     packagedDriving: driveSession !== null,
+    drivingKind: driveSession instanceof DieselDriveSession ? 'diesel' : 'responsive',
     driving: drivingSnapshot(),
     operatingPoint: point,
     manifoldPressurePaAbs: current.loadManifoldPressurePa(
@@ -97,7 +99,7 @@ function drivingSnapshot() {
   const state = driver?.snapshot() ?? null;
   if (state && driveSession && playing && mode === 'drive') {
     const session = driveSession.snapshot();
-    return {...state, stage:session.stage, rpm:session.rpm, backdriveRms:session.backdriveRms};
+    return {...state, ...session};
   }
   return state;
 }
@@ -275,8 +277,10 @@ async function loadPackage(message) {
   }
   const loaded = await loadResponsiveAudioCrankwave(bytes);
   engine = new CrankwaveAudioEngine(loaded);
-  driveSession = loaded.runtime.drivePackage ? new DieselDriveSession(engine, loaded.runtime) : null;
-  driver = driveSession ? new DieselCoupledDrivingModel(loaded.runtime, driveSession.bank) :
+  driveSession = loaded.runtime.drivePackage ? new DieselDriveSession(engine, loaded.runtime) :
+    loaded.runtime.lifecyclePackage && loaded.runtime.sharedRecordedStarterPackage
+      ? new ResponsiveDriveSession(engine, loaded.runtime) : null;
+  driver = driveSession instanceof DieselDriveSession ? new DieselCoupledDrivingModel(loaded.runtime, driveSession.bank) :
     engine.loadCoordinate === "normalized-fueling"
     ? new DieselDrivingModel(engine.minimumRpm, engine.maximumRpm)
     : new DrivingModel(engine.minimumRpm, engine.maximumRpm, engine.limiter);
@@ -388,6 +392,11 @@ async function dispatch(message) {
       requireEngine();
       if (mode !== "drive") throw new Error("Select driving mode to use pedals.");
       return { driving: driver.setControls(message.controls) };
+    case "key-off":
+      if (!(driveSession instanceof ResponsiveDriveSession) || mode !== 'drive')
+        throw new Error('Key-off requires a responsive lifecycle session in driving mode.');
+      driveSession.stopEngine();
+      return {driving: drivingSnapshot()};
     case "reset-drive":
       requireEngine();
       driver.reset();

@@ -273,9 +273,9 @@ plan_lifecycle_scenario(const LifecycleScenarioPlanRequest &request,
         break;
     case LifecycleScenarioRole::startup:
         duration_seconds = align_to_lifecycle_block(
-            release->seconds +
+            std::max(request.minimum_startup_duration_seconds, release->seconds +
             std::max(3.0, 1.0 + 2.0 * four_stroke_cycle_seconds(
-                                          request.profile.rpm.outer_minimum_rpm)));
+                                          request.profile.rpm.outer_minimum_rpm))));
         break;
     case LifecycleScenarioRole::shutdown: {
         const double rpm = request.profile.rpm.anchors.front();
