@@ -1046,6 +1046,50 @@ void test_complete_engine_package() {
            "omitted future throttle-controller capability became authored");
 }
 
+void test_source_two_stage_combustion_is_explicit_and_strict() {
+    const auto baseline = require_engine(valid_engine_json());
+    expect(!baseline.engine.fuels.front().combustion.source_two_stage &&
+               !baseline.engine.fuels.front().combustion.lbv_multiplier,
+           "legacy fuel acquired an implicit source compatibility override");
+    std::string json = valid_engine_json();
+    replace_once(json, R"json("maximum_dilution_effect": 10)json",
+                 R"json("maximum_dilution_effect": 10,
+          "lbv_multiplier": 1.2,
+          "source_two_stage": {
+            "auto_ignition_temperature_k": 700,
+            "premixed_burn_fraction_01": 0.25,
+            "premixed_flame_speed_multiplier": 3.5,
+            "diffusion_flame_speed_multiplier": 0.6
+          })json");
+    const auto parsed = require_engine(json).engine.fuels.front().combustion;
+    expect(parsed.lbv_multiplier == 1.2 && parsed.source_two_stage &&
+               parsed.source_two_stage->auto_ignition_temperature_k == 700 &&
+               parsed.source_two_stage->premixed_burn_fraction_01 == .25 &&
+               parsed.source_two_stage->premixed_flame_speed_multiplier == 3.5 &&
+               parsed.source_two_stage->diffusion_flame_speed_multiplier == .6,
+           "explicit source burn parameters did not survive authoring admission");
+    for (const auto &[before, after] : {
+             std::pair{R"json("auto_ignition_temperature_k": 700)json",
+                       R"json("auto_ignition_temperature_k": 0)json"},
+             std::pair{R"json("premixed_burn_fraction_01": 0.25)json",
+                       R"json("premixed_burn_fraction_01": 1.01)json"},
+             std::pair{R"json("premixed_flame_speed_multiplier": 3.5)json",
+                       R"json("premixed_flame_speed_multiplier": -1)json"},
+             std::pair{R"json("diffusion_flame_speed_multiplier": 0.6)json",
+                       R"json("diffusion_flame_speed_multiplier": null)json"},
+             std::pair{R"json("lbv_multiplier": 1.2)json",
+                       R"json("lbv_multiplier": 0)json"},
+             std::pair{R"json("auto_ignition_temperature_k": 700,)json", ""},
+             std::pair{R"json("auto_ignition_temperature_k": 700)json",
+                       R"json("auto_ignition_temperature_k": 700, "injection": 1)json"},
+         }) {
+        auto invalid = json;
+        replace_once(invalid, before, after);
+        expect(!require_engine_report(parse_engine_document(invalid)).diagnostics.empty(),
+               "invalid source burn parameters were admitted");
+    }
+}
+
 void test_output_crankshaft_reference_is_explicit_and_ordered() {
     std::string missing = valid_engine_json();
     replace_once(missing, R"json(    "output_crankshaft": "crank",
@@ -1384,6 +1428,7 @@ int main() {
         test_cross_document_reference_validation();
         test_engine_schema_identifier_is_strict();
         test_complete_engine_package();
+        test_source_two_stage_combustion_is_explicit_and_strict();
         test_output_crankshaft_reference_is_explicit_and_ordered();
         test_intake_main_mixture_lambda_is_required_positive_and_greenfield();
         test_vtec_activation_contract_is_greenfield_and_strict();

@@ -1432,6 +1432,59 @@ void test_complete_generic_compile_and_determinism() {
            "immutable compiled assets changed under harmless document reordering");
 }
 
+void test_source_two_stage_fuel_resolution_and_identity() {
+    const SyntheticAssets assets = make_assets();
+    auto document = make_engine_document(assets);
+    auto views = assets.views();
+    const auto resolve = [&]() {
+        return require_value(compile_detail::resolve_engine_package(document, views),
+                             "source burn compatibility resolution failed").engine;
+    };
+    const auto baseline = resolve();
+    const auto baseline_identity = encode_engine_identity(baseline);
+    auto &authored = document.engine.fuels.front().combustion;
+    authored.lbv_multiplier = 1.2;
+    authored.source_two_stage = authoring::SourceTwoStageCombustionDefinition{700, .25, 3.5, .6};
+    const auto resolved_package = require_value(
+        compile_detail::resolve_engine_package(document, views),
+        "source burn compatibility resolution failed");
+    const auto &resolved = resolved_package.engine;
+    const auto &fuel = std::get<contract::LowOrderOperatingPointV1Profile>(resolved.physics_profile).core.fuel;
+    expect(fuel.lbv_multiplier.value == 1.2 && fuel.source_two_stage_combustion &&
+               fuel.source_two_stage_combustion->auto_ignition_temperature_k.value == 700 &&
+               fuel.source_two_stage_combustion->premixed_burn_fraction_01.value == .25 &&
+               fuel.source_two_stage_combustion->premixed_flame_speed_multiplier.value == 3.5 &&
+               fuel.source_two_stage_combustion->diffusion_flame_speed_multiplier.value == .6,
+           "resolved source burn compatibility lost authored values");
+    const auto identity = encode_engine_identity(resolved);
+    expect(identity != baseline_identity, "source burn semantics did not enter engine identity");
+    const auto accepted = *authored.source_two_stage;
+    for (int field = 0; field < 4; ++field) {
+        authored.source_two_stage = accepted;
+        auto &value = *authored.source_two_stage;
+        if (field == 0) value.auto_ignition_temperature_k += 1;
+        if (field == 1) value.premixed_burn_fraction_01 += .01;
+        if (field == 2) value.premixed_flame_speed_multiplier += .1;
+        if (field == 3) value.diffusion_flame_speed_multiplier += .1;
+        expect(encode_engine_identity(resolve()) != identity,
+               "source burn parameter change was invisible to canonical identity");
+    }
+    authored.source_two_stage.reset();
+    authored.lbv_multiplier.reset();
+    expect(encode_engine_identity(resolve()) == baseline_identity,
+           "removing source burn overrides did not recover exact legacy identity");
+    auto broken = resolved;
+    auto &broken_fuel = std::get<contract::LowOrderOperatingPointV1Profile>(broken.physics_profile).core.fuel;
+    broken_fuel.source_two_stage_combustion->premixed_burn_fraction_01.resolution_id.clear();
+    expect(!contract::validate(broken, resolved_package.provenance).ok(),
+           "unresolved source burn parameter was accepted");
+    broken = resolved;
+    std::get<contract::LowOrderOperatingPointV1Profile>(broken.physics_profile)
+        .core.fuel.source_two_stage_combustion->diffusion_flame_speed_multiplier.value = 0;
+    expect(!contract::validate(broken, resolved_package.provenance).ok(),
+           "nonpositive source diffusion multiplier was accepted");
+}
+
 void test_crankshaft_identity_output_and_cylinder_bindings_resolve() {
     const SyntheticAssets assets = make_assets();
     const auto document = make_engine_document(assets);
@@ -3644,6 +3697,7 @@ int main() {
     try {
         test_complete_generic_compile_and_determinism();
         test_crankshaft_identity_output_and_cylinder_bindings_resolve();
+        test_source_two_stage_fuel_resolution_and_identity();
         test_per_piston_blowby_resolves_to_bound_cylinder();
         test_rod_center_of_mass_and_wrist_pin_resolution_and_admission();
         test_inline_twin_one_route_reaches_executable_boundary();

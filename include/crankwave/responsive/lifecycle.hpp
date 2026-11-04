@@ -145,6 +145,12 @@ struct LifecycleScenarioPlanRequest {
         kLifecycleFixedPresentationCoefficientCount;
     // Allows the native baker to extend a slow pickup without changing controls.
     double minimum_startup_duration_seconds = 0.0;
+    // Optional capture initial condition observed in a completed startup. The
+    // atlas floor need not be a self-sustaining idle for the authored engine.
+    std::optional<double> observed_shutdown_idle_rpm = std::nullopt;
+    // Extends only the captured post-roll for a shutdown role. Initial state,
+    // preparation, key-off and external torque controls remain unchanged.
+    double minimum_shutdown_duration_seconds = 0.0;
 };
 
 struct LifecycleScenarioSpec {
@@ -215,6 +221,12 @@ choose_dynamic_starter_release(const LifecycleCaptureEvidence &startup_probe,
 // four crank revolutions after the pickup peak, then two to finish the handoff.
 // No value means the finite capture does not yet support that transition.
 [[nodiscard]] std::optional<double> startup_handoff_completion_seconds(
+    const LifecycleCaptureEvidence &capture, double running_floor_rpm);
+
+// Median of up to five complete cycles retained after the startup handoff,
+// requiring at least two cycles and a still-firing, starter-free endpoint.
+// This is an observed initial condition for a shutdown retry, not engine tuning.
+[[nodiscard]] std::optional<double> observed_startup_idle_rpm(
     const LifecycleCaptureEvidence &capture, double running_floor_rpm);
 
 struct LifecycleSeam {

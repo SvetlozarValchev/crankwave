@@ -411,12 +411,27 @@ struct IgnitionDefinition {
                            const IgnitionDefinition &) = default;
 };
 
+// Experimental compatibility with the local source simulator's scheduled
+// two-stage burn. The temperature is an activation marker, not an executed
+// temperature-triggered ignition threshold. Fuel still enters through the intake.
+struct SourceTwoStageCombustionDefinition {
+    double auto_ignition_temperature_k = 0.0;
+    double premixed_burn_fraction_01 = 0.0;
+    double premixed_flame_speed_multiplier = 0.0;
+    double diffusion_flame_speed_multiplier = 0.0;
+
+    friend bool operator==(const SourceTwoStageCombustionDefinition &,
+                           const SourceTwoStageCombustionDefinition &) = default;
+};
+
 struct CombustionDefinition {
     double maximum_efficiency_01 = 0.0;
     double cycle_variation_01 = 0.0;
     double low_efficiency_attenuation_01 = 0.0;
     double maximum_turbulence_effect = 0.0;
     double maximum_dilution_effect = 0.0;
+    std::optional<double> lbv_multiplier = std::nullopt;
+    std::optional<SourceTwoStageCombustionDefinition> source_two_stage = std::nullopt;
 
     friend bool operator==(const CombustionDefinition &,
                            const CombustionDefinition &) = default;

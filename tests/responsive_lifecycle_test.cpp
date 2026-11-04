@@ -228,10 +228,45 @@ void test_planner(PlanningFixture &value) {
                shutdown_mode.external_resisting_torque->points.size() == 2U,
            "shutdown resistance trajectory is absent");
 
+    auto observed_request = value.request;
+    observed_request.observed_shutdown_idle_rpm = 1200.0;
+    const auto observed_shutdown = require_lifecycle(responsive::plan_lifecycle_scenario(
+        observed_request, LifecycleScenarioRole::shutdown), "observed-idle shutdown plan");
+    expect(observed_shutdown.scenario.initial_state.engine_speed.value == 1200.0 &&
+               observed_shutdown.scenario.initial_state.engine_speed.unit == "rpm" &&
+               observed_shutdown.scenario.events == shutdown.scenario.events &&
+               observed_shutdown.keyoff_resistance_nm ==
+                   output_crank_inertia(value.engine) * 1200.0 * 2.0 *
+                   std::acos(-1.0) / 60.0 / 0.5 &&
+               observed_shutdown.identity_sha256 != shutdown.identity_sha256,
+           "observed-idle retry must bind its measured initial speed and derived resistance");
+    observed_request.observed_shutdown_idle_rpm = std::numeric_limits<double>::quiet_NaN();
+    expect(std::holds_alternative<responsive::LifecycleError>(
+        responsive::plan_lifecycle_scenario(observed_request, LifecycleScenarioRole::shutdown)),
+        "non-finite observed shutdown idle was admitted");
+
     const auto elevated =
         require_lifecycle(responsive::plan_lifecycle_scenario(
                               value.request, LifecycleScenarioRole::shutdown_elevated),
                           "elevated shutdown plan");
+    for (const auto role : {LifecycleScenarioRole::shutdown,
+                            LifecycleScenarioRole::shutdown_elevated}) {
+        const auto &base = role == LifecycleScenarioRole::shutdown ? shutdown : elevated;
+        auto long_request = value.request;
+        long_request.minimum_shutdown_duration_seconds = 10.01;
+        const auto longer = require_lifecycle(responsive::plan_lifecycle_scenario(
+            long_request, role), "extended shutdown post-roll plan");
+        expect(longer.total_duration_seconds == 10.02 &&
+                   longer.audible_start_seconds == base.audible_start_seconds &&
+                   longer.scenario.initial_state == base.scenario.initial_state &&
+                   longer.scenario.preparation == base.scenario.preparation &&
+                   longer.scenario.mode == base.scenario.mode &&
+                   longer.scenario.events == base.scenario.events &&
+                   longer.ignition_event_seconds == base.ignition_event_seconds &&
+                   longer.keyoff_resistance_nm == base.keyoff_resistance_nm &&
+                   longer.identity_sha256 != base.identity_sha256,
+               "extended shutdown must preserve controls and bind only its longer horizon");
+    }
     expect(std::abs(elevated.audible_start_seconds - 0.24) < 1.0e-15 &&
                elevated.ignition_event_seconds.has_value() &&
                std::abs(*elevated.ignition_event_seconds - 0.32) < 1.0e-15 &&
@@ -660,6 +695,25 @@ void test_cooking(PlanningFixture &value) {
     auto shutdown = require_lifecycle(
         responsive::cook_lifecycle_shutdown(shutdown_spec, shutdown_capture),
         "shutdown cook");
+    {
+        const auto late_stop_frame = shutdown_capture.pcm.size() - 16'000U;
+        auto too_short = synthetic_capture(shutdown_spec, late_stop_frame);
+        const auto short_result = responsive::cook_lifecycle_shutdown(shutdown_spec, too_short);
+        const auto *short_failure = std::get_if<responsive::LifecycleError>(&short_result);
+        expect(short_failure && short_failure->code ==
+                   responsive::LifecycleErrorCode::insufficient_quiet_tail,
+               "short shutdown tail must still fail the existing quiet gate");
+        auto long_request = value.request;
+        long_request.minimum_shutdown_duration_seconds = 8.0;
+        const auto longer_spec = require_lifecycle(responsive::plan_lifecycle_scenario(
+            long_request, LifecycleScenarioRole::shutdown), "long shutdown tail plan");
+        auto longer_capture = synthetic_capture(longer_spec, late_stop_frame);
+        const auto longer = require_lifecycle(responsive::cook_lifecycle_shutdown(
+            longer_spec, longer_capture), "long shutdown tail cook");
+        expect(longer.quiet_tail_frames >= responsive::kLifecycleQuietTailFrames &&
+                   longer.silence_frame >= late_stop_frame,
+               "longer capture must actually retain the required verified quiet tail");
+    }
     expect(shutdown.entry.source_frame == 120'960U &&
                shutdown.entry.target_source_frame == 0U &&
                shutdown.entry.crossfade_frames == 19'200U &&
@@ -819,6 +873,8 @@ void test_startup_handoff_horizon() {
     for (int tick = 1; tick <= 250; ++tick) {
         responsive::LifecycleCapturePoint point;
         point.simulation_seconds = tick * 0.02;
+        point.source_frame = static_cast<std::uint64_t>(tick) *
+                             responsive::kLifecycleFramesPerBlock - 1U;
         point.rpm = 300.0 + tick * 2.0;
         point.ignition_enabled = point.fuel_enabled = true;
         point.starter_enabled = tick < 100;
@@ -833,15 +889,30 @@ void test_startup_handoff_horizon() {
     for (int tick = 251; tick <= 300; ++tick) {
         auto point = capture.points.back();
         point.simulation_seconds = tick * 0.02;
+        point.source_frame = static_cast<std::uint64_t>(tick) *
+                             responsive::kLifecycleFramesPerBlock - 1U;
         point.rpm = 790.0;
         capture.points.push_back(point);
     }
     const auto complete = responsive::startup_handoff_completion_seconds(capture, 550.0);
     expect(complete && *complete > 5.4 && *complete < 5.6,
            "extended idle did not supply the six post-peak admission revolutions");
+    capture.pcm.resize(6U * responsive::kLifecycleDeliveryRateHz);
+    capture.completed_cycles = {
+        {0U, 24'000U, 3000.0},
+        {1'075'200U, 1'113'600U, 790.0},
+        {1'113'600U, 1'152'000U, 795.0},
+    };
+    expect(responsive::observed_startup_idle_rpm(capture, 550.0) == 792.5,
+           "shutdown idle observation must use complete post-handoff cycles, not pickup peaks");
+    capture.completed_cycles.pop_back();
+    expect(!responsive::observed_startup_idle_rpm(capture, 550.0),
+           "one post-handoff cycle cannot establish a shutdown idle observation");
     for (auto &point : capture.points) point.starter_enabled = true;
     expect(!responsive::startup_handoff_completion_seconds(capture, 550.0),
            "starter-held capture must not certify coast handoff");
+    expect(!responsive::observed_startup_idle_rpm(capture, 550.0),
+           "starter-held capture must not establish a free shutdown idle");
 }
 
 } // namespace

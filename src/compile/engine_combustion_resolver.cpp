@@ -245,10 +245,29 @@ void resolve_ignition_and_fuel(const ModelContext &context, ResolutionEmitter &e
     core.fuel.maximum_dilution_effect =
         emitter.authored(context.fuel->combustion.maximum_dilution_effect,
                          fuel_base + ".maximum_dilution_effect");
-    core.fuel.lbv_multiplier =
-        emitter.derived(1.0, fuel_base + ".lbv_multiplier",
-                        derived_method_identity("pristine-spark-fuel-lbv-unity-v1"),
-                        {"engine.methods.combustion"});
+    if (context.fuel->combustion.lbv_multiplier) {
+        core.fuel.lbv_multiplier = emitter.authored(
+            *context.fuel->combustion.lbv_multiplier, fuel_base + ".lbv_multiplier");
+    } else {
+        core.fuel.lbv_multiplier =
+            emitter.derived(1.0, fuel_base + ".lbv_multiplier",
+                            derived_method_identity("pristine-spark-fuel-lbv-unity-v1"),
+                            {"engine.methods.combustion"});
+    }
+    if (context.fuel->combustion.source_two_stage) {
+        const auto &source = *context.fuel->combustion.source_two_stage;
+        const auto base = fuel_base + ".source_two_stage_combustion";
+        core.fuel.source_two_stage_combustion = contract::LegacySourceTwoStageCombustion{
+            emitter.authored(source.auto_ignition_temperature_k,
+                             base + ".auto_ignition_temperature_k"),
+            emitter.authored(source.premixed_burn_fraction_01,
+                             base + ".premixed_burn_fraction_01"),
+            emitter.authored(source.premixed_flame_speed_multiplier,
+                             base + ".premixed_flame_speed_multiplier"),
+            emitter.authored(source.diffusion_flame_speed_multiplier,
+                             base + ".diffusion_flame_speed_multiplier"),
+        };
+    }
 
     const auto &curve =
         *context.curves.at(context.fuel->turbulence_to_flame_speed.value);

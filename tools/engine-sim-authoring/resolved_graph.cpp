@@ -94,8 +94,15 @@ struct CrankwaveResolvedGraph {
         auto *throttle = dynamic_cast<DirectThrottleLinkage *>(e->m_throttle);
         require(throttle != nullptr, "Exporter subset supports direct throttle only");
         auto *fuel = e->getFuel();
-        require(!fuel->isCompressionIgnition() && fuel->getPremixedBurnFraction() == 0 && fuel->getLbvMultiplier() == 1,
-                "Fork combustion extensions cannot be silently converted to spark ignition");
+        require(std::isfinite(fuel->getLbvMultiplier()) && fuel->getLbvMultiplier() > 0,
+                "Laminar flame-speed multiplier must be finite and positive");
+        require(std::isfinite(fuel->getAutoIgnitionTemperature()) && fuel->getAutoIgnitionTemperature() >= 0,
+                "Two-stage activation marker must be finite and nonnegative");
+        if (fuel->isCompressionIgnition()) {
+            require(fuel->getPremixedBurnFraction() >= 0 && fuel->getPremixedBurnFraction() <= 1 &&
+                    fuel->getPremixedFlameSpeedMultiplier() > 0 && fuel->getDiffusionFlameSpeedMultiplier() > 0,
+                    "Unsupported two-stage burn parameters");
+        }
         auto *crank = e->getCrankshaft(0);
         require(crank->getPosX() == 0 && crank->getPosY() == 0, "Offset crank position is outside exporter subset");
         std::vector<Json> journals, banks, intakes, exhausts, cylinders, ignition;
@@ -157,7 +164,9 @@ struct CrankwaveResolvedGraph {
         const auto timing = function(ign->m_timingCurve);
         const auto turbulence = function(fuel->m_turbulenceToFlameSpeedRatio);
         return object({{"schema", "crankwave/engine-sim-resolved-graph/v1"},
-            {"subset", "single-crank-direct-rods-fixed-cams-direct-throttle-spark-v1"},
+            {"subset", fuel->isCompressionIgnition() ?
+                "single-crank-direct-rods-fixed-cams-direct-throttle-scheduled-two-stage-v1" :
+                "single-crank-direct-rods-fixed-cams-direct-throttle-spark-v1"},
             {"name", e->getName()}, {"redline_rad_s", e->getRedline()},
             {"starter_torque_nm", e->getStarterTorque()}, {"starter_speed_rad_s", e->getStarterSpeed()},
             {"simulation_hz", e->getSimulationFrequency()}, {"throttle_gamma", throttle->m_gamma},
@@ -175,7 +184,13 @@ struct CrankwaveResolvedGraph {
                 {"molecular_afr", fuel->getMolecularAfr()}, {"turbulence", turbulence},
                 {"efficiency", fuel->getMaxBurningEfficiency()}, {"variation", fuel->getBurningEfficiencyRandomness()},
                 {"low_efficiency_attenuation", fuel->getLowEfficiencyAttenuation()},
-                {"max_turbulence", fuel->getMaxTurbulenceEffect()}, {"max_dilution", fuel->getMaxDilutionEffect()}})},
+                {"max_turbulence", fuel->getMaxTurbulenceEffect()}, {"max_dilution", fuel->getMaxDilutionEffect()},
+                {"lbv_multiplier", fuel->getLbvMultiplier()},
+                {"source_two_stage", object({
+                    {"auto_ignition_temperature_k", fuel->getAutoIgnitionTemperature()},
+                    {"premixed_burn_fraction_01", fuel->getPremixedBurnFraction()},
+                    {"premixed_flame_speed_multiplier", fuel->getPremixedFlameSpeedMultiplier()},
+                    {"diffusion_flame_speed_multiplier", fuel->getDiffusionFlameSpeedMultiplier()}})}})},
             {"functions", array(functions)},
             {"rig", object({{"mass_kg", v->getMass()}, {"drag_coefficient", v->getDragCoefficient()},
                 {"area_m2", v->getCrossSectionArea()}, {"diff_ratio", v->getDiffRatio()},

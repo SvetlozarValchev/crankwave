@@ -2,6 +2,7 @@
 """Fixed, observable native engine-sim authoring probe (no audio synthesis here)."""
 import argparse
 import array
+import collections
 import hashlib
 import json
 import math
@@ -95,6 +96,20 @@ def main():
     # One fixed gain per complete listening file; raw PCM remains untouched.
     gain = min(16.0, 26000 / peak) if peak else 1
     report["audio"]["listening_gain"] = gain
+    probe = Path(__file__).with_name('limiter-probe')
+    if args.mode == 'audition' and probe.is_file():
+        measured = subprocess.run([str(probe), str(script), str(out/'controls.txt'),
+                                   str(out/'limiter-events.jsonl')], capture_output=True, text=True, timeout=300)
+        (out/'limiter-probe.log').write_text(measured.stdout + measured.stderr)
+        if measured.returncode:
+            raise RuntimeError('Native limiter-event probe failed; see limiter-probe.log')
+        events = [json.loads(line) for line in (out/'limiter-events.jsonl').read_text().splitlines()]
+        counts = collections.Counter(event['kind'] for event in events)
+        report['limiter_detection'] = 'actual native ignition cut/recovery events'
+        report['limiter_events'] = dict(counts)
+        report['actual_limiter_cut_and_recovery'] = counts['cut_begin'] > 0 and counts['cut_end'] == counts['cut_begin']
+        if not counts['cut_begin']:
+            report['limiter_warning'] = 'No actual limiter cut occurred. RPM near the target is not proof of limiter operation.'
     listening = array.array("h", (round(x * gain) for x in pcm))
     if sys.byteorder != "little":
         listening.byteswap()

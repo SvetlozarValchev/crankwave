@@ -21,9 +21,13 @@ Crankwave JSON to disguise a backend difference.
   resampler. Listen to the baked runtime result as well as the native audition.
 
 Current importer scope: one crankshaft at the origin, direct rods, fixed standard
-cams, direct throttle and spark ignition. Fork diesel combustion, governors,
-VTEC and master/slave rods are unsupported. Preserve the accepted mechanical
-diesel workflow and assets; do not convert them through the spark-only importer.
+cams and direct throttle. Spark ignition and the local fork's scheduled two-stage
+burn approximation are supported. The latter explicitly preserves its premixed,
+diffusion and flame-speed coefficients; the native fork does not execute
+temperature-triggered autoignition or direct injection. Do not confuse it with
+Crankwave's separate mechanical-diesel pressure/flow backend. Governors, VTEC and
+master/slave rods remain unsupported by this importer. Preserve accepted diesel
+assets and use the existing mechanical-diesel workflow for that backend.
 
 The exporter is experimental. Strict export rejects the supplementary aggregate
 loss policy required by Crankwave but absent from native MR. Explicit diagnostic
@@ -41,3 +45,13 @@ Keep accepted engines and listening baselines immutable. Write experiments to
 new output directories. Do not claim subjective listening from numerical checks.
 Use isolated authoring trials when requested; compare observable authored files,
 tool actions and outcomes, without claiming access to hidden reasoning.
+
+`pilot.py --specification tools/engine-sim-authoring/mixed-trials.json` defines
+five independent MR cases with fixed briefs and targets. `finish_trials.py`
+waits for completed runs, checks that the final source has a native audition,
+exports it, renders both backends, bakes the complete carrier and records the
+browser harness. The comparison source differs only in its explicit 20 kHz
+simulation frequency, which the standalone Crankwave renderer requires. Keep
+the original authored source and 10 kHz auditions alongside that comparison.
+Run `evaluate.py` with the same specification for independent behavioral checks;
+a pipeline completion is not behavioral or subjective acceptance.

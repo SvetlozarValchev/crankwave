@@ -9,8 +9,11 @@ import {spawn} from 'node:child_process';
 import {setTimeout as delay} from 'node:timers/promises';
 import {createHash} from 'node:crypto';
 
-const [url, carrier, output] = process.argv.slice(2);
-if (!output) throw Error('Usage: node record_harness.mjs <localhost-harness-url> <carrier.crankwave> <new-directory>');
+const [url, carrier, output, ...extra] = process.argv.slice(2);
+const totalSeconds=extra.length===0?40:Number(extra[1]);
+if (!output || (extra.length && (extra.length!==2 || extra[0]!=='--seconds')) ||
+    !Number.isInteger(totalSeconds) || totalSeconds<40 || totalSeconds>120)
+  throw Error('Usage: node record_harness.mjs <localhost-harness-url> <carrier.crankwave> <new-directory> [--seconds 40..120]');
 assert.ok(['localhost','127.0.0.1'].includes(new URL(url).hostname));
 await fs.mkdir(output);
 const profile = await fs.mkdtemp(path.join(os.tmpdir(),'crankwave-capture-'));
@@ -73,7 +76,7 @@ try {
         const cfg=this.config,h=new Int32Array(cfg.sharedBuffer,0,cfg.headerBytes/4),pcm=new Float32Array(cfg.sharedBuffer,cfg.headerBytes);
         this.timer=setInterval(()=>{
           if(c.done||Atomics.load(h,cfg.indices.producerState)!==1)return;
-          const count=Math.min(960,Atomics.load(h,cfg.indices.availableFrames),40*48000-c.frames);
+          const count=Math.min(960,Atomics.load(h,cfg.indices.availableFrames),${totalSeconds}*48000-c.frames);
           if(!count)return;
           const start=Atomics.load(h,cfg.indices.readFrame),chunk=new Float32Array(count);
           for(let i=0;i<count;i++)chunk[i]=pcm[(start+i)%cfg.capacityFrames];
@@ -85,7 +88,7 @@ try {
             c.events.push({frame:c.frames,seconds,type,controls});
             c.worker.postMessage({type,controls,requestId:'capture-'+(++c.command)});
           }
-          if(c.frames===40*48000){c.done=true;clearInterval(this.timer);}
+          if(c.frames===${totalSeconds}*48000){c.done=true;clearInterval(this.timer);}
         },1);return destination;
       }
       disconnect(){clearInterval(this.timer);}
@@ -99,10 +102,10 @@ try {
   await send('DOM.setFileInputFiles',{nodeId:input.nodeId,files:[path.resolve(carrier)]});
   await until(()=>evaluate('document.querySelector("#package-status").textContent.trim()'),v=>v==='Package ready','carrier load');
   await evaluate('document.querySelector("#neutral-button").click(); document.querySelector("#play-button").click(); true');
-  await until(()=>evaluate('({done:capture.done,frames:capture.frames,errors:capture.errors})'),v=>v.done||v.errors.length,'40 seconds of harness PCM');
+  await until(()=>evaluate('({done:capture.done,frames:capture.frames,errors:capture.errors})'),v=>v.done||v.errors.length,`${totalSeconds} seconds of harness PCM`);
   const state=await evaluate('({frames:capture.frames,events:capture.events,stats:capture.stats,errors:capture.errors})');
   await fs.writeFile(path.join(output,'capture-state.json'),JSON.stringify(state,null,2)+'\n');
-  assert.deepEqual(state.errors,[]);assert.deepEqual(errors,[]);assert.equal(state.frames,40*48000);
+  assert.deepEqual(state.errors,[]);assert.deepEqual(errors,[]);assert.equal(state.frames,totalSeconds*48000);
   const chunks=await evaluate(`capture.chunks.map(chunk=>{
     const bytes=new Uint8Array(chunk.buffer);let s='';
     for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));
@@ -122,6 +125,7 @@ try {
   await fs.writeFile(path.join(output,'harness-48k.wav'),wav);
   await fs.writeFile(path.join(output,'harness-48k.f32le'),pcm);
   await fs.writeFile(path.join(output,'capture.json'),JSON.stringify({...state,peak,rms:Math.sqrt(energy/state.frames),listening_gain:gain,
+    duration_seconds:totalSeconds,
     carrier_sha256:createHash('sha256').update(await fs.readFile(carrier)).digest('hex'),
     capture_method:'Actual standalone browser worker and device resampler; PCM copied from output ring by silent accelerated sink. Control timing includes normal audio lead.'},null,2)+'\n');
   console.log(JSON.stringify({output,frames:state.frames,peak,listeningGain:gain,stats:state.stats.length}));

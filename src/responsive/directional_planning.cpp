@@ -43,20 +43,25 @@ sweep_motion(const ResponsiveBakeProfile &profile,
     DirectionalSweepMotion result;
     result.start_rpm = rising ? capture_minimum_rpm : capture_maximum_rpm;
     result.end_rpm = rising ? capture_maximum_rpm : capture_minimum_rpm;
+    // Keep all 16 required trailing complete cycles plus the conservative
+    // extra cycle. The installed 4.5-second floor remains exact where adequate.
+    result.preparation_duration_seconds = std::max(
+        kDirectionalPreparationSeconds, aligned_duration(17.0 * 120.0 / result.start_rpm));
+    const double preparation = result.preparation_duration_seconds;
     const double raw_duration = std::abs(std::log(result.end_rpm / result.start_rpm)) /
                                 kDirectionalLogarithmicRpmRatePerSecond;
     result.sweep_duration_seconds = aligned_duration(raw_duration);
     result.sweep_end_seconds =
-        kDirectionalPreparationSeconds + result.sweep_duration_seconds;
+        preparation + result.sweep_duration_seconds;
     result.total_duration_seconds =
         aligned_duration(result.sweep_end_seconds + kDirectionalPostSweepHoldSeconds);
     result.points.push_back({0.0, result.start_rpm});
-    result.points.push_back({kDirectionalPreparationSeconds, result.start_rpm});
+    result.points.push_back({preparation, result.start_rpm});
     for (double elapsed = kDirectionalTrajectoryPointPeriodSeconds;
          elapsed < result.sweep_duration_seconds;
          elapsed += kDirectionalTrajectoryPointPeriodSeconds) {
         const double exponent = kDirectionalLogarithmicRpmRatePerSecond * elapsed;
-        result.points.push_back({kDirectionalPreparationSeconds + elapsed,
+        result.points.push_back({preparation + elapsed,
                                  rising ? result.start_rpm * std::exp(exponent)
                                         : result.start_rpm * std::exp(-exponent)});
     }
@@ -75,7 +80,7 @@ make_spec(const DirectionalScenarioPlanRequest &request,
     result.rpm_anchors = request.profile.rpm.anchors;
     result.profile_selection_sha256 = request.profile.selection_identity_sha256;
     result.preparation_block_count = static_cast<std::uint64_t>(
-        std::llround(kDirectionalPreparationSeconds *
+        std::llround(result.motion.preparation_duration_seconds *
                      static_cast<double>(kDirectionalDurationAlignmentRateHz)));
     result.total_block_count = static_cast<std::uint64_t>(
         std::llround(result.motion.total_duration_seconds *
@@ -93,7 +98,7 @@ make_spec(const DirectionalScenarioPlanRequest &request,
     result.scenario.initial_state.dyno_enabled = true;
     result.scenario.initial_state.limiter_enabled = false;
     result.scenario.preparation = authoring::FixedHorizonPreparation{
-        {kDirectionalPreparationSeconds, "s", std::nullopt}, 16U};
+        {result.motion.preparation_duration_seconds, "s", std::nullopt}, 16U};
 
     authoring::QuantityTrajectory speed;
     speed.value_dimension = authoring::QuantityDimension::angular_speed;
@@ -121,9 +126,9 @@ make_spec(const DirectionalScenarioPlanRequest &request,
     result.scenario.quality = {"listening", 3'840U, 7'600U, 1U};
     result.scenario.total_duration = {result.motion.total_duration_seconds, "s",
                                       std::nullopt};
-    result.scenario.audible_start = {kDirectionalPreparationSeconds, "s", std::nullopt};
+    result.scenario.audible_start = {result.motion.preparation_duration_seconds, "s", std::nullopt};
     result.scenario.audible_duration = {result.motion.total_duration_seconds -
-                                            kDirectionalPreparationSeconds,
+                                            result.motion.preparation_duration_seconds,
                                         "s", std::nullopt};
     result.scenario.public_seed = kDirectionalPublicSeed;
     result.scenario.output.telemetry_channels.clear();

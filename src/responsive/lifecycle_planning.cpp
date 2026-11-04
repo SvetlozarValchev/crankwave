@@ -176,6 +176,11 @@ void finish_identity(LifecycleScenarioSpec &spec,
     identity.u64(spec.preparation_block_count);
     identity.u64(spec.total_block_count);
     identity.string(role_id(spec.role));
+    if (spec.role == LifecycleScenarioRole::shutdown &&
+        request.observed_shutdown_idle_rpm.has_value()) {
+        identity.string("observed-startup-idle-initial-condition");
+        identity.f64(*request.observed_shutdown_idle_rpm);
+    }
     spec.identity_sha256 = identity.finish();
 }
 
@@ -209,6 +214,22 @@ plan_lifecycle_scenario(const LifecycleScenarioPlanRequest &request,
                      "trusted template crank angle must be finite");
     }
     const bool wants_release = role == LifecycleScenarioRole::startup;
+    if (!std::isfinite(request.minimum_shutdown_duration_seconds) ||
+        request.minimum_shutdown_duration_seconds < 0.0) {
+        return error(LifecycleErrorCode::invalid_request,
+                     "invalid-minimum-shutdown-duration",
+                     "minimum_shutdown_duration_seconds",
+                     "minimum shutdown duration must be finite and nonnegative");
+    }
+    if (request.observed_shutdown_idle_rpm &&
+        (!finite_positive(*request.observed_shutdown_idle_rpm) ||
+         *request.observed_shutdown_idle_rpm < request.profile.rpm.outer_minimum_rpm ||
+         *request.observed_shutdown_idle_rpm > request.profile.rpm.outer_maximum_rpm)) {
+        return error(LifecycleErrorCode::invalid_request,
+                     "observed-shutdown-idle-out-of-range",
+                     "observed_shutdown_idle_rpm",
+                     "observed shutdown idle must lie within the responsive RPM domain");
+    }
     if (wants_release != release.has_value()) {
         return error(LifecycleErrorCode::invalid_request,
                      "starter-release-role-mismatch", "release",
@@ -278,7 +299,8 @@ plan_lifecycle_scenario(const LifecycleScenarioPlanRequest &request,
                                           request.profile.rpm.outer_minimum_rpm))));
         break;
     case LifecycleScenarioRole::shutdown: {
-        const double rpm = request.profile.rpm.anchors.front();
+        const double rpm = request.observed_shutdown_idle_rpm.value_or(
+            request.profile.rpm.anchors.front());
         const double preparation = align_to_lifecycle_block(std::max(
             kShutdownAudibleStartSeconds, 5.0 * four_stroke_cycle_seconds(rpm)));
         const double keyoff = align_to_lifecycle_block(std::max(
@@ -301,6 +323,11 @@ plan_lifecycle_scenario(const LifecycleScenarioPlanRequest &request,
                            presentation_tail_extension_seconds;
         break;
     }
+    }
+    if (role == LifecycleScenarioRole::shutdown ||
+        role == LifecycleScenarioRole::shutdown_elevated) {
+        duration_seconds = std::max(duration_seconds, align_to_lifecycle_block(
+            request.minimum_shutdown_duration_seconds));
     }
     constexpr double kMaximumLifecycleDurationSeconds = static_cast<double>(
         std::numeric_limits<std::uint64_t>::max() / kLifecycleDeliveryRateHz);
@@ -341,7 +368,8 @@ plan_lifecycle_scenario(const LifecycleScenarioPlanRequest &request,
                          "engine.output_crankshaft.moment_of_inertia",
                          "output crank inertia must be positive kg*m2");
         }
-        const double held_floor = request.profile.rpm.anchors.front();
+        const double held_floor = request.observed_shutdown_idle_rpm.value_or(
+            request.profile.rpm.anchors.front());
         const double preparation = align_to_lifecycle_block(std::max(
             kShutdownAudibleStartSeconds, 5.0 * four_stroke_cycle_seconds(held_floor)));
         const double keyoff = align_to_lifecycle_block(

@@ -918,6 +918,20 @@ write_legacy_flame_speed_point(CanonicalJsonWriter &writer,
 
 [[nodiscard]] bool write_legacy_fuel(CanonicalJsonWriter &writer,
                                      const contract::LegacyFuelProfile &fuel) {
+    const auto write_two_stage = [&]() {
+        if (!fuel.source_two_stage_combustion) return true;
+        const auto &value = *fuel.source_two_stage_combustion;
+        return writer.key("source_two_stage_combustion") && writer.begin_object() &&
+               writer.key("auto_ignition_temperature_k") &&
+               write_resolved(writer, value.auto_ignition_temperature_k, write_f64) &&
+               writer.key("premixed_burn_fraction_01") &&
+               write_resolved(writer, value.premixed_burn_fraction_01, write_f64) &&
+               writer.key("premixed_flame_speed_multiplier") &&
+               write_resolved(writer, value.premixed_flame_speed_multiplier, write_f64) &&
+               writer.key("diffusion_flame_speed_multiplier") &&
+               write_resolved(writer, value.diffusion_flame_speed_multiplier, write_f64) &&
+               writer.end_object();
+    };
     return writer.begin_object() && writer.key("fuel_id") &&
            write_resolved(writer, fuel.fuel_id, write_string) &&
            writer.key("molecular_mass_kg_per_mol") &&
@@ -946,7 +960,7 @@ write_legacy_flame_speed_point(CanonicalJsonWriter &writer,
                        [](CanonicalJsonWriter &output,
                           const contract::LegacyFlameSpeedPoint &point) {
                            return write_legacy_flame_speed_point(output, point);
-                       }) &&
+                       }) && write_two_stage() &&
            writer.end_object();
 }
 

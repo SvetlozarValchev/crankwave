@@ -37,6 +37,12 @@ def main():
                     "--parallel", "6"], check=True)
     toolkit.mkdir(parents=True)
     shutil.copytree(source / "es", toolkit / "es")
+    implementation = toolkit / 'native-api'
+    implementation.mkdir()
+    for name in ['intake.cpp', 'fuel.cpp', 'combustion_chamber.cpp', 'camshaft.cpp',
+                 'cylinder_bank.cpp', 'crankshaft.cpp', 'ignition_module.cpp',
+                 'direct_throttle_linkage.cpp']:
+        shutil.copy2(source / 'src' / name, implementation / name)
     shutil.copy2(build / "engine-sim-web-parity-native", toolkit / "engine-sim-native")
     shutil.copy2(Path(__file__).with_name("audition.py"), toolkit / "audition.py")
     subprocess.run([

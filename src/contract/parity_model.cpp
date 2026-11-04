@@ -346,6 +346,18 @@ void visit_fuel(const Fuel &fuel, const std::string &base, Function function) {
         function(point.turbulence, point_base + ".turbulence");
         function(point.flame_speed_ratio, point_base + ".flame_speed_ratio");
     }
+    if (fuel.source_two_stage_combustion) {
+        const auto &two_stage = *fuel.source_two_stage_combustion;
+        const auto path = base + ".source_two_stage_combustion";
+        function(two_stage.auto_ignition_temperature_k,
+                 path + ".auto_ignition_temperature_k");
+        function(two_stage.premixed_burn_fraction_01,
+                 path + ".premixed_burn_fraction_01");
+        function(two_stage.premixed_flame_speed_multiplier,
+                 path + ".premixed_flame_speed_multiplier");
+        function(two_stage.diffusion_flame_speed_multiplier,
+                 path + ".diffusion_flame_speed_multiplier");
+    }
 }
 
 template <class Gains, class Function>
@@ -1100,6 +1112,16 @@ void validate_authored_low_order_core_domains(
                 !fuel.turbulence_to_flame_speed_ratio.empty(),
             ContractIssueCode::invalid_value, "fuel",
             "legacy fuel parameters are outside their domain");
+    if (fuel.source_two_stage_combustion) {
+        const auto &two_stage = *fuel.source_two_stage_combustion;
+        require(report,
+                finite_positive(two_stage.auto_ignition_temperature_k.value) &&
+                    detail::unit_interval(two_stage.premixed_burn_fraction_01.value) &&
+                    finite_positive(two_stage.premixed_flame_speed_multiplier.value) &&
+                    finite_positive(two_stage.diffusion_flame_speed_multiplier.value),
+                ContractIssueCode::invalid_value, "fuel.source_two_stage_combustion",
+                "source two-stage combustion parameters are outside their domain");
+    }
     validate_sample_ids(report, fuel.turbulence_to_flame_speed_ratio,
                         "fuel.turbulence_to_flame_speed_ratio");
     for (std::size_t index = 0; index < fuel.turbulence_to_flame_speed_ratio.size();
@@ -2302,6 +2324,16 @@ void validate_low_order_core_domains(ValidationReport &report,
                 !fuel.turbulence_to_flame_speed_ratio.empty(),
             ContractIssueCode::invalid_value, "fuel",
             "legacy fuel parameters are outside their domain");
+    if (fuel.source_two_stage_combustion) {
+        const auto &two_stage = *fuel.source_two_stage_combustion;
+        require(report,
+                finite_positive(two_stage.auto_ignition_temperature_k.value) &&
+                    detail::unit_interval(two_stage.premixed_burn_fraction_01.value) &&
+                    finite_positive(two_stage.premixed_flame_speed_multiplier.value) &&
+                    finite_positive(two_stage.diffusion_flame_speed_multiplier.value),
+                ContractIssueCode::invalid_value, "fuel.source_two_stage_combustion",
+                "source two-stage combustion parameters are outside their domain");
+    }
     validate_sample_ids(report, fuel.turbulence_to_flame_speed_ratio,
                         "fuel.turbulence_to_flame_speed_ratio");
     for (std::size_t index = 0; index < fuel.turbulence_to_flame_speed_ratio.size();

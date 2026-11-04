@@ -140,6 +140,13 @@ def lower(g, output, engine_id, graph_directory, diagnostic_loss_policy=False):
         combustion=dict(maximum_efficiency_01=f["efficiency"], cycle_variation_01=f["variation"], low_efficiency_attenuation_01=f["low_efficiency_attenuation"],
                         maximum_turbulence_effect=f["max_turbulence"], maximum_dilution_effect=f["max_dilution"]))]
     e["default_fuel"] = "fuel"
+    # Preserve the fork's actually executed burn law. Its temperature marker
+    # selects two-stage burning; ignition is still scheduled by the wires.
+    if f.get("lbv_multiplier", 1) != 1:
+        e["fuels"][0]["combustion"]["lbv_multiplier"] = f["lbv_multiplier"]
+    two_stage = f.get("source_two_stage")
+    if two_stage and two_stage["auto_ignition_temperature_k"] > 0:
+        e["fuels"][0]["combustion"]["source_two_stage"] = two_stage
     e["ignition"] = dict(timing_curve=curve(g["ignition"]["timing"], "ignition"), wires=[dict(id=c["id"] + "-wire") for c in g["cylinders"]],
         firing_order=[dict(wire=v["cylinder"] + "-wire", crank_angle=q(v["angle_rad"], "rad")) for v in sorted(g["ignition"]["firing"], key=lambda v: v["angle_rad"])],
         limiter=dict(activation_speed=q(g["ignition"]["limiter_rad_s"], "rad/s"), cut_duration=q(g["ignition"]["cut_seconds"], "s")))
@@ -230,7 +237,11 @@ def main():
         policy=dict(additional_aggregate_loss="generic-diagnostic-prior" if a.diagnostic_loss_policy else "zero-not-currently-admitted-by-Crankwave", publication_gain_linear=2**-26, output_sample_rate=192000, physics_hz=g["simulation_hz"]),
         parity_status="unverified; diagnostic import only, no production carrier",
         known_backend_differences=["192 kHz Crankwave presentation versus native 44.1 kHz", "Different seed expansion policies despite identical public seed", "Native synthesizer presentation defaults and Crankwave canonical publication policy require comparison"],
-        excluded_nonexecuted_metadata=["Native GUI geometry/display options", "Native fuel density used for volume display"] ))
+        combustion_model=("scheduled two-stage fork approximation; temperature-triggered ignition is not executed by the native fork"
+                          if g["fuel"].get("source_two_stage", {}).get("auto_ignition_temperature_k", 0) > 0
+                          else "scheduled spark ignition"),
+        excluded_nonexecuted_metadata=["Native GUI geometry/display options", "Native fuel density used for volume display",
+                                      "Inactive two-stage burn coefficients when the activation marker is zero"] ))
     print(out / "engine.json")
 
 

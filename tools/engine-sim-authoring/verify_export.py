@@ -60,9 +60,27 @@ def main():
     check("native MR parameter sensitivity", r.returncode == 0 and changed_graph["banks"][0]["bore_m"] != native["banks"][0]["bore_m"],
           original_bore=native["banks"][0]["bore_m"], changed_bore=changed_graph.get("banks", [{}])[0].get("bore_m"))
 
-    for name, field in [("unsupported-lbv", "lbv_multiplier: 1.2"), ("unsupported-diesel", "auto_ignition_temperature: 700.0")]:
+    for name, field in [("lbv", "lbv_multiplier: 1.2"), ("scheduled-two-stage", "auto_ignition_temperature: 700.0, premixed_burn_fraction: 0.2, premixed_flame_speed_multiplier: 2.5, diffusion_flame_speed_multiplier: 0.65")]:
         r, graph = resolve(name, replace("fuel: fuel(", "fuel: fuel(\n            " + field + ","))
-        check(name + " rejected", r.returncode != 0 and not graph.exists() and "Fork combustion extensions" in r.stderr, message=r.stderr.strip())
+        resolved = json.loads(graph.read_text()) if r.returncode == 0 else {}
+        check(name + " resolved explicitly", r.returncode == 0 and
+              (resolved['fuel']['lbv_multiplier'] == 1.2 if name == 'lbv' else
+               resolved['fuel']['source_two_stage'] == dict(auto_ignition_temperature_k=700,
+                   premixed_burn_fraction_01=.2, premixed_flame_speed_multiplier=2.5,
+                   diffusion_flame_speed_multiplier=.65)), message=r.stderr.strip())
+        if r.returncode == 0:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location('mr_export', Path(__file__).with_name('export.py'))
+            module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+            target = graph.parent/'lowered'; target.mkdir()
+            module.lower(resolved, target, 'extension-test', graph.parent, True)
+            combustion = json.loads((target/'engine.json').read_text())['engine']['fuels'][0]['combustion']
+            check(name + ' lowered without losing coefficients',
+                  combustion.get('lbv_multiplier') == 1.2 if name == 'lbv' else
+                  combustion.get('source_two_stage') == resolved['fuel']['source_two_stage'])
+
+    r, graph = resolve('invalid-lbv', replace('fuel: fuel(', 'fuel: fuel(\n            lbv_multiplier: -1.0,'))
+    check('invalid multiplier rejected', r.returncode != 0 and not graph.exists())
 
     r, graph = resolve("malformed", 'import "engine_sim.mr"\nthis is not valid MR !!!\n')
     check("malformed MR rejected", r.returncode != 0 and not graph.exists() and "MR compilation failed" in r.stderr)

@@ -123,6 +123,12 @@ def audit(native, compiled):
         route = next(r for r in compiled["presentation"]["routes"] if r["route_id"] == v["topology"]["route_id"])
         check(name + ".IR_gain", n["ir_volume"], route["impulse_response_gain_linear"])
     f = core["fuel"]; n = native["fuel"]
+    check("fuel.lbv_multiplier", n.get("lbv_multiplier", 1), f["lbv_multiplier"])
+    two_stage = n.get("source_two_stage")
+    if two_stage and two_stage["auto_ignition_temperature_k"] > 0:
+        resolved = f.get("source_two_stage_combustion", {})
+        for field, value in two_stage.items():
+            check("fuel.source_two_stage." + field, value, resolved.get(field))
     for a, b in [("molecular_mass_kg_mol", "molecular_mass_kg_per_mol"), ("energy_j_kg", "energy_density_j_per_kg"),
                  ("molecular_afr", "molecular_afr"), ("efficiency", "maximum_burning_efficiency_01"),
                  ("variation", "burning_efficiency_randomness_01"), ("low_efficiency_attenuation", "low_efficiency_attenuation_01"),

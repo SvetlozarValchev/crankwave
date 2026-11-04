@@ -582,11 +582,68 @@ cook_lifecycle(const responsive::ResponsiveBakeProfile &profile,
     }
     auto shutdown_result = responsive::cook_lifecycle_shutdown(
         shutdown_spec, shutdown_capture, stop_token);
+    const auto extend_shutdown_postroll =
+        [&](responsive::LifecycleScenarioSpec &spec,
+            responsive::LifecycleCaptureEvidence &capture,
+            responsive::LifecycleResult<responsive::LifecycleShutdownPresentation> &cooked)
+        -> std::optional<Error> {
+        request.minimum_shutdown_duration_seconds = 0.0;
+        for (;;) {
+            const auto *failure = std::get_if<responsive::LifecycleError>(&cooked);
+            if (failure == nullptr ||
+                (failure->detail_code != "engine-did-not-stop" &&
+                 failure->code != responsive::LifecycleErrorCode::insufficient_quiet_tail) ||
+                spec.total_duration_seconds >= 60.0) return std::nullopt;
+            // A heavy flywheel or a long acoustic decay can outlast the initial
+            // finite tape. Recapture the same controls through a longer actual
+            // rundown; never force RPM to zero, trim a tail or relax quiet gates.
+            request.minimum_shutdown_duration_seconds = std::min(
+                60.0, std::max(8.0, spec.total_duration_seconds * 2.0));
+            auto extended_spec = plan_role(spec.role, "extended shutdown post-roll");
+            if (auto *retry_failure = std::get_if<Error>(&extended_spec))
+                return std::move(*retry_failure);
+            spec = std::get<responsive::LifecycleScenarioSpec>(std::move(extended_spec));
+            auto extended_capture = capture_role(spec, "extended shutdown post-roll");
+            if (auto *retry_failure = std::get_if<Error>(&extended_capture))
+                return std::move(*retry_failure);
+            capture = std::get<responsive::LifecycleCaptureEvidence>(std::move(extended_capture));
+            cooked = spec.role == responsive::LifecycleScenarioRole::shutdown
+                ? responsive::cook_lifecycle_shutdown(spec, capture, stop_token)
+                : responsive::cook_lifecycle_elevated_shutdown(spec, capture, stop_token);
+        }
+    };
+    if (const auto *failure = std::get_if<responsive::LifecycleError>(&shutdown_result);
+        failure && failure->code == responsive::LifecycleErrorCode::no_admissible_seam) {
+        // The atlas floor is a playback coordinate, not an assertion that the
+        // engine can sustain free idle at that speed. Preserve successful old
+        // captures; a failed seam may retry using measured completed startup
+        // cycles. The same native cooker and all audible gates still apply.
+        const auto idle = responsive::observed_startup_idle_rpm(
+            startup_capture, profile.rpm.outer_minimum_rpm);
+        if (idle && *idle != shutdown_spec.scenario.initial_state.engine_speed.value) {
+            request.observed_shutdown_idle_rpm = idle;
+            auto retried_spec = plan_role(responsive::LifecycleScenarioRole::shutdown,
+                                         "shutdown at observed idle");
+            if (auto *retry_failure = std::get_if<Error>(&retried_spec))
+                return std::move(*retry_failure);
+            shutdown_spec = std::get<responsive::LifecycleScenarioSpec>(std::move(retried_spec));
+            auto retried_capture = capture_role(shutdown_spec, "shutdown at observed idle");
+            if (auto *retry_failure = std::get_if<Error>(&retried_capture))
+                return std::move(*retry_failure);
+            shutdown_capture = std::get<responsive::LifecycleCaptureEvidence>(std::move(retried_capture));
+            shutdown_result = responsive::cook_lifecycle_shutdown(
+                shutdown_spec, shutdown_capture, stop_token);
+        }
+    }
+    if (auto failure = extend_shutdown_postroll(shutdown_spec, shutdown_capture, shutdown_result))
+        return std::move(*failure);
     if (auto *failure = std::get_if<responsive::LifecycleError>(&shutdown_result)) {
         return lifecycle_error("lifecycle shutdown cooking", *failure);
     }
     auto elevated_result = responsive::cook_lifecycle_elevated_shutdown(
         elevated_spec, elevated_capture, stop_token);
+    if (auto failure = extend_shutdown_postroll(elevated_spec, elevated_capture, elevated_result))
+        return std::move(*failure);
     if (auto *failure = std::get_if<responsive::LifecycleError>(&elevated_result)) {
         return lifecycle_error("lifecycle elevated shutdown cooking", *failure);
     }

@@ -262,11 +262,49 @@ legacy_advance_gasoline_flame(LegacyFlameState &flame, LegacyGasCell &cell,
     const double previous_radial_travel_m = flame.radial_travel_m;
     const double previous_axial_travel_m = flame.axial_travel_m * expansion;
 
+    const bool source_two_stage = fuel.auto_ignition_temperature_k > 0.0;
+    if (source_two_stage &&
+        flame.percentage_lit_01 < fuel.premixed_burn_fraction_01) {
+        const double burn_rate = fuel.premixed_flame_speed_multiplier *
+                                 flame.flame_speed_m_s / maximum_radial_travel_m;
+        double fraction_delta = burn_rate * gas_step_s;
+        fraction_delta = std::fmin(
+            fraction_delta, fuel.premixed_burn_fraction_01 - flame.percentage_lit_01);
+        if (fraction_delta > 0.0) {
+            result.disposition = LegacyFlameAdvanceDisposition::advanced;
+            result.swept_amount_mol = fraction_delta * cell.amount_mol;
+            result.reaction = legacy_apply_gasoline_reaction(
+                cell, result.swept_amount_mol * flame.efficiency_01,
+                flame.global_mixture, fuel);
+            result.previous_burned_volume_m3 = flame.percentage_lit_01 * volume_m3;
+            result.flame_volume_fraction_delta = fraction_delta;
+            result.flame_volume_delta_m3 = fraction_delta * volume_m3;
+            flame.lit_amount_mol += result.swept_amount_mol;
+            flame.percentage_lit_01 += fraction_delta;
+            result.burned_volume_m3 = flame.percentage_lit_01 * volume_m3;
+        } else {
+            flame.active = false;
+            result.disposition =
+                LegacyFlameAdvanceDisposition::extinguished_no_geometric_progress;
+        }
+        // Preserve the source's geometry handoff, including a capped last
+        // premixed substep. Diffusion starts on the following gas substep.
+        const double scale = std::cbrt(flame.percentage_lit_01);
+        flame.radial_travel_m = scale * maximum_radial_travel_m;
+        flame.axial_travel_m = scale * maximum_axial_travel_m;
+        flame.last_volume_m3 = volume_m3;
+        return result;
+    }
+
+    double flame_speed_m_s = flame.flame_speed_m_s;
+    if (source_two_stage) {
+        flame_speed_m_s *= fuel.diffusion_flame_speed_multiplier;
+    }
     flame.radial_travel_m =
-        std::fmin(previous_radial_travel_m + gas_step_s * flame.flame_speed_m_s,
+        std::fmin(previous_radial_travel_m + gas_step_s * flame_speed_m_s,
                   maximum_radial_travel_m);
     flame.axial_travel_m =
-        std::fmin(previous_axial_travel_m + gas_step_s * flame.flame_speed_m_s,
+        std::fmin(previous_axial_travel_m + gas_step_s * flame_speed_m_s,
                   maximum_axial_travel_m);
 
     if (previous_radial_travel_m < flame.radial_travel_m ||

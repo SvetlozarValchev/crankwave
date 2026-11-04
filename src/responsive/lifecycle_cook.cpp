@@ -802,6 +802,31 @@ std::optional<double> startup_handoff_completion_seconds(
     return std::nullopt;
 }
 
+std::optional<double> observed_startup_idle_rpm(
+    const LifecycleCaptureEvidence &capture, const double running_floor_rpm) {
+    const auto completion = startup_handoff_completion_seconds(capture, running_floor_rpm);
+    if (!completion || capture.points.empty()) return std::nullopt;
+    const auto &last = capture.points.back();
+    if (!last.ignition_enabled || !last.fuel_enabled || last.starter_enabled ||
+        !finite(last.rpm) || last.rpm < running_floor_rpm) return std::nullopt;
+
+    std::vector<double> rpms;
+    for (auto cycle = capture.completed_cycles.rbegin();
+         cycle != capture.completed_cycles.rend() && rpms.size() < 5U; ++cycle) {
+        const double start_seconds =
+            static_cast<double>(capture.audible_first_delivery_frame + cycle->start_frame) /
+            static_cast<double>(kLifecycleDeliveryRateHz);
+        if (start_seconds < *completion || cycle->end_frame <= cycle->start_frame ||
+            cycle->end_frame > capture.pcm.size() ||
+            !finite(cycle->mean_rpm) || cycle->mean_rpm < running_floor_rpm) continue;
+        rpms.push_back(cycle->mean_rpm);
+    }
+    if (rpms.size() < 2U) return std::nullopt;
+    std::sort(rpms.begin(), rpms.end());
+    const auto middle = rpms.size() / 2U;
+    return rpms.size() % 2U ? rpms[middle] : (rpms[middle - 1U] + rpms[middle]) * 0.5;
+}
+
 LifecycleResult<LifecycleStartupPresentation> cook_lifecycle_startup(
     const LifecycleScenarioSpec &spec, const LifecycleCaptureEvidence &capture,
     const LifecycleCaptureEvidence &starter_capture,

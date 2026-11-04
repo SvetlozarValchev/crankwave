@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Run independent engine-sim authoring pilots in restricted filesystem views.
+"""Run independent authoring pilots in restricted filesystem views.
 
 Requires Linux bubblewrap, the Codex CLI, and a prepared toolkit containing
-engine-sim-native, es/, and audition.py. No engine examples or project tree are
-mounted. Network remains available for Codex inference; web search is disabled.
+engine-sim-native, es/, and audition.py for the default MR cases, or a custom
+toolkit and --specification. No engine examples or project tree are mounted.
+Network remains available for Codex inference; web search is disabled.
 Uses the existing Codex authentication without copying or printing credentials.
 """
 import argparse
@@ -36,6 +37,9 @@ Choose sensible acoustic settings and exhaust lengths for the requested engine.
 Set simulation_frequency: 10000. Include run(engine: ..., vehicle: ...,
 transmission: ...) so the native simulator can create the complete session.
 The API library includes impulse_response_library; its WAVs are already present.
+Where present, /toolkit/native-api contains component implementations, without
+engine examples. Use these to resolve unclear API semantics. In particular,
+idle_flow_rate supplies a very rich auxiliary fuel mixture, not bypass air.
 
 Save first.mr before your first validation. Compile and validate with:
 python3 /toolkit/audition.py validate /workspace/main.mr --out /workspace/check-01
@@ -47,6 +51,8 @@ test, wrapper or standard library. Fix your definition if it fails to compile,
 stall-free idle, freely rev and return toward idle. Observe RPM and nonzero audio.
 Native PCM clipping must be zero; reducing the listening WAV gain does not repair
 clipping already present in the native PCM. Correct the authored sound settings.
+Require actual limiter cut and recovery events in the full audition report;
+nearly reaching the limiter RPM without a cut does not pass this requirement.
 Use at most 12 compile checks and 6 full auditions. Do not pretend to have heard
 audio if no audio listening tool exists. Save brief factual decisions and known
 limitations in decisions.json, and identify the final audition directory in
@@ -62,10 +68,28 @@ def main():
     parser.add_argument("--model", default="gpt-6-astra")
     parser.add_argument("--effort", default="xhigh")
     parser.add_argument("--timeout", default=900, type=int)
-    parser.add_argument("--case", choices=list(CASES), action="append")
+    parser.add_argument("--case", action="append")
+    parser.add_argument("--specification", type=Path,
+                        help="JSON with cases and prompt for another isolated authoring experiment")
     parser.add_argument("--repair-from", type=Path,
                         help="Repair an existing independent trial's main.mr in a fresh session")
+    parser.add_argument("--repair-note", type=Path,
+                        help="Factual diagnostic note for a repair pass; defaults to the original PCM-clipping repair brief")
     args = parser.parse_args()
+    cases, prompt_template = CASES, PROMPT
+    if args.specification:
+        specification = json.loads(args.specification.read_text())
+        cases, prompt_template = specification['cases'], specification['prompt']
+        if not cases or not isinstance(cases, dict) or not isinstance(prompt_template, str):
+            parser.error("Specification requires nonempty cases and a prompt string")
+        for case, brief in cases.items():
+            if not isinstance(brief, str) or not case or any(c not in 'abcdefghijklmnopqrstuvwxyz0123456789-' for c in case):
+                parser.error("Case names must contain lowercase letters, digits or hyphens")
+        prompt_template.format(brief='validation')
+    if any(case not in cases for case in (args.case or [])):
+        parser.error('Unknown case for this specification')
+    if args.repair_note and not args.repair_from:
+        parser.error('--repair-note requires --repair-from')
     if args.repair_from and len(args.case or []) != 1:
         parser.error("--repair-from requires exactly one --case")
     toolkit = args.toolkit.resolve()
@@ -85,14 +109,15 @@ def main():
         root.mkdir(exist_ok=False)
         workspace = root / "workspace"
         workspace.mkdir()
-        (workspace / "es").symlink_to("/toolkit/es", target_is_directory=True)
+        if (toolkit / "es").is_dir():
+            (workspace / "es").symlink_to("/toolkit/es", target_is_directory=True)
         state = root / "state"
         state.mkdir()
-        prompt = PROMPT.format(brief=CASES[case])
+        prompt = prompt_template.format(brief=cases[case])
         if args.repair_from:
             shutil.copy2(args.repair_from, workspace / "main.mr")
             prompt = prompt.replace("from scratch.", "by repairing the supplied definition.")
-            prompt += """\nIndependent acceptance found clipped samples in the prior native render.
+            prompt += '\n' + args.repair_note.read_text() if args.repair_note else """\nIndependent acceptance found clipped samples in the prior native render.
 This is a repair pass, with the prior authored engine supplied as main.mr. Keep its
 geometry, firing order and target behavior. Resolve native PCM clipping and verify
 the result with the unchanged full audition. Save the input as first.mr before
@@ -136,12 +161,16 @@ edits. Sound gain/IR corrections are allowed; offline waveform repairs are not.
                       timed_out=timed_out, wall_seconds=time.monotonic()-started,
                       isolation="fresh Codex session; restricted filesystem; no project or engine examples",
                       network="available for inference; web search disabled; no network use instructed")
+        if args.repair_from:
+            import hashlib
+            report.update(isolation='fresh repair session; prior trial MR explicitly supplied; no unrelated engine examples or project tree',
+                          repair_source_sha256=hashlib.sha256(args.repair_from.read_bytes()).hexdigest())
         (root / "run.json").write_text(json.dumps(report, indent=2) + "\n")
         print(json.dumps(report), flush=True)
         return report
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
-        reports = list(pool.map(run, args.case or CASES))
+        reports = list(pool.map(run, args.case or cases))
     (output / "runs.json").write_text(json.dumps(reports, indent=2) + "\n")
 
 

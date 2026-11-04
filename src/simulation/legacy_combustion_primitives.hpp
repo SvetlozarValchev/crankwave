@@ -46,6 +46,14 @@ struct LegacyGasolineFuelParameters {
     double lbv_multiplier = 0.0;
     double turbulence_to_flame_speed_ratio_triangle_radius = 0.0;
     std::span<const LegacyTrianglePoint> turbulence_to_flame_speed_ratio;
+
+    // Compatibility with the local engine-sim fork's scheduled two-stage burn.
+    // Its temperature field selects this burn law; the fork does not execute a
+    // temperature-triggered ignition path. Zero keeps the original spark law.
+    double auto_ignition_temperature_k = 0.0;
+    double premixed_burn_fraction_01 = 0.0;
+    double premixed_flame_speed_multiplier = 1.0;
+    double diffusion_flame_speed_multiplier = 1.0;
 };
 
 struct LegacyFlameState {
@@ -162,8 +170,11 @@ legacy_apply_gasoline_reaction(LegacyGasCell &cell,
                                const LegacyGasMixture &global_mixture,
                                const LegacyGasolineFuelParameters &fuel) noexcept;
 
-// Implements the post-flow geometric flame step. Progress fields in flame accumulate
-// the unattenuated swept amount and geometric volume fraction, matching the source.
+// Implements the post-flow source flame step. The default is geometric gasoline
+// propagation. The explicitly selected source two-stage extension first advances
+// a volumetric burned fraction, then uses scaled geometric propagation. Neither
+// path changes the scheduled ignition mechanism or adds direct fuel injection.
+// Progress accumulates the unattenuated swept amount/fraction, matching the source.
 [[nodiscard]] LegacyFlameAdvanceResult
 legacy_advance_gasoline_flame(LegacyFlameState &flame, LegacyGasCell &cell,
                               double gas_step_s, double cylinder_bore_m,

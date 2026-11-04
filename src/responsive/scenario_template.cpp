@@ -16,6 +16,8 @@ namespace {
 
 constexpr double kLegacyPi = 3.14159265359;
 constexpr std::uint64_t kPublicSeed = UINT64_C(12648430);
+constexpr std::uint32_t kTemplateTrailingCycleCount = 4U;
+constexpr double kTemplateBlockRateHz = 50.0;
 
 [[nodiscard]] authoring::Quantity quantity(const double value,
                                            std::string unit) {
@@ -54,6 +56,15 @@ void append_f64(std::vector<std::byte> &bytes, const double value) {
     append_u64(preimage, kPublicSeed);
     append_string(preimage, "master-engine-raw");
     append_string(preimage, "master-engine-audition");
+    const auto &preparation =
+        std::get<authoring::FixedHorizonPreparation>(scenario.preparation);
+    if (preparation.preparation_duration.value != 1.0) {
+        // Preserve previously valid template identities. Below 600 RPM the
+        // old one-second template failed admission; bind its extended horizon.
+        append_string(preimage, "complete-cycle-preparation-extension-v1");
+        append_f64(preimage, preparation.preparation_duration.value);
+        append_f64(preimage, scenario.total_duration.value);
+    }
     return contract::sha256(preimage);
 }
 
@@ -130,8 +141,15 @@ ResponsiveScenarioTemplateResult make_responsive_scenario_template(
         false,
         true,
     };
+    // Admission needs one additional complete cycle beyond the trailing sample
+    // count. Redline-derived profiles can start below 600 RPM, where the former
+    // fixed one-second horizon cannot satisfy that unchanged requirement.
+    const double preparation_seconds = std::max(
+        1.0, std::ceil(((kTemplateTrailingCycleCount + 1.0) * 120.0 /
+                       profile.rpm.anchors.front()) * kTemplateBlockRateHz) /
+                 kTemplateBlockRateHz);
     scenario.preparation = authoring::FixedHorizonPreparation{
-        quantity(1.0, "s"), 4U};
+        quantity(preparation_seconds, "s"), kTemplateTrailingCycleCount};
     scenario.mode = authoring::FreeEngineMode{
         std::nullopt,
         authoring::ScalarTrajectory{
@@ -150,8 +168,8 @@ ResponsiveScenarioTemplateResult make_responsive_scenario_template(
         {192000U, 1U, "Hz"},
     };
     scenario.quality = {"listening", 3840U, 3800U, 1U};
-    scenario.total_duration = quantity(7.0, "s");
-    scenario.audible_start = quantity(1.0, "s");
+    scenario.total_duration = quantity(preparation_seconds + 6.0, "s");
+    scenario.audible_start = quantity(preparation_seconds, "s");
     scenario.audible_duration = quantity(6.0, "s");
     scenario.public_seed = kPublicSeed;
     scenario.output = {

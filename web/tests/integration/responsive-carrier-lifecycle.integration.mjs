@@ -13,7 +13,13 @@ const e=new CrankwaveAudioEngine(loaded), session=new ResponsiveDriveSession(e,l
 assert.ok(e.limiter && loaded.runtime.lifecyclePackage && loaded.runtime.sharedRecordedStarterPackage);
 const initial=[], state={}, sha=chunks=>createHash('sha256').update(Buffer.concat(chunks.map(x=>Buffer.from(x.buffer)))).digest('hex');
 const startBlocks=Math.ceil((loaded.runtime.lifecyclePackage.startup.artifact.frameCount+e.latencyFrames)/e.processFrames)+50;
-const offBlock=startBlocks+100, totalBlocks=offBlock+200;
+// A heavy engine may legitimately run down for longer than four seconds.
+// Verify stop and silence against the actual packaged capture duration, with
+// one extra second for the final silence check; do not shorten the rundown.
+const shutdownFrames=Math.max(loaded.runtime.lifecyclePackage.shutdown.artifact.frameCount,
+  loaded.runtime.lifecyclePackage.shutdownElevated?.artifact.frameCount??0);
+const shutdownBlocks=Math.max(200,Math.ceil((shutdownFrames+e.latencyFrames)/e.processFrames)+50);
+const offBlock=startBlocks+100, totalBlocks=offBlock+shutdownBlocks;
 let tailEnergy=0, peak=0;
 for(let block=0;block<totalBlocks;block++){
   if(block===offBlock||block===offBlock+10)session.stopEngine();
@@ -46,4 +52,5 @@ for(let i=0;i<50;i++)session.process({rpm:e.limiter.idleRpm,throttle01:0,load01:
 assert.equal(session.snapshot().lifecycle.startupCount,0,'running reset skips startup');
 console.log(JSON.stringify({file,passed:true,peak,tailEnergy,startupSha256:sha(initial),
   starterCatchCount:state.running.starter.catchCount,startupHandoffFrame:state.running.lifecycle.audibleHandoffEndFrame,
-  limiterCuts:2,shutdownCount:state.stopped.lifecycle.shutdownCount}));
+  limiterCuts:2,shutdownCount:state.stopped.lifecycle.shutdownCount,
+  shutdownVerificationSeconds:shutdownBlocks*e.processFrames/e.sampleRate}));

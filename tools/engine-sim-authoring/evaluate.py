@@ -17,15 +17,21 @@ def main():
     parser.add_argument("--toolkit", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--case", choices=list(TARGETS), action="append")
+    parser.add_argument("--specification", type=Path, help="Custom trial JSON with a targets mapping of case to [idle RPM, limiter RPM]")
     args = parser.parse_args()
-    names = args.case or list(TARGETS)
+    targets = TARGETS
+    if args.specification:
+        if args.case:
+            parser.error('--specification cannot be combined with --case')
+        targets = json.loads(args.specification.read_text())['targets']
+    names = args.case or list(targets)
     for name in names:
         if not (args.runs / name / "run.json").exists():
             parser.error(f"Trial still running or missing: {name}")
     args.out.mkdir(parents=True, exist_ok=False)
     summaries = []
     for name in names:
-        idle, limiter = TARGETS[name]
+        idle, limiter = targets[name]
         root = args.runs.resolve() / name
         workspace = root / "workspace"
         run = json.loads((root / "run.json").read_text())
@@ -33,13 +39,16 @@ def main():
         if not attempts:
             summaries.append(dict(case=name, run=run, accepted_behavior=False, reason="No native audition"))
             continue
-        # The last completed audition is scored even if the agent claimed success
-        # earlier. It must be exactly the submitted final source, with no edits.
-        selected = attempts[-1]
+        # Score an actual audition of the final source. Preserve a failed or
+        # unmatched final attempt as a failed result, rather than crashing the
+        # independent evaluator or substituting an older successful engine.
+        source_hash = hashlib.sha256((workspace / "main.mr").read_bytes()).hexdigest() if (workspace / 'main.mr').is_file() else None
+        matching = [f for f in attempts if json.loads(f.read_text()).get('source_sha256') == source_hash]
+        selected = matching[-1] if matching else attempts[-1]
         report = json.loads(selected.read_text())
-        source_hash = hashlib.sha256((workspace / "main.mr").read_bytes()).hexdigest()
         stages = {stage["name"]: stage for stage in report.get("stages", [])}
-        telemetry = [json.loads(line) for line in (selected.parent / "telemetry.jsonl").read_text().splitlines()]
+        telemetry_file = selected.parent / 'telemetry.jsonl'
+        telemetry = [json.loads(line) for line in telemetry_file.read_text().splitlines()] if telemetry_file.is_file() else []
         running = [row for row in telemetry if row.get("kind") == "sample"
                    and 3 <= row["simulationSeconds"] < 23]
         target = args.out.resolve() / name

@@ -175,6 +175,10 @@ class LegacyLowOrderGasSession final {
         double lbv_multiplier = 0.0;
         double turbulence_to_flame_speed_ratio_triangle_radius = 0.0;
         std::vector<LegacyTrianglePoint> turbulence_to_flame_speed_ratio;
+        double auto_ignition_temperature_k = 0.0;
+        double premixed_burn_fraction_01 = 0.0;
+        double premixed_flame_speed_multiplier = 1.0;
+        double diffusion_flame_speed_multiplier = 1.0;
 
         [[nodiscard]] LegacyGasolineFuelParameters view() const noexcept;
     };

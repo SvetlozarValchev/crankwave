@@ -146,6 +146,10 @@ LegacyLowOrderGasSession::FuelModel::view() const noexcept {
         lbv_multiplier,
         turbulence_to_flame_speed_ratio_triangle_radius,
         turbulence_to_flame_speed_ratio,
+        auto_ignition_temperature_k,
+        premixed_burn_fraction_01,
+        premixed_flame_speed_multiplier,
+        diffusion_flame_speed_multiplier,
     };
 }
 
@@ -869,7 +873,10 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
                     return *terminal_fault_;
                 }
             }
-            if (!validate_cell(lane.chamber_volume_index, "gasoline-combustion",
+            if (!validate_cell(lane.chamber_volume_index,
+                               fuel.auto_ignition_temperature_k > 0.0
+                                   ? "source-two-stage-combustion"
+                                   : "gasoline-combustion",
                                substep, public_cylinder.cylinder_id)) {
                 return *terminal_fault_;
             }
