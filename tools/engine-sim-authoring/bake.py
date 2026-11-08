@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Build a complete diagnostic responsive carrier from evaluated engine-sim MR.
+"""Build a complete responsive carrier from evaluated engine-sim MR.
 
 Runs the existing native base baker (held, directional, lifecycle and recorded
 starter), captures real limiter cuts, attaches them and verifies the final file.
-Backend parity is not implied by a successful bake. No engine-specific retuning.
+The diagnostic loss policy is still explicit, but large native limiter telemetry
+stays in the bake directory rather than in the runtime carrier. Backend parity
+is not implied by a successful bake. No engine-specific retuning.
 """
 import argparse
 import hashlib
@@ -113,6 +115,7 @@ def main():
         run('runtime-lifecycle-test', ['node', repo/'web/tests/integration/responsive-carrier-lifecycle.integration.mjs', root/'candidate.crankwave'])
         (root/'candidate.crankwave').rename(root/'complete.crankwave')
         report.update(status='complete-diagnostic-carrier', complete_carrier_sha256=digest(root/'complete.crankwave'),
+                      runtime_diagnostics_embedded=False,
                       required_capabilities={key:manifest[key] for key in required}, authored_engine_tuning_changed=False)
         write(root/'build-report.json', report)
         print(root/'complete.crankwave')

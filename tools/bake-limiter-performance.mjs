@@ -7,8 +7,11 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { loadResponsiveAudioCrankwave } from '../web/runtime/crankwave-package.js';
 
-const [carrierFile, engineFile, renderDirectory, outputDirectory, outputCarrier, binary = 'build/crankwave'] = process.argv.slice(2);
-if (!outputCarrier) throw new Error('Usage: node tools/bake-limiter-performance.mjs <carrier> <engine.json> <native-render-directory> <new-package-directory> <new-output.crankwave> [crankwave-binary]');
+const [carrierFile, engineFile, renderDirectory, outputDirectory, outputCarrier, binary = 'build/crankwave', ...options] = process.argv.slice(2);
+if (!outputCarrier) throw new Error('Usage: node tools/bake-limiter-performance.mjs <carrier> <engine.json> <native-render-directory> <new-package-directory> <new-output.crankwave> [crankwave-binary] [--retain-diagnostics]');
+const retainDiagnostics = options.length === 1 && options[0] === '--retain-diagnostics';
+if (options.length > 1 || (options.length === 1 && !retainDiagnostics))
+  throw new Error('Optional final argument must be --retain-diagnostics.');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = async file => JSON.parse(await fs.readFile(file, 'utf8'));
 const writeJson = (file, value) => fs.writeFile(file, JSON.stringify(value, null, 2) + '\n');
@@ -60,6 +63,11 @@ for (let i = 3; i < activations.length - 1 && clips.length < 8; i += 3) {
 if (clips.length < 4) throw new Error('Insufficient bounded limiter performances after event selection.');
 await fs.mkdir(outputDirectory); // Never overwrite another package tree.
 for (const entry of loaded.package.entries) {
+  // Native telemetry is evidence for the bake and its hash remains in the
+  // limiter provenance, but the browser runtime never reads the NDJSON. Keep
+  // it beside the build artifacts by default instead of paying its transfer,
+  // verification, and carrier-memory cost on every live load.
+  if (!retainDiagnostics && (entry.path === 'limiter/telemetry.ndjson' || entry.path === 'bake-report.json')) continue;
   const file = path.join(outputDirectory, entry.path);
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.writeFile(file, original.subarray(Number(entry.offset), Number(entry.offset) + Number(entry.byteCount)));
@@ -107,7 +115,7 @@ const manifest = { schema: 'crankwave/limiter-performance-v1', engine: engineId,
     cut_rpm_minimum: Math.min(...rpmValues), cut_rpm_maximum: Math.max(...rpmValues),
     representation: 'native-free-engine-dry-limiter-cut-and-recovery-performances;unpitched;20ms-event-bounds' } };
 await writeJson(path.join(outputDirectory, 'limiter/runtime.json'), manifest);
-await fs.writeFile(path.join(outputDirectory, 'limiter/telemetry.ndjson'), telemetryBytes);
+if (retainDiagnostics) await fs.writeFile(path.join(outputDirectory, 'limiter/telemetry.ndjson'), telemetryBytes);
 const runtimeFile = path.join(outputDirectory, 'runtime.json');
 const runtime = await json(runtimeFile);
 runtime.limiter_package_path = 'limiter/runtime.json';

@@ -141,6 +141,23 @@ test("CRANKWAVE verifies its carrier, descriptor, and virtual package tree", asy
   );
 });
 
+test("CRANKWAVE can take ownership of a transferred ArrayBuffer", async () => {
+  const source = fixture();
+  const owned = source.bytes.buffer.slice(
+    source.bytes.byteOffset,
+    source.bytes.byteOffset + source.bytes.byteLength,
+  );
+  const package_ = await loadCrankwavePackage(owned, {
+    crypto: webcrypto,
+    takeOwnership: true,
+  });
+  const fetch = createCrankwaveFetch(package_);
+  const response = await fetch(
+    "https://crankwave.invalid/packages/unit-engine/runtime.json",
+  );
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()), source.manifest);
+});
+
 test("CRANKWAVE rejects aggregate and per-entry payload corruption", async () => {
   const source = fixture();
   const aggregateCorrupt = source.bytes.slice();

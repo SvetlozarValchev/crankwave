@@ -275,7 +275,10 @@ async function loadPackage(message) {
   if (bytes.byteLength === 0 || bytes.byteLength > MAXIMUM_CARRIER_BYTES) {
     throw new RangeError("CRANKWAVE carrier size is outside the v1 bounds.");
   }
-  const loaded = await loadResponsiveAudioCrankwave(bytes);
+  // The ArrayBuffer arrived through a transfer list, so this worker owns it.
+  // Avoid retaining a second full carrier copy while the package is verified
+  // and its runtime payloads are decoded.
+  const loaded = await loadResponsiveAudioCrankwave(bytes, {takeOwnership: true});
   engine = new CrankwaveAudioEngine(loaded);
   driveSession = loaded.runtime.drivePackage ? new DieselDriveSession(engine, loaded.runtime) :
     loaded.runtime.lifecyclePackage && loaded.runtime.sharedRecordedStarterPackage

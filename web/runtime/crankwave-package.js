@@ -229,7 +229,10 @@ function entryPayload(container, entry) {
 // Fully verifies one complete CRANKWAVE v1 carrier before exposing any entry.
 export async function loadCrankwavePackage(
   input,
-  { crypto: cryptoImplementation = globalThis.crypto } = {},
+  {
+    crypto: cryptoImplementation = globalThis.crypto,
+    takeOwnership = false,
+  } = {},
 ) {
   const source = bytes(input);
   if (source.byteLength > MAXIMUM_CONTAINER_BYTES) {
@@ -288,9 +291,13 @@ export async function loadCrankwavePackage(
     fail("resource-limit", "CRANKWAVE index size is inconsistent with its entries");
   }
 
-  // Take ownership of immutable-by-convention bytes before any asynchronous
-  // hash. All subsequent parsing and virtual fetches use only this snapshot.
-  const container = source.slice();
+  // A transferred worker ArrayBuffer has no live caller-side alias, so the
+  // worker can use it directly and avoid a second full carrier allocation.
+  // Ordinary callers still get an immutable snapshot before asynchronous
+  // hashing; taking ownership is an explicit internal handoff.
+  const container = takeOwnership && input instanceof ArrayBuffer
+    ? source
+    : source.slice();
   const view = new DataView(
     container.buffer,
     container.byteOffset,
@@ -472,10 +479,14 @@ export function createCrankwaveFetch(package_) {
 // Loads the proven responsive runtime directly from a fully verified carrier.
 export async function loadResponsiveAudioCrankwave(
   input,
-  { crypto: cryptoImplementation = globalThis.crypto } = {},
+  {
+    crypto: cryptoImplementation = globalThis.crypto,
+    takeOwnership = false,
+  } = {},
 ) {
   const package_ = await loadCrankwavePackage(input, {
     crypto: cryptoImplementation,
+    takeOwnership,
   });
   const fetchImplementation = createCrankwaveFetch(package_);
   const manifestUrl = `${VIRTUAL_ORIGIN}/${package_.descriptor.runtime.manifestPath}`;
