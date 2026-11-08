@@ -362,13 +362,20 @@ function sampleCyclicCubic(samples, position) {
   );
 }
 
-function sampleCyclicCubicSegment(samples, offset, length, position) {
-  const wrapped = positiveModulo(position, length);
-  const index1 = Math.floor(wrapped);
-  const amount = wrapped - index1;
-  const index0 = (index1 + length - 1) % length;
-  const index2 = (index1 + 1) % length;
-  const index3 = (index1 + 2) % length;
+// The running residual phase is normalized once per output frame before it
+// reaches this helper. Avoid repeating the floating-point modulo for every
+// selected cell and route.
+function sampleCyclicCubicSegmentInRange(
+  samples,
+  offset,
+  length,
+  position,
+) {
+  const index1 = Math.floor(position);
+  const amount = position - index1;
+  const index0 = index1 === 0 ? length - 1 : index1 - 1;
+  const index2 = index1 + 1 === length ? 0 : index1 + 1;
+  const index3 = index2 + 1 === length ? 0 : index2 + 1;
   const value0 = samples[offset + index0];
   const value1 = samples[offset + index1];
   const value2 = samples[offset + index2];
@@ -1245,7 +1252,7 @@ export class HeldPhaseTextureCursor {
         for (let routeIndex = 0; routeIndex < cell.routes.length; ++routeIndex) {
           residualRoutes[routeIndex] +=
             weight *
-            sampleCyclicCubicSegment(
+            sampleCyclicCubicSegmentInRange(
               cell.routes[routeIndex].residuals,
               residualOffset,
               this.#package.samplesPerCycle,
@@ -1370,30 +1377,41 @@ export class HeldPhaseTextureCursor {
         rpmAmount,
       );
     }
-    curves.sort((left, right) =>
-      left.manifoldPressurePaAbs - right.manifoldPressurePaAbs);
-    let curveCount = 0;
-    for (let sourceIndex = 0; sourceIndex < curves.length; ++sourceIndex) {
-      const source = curves[sourceIndex];
-      const previous = curveCount === 0 ? null : curves[curveCount - 1];
-      if (previous !== null &&
-          source.manifoldPressurePaAbs === previous.manifoldPressurePaAbs &&
-          source.leftCell === previous.leftCell &&
-          source.rightCell === previous.rightCell) {
-        continue;
+    let curveCount = curves.length;
+    let alreadyOrdered = true;
+    for (let index = 1; index < curves.length; ++index) {
+      if (!(curves[index].manifoldPressurePaAbs >
+            curves[index - 1].manifoldPressurePaAbs)) {
+        alreadyOrdered = false;
+        break;
       }
-      if (previous !== null && !(source.manifoldPressurePaAbs >
-                                 previous.manifoldPressurePaAbs)) {
-        throw new RangeError(
-          `held load-lane curves are not strictly ordered at ${rpm} RPM`,
-        );
+    }
+    if (!alreadyOrdered) {
+      curves.sort((left, right) =>
+        left.manifoldPressurePaAbs - right.manifoldPressurePaAbs);
+      curveCount = 0;
+      for (let sourceIndex = 0; sourceIndex < curves.length; ++sourceIndex) {
+        const source = curves[sourceIndex];
+        const previous = curveCount === 0 ? null : curves[curveCount - 1];
+        if (previous !== null &&
+            source.manifoldPressurePaAbs === previous.manifoldPressurePaAbs &&
+            source.leftCell === previous.leftCell &&
+            source.rightCell === previous.rightCell) {
+          continue;
+        }
+        if (previous !== null && !(source.manifoldPressurePaAbs >
+                                   previous.manifoldPressurePaAbs)) {
+          throw new RangeError(
+            `held load-lane curves are not strictly ordered at ${rpm} RPM`,
+          );
+        }
+        if (curveCount !== sourceIndex) {
+          curves[curveCount].leftCell = source.leftCell;
+          curves[curveCount].rightCell = source.rightCell;
+          curves[curveCount].manifoldPressurePaAbs = source.manifoldPressurePaAbs;
+        }
+        ++curveCount;
       }
-      if (curveCount !== sourceIndex) {
-        curves[curveCount].leftCell = source.leftCell;
-        curves[curveCount].rightCell = source.rightCell;
-        curves[curveCount].manifoldPressurePaAbs = source.manifoldPressurePaAbs;
-      }
-      ++curveCount;
     }
 
     let loadLeft;
