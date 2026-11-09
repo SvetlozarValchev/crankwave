@@ -285,6 +285,42 @@ void test_wasm_identity_builds_the_same_portable_carrier_contract() {
            "WASM responsive package did not retain its numeric backend identity");
 }
 
+void test_game_delivery_profile_is_explicit_and_fail_closed() {
+    auto game = input_fixture();
+    game.identity.delivery_profile_id =
+        std::string{kResponsiveGameDeliveryProfile.id};
+    game.runtime.delivery_profile = std::string{kResponsiveGameDeliveryProfile.id};
+    game.runtime.sample_rate_hz = kResponsiveGameDeliveryProfile.sample_rate_hz;
+    game.runtime.block_frames = kResponsiveGameDeliveryProfile.block_frames;
+    game.runtime.presentation_fft_size = kResponsiveGameDeliveryProfile.fft_size;
+    game.runtime.presentation_coefficient_count =
+        kResponsiveGameDeliveryProfile.coefficient_count;
+    const auto package =
+        require_package(build_native_responsive_package_v2(std::move(game)));
+    const auto parsed =
+        authoring::parse_json(text(find_member(package, "runtime.json").bytes));
+    expect(std::holds_alternative<authoring::JsonDocument>(parsed),
+           "game delivery runtime is not JSON");
+    const auto runtime = std::get<authoring::JsonDocument>(parsed).root();
+    expect(runtime.find("audio").find("sample_rate_hz").number() ==
+                   std::optional<double>{48'000.0} &&
+               runtime.find("audio").find("delivery_profile").string() ==
+                   std::optional<std::string_view>{"game-48k-v1"} &&
+               runtime.find("audio").find("block_frames").number() ==
+                   std::optional<double>{8'192.0},
+           "game delivery profile metadata did not round-trip");
+
+    auto invalid = input_fixture();
+    invalid.runtime.delivery_profile = std::string{kResponsiveGameDeliveryProfile.id};
+    invalid.runtime.sample_rate_hz = kResponsiveCanonicalDeliveryProfile.sample_rate_hz;
+    const auto rejected = build_native_responsive_package_v2(std::move(invalid));
+    const auto *failure = std::get_if<NativeResponsivePackageError>(&rejected);
+    expect(failure != nullptr &&
+               failure->detail_code ==
+                   "native-responsive-runtime-delivery-profile-invalid",
+           "delivery profile geometry mismatch was not rejected");
+}
+
 void test_fail_closed_topology_identity_and_cancellation() {
     auto mismatch = input_fixture();
     auto &directional = mismatch.payload_members[1].bytes;
@@ -503,6 +539,7 @@ int main() {
     try {
         test_native_identity_and_package_are_deterministic();
         test_wasm_identity_builds_the_same_portable_carrier_contract();
+        test_game_delivery_profile_is_explicit_and_fail_closed();
         test_fail_closed_topology_identity_and_cancellation();
         test_optional_runtime_paths_and_native_provenance_round_trip();
         test_atomic_tree_and_carrier_publication();

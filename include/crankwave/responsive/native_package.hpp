@@ -1,6 +1,7 @@
 #pragma once
 
 #include "crankwave/contract/common.hpp"
+#include "crankwave/responsive/delivery_profile.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -31,7 +32,8 @@ inline constexpr std::string_view kResponsiveRuntimePathV1 = "runtime.json";
 inline constexpr std::string_view kNativeResponsiveBakeReportPathV2 =
     "bake-report.json";
 inline constexpr std::uint32_t kResponsiveRuntimePhysicsRateHzV1 = 10'000U;
-inline constexpr std::uint32_t kResponsiveRuntimeSampleRateHzV1 = 192'000U;
+inline constexpr std::uint32_t kResponsiveRuntimeSampleRateHzV1 =
+    kResponsiveCanonicalDeliveryProfile.sample_rate_hz;
 inline constexpr std::uint64_t kNativeResponsiveMaximumPackagePayloadBytes =
     UINT64_C(512) * 1024U * 1024U;
 
@@ -102,6 +104,9 @@ struct NativeResponsiveBakeIdentityInputV1 {
     contract::Sha256Digest engine_source_sha256;
     std::string profile_id;
     contract::Sha256Digest profile_sha256;
+    // Canonical delivery stays byte-compatible when this is absent. Any
+    // noncanonical delivery profile must bind its ID into the bake identity.
+    std::optional<std::string> delivery_profile_id;
     contract::Sha256Digest bake_recipe_sha256;
     contract::Sha256Digest builtin_asset_catalog_sha256;
     std::vector<ResolvedResponsiveAssetIdentity> resolved_assets;
@@ -136,6 +141,14 @@ struct ResponsiveRuntimeInputV1 {
     std::string engine_id;
     contract::Sha256Digest compiled_engine_provenance_sha256;
     std::uint32_t physics_rate_hz = kResponsiveRuntimePhysicsRateHzV1;
+    std::string delivery_profile =
+        std::string{kResponsiveCanonicalDeliveryProfile.id};
+    std::uint32_t sample_rate_hz = kResponsiveCanonicalDeliveryProfile.sample_rate_hz;
+    std::uint32_t block_frames = kResponsiveCanonicalDeliveryProfile.block_frames;
+    std::uint32_t presentation_fft_size =
+        kResponsiveCanonicalDeliveryProfile.fft_size;
+    std::uint32_t presentation_coefficient_count =
+        kResponsiveCanonicalDeliveryProfile.coefficient_count;
     double minimum_rpm = 0.0;
     double maximum_rpm = 0.0;
     bool canonical_offline_bake = false;

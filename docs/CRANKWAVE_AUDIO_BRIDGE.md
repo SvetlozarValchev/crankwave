@@ -60,8 +60,9 @@ from `engine.processFrames` (also `format.processFrames`) and the fixed presenta
 delay from `engine.latencyFrames` (also `format.latencyFrames`) rather than copying
 those current numeric values into Web, Unity, or vehicle-physics adapters.
 
-The existing responsive presentation uses 32,768-frame batches; the mechanical
-diesel presentation uses 3,840-frame batches. Streaming playback has one explicit
+The canonical responsive presentation uses 32,768-frame batches; the mechanical
+diesel presentation uses 3,840-frame batches. The experimental 48 kHz carrier
+defaults to 8,192-frame batches. Streaming playback has one explicit
 `engine.blockFrames` batch of zero-filled,
 uniform output latency; it does not hold or quantize the 20 ms control endpoints.
 Offline `render()` does not add that streaming latency. A caller must `reset()`
@@ -69,6 +70,32 @@ before switching between the two interfaces. `reset()` also clears playback stat
 and deterministically reseeds the current operating point. `format`, `minimumRpm`,
 `maximumRpm`, `operatingPoint`, and `diagnostics()` provide the non-simulation
 metadata a host needs.
+
+For a 48 kHz responsive carrier with fixed transfer spectra, a game host can use
+smaller convolution partitions:
+
+```js
+const engine = await CrankwaveAudioEngine.load(crankwaveBytes, {
+  playbackBlockFrames: 1_024,
+});
+// Or reuse one loaded package across voices:
+// new CrankwaveAudioEngine(loaded, { playbackBlockFrames: 1_024 });
+```
+
+This makes the internal streaming delay 21.33 ms at 48 kHz. Controls still arrive
+every 20 ms, and output buffering keeps the delay uniform. Preparation reconstructs
+all FIR taps from the verified spectrum once and shares partition spectra between
+voices using the same loaded runtime. It preserves the original warm-up length,
+crank phase, recorded starter and limiter, and the complete filter tail. The
+carrier and its manifests remain unchanged. Supported overrides are powers of two
+from 256 to 4,096 that divide the original batch; unsupported runtimes reject the
+option. The consumer API uses the carrier's original batching unless this option
+is supplied.
+
+The standalone harness selects 1,024-frame partitions for supported 48 kHz
+responsive carriers. This reduces presentation delay and processing bursts;
+browser output lead and device latency are additional. Cycle-selection caching
+and exact steady-state blend reuse apply to both 48 kHz and 192 kHz playback.
 
 This first bridge is the already-running audio surface. The host owns engine speed;
 it does not solve vehicle or crank dynamics, and it does not infer ignition, starter,
@@ -88,7 +115,7 @@ runtime module directory. It supplies the COOP/COEP headers required by shared a
 memory, but has no routes for repository engine data, scenarios, packages, or WASM.
 
 The local file is transferred to a dedicated Worker. After complete carrier and
-per-entry SHA-256 verification, the Worker renders 192 kHz PCM through the facade,
+per-entry SHA-256 verification, the Worker renders at the carrier's delivery rate through the facade,
 resamples it to the browser device rate, and maintains a bounded shared ring. The
 AudioWorklet only drains that ring; it never runs package synthesis in the realtime
 callback.

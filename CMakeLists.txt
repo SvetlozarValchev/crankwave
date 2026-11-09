@@ -1243,6 +1243,7 @@ if(CRANKWAVE_BUILD_CLI)
         "${PROJECT_SOURCE_DIR}/docs/contracts/CLI_RESULT_V1.md"
         "${PROJECT_SOURCE_DIR}/docs/contracts/INSTALLED_DISTRIBUTION_V2.md"
         "${PROJECT_SOURCE_DIR}/docs/contracts/RESPONSIVE_PROFILE_SELECTION_V2.md"
+        "${PROJECT_SOURCE_DIR}/docs/contracts/RESPONSIVE_DELIVERY_PROFILES_V1.md"
         "${PROJECT_SOURCE_DIR}/docs/contracts/IR_AUTHORING_CATALOG_V1.md"
     )
     install(
@@ -1274,6 +1275,8 @@ if(CRANKWAVE_BUILD_CLI)
         "${PROJECT_SOURCE_DIR}/web/runtime/dry-directional-phase-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/held-phase-texture-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/held-texture-presentation-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/audio-delivery-profile.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/pcm-payload.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/renderer-runtime-compatibility.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/responsive-audio-lifecycle-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/responsive-drive-session.js"

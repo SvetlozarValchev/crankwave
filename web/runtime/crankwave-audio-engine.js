@@ -1,5 +1,6 @@
 import {
   HeldTexturePresentationRuntimeCursor,
+  prepareHeldPlaybackRuntime,
 } from "./held-texture-presentation-runtime.js";
 import { loadResponsiveAudioCrankwave } from "./crankwave-package.js";
 import { DieselMechanicalRuntimeCursor } from "./diesel-mechanical-runtime.js";
@@ -235,15 +236,16 @@ export class CrankwaveAudioEngine {
     {
       crypto: cryptoImplementation = globalThis.crypto,
       sessionSeed = "0",
+      playbackBlockFrames,
     } = {},
   ) {
     const loaded = await loadResponsiveAudioCrankwave(input, {
       crypto: cryptoImplementation,
     });
-    return new CrankwaveAudioEngine(loaded, { sessionSeed });
+    return new CrankwaveAudioEngine(loaded, { sessionSeed, playbackBlockFrames });
   }
 
-  constructor(loaded, { sessionSeed = "0" } = {}) {
+  constructor(loaded, { sessionSeed = "0", playbackBlockFrames } = {}) {
     if (
       loaded?.package?.kind !== "crankwave-package" ||
       !["responsive-audio-preview", "diesel-mechanical-audio"].includes(loaded?.runtime?.kind)
@@ -254,7 +256,8 @@ export class CrankwaveAudioEngine {
       );
     }
     this.#loaded = loaded;
-    this.#runtime = loaded.runtime;
+    this.#runtime = playbackBlockFrames === undefined ? loaded.runtime :
+      prepareHeldPlaybackRuntime(loaded.runtime, playbackBlockFrames);
     this.#cursor = this.#runtime.kind === "diesel-mechanical-audio"
       ? new DieselMechanicalRuntimeCursor(this.#runtime)
       : new HeldTexturePresentationRuntimeCursor(this.#runtime, { sessionSeed });
@@ -381,7 +384,8 @@ export class CrankwaveAudioEngine {
         "CRANKWAVE rejected the initial operating point",
       );
     }
-    const duration = this.blockFrames / this.sampleRate;
+    const warmupFrames = this.#runtime.warmupFrames ?? this.blockFrames;
+    const duration = warmupFrames / this.sampleRate;
     this.#crankRevolutions +=
       this.#committedPoint.rpm * duration / 60;
     const end = this.#endpoint(
@@ -390,7 +394,7 @@ export class CrankwaveAudioEngine {
       0,
     );
     this.#cursor.warmBlock({
-      frameCount: this.blockFrames,
+      frameCount: warmupFrames,
       start,
       end,
     });

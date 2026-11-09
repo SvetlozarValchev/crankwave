@@ -1,4 +1,8 @@
 import {
+  isSupportedAudioDeliverySampleRate,
+  validateDeliveryProfileMetadata,
+} from "./audio-delivery-profile.js";
+import {
   HeldPhaseTextureCursor,
   HeldPhaseTextureRuntimeError,
   loadHeldPhaseTexturePackage,
@@ -7,6 +11,7 @@ import {
   CanonicalMasterDynamics,
   FixedSpectrumConvolver,
   PartitionedSpectrumConvolver,
+  partitionFixedSpectrum,
   loadDryDirectionalPhaseRuntime,
 } from "./dry-directional-phase-runtime.js";
 import {
@@ -26,7 +31,6 @@ import { loadRendererRuntimeCompatibility } from "./renderer-runtime-compatibili
 const RUNTIME_SCHEMA =
   "crankwave/responsive-audio-preview";
 const RUNTIME_KIND = "responsive-audio-preview";
-const CANONICAL_SAMPLE_RATE = 192_000;
 const FFT_SIZE = 65_536;
 const IR_COEFFICIENT_COUNT = 30_071;
 const SPECTRUM_ENCODING = "interleaved-complex-float64le";
@@ -41,6 +45,43 @@ const BATCH_FRAMES = 32_768;
 const REQUIRED_RUNNING_STATE_MASK = 0x3;
 const LIMITER_CUT_STATE_MASK = 0x10;
 const EMPTY_FLOAT32 = new Float32Array(0);
+const playbackRuntimeCache = new WeakMap();
+
+// Optional host-side scheduling, independent of the immutable carrier format.
+// All voices using one loaded runtime share the prepared kernel spectra.
+export function prepareHeldPlaybackRuntime(runtime, blockFrames) {
+  if (runtime?.kind !== RUNTIME_KIND || runtime.sampleRate !== 48_000 ||
+      !Number.isSafeInteger(blockFrames) || blockFrames < 256 || blockFrames > 4096 ||
+      (blockFrames & (blockFrames - 1)) !== 0 || runtime.batchFrames % blockFrames !== 0 ||
+      runtime.routePresentations.some(route => route.transfer.kind !== FIXED_TRANSFER_KIND)) {
+    throw new RangeError("partitioned playback requires a 48 kHz fixed-transfer runtime and a 256..4096 power-of-two block dividing its batch");
+  }
+  let prepared = playbackRuntimeCache.get(runtime);
+  if (prepared === undefined) {
+    prepared = new Map();
+    playbackRuntimeCache.set(runtime, prepared);
+  }
+  if (prepared.has(blockFrames)) return prepared.get(blockFrames);
+  const spectra = new Map();
+  const routes = runtime.routePresentations.map(route => {
+    let spectrum = spectra.get(route.spectrum);
+    if (spectrum === undefined) {
+      spectrum = partitionFixedSpectrum(route.spectrum, blockFrames);
+      spectra.set(route.spectrum, spectrum);
+    }
+    return Object.freeze({ ...route, spectrum, sourceTransfer: route.transfer, transfer: Object.freeze({
+      kind: PARTITIONED_TRANSFER_KIND, coefficientCount: spectrum.coefficientCount,
+      fftSize: spectrum.fftSize, partitionFrameCount: blockFrames,
+      partitionCount: spectrum.partitionCount,
+    }) });
+  });
+  const result = Object.freeze({ ...runtime, routePresentations: Object.freeze(routes),
+    batchFrames: blockFrames, warmupFrames: runtime.batchFrames,
+    playbackScheduling: Object.freeze({ blockFrames, sourceBatchFrames: runtime.batchFrames }),
+  });
+  prepared.set(blockFrames, result);
+  return result;
+}
 
 export class HeldTexturePresentationRuntimeError extends Error {
   constructor(code, message, { recoverable = false } = {}) {
@@ -92,6 +133,12 @@ function positiveInteger(value, label) {
     fail(`${label} must be a positive integer`);
   }
   return value;
+}
+
+function powerOfTwo(value, label) {
+  const result = positiveInteger(value, label);
+  if ((result & (result - 1)) !== 0) fail(`${label} must be a power of two`);
+  return result;
 }
 
 function resolveUrl(value) {
@@ -207,7 +254,7 @@ async function loadSpectrum(
   return decodeSpectrum(spectrumBytes, transfer);
 }
 
-function parseTransfer(transferValue, label) {
+function parseTransfer(transferValue, label, maximumBlockFrames = BATCH_FRAMES) {
   const transfer = object(transferValue, label);
   const kind = Object.hasOwn(transfer, "kind")
     ? string(transfer.kind, `${label}.kind`)
@@ -220,10 +267,13 @@ function parseTransfer(transferValue, label) {
   let partitionFrameCount = 0;
   let partitionCount = 1;
   if (kind === FIXED_TRANSFER_KIND) {
-    if (fftSize !== FFT_SIZE || coefficientCount !== IR_COEFFICIENT_COUNT) {
-      fail(`${label} must use the canonical 65536/30071 fixed IR shape`);
+    const canonical = fftSize === FFT_SIZE && coefficientCount === IR_COEFFICIENT_COUNT;
+    const experimental = transfer.profile === "game-48k-v1" &&
+      powerOfTwo(fftSize, `${label}.fft_size`) && coefficientCount < fftSize;
+    if (!canonical && !experimental) {
+      fail(`${label} must use the canonical fixed IR shape or game-48k-v1`);
     }
-    if (BATCH_FRAMES > fftSize - (coefficientCount - 1)) {
+    if (maximumBlockFrames > fftSize - (coefficientCount - 1)) {
       fail(`${label} does not fit the overlap-save batch`);
     }
     if (
@@ -262,6 +312,7 @@ function parseTransfer(transferValue, label) {
     coefficientCount,
     partitionFrameCount,
     partitionCount,
+    profile: transfer.profile === undefined ? null : string(transfer.profile, `${label}.profile`),
     spectrumEncoding: transfer.spectrum_encoding,
     spectrumPath: string(
       transfer.spectrum_path,
@@ -278,10 +329,10 @@ function parseTransfer(transferValue, label) {
   });
 }
 
-function validatePresentation(manifest, heldPackage) {
+function validatePresentation(manifest, heldPackage, maximumBlockFrames) {
   if (
     manifest.engine !== heldPackage.manifest.engine ||
-    heldPackage.sampleRate !== CANONICAL_SAMPLE_RATE
+    heldPackage.sampleRate !== manifest.audio.sample_rate_hz
   ) {
     fail("held package engine or sample rate does not match its presentation");
   }
@@ -350,6 +401,7 @@ function validatePresentation(manifest, heldPackage) {
         transfer: parseTransfer(
           route.transfer,
           `held presentation.routes[${index}].transfer`,
+          maximumBlockFrames,
         ),
       });
     },
@@ -417,7 +469,7 @@ function validateDirectionalPackage(
   directionalPackage,
 ) {
   if (
-    directionalPackage.sampleRate !== CANONICAL_SAMPLE_RATE ||
+    directionalPackage.sampleRate !== manifest.audio.sample_rate_hz ||
     directionalPackage.minimumRpm !== manifest.domain.minimum_rpm ||
     directionalPackage.maximumRpm !== manifest.domain.maximum_rpm
   ) {
@@ -552,13 +604,22 @@ export async function loadHeldTexturePresentationRuntime(
   string(manifest.engine, "manifest.engine");
 
   object(manifest.audio, "manifest.audio");
+  const sampleRate = manifest.audio.sample_rate_hz;
   if (
-    manifest.audio.sample_rate_hz !== CANONICAL_SAMPLE_RATE ||
+    !isSupportedAudioDeliverySampleRate(sampleRate) ||
     manifest.audio.encoding !== "float32le" ||
     manifest.audio.channel_layout !== "mono"
   ) {
-    fail("held texture presentation output must be mono 192 kHz float32le");
+    fail("held texture presentation output must use a supported mono float32 rate");
   }
+  try {
+    validateDeliveryProfileMetadata(manifest.audio, "manifest.audio");
+  } catch (error) {
+    fail(error.message);
+  }
+  const requestedBatchFrames = manifest.audio.block_frames === undefined
+    ? BATCH_FRAMES
+    : positiveInteger(manifest.audio.block_frames, "audio.block_frames");
   const busId = string(manifest.audio.bus_id, "audio.bus_id");
   const heldPackageUrl = relativeUrl(
     manifestUrl,
@@ -607,7 +668,11 @@ export async function loadHeldTexturePresentationRuntime(
   ) {
     fail("presentation RPM domain must contain every held anchor");
   }
-  const presentation = validatePresentation(manifest, heldPackage);
+  const presentation = validatePresentation(
+    manifest,
+    heldPackage,
+    requestedBatchFrames,
+  );
   if (busId !== presentation.auditionBusId) {
     fail("presentation output bus must equal the authored audition bus");
   }
@@ -651,7 +716,7 @@ export async function loadHeldTexturePresentationRuntime(
       });
   if (motoringPackage !== null) {
     if (
-      motoringPackage.sampleRate !== CANONICAL_SAMPLE_RATE ||
+      motoringPackage.sampleRate !== sampleRate ||
       motoringPackage.manifest.engine !== manifest.engine ||
       motoringPackage.requiredOnMask !== 0x02 ||
       motoringPackage.requiredOffMask !== 0x01 ||
@@ -698,7 +763,7 @@ export async function loadHeldTexturePresentationRuntime(
     );
     if (
       lifecyclePackage.engine !== manifest.engine ||
-      lifecyclePackage.sampleRate !== CANONICAL_SAMPLE_RATE ||
+      lifecyclePackage.sampleRate !== sampleRate ||
       !sameIdentity(
         identity(lifecycleProvenance.engine, "lifecycle engine identity"),
         identity(heldPackage.manifest.provenance.engine, "held engine identity"),
@@ -763,7 +828,7 @@ export async function loadHeldTexturePresentationRuntime(
     kind: RUNTIME_KIND,
     manifestUrl: manifestUrl.href,
     manifest,
-    sampleRate: CANONICAL_SAMPLE_RATE,
+    sampleRate,
     busIds: Object.freeze([busId]),
     minimumRpm,
     maximumRpm: Math.max(maximumRpm, limiterPackage?.manifest.maximum_rpm ?? maximumRpm),
@@ -772,7 +837,7 @@ export async function loadHeldTexturePresentationRuntime(
     heldMaximumRpm: heldPackage.maximumRpm,
     batchFrames: hasPartitionedTransfer
       ? PARTITIONED_BATCH_FRAMES
-      : BATCH_FRAMES,
+      : requestedBatchFrames,
     coefficientCount: Math.max(
       ...loadedRoutePresentations.map(
         (route) => route.transfer.coefficientCount,

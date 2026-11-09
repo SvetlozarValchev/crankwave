@@ -117,6 +117,69 @@ test("canonical CC0 starter loads with exact identities and DSP", async () => {
   assert.equal(Object.hasOwn(package_.manifest.provenance.source, "original_path"), false);
 });
 
+test("experimental 48 kHz starter accepts a separately baked payload", async () => {
+  const canonicalManifest = JSON.parse(
+    await fs.readFile(path.join(FIXTURE_ROOT, "runtime.json"), "utf8"),
+  );
+  const canonicalPayload = new Uint8Array(
+    await fs.readFile(path.join(FIXTURE_ROOT, PAYLOAD_PATH)),
+  );
+  const source = new Float32Array(
+    canonicalPayload.buffer,
+    canonicalPayload.byteOffset,
+    canonicalPayload.byteLength / Float32Array.BYTES_PER_ELEMENT,
+  );
+  const samples = new Float32Array(Math.floor(source.length / 4));
+  for (let index = 0; index < samples.length; ++index) samples[index] = source[index * 4];
+  const payload = new Uint8Array(samples.buffer);
+  let peak = 0;
+  let energy = 0;
+  for (const sample of samples) {
+    peak = Math.max(peak, Math.abs(sample));
+    energy += sample * sample;
+  }
+  const manifest = structuredClone(canonicalManifest);
+  manifest.id = "shared-recorded-starter-cc0-v1-48k";
+  manifest.audio.relative_path = "audio/recorded-starter.cropped.48000hz.mono.f32le";
+  manifest.audio.sample_rate_hz = 48_000;
+  manifest.audio.frame_count = samples.length;
+  manifest.audio.byte_count = payload.byteLength;
+  manifest.audio.payload_sha256 = createHash("sha256").update(payload).digest("hex");
+  manifest.audio.duration_seconds = samples.length / 48_000;
+  manifest.audio.peak = peak;
+  manifest.audio.rms = Math.sqrt(energy / samples.length);
+  manifest.markers = {
+    repeat_in_frame: Math.round(canonicalManifest.markers.repeat_in_frame / 4),
+    repeat_out_frame: Math.round(canonicalManifest.markers.repeat_out_frame / 4),
+    cut_frame: Math.round(canonicalManifest.markers.cut_frame / 4),
+    seam_crossfade_frames: Math.round(canonicalManifest.markers.seam_crossfade_frames / 4),
+  };
+  manifest.provenance.canonicalization.output_sample_rate_hz = 48_000;
+  manifest.provenance.canonicalization.output_frames = samples.length;
+  manifest.provenance.canonicalization.marker_mapping = "relative_source_frame";
+  manifest.provenance.canonicalization.filter_graph =
+    manifest.provenance.canonicalization.filter_graph
+      .replace("aresample=192000:", "aresample=48000:")
+      .replace("atrim=end_sample=1470912", "atrim=end_sample=367728");
+  const manifestBytes = new TextEncoder().encode(`${JSON.stringify(manifest)}\n`);
+  const blobs = new Map([
+    [MANIFEST_URL.href, manifestBytes],
+    [new URL(manifest.audio.relative_path, MANIFEST_URL).href, payload],
+  ]);
+  const fetch = async (url, options) => {
+    const bytes = blobs.get(url);
+    return bytes === undefined ? { ok: false, status: 404 } : response(bytes, url);
+  };
+  const package_ = await loadSharedRecordedStarterRuntime(MANIFEST_URL, {
+    fetch,
+    crypto: webcrypto,
+    allowExperimental48k: true,
+  });
+  assert.equal(package_.sampleRate, 48_000);
+  assert.equal(package_.samples.length, samples.length);
+  assert.equal(package_.manifestSha256, createHash("sha256").update(manifestBytes).digest("hex"));
+});
+
 test("recorded starter ends its post-catch tail after the authored 160 ms", async () => {
   const fixture = canonicalFetch();
   const package_ = await loadSharedRecordedStarterRuntime(MANIFEST_URL, {

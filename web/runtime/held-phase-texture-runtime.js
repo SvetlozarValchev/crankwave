@@ -1020,6 +1020,10 @@ export class HeldPhaseTextureCursor {
   #residualMix;
   #active = false;
   #permutationCache = new Map();
+  #residualCycleCache;
+  #residualValueCache;
+  #meanRoutes;
+  #residualRoutes;
   #renderedFrameCount = 0;
   #cycleBoundaryCount = 0;
   #lastCycleOrdinal = null;
@@ -1034,6 +1038,10 @@ export class HeldPhaseTextureCursor {
       fail("HeldPhaseTextureCursor requires a loaded held texture package");
     }
     this.#package = package_;
+    this.#residualCycleCache = new Float64Array(package_.cells.length).fill(NaN);
+    this.#residualValueCache = new Uint32Array(package_.cells.length);
+    this.#meanRoutes = new Float64Array(package_.busIds.length);
+    this.#residualRoutes = new Float64Array(package_.busIds.length);
     this.#declaredLoadLanes = package_.manifest.domain.load_lanes;
     this.#curveScratch = this.#declaredLoadLanes.map(() => ({
       leftCell: null,
@@ -1064,6 +1072,7 @@ export class HeldPhaseTextureCursor {
   reset() {
     this.#active = false;
     this.#permutationCache.clear();
+    this.#residualCycleCache.fill(NaN);
     this.#renderedFrameCount = 0;
     this.#cycleBoundaryCount = 0;
     this.#lastCycleOrdinal = null;
@@ -1179,8 +1188,16 @@ export class HeldPhaseTextureCursor {
     let finalMeanGain = 1;
     let finalResidualGain = 1;
     let finalCycleOrdinal = this.#lastCycleOrdinal;
-    const meanRoutes = new Float64Array(this.#package.busIds.length);
-    const residualRoutes = new Float64Array(this.#package.busIds.length);
+    const meanRoutes = this.#meanRoutes;
+    const residualRoutes = this.#residualRoutes;
+    // Phase and residual selection still advance at audio rate. Only the
+    // operating-point blend is constant when both endpoints agree exactly.
+    const steady = start.rpm === end.rpm &&
+      start.manifoldPressurePaAbs === end.manifoldPressurePaAbs;
+    let weighted;
+    let shiftToCanonicalSamples = 0;
+    let meanGain = 1;
+    let residualGain = 0;
     for (let frame = 0; frame < frameCount; ++frame) {
       const amount = (frame + 1) / frameCount;
       const rpm = interpolate(start.rpm, end.rpm, amount);
@@ -1194,14 +1211,32 @@ export class HeldPhaseTextureCursor {
         end.unwrappedCrankRevolutions,
         amount,
       );
-      const weighted = this.#weights(rpm, map);
+      if (frame === 0 || !steady) {
+        weighted = this.#weights(rpm, map);
+        shiftToCanonicalSamples = 0;
+        let targetMeanRms = 0;
+        let targetResidualPower = 0;
+        let rawResidualExpectedPower = 0;
+        let rawMeanPower = 0;
+        for (let index = 0; index < weighted.count; ++index) {
+          const { cell, weight } = weighted.entries[index];
+          shiftToCanonicalSamples += weight * cell.shiftToCanonicalSamples;
+          targetMeanRms += weight * cell.meanCombinedRms;
+          targetResidualPower += weight * cell.residualCombinedPower;
+          rawResidualExpectedPower += weight * weight * cell.residualCombinedPower;
+          for (let rightIndex = 0; rightIndex < weighted.count; ++rightIndex) {
+            const right = weighted.entries[rightIndex];
+            rawMeanPower += weight * right.weight *
+              this.#package.meanGram[cell.index][right.cell.index];
+          }
+        }
+        meanGain = rawMeanPower > 1e-30
+          ? targetMeanRms / Math.sqrt(rawMeanPower) : 1;
+        residualGain = targetResidualPower > 1e-30 && rawResidualExpectedPower > 1e-30
+          ? Math.sqrt(targetResidualPower / rawResidualExpectedPower) : 0;
+      }
       const weightedCells = weighted.entries;
       const weightedCount = weighted.count;
-      let shiftToCanonicalSamples = 0;
-      for (let index = 0; index < weightedCount; ++index) {
-        const entry = weightedCells[index];
-        shiftToCanonicalSamples += entry.weight * entry.cell.shiftToCanonicalSamples;
-      }
       const phaseCycles = crankRevolutions / 2;
       const enginePhaseSamples =
         positiveModulo(phaseCycles, 1) * this.#package.samplesPerCycle;
@@ -1219,13 +1254,9 @@ export class HeldPhaseTextureCursor {
       }
       this.#lastCycleOrdinal = cycleOrdinalNumber;
       finalCycleOrdinal = cycleOrdinalNumber;
-      const cycleOrdinal = BigInt(cycleOrdinalNumber);
 
       meanRoutes.fill(0);
       residualRoutes.fill(0);
-      let targetMeanRms = 0;
-      let targetResidualPower = 0;
-      let rawResidualExpectedPower = 0;
       for (let weightedIndex = 0; weightedIndex < weightedCount; ++weightedIndex) {
         const entry = weightedCells[weightedIndex];
         const cell = entry.cell;
@@ -1243,9 +1274,7 @@ export class HeldPhaseTextureCursor {
             weight *
             sampleCyclicCubic(cell.routes[routeIndex].mean, warpedPhase);
         }
-        targetMeanRms += weight * cell.meanCombinedRms;
-
-        const residualCycle = this.#residualOrdinal(cell, cycleOrdinal);
+        const residualCycle = this.#residualOrdinal(cell, cycleOrdinalNumber);
         entry.residualOrdinal = residualCycle;
         const residualOffset =
           residualCycle * this.#package.samplesPerCycle;
@@ -1259,30 +1288,7 @@ export class HeldPhaseTextureCursor {
               enginePhaseSamples,
             );
         }
-        targetResidualPower += weight * cell.residualCombinedPower;
-        rawResidualExpectedPower +=
-          weight * weight * cell.residualCombinedPower;
       }
-
-      let rawMeanPower = 0;
-      for (let leftIndex = 0; leftIndex < weightedCount; ++leftIndex) {
-        const left = weightedCells[leftIndex];
-        for (let rightIndex = 0; rightIndex < weightedCount; ++rightIndex) {
-          const right = weightedCells[rightIndex];
-          rawMeanPower +=
-            left.weight *
-            right.weight *
-            this.#package.meanGram[left.cell.index][right.cell.index];
-        }
-      }
-      const meanGain =
-        rawMeanPower > 1e-30
-          ? targetMeanRms / Math.sqrt(rawMeanPower)
-          : 1;
-      const residualGain =
-        targetResidualPower > 1e-30 && rawResidualExpectedPower > 1e-30
-          ? Math.sqrt(targetResidualPower / rawResidualExpectedPower)
-          : 0;
       for (let routeIndex = 0; routeIndex < outputBuffers.length; ++routeIndex) {
         const sample =
           meanGain * meanRoutes[routeIndex] +
@@ -1471,11 +1477,21 @@ export class HeldPhaseTextureCursor {
     this.#weightResult.count = count + 1;
   }
 
-  #residualOrdinal(cell, cycleOrdinal) {
+  #residualOrdinal(cell, cycleNumber) {
+    // The seeded selection changes only at a 720-degree boundary. Keep the
+    // original BigInt selector on cache misses, including negative/large cycles.
+    const index = cell.index;
+    if (this.#residualCycleCache[index] === cycleNumber) {
+      return this.#residualValueCache[index];
+    }
+    const cycleOrdinal = BigInt(cycleNumber);
     const bagSize = BigInt(this.#package.residualCycleCount);
     const bagOrdinal = floorDivBigInt(cycleOrdinal, bagSize);
     const slot = Number(floorModuloBigInt(cycleOrdinal, bagSize));
-    return this.#permutation(cell, bagOrdinal)[slot];
+    const value = this.#permutation(cell, bagOrdinal)[slot];
+    this.#residualCycleCache[index] = cycleNumber;
+    this.#residualValueCache[index] = value;
+    return value;
   }
 
   #permutation(cell, bagOrdinal) {

@@ -2716,6 +2716,8 @@ if(TARGET crankwave_cli_support)
                 ${_crankwave_node_for_installed_test}
                 --test
                 ${PROJECT_SOURCE_DIR}/web/tests/runtime/crankwave-audio-engine.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/held-phase-texture-runtime.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/pcm-payload.test.mjs
         )
         add_test(
             NAME runtime.diesel_mechanical
@@ -2755,6 +2757,7 @@ if(TARGET crankwave_cli_support)
                 ${_crankwave_node_for_installed_test}
                 --test
                 ${PROJECT_SOURCE_DIR}/web/tests/runtime/partitioned-spectrum-convolver.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/dry-directional-phase-runtime.test.mjs
         )
         set_tests_properties(
             runtime.partitioned_spectrum_convolver

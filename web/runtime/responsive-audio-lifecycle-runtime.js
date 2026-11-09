@@ -1,6 +1,12 @@
+import { isSupportedAudioDeliverySampleRate } from "./audio-delivery-profile.js";
+import {
+  decodeAudioPayload,
+  PCM16_SCALE_ENCODING,
+  validatePcm16Scale,
+} from "./pcm-payload.js";
+
 const SCHEMA = "crankwave/responsive-audio-lifecycle";
 const KIND = "responsive-audio-lifecycle";
-const SAMPLE_RATE = 192_000;
 const BUS_ID = "master.engine.audition";
 const FOUR_STROKE_CYCLE_REVOLUTIONS = 2;
 const LOW_LOAD_SETTLE_CYCLES = 2;
@@ -105,22 +111,6 @@ function decodeJsonObject(bytes, label) {
     JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
     label,
   );
-}
-
-function decodeFloat32Le(bytes, frameCount, label) {
-  if (bytes.byteLength !== frameCount * Float32Array.BYTES_PER_ELEMENT) {
-    throw new RangeError(`${label} byte count does not match frame_count`);
-  }
-  const samples = new Float32Array(frameCount);
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  for (let frame = 0; frame < frameCount; ++frame) {
-    const sample = view.getFloat32(frame * 4, true);
-    if (!Number.isFinite(sample)) {
-      throw new RangeError(`${label} contains a non-finite sample at ${frame}`);
-    }
-    samples[frame] = sample;
-  }
-  return samples;
 }
 
 function checkpointMap(value, requiredKinds, label) {
@@ -371,6 +361,8 @@ async function artifact(
   manifestUrl,
   fetchImplementation,
   cryptoImplementation,
+  encoding,
+  quantization,
   label,
 ) {
   const item = object(value, label);
@@ -383,7 +375,13 @@ async function artifact(
     path: item.path,
     sha256: item.sha256,
     frameCount,
-    samples: decodeFloat32Le(bytes, frameCount, label),
+    samples: decodeAudioPayload(
+      bytes,
+      frameCount,
+      encoding,
+      item.quantization ?? quantization,
+      label,
+    ),
   });
 }
 
@@ -413,13 +411,18 @@ export async function loadResponsiveAudioLifecycleRuntime(
   string(manifest.id, "manifest.id");
   string(manifest.engine, "manifest.engine");
   const audio = object(manifest.audio, "manifest.audio");
+  const sampleRate = audio.sample_rate_hz;
   if (
-    audio.sample_rate_hz !== SAMPLE_RATE ||
-    audio.encoding !== "float32le" ||
+    !isSupportedAudioDeliverySampleRate(sampleRate) ||
+    !["float32le", PCM16_SCALE_ENCODING].includes(audio.encoding) ||
     audio.channel_layout !== "mono" ||
     audio.bus_id !== BUS_ID
   ) {
-    fail("lifecycle audio must be the canonical mono 192 kHz audition master");
+    fail("lifecycle audio must use a supported mono float32 audition rate");
+  }
+  if (audio.encoding === PCM16_SCALE_ENCODING && audio.quantization !== undefined) {
+    const quantization = object(audio.quantization, "manifest.audio.quantization");
+    validatePcm16Scale(quantization.scale, "manifest.audio.quantization.scale");
   }
 
   const starterValue = object(manifest.starter, "manifest.starter");
@@ -439,6 +442,8 @@ export async function loadResponsiveAudioLifecycleRuntime(
       manifestUrl,
       fetchImplementation,
       cryptoImplementation,
+      audio.encoding,
+      audio.quantization,
       "starter.artifact",
     ),
     artifact(
@@ -446,6 +451,8 @@ export async function loadResponsiveAudioLifecycleRuntime(
       manifestUrl,
       fetchImplementation,
       cryptoImplementation,
+      audio.encoding,
+      audio.quantization,
       "startup.artifact",
     ),
     artifact(
@@ -453,6 +460,8 @@ export async function loadResponsiveAudioLifecycleRuntime(
       manifestUrl,
       fetchImplementation,
       cryptoImplementation,
+      audio.encoding,
+      audio.quantization,
       "shutdown.artifact",
     ),
     shutdownElevatedValue === null
@@ -462,6 +471,8 @@ export async function loadResponsiveAudioLifecycleRuntime(
         manifestUrl,
         fetchImplementation,
         cryptoImplementation,
+      audio.encoding,
+      audio.quantization,
         "shutdown_elevated.artifact",
       ),
   ]);
@@ -592,7 +603,7 @@ export async function loadResponsiveAudioLifecycleRuntime(
   if (
     provenance.engine.id !== manifest.engine ||
     provenance.physics_rate_hz !== 10_000 ||
-    provenance.delivery_rate_hz !== SAMPLE_RATE
+    provenance.delivery_rate_hz !== sampleRate
   ) {
     fail("lifecycle provenance does not describe its engine and canonical rates");
   }
@@ -683,7 +694,7 @@ export async function loadResponsiveAudioLifecycleRuntime(
     manifestUrl: manifestUrl.href,
     manifestSha256,
     manifest,
-    sampleRate: SAMPLE_RATE,
+    sampleRate,
     busId: BUS_ID,
     engine: manifest.engine,
     starter,
@@ -885,7 +896,7 @@ export class ResponsiveAudioLifecycleCursor {
       atlasLoadCoordinate,
     } = {},
   ) {
-    if (package_?.kind !== KIND || package_.sampleRate !== SAMPLE_RATE) {
+    if (package_?.kind !== KIND || !isSupportedAudioDeliverySampleRate(package_.sampleRate)) {
       fail("ResponsiveAudioLifecycleCursor requires a verified lifecycle package");
     }
     this.#package = package_;

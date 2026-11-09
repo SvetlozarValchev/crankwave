@@ -531,7 +531,11 @@ export async function loadResponsiveAudioCrankwave(
   );
   const sharedRecordedStarterPackage = await loadSharedRecordedStarterRuntime(
     sharedUrl,
-    { fetch: fetchImplementation, crypto: cryptoImplementation },
+    {
+      fetch: fetchImplementation,
+      crypto: cryptoImplementation,
+      allowExperimental48k: runtime.sampleRate === 48_000,
+    },
   );
   return Object.freeze({
     package: package_,

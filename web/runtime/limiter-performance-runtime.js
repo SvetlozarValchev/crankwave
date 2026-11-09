@@ -1,3 +1,10 @@
+import { isSupportedAudioDeliverySampleRate } from "./audio-delivery-profile.js";
+import {
+  decodeAudioPayload,
+  PCM16_SCALE_ENCODING,
+  validatePcm16Scale,
+} from "./pcm-payload.js";
+
 // Native captured exhaust during limiter cuts and combustion recovery. All
 // samples stay on their original time axis; host RPM never pitches this layer.
 export async function loadLimiterPerformance(url, { fetch, crypto }) {
@@ -5,12 +12,13 @@ export async function loadLimiterPerformance(url, { fetch, crypto }) {
   if (!response.ok) throw new Error('Cannot load limiter performance manifest.');
   const manifest = JSON.parse(new TextDecoder().decode(await response.arrayBuffer()));
   const integer = v => Number.isSafeInteger(v) && v >= 0;
-  if (manifest.schema !== 'crankwave/limiter-performance-v1' || manifest.sample_rate_hz !== 192000 ||
+  if (manifest.schema !== 'crankwave/limiter-performance-v1' || !isSupportedAudioDeliverySampleRate(manifest.sample_rate_hz) ||
+      !['float32le', PCM16_SCALE_ENCODING].includes(manifest.encoding ?? 'float32le') ||
       !Number.isFinite(manifest.idle_rpm) || manifest.idle_rpm <= 0 ||
       !Number.isFinite(manifest.activation_rpm) || manifest.activation_rpm <= 0 ||
       !Number.isFinite(manifest.cut_seconds) || manifest.cut_seconds <= 0 || manifest.cut_seconds > 2 ||
       !Number.isFinite(manifest.maximum_rpm) || manifest.maximum_rpm <= manifest.activation_rpm ||
-      !integer(manifest.frame_count) || manifest.frame_count <= 0 || manifest.frame_count > 192000 * 60 ||
+      !integer(manifest.frame_count) || manifest.frame_count <= 0 || manifest.frame_count > manifest.sample_rate_hz * 60 ||
       !integer(manifest.fade_frames) || manifest.fade_frames <= 0 || manifest.fade_frames > 1920 ||
       !Array.isArray(manifest.clips) || manifest.clips.length < 1 || manifest.clips.length > 64 ||
       !Array.isArray(manifest.routes) || manifest.routes.length < 1)
@@ -29,15 +37,26 @@ export async function loadLimiterPerformance(url, { fetch, crypto }) {
   const routes = [];
   const ids = new Set();
   for (const route of manifest.routes) {
-    if (typeof route.bus_id !== 'string' || ids.has(route.bus_id) || !/^[a-zA-Z0-9_-]+\.f32$/.test(route.file))
+    if (typeof route.bus_id !== 'string' || ids.has(route.bus_id) ||
+        !/^[a-zA-Z0-9_-]+\.(?:f32|pcm16le)$/.test(route.file))
       throw new Error('Invalid limiter route.');
     ids.add(route.bus_id);
     const response = await fetch(new URL(route.file, url).href);
     if (!response.ok) throw new Error('Missing limiter dry PCM.');
     const bytes = await response.arrayBuffer();
     const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), v => v.toString(16).padStart(2, '0')).join('');
-    if (bytes.byteLength !== manifest.frame_count * 4 || digest !== route.sha256) throw new Error('Limiter dry PCM hash/length mismatch.');
-    const samples = new Float32Array(bytes);
+    const encoding = manifest.encoding ?? 'float32le';
+    if (encoding === PCM16_SCALE_ENCODING) {
+      validatePcm16Scale(route.quantization?.scale, `limiter route ${route.bus_id} quantization.scale`);
+    }
+    const samples = decodeAudioPayload(
+      new Uint8Array(bytes),
+      manifest.frame_count,
+      encoding,
+      route.quantization,
+      `limiter route ${route.bus_id}`,
+    );
+    if (digest !== route.sha256) throw new Error('Limiter dry PCM hash/length mismatch.');
     if (!samples.every(Number.isFinite)) throw new Error('Non-finite limiter PCM.');
     if (!Array.isArray(route.reference_rms) || route.reference_rms.length !== manifest.clips.length ||
         route.reference_rms.some(x => !Number.isFinite(x) || x <= 0)) throw new Error('Invalid limiter running reference RMS.');
@@ -82,7 +101,7 @@ export class LimiterPerformanceCursor {
     this.setCut(cut);
     const { clips, fade_frames: fade } = this.package.manifest;
     const clip = this.active ? clips[this.clipIndex] : null;
-    const alpha = 1 - Math.exp(-1 / (192000 * .025));
+    const alpha = 1 - Math.exp(-1 / (this.package.manifest.sample_rate_hz * .025));
     for (let frame = 0; frame < routes[0].length; ++frame) {
       for (let r = 0; r < routes.length; ++r) {
         const base = routes[r][frame] / sourceScale;

@@ -177,6 +177,8 @@ assert(cliRecord, "native CLI is absent from release files");
 assert.equal(cliRecord.sha256, release.native_cli.sha256);
 
 const browserModuleNames = [
+  "audio-delivery-profile.js",
+  "pcm-payload.js",
   "directional-phase-cell.js",
   "dry-directional-phase-runtime.js",
   "held-phase-texture-runtime.js",

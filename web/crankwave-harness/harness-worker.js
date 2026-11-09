@@ -279,7 +279,12 @@ async function loadPackage(message) {
   // Avoid retaining a second full carrier copy while the package is verified
   // and its runtime payloads are decoded.
   const loaded = await loadResponsiveAudioCrankwave(bytes, {takeOwnership: true});
-  engine = new CrankwaveAudioEngine(loaded);
+  const gamePlayback = loaded.runtime.kind === "responsive-audio-preview" &&
+    loaded.runtime.sampleRate === 48_000 && loaded.runtime.routePresentations.every(
+      route => route.transfer.kind === "fixed-overlap-save-complex-spectrum-v1");
+  engine = new CrankwaveAudioEngine(loaded, {
+    playbackBlockFrames: message.playbackBlockFrames ?? (gamePlayback ? 1_024 : undefined),
+  });
   driveSession = loaded.runtime.drivePackage ? new DieselDriveSession(engine, loaded.runtime) :
     loaded.runtime.lifecyclePackage && loaded.runtime.sharedRecordedStarterPackage
       ? new ResponsiveDriveSession(engine, loaded.runtime) : null;
