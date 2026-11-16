@@ -1,0 +1,5 @@
+{
+  "schema": "crankwave/accessory-configuration-note",
+  "id": "warm-economy-accessories",
+  "description": "Warm, belt-driven economy-sedan accessory set: alternator at light electrical load and engine-driven water pump. No power steering pump and A/C compressor disengaged. Evidence only; current execution records this identity and digest but does not interpret the payload."
+}

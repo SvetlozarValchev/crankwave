@@ -1,0 +1,20 @@
+{
+  "source_mr_sha256": "102bb4fe7e14fa9a0c453ed859ae30ba40cc9e0d41e08dfba2e0cf5dc7a798ca",
+  "source_path": "engine-sim/assets/engines/uaz469_cleanroom.mr",
+  "synthetic_ir_sha256": "1bd5894b04539c7e95631afd5a1dacee94bc203a09c8b1db8a0bc6ba04d68323",
+  "engine_json_sha256": "c8bf10c9bba026972a8054c62cf7091dc1f418340a61a2059eda2607022dde15",
+  "port_kind": "explicit-authored-parameter-mapping",
+  "source_recordings_used": false,
+  "source_revision": "2026-09-08-pressure-led-restrained-rasp",
+  "authored_idle_target_rpm": 765,
+  "reference_magnitude_eq_used": true,
+  "reference_eq_sha256": "bd9e145abf34b3eafd68cf07fca54b4eae4a5929c9207cb0579aa8404d6ec27f",
+  "ir_generator_sha256": "6efad296073784f5a0c3689cfb36aa17a9f0b246cea7b5585d2a9e291a91893e",
+  "differences": [
+    "Crankwave mandatory Chen-Flynn aggregate loss prior is not the original simulator loss model.",
+    "Fuel density is GUI telemetry only in engine-sim and is omitted.",
+    "Rod center_of_mass=0 is a midpoint offset in MR: 87.5 mm measured from crank pin in JSON.",
+    "Crankwave publication gain and conditioning-cutoff defaults use its canonical presentation contract.",
+    "Simulation uses 20 kHz and offline presentation uses 192 kHz; Godot playback uses a derived bank."
+  ]
+}

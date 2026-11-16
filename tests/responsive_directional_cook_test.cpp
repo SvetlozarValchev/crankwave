@@ -31,9 +31,9 @@ void expect(const bool condition, const std::string_view message) {
         std::as_bytes(std::span<const char>{value.data(), value.size()}));
 }
 
-[[nodiscard]] ResponsiveBakeProfile profile_6500() {
+[[nodiscard]] ResponsiveBakeProfile profile_for_redline(const double rpm = 6500.0) {
     authoring::EnginePackageDocument engine;
-    engine.engine.limits.redline = {6'500.0, "rpm", std::nullopt};
+    engine.engine.limits.redline = {rpm, "rpm", std::nullopt};
     auto result = derive_engine_redline_affine_profile(engine);
     expect(std::holds_alternative<ResponsiveBakeProfile>(result),
            "directional test profile derives");
@@ -52,13 +52,13 @@ void expect(const bool condition, const std::string_view message) {
 
 [[nodiscard]] double rpm_at_time(const DirectionalSweepScenarioSpec &spec,
                                  const double seconds) {
-    if (seconds <= kDirectionalPreparationSeconds) {
+    if (seconds <= spec.motion.preparation_duration_seconds) {
         return spec.motion.start_rpm;
     }
     if (seconds >= spec.motion.sweep_end_seconds) {
         return spec.motion.end_rpm;
     }
-    const double elapsed = seconds - kDirectionalPreparationSeconds;
+    const double elapsed = seconds - spec.motion.preparation_duration_seconds;
     const double exponent = kDirectionalLogarithmicRpmRatePerSecond * elapsed;
     return spec.direction == DirectionalSweepDirection::rising
                ? spec.motion.start_rpm * std::exp(exponent)
@@ -68,11 +68,11 @@ void expect(const bool condition, const std::string_view message) {
 [[nodiscard]] double revolutions_at_time(const DirectionalSweepScenarioSpec &spec,
                                          const double seconds) {
     const double preparation_end =
-        spec.motion.start_rpm * kDirectionalPreparationSeconds / 60.0;
-    if (seconds <= kDirectionalPreparationSeconds) {
+        spec.motion.start_rpm * spec.motion.preparation_duration_seconds / 60.0;
+    if (seconds <= spec.motion.preparation_duration_seconds) {
         return spec.motion.start_rpm * seconds / 60.0;
     }
-    const double elapsed = std::min(seconds - kDirectionalPreparationSeconds,
+    const double elapsed = std::min(seconds - spec.motion.preparation_duration_seconds,
                                     spec.motion.sweep_duration_seconds);
     const double rate = kDirectionalLogarithmicRpmRatePerSecond;
     const double sweep_revolutions =
@@ -189,7 +189,7 @@ cook_all(const std::vector<DirectionalSweepScenarioSpec> &plans) {
 } // namespace
 
 int main() {
-    const auto profile = profile_6500();
+    const auto profile = profile_for_redline();
     const DirectionalScenarioPlanRequest request{profile, scenario_template(),
                                                  digest("directional-template")};
     const auto plan_result = plan_directional_sweep_scenarios(request);
@@ -226,6 +226,38 @@ int main() {
                std::get<std::vector<DirectionalSweepScenarioSpec>>(repeated_plan) ==
                    plans,
            "directional scenarios and identities repeat exactly");
+    for (const double redline : {2600.0, 800.0, 250.0}) {
+        const auto slow_profile = profile_for_redline(redline);
+        const auto slow_result = plan_directional_sweep_scenarios(
+            {slow_profile, scenario_template(), digest("slow-directional-template")});
+        expect(std::holds_alternative<std::vector<DirectionalSweepScenarioSpec>>(slow_result),
+               "slow directional sweeps plan");
+        if (const auto *slow_plans =
+                std::get_if<std::vector<DirectionalSweepScenarioSpec>>(&slow_result)) {
+            for (const auto &plan : *slow_plans) {
+                const auto &preparation =
+                    std::get<authoring::FixedHorizonPreparation>(plan.scenario.preparation);
+                const double seconds = plan.motion.preparation_duration_seconds;
+                expect(preparation.trailing_complete_cycle_count == 16U &&
+                           seconds >= 17.0 * 120.0 / plan.motion.start_rpm &&
+                           preparation.preparation_duration.value == seconds &&
+                           plan.scenario.audible_start.value == seconds &&
+                           plan.preparation_block_count ==
+                               static_cast<std::uint64_t>(std::llround(seconds * 50.0)) &&
+                           plan.motion.points[1].time_seconds == seconds,
+                       "slow sweep retains the conservative complete-cycle bound and consistent timeline");
+            }
+            if (redline == 2600.0) {
+                expect(slow_plans->front().motion.preparation_duration_seconds == 4.92 &&
+                           slow_plans->at(3).motion.preparation_duration_seconds == 4.5,
+                       "only the insufficient slow rising preparation is extended");
+                const auto slow_capture = synthetic_capture(slow_plans->front());
+                expect(std::holds_alternative<DirectionalCookedCapture>(
+                           cook_directional_capture(slow_plans->front(), slow_capture)),
+                       "extended slow sweep still cooks through the unchanged seam gates");
+            }
+        }
+    }
 
     auto cooked = cook_all(plans);
     expect(cooked.size() == 6U, "all six directional multi-bus captures cook");

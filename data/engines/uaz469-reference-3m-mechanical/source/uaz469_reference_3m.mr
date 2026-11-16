@@ -1,0 +1,305 @@
+import "engine_sim.mr"
+
+units units()
+constants constants()
+
+// Original early UAZ-469 / UMZ-451M-family petrol sound model.
+// Public dimensions: 92 x 92 mm, 2445 cc, 6.7:1, firing order 1-2-4-3.
+// Reference targets: 75 metric hp at 4000 rpm, 167 Nm at 2200-2500 rpm.
+// Sources, estimates, reproduction commands: docs/uaz469-cleanroom.md.
+// No UAZ recording or third-party UAZ engine script is used. The exhaust IR
+// is generated mathematically by tools/generate_uaz469_ir.py.
+
+private node uaz469_wires {
+    output c1: ignition_wire();
+    output c2: ignition_wire();
+    output c3: ignition_wire();
+    output c4: ignition_wire();
+}
+
+private node uaz469_head {
+    input intake_cam;
+    input exhaust_cam;
+    input chamber_volume;
+    input flow_scale: 1.2;
+    alias output __out: head;
+
+    // Estimated two-valve OHV port flow, CFM at 28 inches of water.
+    // Small ports and modest lift keep the useful range below 4000 rpm.
+    function inlet(1 * units.mm)
+    inlet
+        .add_sample(0 * units.mm, k_28inH2O(0 * flow_scale))
+        .add_sample(1 * units.mm, k_28inH2O(19 * flow_scale))
+        .add_sample(2 * units.mm, k_28inH2O(37 * flow_scale))
+        .add_sample(3 * units.mm, k_28inH2O(54 * flow_scale))
+        .add_sample(4 * units.mm, k_28inH2O(69 * flow_scale))
+        .add_sample(5 * units.mm, k_28inH2O(81 * flow_scale))
+        .add_sample(6 * units.mm, k_28inH2O(90 * flow_scale))
+        .add_sample(7 * units.mm, k_28inH2O(96 * flow_scale))
+        .add_sample(8 * units.mm, k_28inH2O(100 * flow_scale))
+        .add_sample(9 * units.mm, k_28inH2O(102 * flow_scale))
+
+    function outlet(1 * units.mm)
+    outlet
+        .add_sample(0 * units.mm, k_28inH2O(0 * flow_scale))
+        .add_sample(1 * units.mm, k_28inH2O(16 * flow_scale))
+        .add_sample(2 * units.mm, k_28inH2O(30 * flow_scale))
+        .add_sample(3 * units.mm, k_28inH2O(43 * flow_scale))
+        .add_sample(4 * units.mm, k_28inH2O(54 * flow_scale))
+        .add_sample(5 * units.mm, k_28inH2O(63 * flow_scale))
+        .add_sample(6 * units.mm, k_28inH2O(70 * flow_scale))
+        .add_sample(7 * units.mm, k_28inH2O(75 * flow_scale))
+        .add_sample(8 * units.mm, k_28inH2O(78 * flow_scale))
+        .add_sample(9 * units.mm, k_28inH2O(80 * flow_scale))
+
+    generic_cylinder_head head(
+        chamber_volume: chamber_volume,
+        intake_runner_volume: 110 * units.cc,
+        intake_runner_cross_section_area: 6.0 * units.cm2,
+        exhaust_runner_volume: 85 * units.cc,
+        exhaust_runner_cross_section_area: 5.2 * units.cm2,
+        intake_port_flow: inlet,
+        exhaust_port_flow: outlet,
+        valvetrain: standard_valvetrain(
+            intake_camshaft: intake_cam,
+            exhaust_camshaft: exhaust_cam
+        )
+    )
+}
+
+private node uaz469_cams {
+    output intake_cam: inlet;
+    output exhaust_cam: outlet;
+
+    // Effective valve-lift curves, not measured factory cam profiles.
+    // Two virtual cams describe the intake/exhaust lobes of one OHV camshaft.
+    harmonic_cam_lobe inlet_lobe(
+        duration_at_50_thou: 184 * units.deg,
+        gamma: 1.0,
+        lift: 8.5 * units.mm,
+        steps: 256
+    )
+    harmonic_cam_lobe outlet_lobe(
+        duration_at_50_thou: 190 * units.deg,
+        gamma: 1.0,
+        lift: 8.5 * units.mm,
+        steps: 256
+    )
+    camshaft_parameters params(base_radius: 17 * units.mm)
+    camshaft inlet(params, lobe_profile: inlet_lobe)
+    camshaft outlet(params, lobe_profile: outlet_lobe)
+
+    // Physical cylinder order 1,2,3,4 has firing phases 0,180,540,360.
+    inlet
+        .add_lobe((360 + 110 +   0) * units.deg)
+        .add_lobe((360 + 110 + 180) * units.deg)
+        .add_lobe((360 + 110 + 540) * units.deg)
+        .add_lobe((360 + 110 + 360) * units.deg)
+    outlet
+        .add_lobe((360 - 108 +   0) * units.deg)
+        .add_lobe((360 - 108 + 180) * units.deg)
+        .add_lobe((360 - 108 + 540) * units.deg)
+        .add_lobe((360 - 108 + 360) * units.deg)
+}
+
+public node uaz469_reference_3m {
+    alias output __out: motor;
+
+    engine motor(
+        name: "UAZ-469 UMZ-451M 2.45L (3:00 Reference)",
+        starter_torque: 125 * units.Nm,
+        starter_speed: 220 * units.rpm,
+        redline: 4200 * units.rpm,
+        dyno_min_speed: 600 * units.rpm,
+        dyno_max_speed: 4200 * units.rpm,
+        dyno_hold_step: 100 * units.rpm,
+        throttle_gamma: 1.5,
+        fuel: fuel(
+            name: "Low-compression petrol",
+            molecular_mass: 100 * units.g,
+            energy_density: 44 * units.kJ / units.g,
+            density: 0.74 * units.kg / units.L,
+            molecular_afr: 12.5,
+            max_burning_efficiency: 0.78,
+            burning_efficiency_randomness: 0.08,
+            low_efficiency_attenuation: 0.72,
+            max_turbulence_effect: 2.0,
+            max_dilution_effect: 10.0
+        ),
+        // Let the pressure pulse provide the body; keep its differentiated
+        // edge and synthetic grain quiet so low clatter does not become buzz.
+        hf_gain: 0.00012,
+        noise: 0.08,
+        jitter: 0.010,
+        simulation_frequency: 20000
+    )
+
+    label bore(92 * units.mm)
+    label stroke(92 * units.mm)
+    label swept_volume(constants.pi * bore * bore * stroke / 4)
+    // Flush, flat piston: all clearance volume is in the head.
+    label clearance_volume(swept_volume / (6.7 - 1))
+    // Rod, piston and rotating masses are simulation estimates.
+    label rod_length(175 * units.mm)
+    label compression_height(51 * units.mm)
+    label rod_mass(0.88 * units.kg)
+
+    crankshaft crank(
+        throw: stroke / 2,
+        flywheel_mass: 14.0 * units.kg,
+        mass: 21.0 * units.kg,
+        friction_torque: 14 * units.Nm,
+        moment_of_inertia:
+            disk_moment_of_inertia(mass: 14 * units.kg, radius: 155 * units.mm)
+            + disk_moment_of_inertia(mass: 21 * units.kg, radius: 92 * units.mm)
+            + disk_moment_of_inertia(mass: 4 * units.kg, radius: 90 * units.mm),
+        tdc: 90 * units.deg
+    )
+    rod_journal j1(angle:   0 * units.deg)
+    rod_journal j2(angle: 180 * units.deg)
+    rod_journal j3(angle: 180 * units.deg)
+    rod_journal j4(angle:   0 * units.deg)
+    crank.add_rod_journal(j1).add_rod_journal(j2)
+        .add_rod_journal(j3).add_rod_journal(j4)
+
+    piston_parameters piston_spec(
+        mass: 0.72 * units.kg,
+        compression_height: compression_height,
+        displacement: 0.0
+    )
+    connecting_rod_parameters rod_spec(
+        mass: rod_mass,
+        length: rod_length,
+        moment_of_inertia: rod_moment_of_inertia(mass: rod_mass, length: rod_length),
+        center_of_mass: 0.0
+    )
+
+    // Shared carburetor/manifold; a small throttle-plate opening supplies
+    // the warm idle mixture. About 765 rpm matches the supplied sound reference;
+    // this is above the factory 550–600 rpm setting. No automatic RPM hold.
+    intake carburetor(
+        plenum_volume: 1.2 * units.L,
+        plenum_cross_section_area: 14 * units.cm2,
+        intake_flow_rate: k_carb(200),
+        runner_flow_rate: k_carb(145),
+        runner_length: 200 * units.mm,
+        idle_flow_rate: k_carb(0.0),
+        idle_throttle_plate_position: 0.99035,
+        molecular_afr: 12.5,
+        throttle_gamma: 1.5,
+        velocity_decay: 0.5
+    )
+
+    // One cast-manifold collector and one long tailpipe. This separate IR
+    // targets the reference's 3:00 passage at approximately 2,200 rpm, with
+    // stronger higher harmonics and broad metallic energy but soft excitation.
+    // Unequal estimated runner lengths add texture without altering firing intervals.
+    exhaust_system exhaust(
+        length: 2400 * units.mm,
+        collector_cross_section_area: circle_area(22 * units.mm),
+        outlet_flow_rate: k_carb(190),
+        primary_tube_length: 320 * units.mm,
+        primary_flow_rate: k_carb(135),
+        velocity_decay: 0.85,
+        audio_volume: 1.0,
+        impulse_response: impulse_response(
+            filename: "../sound-library/uaz469/reference_3m/uaz469_synthetic_exhaust.wav",
+            volume: 0.05518654 // IR normalization compensation plus 6 dB preview gain.
+        )
+    )
+
+    uaz469_wires wires()
+    uaz469_cams cams()
+    cylinder_bank bank(
+        bore: bore,
+        deck_height: stroke / 2 + rod_length + compression_height,
+        angle: 0 * units.deg
+    )
+    bank
+        .add_cylinder(
+            piston: piston(piston_spec, blowby: k_28inH2O(0.03)),
+            connecting_rod: connecting_rod(rod_spec),
+            rod_journal: j1,
+            intake: carburetor,
+            exhaust_system: exhaust,
+            ignition_wire: wires.c1,
+            primary_length: 440 * units.mm,
+            sound_attenuation: 0.98
+        )
+        .add_cylinder(
+            piston: piston(piston_spec, blowby: k_28inH2O(0.03)),
+            connecting_rod: connecting_rod(rod_spec),
+            rod_journal: j2,
+            intake: carburetor,
+            exhaust_system: exhaust,
+            ignition_wire: wires.c2,
+            primary_length: 310 * units.mm,
+            sound_attenuation: 1.02
+        )
+        .add_cylinder(
+            piston: piston(piston_spec, blowby: k_28inH2O(0.03)),
+            connecting_rod: connecting_rod(rod_spec),
+            rod_journal: j3,
+            intake: carburetor,
+            exhaust_system: exhaust,
+            ignition_wire: wires.c3,
+            primary_length: 260 * units.mm,
+            sound_attenuation: 0.99
+        )
+        .add_cylinder(
+            piston: piston(piston_spec, blowby: k_28inH2O(0.03)),
+            connecting_rod: connecting_rod(rod_spec),
+            rod_journal: j4,
+            intake: carburetor,
+            exhaust_system: exhaust,
+            ignition_wire: wires.c4,
+            primary_length: 390 * units.mm,
+            sound_attenuation: 1.01
+        )
+        .set_cylinder_head(uaz469_head(
+            intake_cam: cams.intake_cam,
+            exhaust_cam: cams.exhaust_cam,
+            chamber_volume: clearance_volume
+        ))
+    motor.add_crankshaft(crank).add_cylinder_bank(bank)
+
+    // Effective distributor advance in crank degrees, calibrated against the
+    // power/torque targets; not a measured distributor curve. Vacuum advance
+    // and choke are not simulated. The 4500 rpm cut is a simulator safeguard,
+    // not a claim that the original contact ignition had an electronic limiter.
+    function spark(500 * units.rpm)
+    spark
+        .add_sample(   0 * units.rpm,  0 * units.deg)
+        .add_sample( 600 * units.rpm,  4 * units.deg)
+        .add_sample(1000 * units.rpm,  8 * units.deg)
+        .add_sample(1500 * units.rpm,  9 * units.deg)
+        .add_sample(2200 * units.rpm, 12 * units.deg)
+        .add_sample(2500 * units.rpm, 14 * units.deg)
+        .add_sample(3000 * units.rpm, 18 * units.deg)
+        .add_sample(3500 * units.rpm, 24 * units.deg)
+        .add_sample(4000 * units.rpm, 30 * units.deg)
+        .add_sample(4500 * units.rpm, 30 * units.deg)
+    ignition_module ignition(timing_curve: spark,
+        rev_limit: 4500 * units.rpm, limiter_duration: 0.10)
+    ignition.connect_wire(wires.c1,   0 * units.deg)
+        .connect_wire(wires.c2, 180 * units.deg)
+        .connect_wire(wires.c4, 360 * units.deg)
+        .connect_wire(wires.c3, 540 * units.deg)
+    motor.add_ignition_module(ignition)
+}
+
+public node main {
+    set_engine(uaz469_reference_3m())
+    // Early 469 with portal axles, transfer case in high range. Aerodynamic,
+    // rolling-resistance, tire-radius and clutch values are estimates.
+    set_vehicle(vehicle(
+        mass: 1600 * units.kg,
+        drag_coefficient: 0.60,
+        cross_sectional_area: 2.65 * units.m2,
+        diff_ratio: 5.38,
+        tire_radius: 390 * units.mm,
+        rolling_resistance: 260 * units.N
+    ))
+    set_transmission(transmission(max_clutch_torque: 260 * units.Nm)
+        .add_gear(4.124).add_gear(2.641).add_gear(1.58).add_gear(1.0))
+}

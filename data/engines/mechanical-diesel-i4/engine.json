@@ -1,0 +1,168 @@
+{
+  "schema": "crankwave/engine",
+  "model": "mechanical-diesel-v1",
+  "engine": {
+    "id": "mechanical-diesel-i4",
+    "cylinder": {
+      "bore_m": 0.09,
+      "stroke_m": 0.1,
+      "connecting_rod_length_m": 0.16,
+      "compression_ratio": 18,
+      "gas_constant_j_per_kg_k": 287,
+      "specific_heat_ratio": 1.36,
+      "injected_fuel_sensible_energy_j_per_kg": 279027.7777777778,
+      "wall_temperature_k": 450,
+      "wall_conductance_w_per_k": 5,
+      "crankcase_pressure_pa_abs": 101325,
+      "initial_charge": {
+        "pressure_pa_abs": 101325,
+        "temperature_k": 350,
+        "oxygen_mass_fraction": 0.23
+      },
+      "intake": {
+        "pressure_pa_abs": 101325,
+        "temperature_k": 320,
+        "oxygen_mass_fraction": 0.23
+      },
+      "exhaust": {
+        "pressure_pa_abs": 105000,
+        "temperature_k": 700,
+        "oxygen_mass_fraction": 0.08
+      },
+      "intake_valve": {
+        "open_angle_atdc_rad": 5.934119456780721,
+        "close_angle_atdc_rad": 10.402162341886203,
+        "maximum_effective_area_m2": 0.00068
+      },
+      "exhaust_valve": {
+        "open_angle_atdc_rad": 2.1642082724729685,
+        "close_angle_atdc_rad": 6.632251157578453,
+        "maximum_effective_area_m2": 0.00058
+      },
+      "combustion": {
+        "lower_heating_value_j_per_kg": 42500000.0,
+        "stoichiometric_oxygen_kg_per_kg_fuel": 3.4,
+        "preparation_time_s": 0.0004,
+        "premixed_burn_time_s": 8e-05,
+        "reference_ignition_delay_s": 0.001,
+        "reference_temperature_k": 800,
+        "reference_pressure_pa_abs": 4000000.0,
+        "reference_oxygen_mass_fraction": 0.23,
+        "activation_temperature_k": 4000,
+        "pressure_exponent": 0.5,
+        "oxygen_exponent": 0.5
+      }
+    },
+    "injection_pulses": [
+      {
+        "id": 1,
+        "start_angle_atdc_rad": -0.17453292519943295,
+        "duration_rad": 0.1884955592153876,
+        "full_fuel_mass_kg": 3e-05,
+        "opening_fraction_01": 0.1,
+        "closing_fraction_01": 0.2,
+        "minimum_duration_fraction_01": 0.08
+      }
+    ],
+    "cylinders": [
+      {
+        "id": "cylinder-1",
+        "firing_angle_rad": 0.0,
+        "fuel_trim": 0.985,
+        "structural_gain": 1
+      },
+      {
+        "id": "cylinder-3",
+        "firing_angle_rad": 3.141592653589793,
+        "fuel_trim": 1.01,
+        "structural_gain": 0.94
+      },
+      {
+        "id": "cylinder-4",
+        "firing_angle_rad": 6.283185307179586,
+        "fuel_trim": 0.99,
+        "structural_gain": 0.9
+      },
+      {
+        "id": "cylinder-2",
+        "firing_angle_rad": 9.42477796076938,
+        "fuel_trim": 1.015,
+        "structural_gain": 0.97
+      }
+    ]
+  },
+  "presentation": {
+    "block_modes": [
+      {
+        "frequency_hz": 680,
+        "q": 5,
+        "gain_pcm_per_n": 0.00024
+      },
+      {
+        "frequency_hz": 1150,
+        "q": 7,
+        "gain_pcm_per_n": 0.00036
+      },
+      {
+        "frequency_hz": 1900,
+        "q": 9,
+        "gain_pcm_per_n": 0.00052
+      },
+      {
+        "frequency_hz": 2850,
+        "q": 7,
+        "gain_pcm_per_n": 0.00056
+      },
+      {
+        "frequency_hz": 4200,
+        "q": 6,
+        "gain_pcm_per_n": 0.0004
+      }
+    ],
+    "block_lowpass_hz": 6500,
+    "exhaust_gain_pcm_per_kg_s": 12,
+    "exhaust_lowpass_hz": 1700,
+    "master_gain": 0.85,
+    "articulation": {
+      "block_highpass_hz": 450,
+      "exhaust_highpass_hz": 90,
+      "cycle_fuel_spread_01": 0.1,
+      "cycle_timing_spread_deg": 0.7,
+      "variation_seed": 81743
+    }
+  },
+  "bake": {
+    "rpms": [
+      650,
+      800,
+      1000,
+      1300,
+      1700,
+      2200,
+      2800,
+      3400
+    ],
+    "fueling": [
+      0,
+      0.08,
+      0.2,
+      0.4,
+      0.65,
+      1
+    ],
+    "samples_per_cycle": 8192,
+    "minimum_settling_cycles": 10,
+    "maximum_settling_cycles": 40,
+    "settling_relative_tolerance": 0.0005
+  },
+  "provenance": {
+    "physical_parameters": {
+      "origin": "artistic",
+      "note": "Synthetic warm naturally aspirated direct-injection four-cylinder numerical configuration. Geometry, valve areas and combustion coefficients are explicit design choices, not measurements or calibration of a real engine. Fuel chemistry uses a reduced constant-property model. Rack-metered pulse duration and ignition-delay coefficients are authored to produce a distinct premixed pressure rise at light load. The authored intake 340-596 deg and exhaust 124-380 deg windows overlap at gas-exchange TDC; effective areas are selected to avoid the restrictive first audition fixture, not measured valve flow coefficients."
+    },
+    "presentation": {
+      "origin": "artistic",
+      "note": "Authored block and exhaust transfer with low-frequency rejection. Seeded cycle fuel selection and timing spread are playback approximations, not solved injector variability or crankshaft dynamics. No measured block response or calibrated acoustic pressure is claimed."
+    }
+  }
+}

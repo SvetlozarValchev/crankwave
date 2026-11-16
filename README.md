@@ -21,6 +21,12 @@ provide only RPM, throttle, and load and do not run the simulator.
 - A browser authoring workbench and a standalone package-consumer harness.
 - Explicit failure for unsupported mechanisms or malformed contracts.
 
+Experimental [mechanical diesel I4](data/engines/mechanical-diesel-i4/README.md)
+and [Ural V8](data/engines/ural4320-mechanical-v8/README.md) examples can also be
+baked with `bake-crankwave` and played in the package harness. They generate
+combustion-driven block clatter and exhaust from modeled pressure and flow,
+with a fuel-based load coordinate and fixed-frequency block resonances.
+
 Crankwave is a source-informed rewrite of
 [AngeTheGreat's engine-sim](https://github.com/ange-yaghi/engine-sim). The
 upstream project is a behavior and capability reference, not a runtime
@@ -145,8 +151,12 @@ To audition a baked package as an external consumer:
 node scripts/serve-crankwave-harness.mjs
 ```
 
-Choose a local `.crankwave` file, press **Play**, and adjust RPM, throttle, and
-load. The page verifies the complete package before producing audio. The public
+Choose a local `.crankwave` file and press **Play**. Driving mode supplies RPM
+and load from a small UAZ road-load model with an automatic four-speed driver.
+Select **D**, hold **W / ↑** to accelerate and **S / ↓** to brake, or use the
+pedal sliders. **N** allows free revving. Speed, RPM and gear are displayed;
+**Reset drive** returns to rest. **Manual inputs** retains direct RPM/throttle/load
+control for diagnosis. The page verifies the complete package before producing audio. The public
 bridge API is described in
 [CRANKWAVE_AUDIO_BRIDGE.md](docs/CRANKWAVE_AUDIO_BRIDGE.md).
 

@@ -534,6 +534,23 @@ template <template <class> class Field> struct LegacyFlameSpeedPointT {
 using AuthoredLegacyFlameSpeedPoint = LegacyFlameSpeedPointT<AuthoredValue>;
 using LegacyFlameSpeedPoint = LegacyFlameSpeedPointT<ResolvedValue>;
 
+// Source-compatible scheduled burn; no injection or temperature-triggered
+// ignition is implied by the source simulator's historical field name.
+template <template <class> class Field> struct LegacySourceTwoStageCombustionT {
+    Field<double> auto_ignition_temperature_k;
+    Field<double> premixed_burn_fraction_01;
+    Field<double> premixed_flame_speed_multiplier;
+    Field<double> diffusion_flame_speed_multiplier;
+
+    friend bool operator==(const LegacySourceTwoStageCombustionT &,
+                           const LegacySourceTwoStageCombustionT &) = default;
+};
+
+using AuthoredLegacySourceTwoStageCombustion =
+    LegacySourceTwoStageCombustionT<AuthoredValue>;
+using LegacySourceTwoStageCombustion =
+    LegacySourceTwoStageCombustionT<ResolvedValue>;
+
 template <template <class> class Field, class FlamePoint> struct LegacyFuelProfileT {
     Field<std::string> fuel_id;
     Field<double> molecular_mass_kg_per_mol;
@@ -547,6 +564,8 @@ template <template <class> class Field, class FlamePoint> struct LegacyFuelProfi
     Field<double> lbv_multiplier;
     Field<double> turbulence_to_flame_speed_ratio_triangle_radius;
     std::vector<FlamePoint> turbulence_to_flame_speed_ratio;
+    std::optional<LegacySourceTwoStageCombustionT<Field>> source_two_stage_combustion =
+        std::nullopt;
 
     friend bool operator==(const LegacyFuelProfileT &,
                            const LegacyFuelProfileT &) = default;

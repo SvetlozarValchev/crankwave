@@ -107,15 +107,24 @@ endforeach()
 file(GLOB runtime_entries RELATIVE "${runtime_root}" "${runtime_root}/*")
 list(SORT runtime_entries)
 set(expected_runtime_entries
+    audio-delivery-profile.js
     crankwave-audio-engine.js
     crankwave-package.js
+    diesel-backdrive-runtime.js
+    diesel-drive-runtime.js
+    diesel-drive-session.js
+    diesel-mechanical-runtime.js
     directional-phase-cell.js
     dry-directional-phase-runtime.js
     held-phase-texture-runtime.js
     held-texture-presentation-runtime.js
+    limiter-performance-runtime.js
+    mechanical-texture-runtime.js
+    pcm-payload.js
     release.js
     renderer-runtime-compatibility.js
     responsive-audio-lifecycle-runtime.js
+    responsive-drive-session.js
     shared-recorded-starter-runtime.js
     state-phase-texture-runtime.js
     steady-transient-envelope.js)

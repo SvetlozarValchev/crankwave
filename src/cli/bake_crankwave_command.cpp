@@ -1,6 +1,7 @@
 #include "bake_crankwave_command.hpp"
 
 #include "bake_crankwave_command_support.hpp"
+#include "bake_diesel_command.hpp"
 #include "native_input_files.hpp"
 #include "native_input_files_support.hpp"
 #include "native_responsive_bake_identity.hpp"
@@ -428,7 +429,7 @@ cook_lifecycle(const responsive::ResponsiveBakeProfile &profile,
                const std::string_view audition_bus_id,
                const std::uint64_t maximum_presentation_transfer_coefficient_count,
                const std::stop_token stop_token) {
-    const responsive::LifecycleScenarioPlanRequest request{
+    responsive::LifecycleScenarioPlanRequest request{
         profile, engine_document, scenario_template.document,
         scenario_template.identity_sha256,
         maximum_presentation_transfer_coefficient_count};
@@ -514,6 +515,31 @@ cook_lifecycle(const responsive::ResponsiveBakeProfile &profile,
     auto startup_capture = std::get<responsive::LifecycleCaptureEvidence>(
         std::move(startup_capture_result));
 
+    // A valid seam alone does not prove that the runtime can finish its
+    // coast-lane admission before the finite first-fire tape runs out.
+    // Re-capture a longer identical startup; never truncate or force the handoff.
+    for (;;) {
+        const auto completion = responsive::startup_handoff_completion_seconds(
+            startup_capture, profile.rpm.outer_minimum_rpm);
+        if (completion && *completion + 0.5 <= startup_spec.total_duration_seconds)
+            break;
+        if (startup_spec.total_duration_seconds >= 60.0)
+            return error(ErrorKind::unavailable, "startup-handoff-not-captured",
+                         "lifecycle startup admission",
+                         "startup did not complete running admission within 60 seconds");
+        request.minimum_startup_duration_seconds =
+            std::min(60.0, std::max(8.0, startup_spec.total_duration_seconds * 2.0));
+        startup_spec_result = plan_role(
+            responsive::LifecycleScenarioRole::startup, "extended startup", release);
+        if (auto *failure = std::get_if<Error>(&startup_spec_result))
+            return std::move(*failure);
+        startup_spec = std::get<responsive::LifecycleScenarioSpec>(std::move(startup_spec_result));
+        startup_capture_result = capture_role(startup_spec, "extended startup");
+        if (auto *failure = std::get_if<Error>(&startup_capture_result))
+            return std::move(*failure);
+        startup_capture = std::get<responsive::LifecycleCaptureEvidence>(std::move(startup_capture_result));
+    }
+
     auto shutdown_spec_result =
         plan_role(responsive::LifecycleScenarioRole::shutdown, "shutdown");
     if (auto *failure = std::get_if<Error>(&shutdown_spec_result)) {
@@ -556,11 +582,68 @@ cook_lifecycle(const responsive::ResponsiveBakeProfile &profile,
     }
     auto shutdown_result = responsive::cook_lifecycle_shutdown(
         shutdown_spec, shutdown_capture, stop_token);
+    const auto extend_shutdown_postroll =
+        [&](responsive::LifecycleScenarioSpec &spec,
+            responsive::LifecycleCaptureEvidence &capture,
+            responsive::LifecycleResult<responsive::LifecycleShutdownPresentation> &cooked)
+        -> std::optional<Error> {
+        request.minimum_shutdown_duration_seconds = 0.0;
+        for (;;) {
+            const auto *failure = std::get_if<responsive::LifecycleError>(&cooked);
+            if (failure == nullptr ||
+                (failure->detail_code != "engine-did-not-stop" &&
+                 failure->code != responsive::LifecycleErrorCode::insufficient_quiet_tail) ||
+                spec.total_duration_seconds >= 60.0) return std::nullopt;
+            // A heavy flywheel or a long acoustic decay can outlast the initial
+            // finite tape. Recapture the same controls through a longer actual
+            // rundown; never force RPM to zero, trim a tail or relax quiet gates.
+            request.minimum_shutdown_duration_seconds = std::min(
+                60.0, std::max(8.0, spec.total_duration_seconds * 2.0));
+            auto extended_spec = plan_role(spec.role, "extended shutdown post-roll");
+            if (auto *retry_failure = std::get_if<Error>(&extended_spec))
+                return std::move(*retry_failure);
+            spec = std::get<responsive::LifecycleScenarioSpec>(std::move(extended_spec));
+            auto extended_capture = capture_role(spec, "extended shutdown post-roll");
+            if (auto *retry_failure = std::get_if<Error>(&extended_capture))
+                return std::move(*retry_failure);
+            capture = std::get<responsive::LifecycleCaptureEvidence>(std::move(extended_capture));
+            cooked = spec.role == responsive::LifecycleScenarioRole::shutdown
+                ? responsive::cook_lifecycle_shutdown(spec, capture, stop_token)
+                : responsive::cook_lifecycle_elevated_shutdown(spec, capture, stop_token);
+        }
+    };
+    if (const auto *failure = std::get_if<responsive::LifecycleError>(&shutdown_result);
+        failure && failure->code == responsive::LifecycleErrorCode::no_admissible_seam) {
+        // The atlas floor is a playback coordinate, not an assertion that the
+        // engine can sustain free idle at that speed. Preserve successful old
+        // captures; a failed seam may retry using measured completed startup
+        // cycles. The same native cooker and all audible gates still apply.
+        const auto idle = responsive::observed_startup_idle_rpm(
+            startup_capture, profile.rpm.outer_minimum_rpm);
+        if (idle && *idle != shutdown_spec.scenario.initial_state.engine_speed.value) {
+            request.observed_shutdown_idle_rpm = idle;
+            auto retried_spec = plan_role(responsive::LifecycleScenarioRole::shutdown,
+                                         "shutdown at observed idle");
+            if (auto *retry_failure = std::get_if<Error>(&retried_spec))
+                return std::move(*retry_failure);
+            shutdown_spec = std::get<responsive::LifecycleScenarioSpec>(std::move(retried_spec));
+            auto retried_capture = capture_role(shutdown_spec, "shutdown at observed idle");
+            if (auto *retry_failure = std::get_if<Error>(&retried_capture))
+                return std::move(*retry_failure);
+            shutdown_capture = std::get<responsive::LifecycleCaptureEvidence>(std::move(retried_capture));
+            shutdown_result = responsive::cook_lifecycle_shutdown(
+                shutdown_spec, shutdown_capture, stop_token);
+        }
+    }
+    if (auto failure = extend_shutdown_postroll(shutdown_spec, shutdown_capture, shutdown_result))
+        return std::move(*failure);
     if (auto *failure = std::get_if<responsive::LifecycleError>(&shutdown_result)) {
         return lifecycle_error("lifecycle shutdown cooking", *failure);
     }
     auto elevated_result = responsive::cook_lifecycle_elevated_shutdown(
         elevated_spec, elevated_capture, stop_token);
+    if (auto failure = extend_shutdown_postroll(elevated_spec, elevated_capture, elevated_result))
+        return std::move(*failure);
     if (auto *failure = std::get_if<responsive::LifecycleError>(&elevated_result)) {
         return lifecycle_error("lifecycle elevated shutdown cooking", *failure);
     }
@@ -740,6 +823,10 @@ BakeCrankwaveResult bake_crankwave_native(const BakeCrankwaveRequest &request,
     }
     const auto output = std::get<NativeOutputDirectory>(std::move(output_result));
     const auto canonical_output = output.publication_root / output.publication_name;
+
+    if (auto diesel = try_bake_mechanical_diesel(request, stop_token)) {
+        return std::move(*diesel);
+    }
 
     auto catalog_result = load_builtin_asset_catalog_identity_with_builtin_assets();
     if (const auto *failure = std::get_if<NativeInputError>(&catalog_result)) {

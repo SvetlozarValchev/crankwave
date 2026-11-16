@@ -4,12 +4,21 @@ import {
   PcmRingProducerState,
 } from "/runtime/pcm-ring-buffer.js";
 import { CrankwaveAudioEngine } from "/runtime/crankwave-audio-engine.js";
+import { DrivingModel } from "/harness/driving-model.js";
+import { DieselDrivingModel } from "/harness/diesel-driving-model.js";
+import {loadResponsiveAudioCrankwave} from '/runtime/crankwave-package.js';
+import {DieselDriveSession} from '/runtime/diesel-drive-session.js';
+import {ResponsiveDriveSession} from '/runtime/responsive-drive-session.js';
+import {DieselCoupledDrivingModel} from '/harness/diesel-coupled-driving-model.js';
 
 const MAXIMUM_CARRIER_BYTES = 2 ** 32;
 const PUMP_RENDER_BUDGET = 4;
 const STATS_INTERVAL_MS = 250;
 
 let engine = null;
+let driver = null;
+let driveSession = null;
+let mode = "drive";
 let producer = null;
 let resampler = null;
 let outputSampleRate = null;
@@ -71,13 +80,28 @@ function metadata() {
     sampleRate: current.sampleRate,
     minimumRpm: current.minimumRpm,
     maximumRpm: current.maximumRpm,
+    limiter: current.limiter,
+    loadCoordinate: current.loadCoordinate,
     blockFrames: current.blockFrames,
+    mode,
+    packagedDriving: driveSession !== null,
+    drivingKind: driveSession instanceof DieselDriveSession ? 'diesel' : 'responsive',
+    driving: drivingSnapshot(),
     operatingPoint: point,
     manifoldPressurePaAbs: current.loadManifoldPressurePa(
       point.rpm,
       point.load01,
     ),
   });
+}
+
+function drivingSnapshot() {
+  const state = driver?.snapshot() ?? null;
+  if (state && driveSession && playing && mode === 'drive') {
+    const session = driveSession.snapshot();
+    return {...state, ...session};
+  }
+  return state;
 }
 
 function stopOutput(state = PcmRingProducerState.paused) {
@@ -118,6 +142,7 @@ function finiteRpm(value) {
 
 function setOperatingPoint(value) {
   const current = requireEngine();
+  if (mode !== "manual") throw new Error("Select manual inputs to set RPM directly.");
   const point = {
     rpm: finiteRpm(value?.rpm),
     throttle01: finiteUnit(value?.throttle01, "throttle01"),
@@ -159,6 +184,11 @@ function postStats(force = false) {
     priming,
     outputRms: lastOutputRms,
     operatingPoint: engine?.operatingPoint ?? null,
+    mode,
+    driving: mode === "drive" ? drivingSnapshot() : null,
+    manifoldPressurePaAbs: engine?.loadManifoldPressurePa(
+      engine.operatingPoint.rpm, engine.operatingPoint.load01,
+    ) ?? null,
   });
 }
 
@@ -195,7 +225,13 @@ function pump() {
       if (producer.availableFrames >= leadFrames) break;
 
       const current = requireEngine();
-      const canonical = current.render(current.blockFrames);
+      // Advance road dynamics on the audio clock, never requestAnimationFrame/wall time.
+      // Dense endpoints retain RPM drops and load cuts through the baked transient player.
+      const point = mode === "drive"
+        ? driveSession?.starting ? driver.operatingPoint() : driver.advance(current.processFrames / current.sampleRate)
+        : current.operatingPoint;
+      const canonical = mode === 'drive' && driveSession
+        ? driveSession.process(point) : current.process(point, current.processFrames);
       if (!(canonical instanceof Float32Array)) {
         throw new TypeError("CRANKWAVE render output must be mono Float32 PCM.");
       }
@@ -210,7 +246,7 @@ function pump() {
     publishPendingOutput();
     if (priming && producer.availableFrames >= leadFrames) {
       priming = false;
-    producer.setProducerState(PcmRingProducerState.streaming);
+      producer.setProducerState(PcmRingProducerState.streaming);
       event("audio-running", {
         availableFrames: producer.availableFrames,
         sampleRate: outputSampleRate,
@@ -239,8 +275,25 @@ async function loadPackage(message) {
   if (bytes.byteLength === 0 || bytes.byteLength > MAXIMUM_CARRIER_BYTES) {
     throw new RangeError("CRANKWAVE carrier size is outside the v1 bounds.");
   }
-  const loaded = await CrankwaveAudioEngine.load(bytes);
-  engine = loaded;
+  // The ArrayBuffer arrived through a transfer list, so this worker owns it.
+  // Avoid retaining a second full carrier copy while the package is verified
+  // and its runtime payloads are decoded.
+  const loaded = await loadResponsiveAudioCrankwave(bytes, {takeOwnership: true});
+  const gamePlayback = loaded.runtime.kind === "responsive-audio-preview" &&
+    loaded.runtime.sampleRate === 48_000 && loaded.runtime.routePresentations.every(
+      route => route.transfer.kind === "fixed-overlap-save-complex-spectrum-v1");
+  engine = new CrankwaveAudioEngine(loaded, {
+    playbackBlockFrames: message.playbackBlockFrames ?? (gamePlayback ? 1_024 : undefined),
+  });
+  driveSession = loaded.runtime.drivePackage ? new DieselDriveSession(engine, loaded.runtime) :
+    loaded.runtime.lifecyclePackage && loaded.runtime.sharedRecordedStarterPackage
+      ? new ResponsiveDriveSession(engine, loaded.runtime) : null;
+  driver = driveSession instanceof DieselDriveSession ? new DieselCoupledDrivingModel(loaded.runtime, driveSession.bank) :
+    engine.loadCoordinate === "normalized-fueling"
+    ? new DieselDrivingModel(engine.minimumRpm, engine.maximumRpm)
+    : new DrivingModel(engine.minimumRpm, engine.maximumRpm, engine.limiter);
+  mode = "drive";
+  engine.setOperatingPoint(driver.operatingPoint());
   return metadata();
 }
 
@@ -302,6 +355,13 @@ function play() {
   pendingOutput = new Float32Array(0);
   pendingOutputOffset = 0;
   lastOutputRms = 0;
+  engine.reset();
+  if (driveSession && mode === 'drive') {
+    const controls = driver.snapshot();
+    driver.reset();
+    driver.setControls({selector:controls.selector,throttle01:controls.throttle01,brake01:controls.brake01});
+    driveSession.reset();
+  }
   playing = true;
   priming = true;
   postStats(true);
@@ -320,6 +380,37 @@ async function dispatch(message) {
       return attachOutput(message);
     case "set-operating-point":
       return setOperatingPoint(message.operatingPoint);
+    case "set-mode": {
+      requireEngine();
+      if (message.mode !== "drive" && message.mode !== "manual") {
+        throw new RangeError("Select driving or manual inputs.");
+      }
+      mode = message.mode;
+      if (mode === "drive") {
+        driver.reset();
+        engine.setOperatingPoint(driver.operatingPoint());
+      }
+      if (driveSession) {
+        if (mode === 'drive') driveSession.reset({startEngine:false});
+        else engine.reset();
+      }
+      return metadata();
+    }
+    case "set-driver":
+      requireEngine();
+      if (mode !== "drive") throw new Error("Select driving mode to use pedals.");
+      return { driving: driver.setControls(message.controls) };
+    case "key-off":
+      if (!(driveSession instanceof ResponsiveDriveSession) || mode !== 'drive')
+        throw new Error('Key-off requires a responsive lifecycle session in driving mode.');
+      driveSession.stopEngine();
+      return {driving: drivingSnapshot()};
+    case "reset-drive":
+      requireEngine();
+      driver.reset();
+      if (mode === "drive") engine.setOperatingPoint(driver.operatingPoint());
+      if (mode === 'drive' && driveSession) driveSession.reset({startEngine:false});
+      return metadata();
     case "play":
       return play();
     case "stop":
@@ -336,6 +427,8 @@ async function dispatch(message) {
     case "dispose":
       stopOutput(PcmRingProducerState.ended);
       engine = null;
+      driver = null;
+      driveSession = null;
       producer = null;
       resampler = null;
       outputSampleRate = null;

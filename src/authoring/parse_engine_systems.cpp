@@ -128,7 +128,8 @@ void parse_combustion(DocumentReader &reader, JsonValue value, std::string_view 
     reader.reject_unknown(value, path,
                           {"maximum_efficiency_01", "cycle_variation_01",
                            "low_efficiency_attenuation_01", "maximum_turbulence_effect",
-                           "maximum_dilution_effect"},
+                           "maximum_dilution_effect", "lbv_multiplier",
+                           "source_two_stage"},
                           subject_value);
     reader.fraction(
         reader.required(value, "maximum_efficiency_01", path, subject_value),
@@ -153,6 +154,43 @@ void parse_combustion(DocumentReader &reader, JsonValue value, std::string_view 
         reader.add(DiagnosticCode::out_of_range,
                    pointer_member(path, "maximum_dilution_effect"),
                    "maximum dilution effect must be positive", subject_value);
+    }
+    const auto positive = [&](JsonValue item, const std::string &item_path,
+                              double &number) {
+        if (reader.nonnegative_number(item, item_path, number, subject_value) &&
+            number <= 0.0) {
+            reader.add(DiagnosticCode::out_of_range, item_path,
+                       "value must be positive", subject_value);
+        }
+    };
+    const auto lbv = reader.optional(value, "lbv_multiplier");
+    if (lbv.valid()) {
+        double parsed = 0.0;
+        positive(lbv, pointer_member(path, "lbv_multiplier"), parsed);
+        output.lbv_multiplier = parsed;
+    }
+    const auto two_stage = reader.optional(value, "source_two_stage");
+    const auto two_stage_path = pointer_member(path, "source_two_stage");
+    if (two_stage.valid() && reader.object(two_stage, two_stage_path, subject_value)) {
+        reader.reject_unknown(two_stage, two_stage_path,
+                              {"auto_ignition_temperature_k", "premixed_burn_fraction_01",
+                               "premixed_flame_speed_multiplier",
+                               "diffusion_flame_speed_multiplier"}, subject_value);
+        SourceTwoStageCombustionDefinition parsed;
+        const auto read_positive = [&](std::string_view key, double &number) {
+            positive(reader.required(two_stage, key, two_stage_path, subject_value),
+                     pointer_member(two_stage_path, key), number);
+        };
+        read_positive("auto_ignition_temperature_k", parsed.auto_ignition_temperature_k);
+        reader.fraction(reader.required(two_stage, "premixed_burn_fraction_01",
+                                        two_stage_path, subject_value),
+                        pointer_member(two_stage_path, "premixed_burn_fraction_01"),
+                        parsed.premixed_burn_fraction_01, subject_value);
+        read_positive("premixed_flame_speed_multiplier",
+                      parsed.premixed_flame_speed_multiplier);
+        read_positive("diffusion_flame_speed_multiplier",
+                      parsed.diffusion_flame_speed_multiplier);
+        output.source_two_stage = parsed;
     }
 }
 

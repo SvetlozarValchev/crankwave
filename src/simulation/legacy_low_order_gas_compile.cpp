@@ -505,8 +505,20 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                     fuel.turbulence_to_flame_speed_ratio_triangle_radius.value) &&
                 fuel.turbulence_to_flame_speed_ratio.size() >= 2U,
             ContractIssueCode::invalid_value, "engine.physics_profile.fuel",
-            "spark-gasoline fuel data are outside the admitted finite physical "
+            "scheduled-combustion fuel data are outside the admitted finite physical "
             "domain");
+    if (fuel.source_two_stage_combustion.has_value()) {
+        const auto &two_stage = *fuel.source_two_stage_combustion;
+        require(report,
+                finite_positive(two_stage.auto_ignition_temperature_k.value) &&
+                    unit_interval(two_stage.premixed_burn_fraction_01.value) &&
+                    finite_positive(two_stage.premixed_flame_speed_multiplier.value) &&
+                    finite_positive(two_stage.diffusion_flame_speed_multiplier.value),
+                ContractIssueCode::invalid_value,
+                "engine.physics_profile.fuel.source_two_stage_combustion",
+                "source two-stage combustion requires a positive activation marker, "
+                "a unit-interval premixed fraction and positive speed multipliers");
+    }
     require(report, scenario.fuel.fuel_id.value == fuel.fuel_id.value,
             ContractIssueCode::inconsistent_semantics, "scenario.fuel.fuel_id.value",
             "scenario and executable physics profile must select the same fuel");
@@ -1358,6 +1370,16 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     session.fuel_.maximum_turbulence_effect = fuel.maximum_turbulence_effect.value;
     session.fuel_.maximum_dilution_effect = fuel.maximum_dilution_effect.value;
     session.fuel_.lbv_multiplier = fuel.lbv_multiplier.value;
+    if (fuel.source_two_stage_combustion.has_value()) {
+        const auto &two_stage = *fuel.source_two_stage_combustion;
+        session.fuel_.auto_ignition_temperature_k =
+            two_stage.auto_ignition_temperature_k.value;
+        session.fuel_.premixed_burn_fraction_01 = two_stage.premixed_burn_fraction_01.value;
+        session.fuel_.premixed_flame_speed_multiplier =
+            two_stage.premixed_flame_speed_multiplier.value;
+        session.fuel_.diffusion_flame_speed_multiplier =
+            two_stage.diffusion_flame_speed_multiplier.value;
+    }
     session.fuel_.turbulence_to_flame_speed_ratio_triangle_radius =
         fuel.turbulence_to_flame_speed_ratio_triangle_radius.value;
     session.fuel_.turbulence_to_flame_speed_ratio.reserve(

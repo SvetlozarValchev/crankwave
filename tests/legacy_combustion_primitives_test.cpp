@@ -397,6 +397,135 @@ void test_intake_transfer_extinction_threshold() {
            "already-inactive flame emitted a second intake extinction");
 }
 
+void test_source_two_stage_fraction_cap_and_diffusion_handoff() {
+    auto fuel = gasoline_fuel();
+    fuel.auto_ignition_temperature_k = 700.0;
+    fuel.premixed_burn_fraction_01 = 0.125;
+    fuel.premixed_flame_speed_multiplier = 2.0;
+    fuel.diffusion_flame_speed_multiplier = 0.5;
+    LegacyGasCell cell{
+        0.05, 200.0, 0.0005, 0.25, -0.125, {0.04, 0.46, 0.50},
+    };
+    const auto old_cell = cell;
+    LegacyFlameState flame;
+    flame.active = true;
+    flame.efficiency_01 = 0.8;
+    flame.flame_speed_m_s = 20.0;
+    flame.last_volume_m3 = cell.volume_m3;
+    flame.global_mixture = cell.mixture;
+    const double bore_m = 0.08;
+    const double area_m2 = kLegacyPi * 0.04 * 0.04;
+
+    // The long substep must stop exactly at the premixed fraction, rather than
+    // spending the rest of that step propagating a diffusion flame.
+    const auto premixed = legacy_advance_gasoline_flame(
+        flame, cell, 0.001, bore_m, area_m2, fuel);
+    expect(premixed.disposition == LegacyFlameAdvanceDisposition::advanced &&
+               flame.active,
+           "source premixed stage did not remain active at its boundary");
+    expect_bits(flame.percentage_lit_01, 0.125,
+                "premixed stage overshot its authored fraction");
+    expect_bits(premixed.swept_amount_mol, old_cell.amount_mol * 0.125,
+                "premixed stage did not sweep the unattenuated gas fraction");
+    expect_bits(premixed.reaction.requested_reaction_amount_mol,
+                old_cell.amount_mol * 0.125 * 0.8,
+                "premixed reaction did not apply efficiency to swept amount");
+    // libm cbrt may round one ulp below the exact half; test the physical
+    // geometry here rather than assuming a correctly rounded transcendental.
+    expect(std::abs(flame.radial_travel_m - 0.02) < 1e-15,
+           "premixed handoff did not locate the cube-root radial front");
+    expect(std::abs(flame.axial_travel_m - 0.5 * (old_cell.volume_m3 / area_m2)) < 1e-15,
+           "premixed handoff did not locate the cube-root axial front");
+    expect_bits(cell.thermal_energy_j,
+                old_cell.thermal_energy_j + premixed.reaction.energy_release_j,
+                "premixed heat release was not added exactly once");
+    expect_bits(cell.momentum_x_kg_m_s, old_cell.momentum_x_kg_m_s,
+                "premixed burn changed planar momentum");
+    expect_bits(cell.momentum_y_kg_m_s, old_cell.momentum_y_kg_m_s,
+                "premixed burn changed planar momentum");
+    const double consumed_fuel_mol = legacy_gas_fuel_amount_mol(old_cell) -
+                                     legacy_gas_fuel_amount_mol(cell);
+    expect(std::abs(consumed_fuel_mol - premixed.reaction.burned_fuel_mol) < 1e-17,
+           "premixed fuel reaction lost species accounting");
+
+    // Compare the next substep against the unchanged geometric path with only
+    // its speed scaled. This checks the handoff and propagation, not just totals.
+    auto expected_cell = cell;
+    auto expected_flame = flame;
+    expected_flame.flame_speed_m_s *= fuel.diffusion_flame_speed_multiplier;
+    const auto expected = legacy_advance_gasoline_flame(
+        expected_flame, expected_cell, 1e-5, bore_m, area_m2, gasoline_fuel());
+    const auto diffusion = legacy_advance_gasoline_flame(
+        flame, cell, 1e-5, bore_m, area_m2, fuel);
+    expect(diffusion == expected && cell == expected_cell,
+           "source diffusion handoff differs from scaled geometric propagation");
+    expect_bits(flame.radial_travel_m, expected_flame.radial_travel_m,
+                "source diffusion radial front differs");
+    expect_bits(flame.axial_travel_m, expected_flame.axial_travel_m,
+                "source diffusion axial front differs");
+    expect_bits(flame.flame_speed_m_s, 20.0,
+                "diffusion scaling permanently changed the ignition snapshot");
+}
+
+void test_source_two_stage_disabled_preserves_spark_exactly() {
+    auto disabled = gasoline_fuel();
+    disabled.premixed_burn_fraction_01 = 0.9;
+    disabled.premixed_flame_speed_multiplier = 100.0;
+    disabled.diffusion_flame_speed_multiplier = 0.01;
+    LegacyGasCell spark_cell{
+        0.05, 200.0, 0.0005, 0.0, 0.0, {0.04, 0.46, 0.50},
+    };
+    auto disabled_cell = spark_cell;
+    LegacyFlameState spark;
+    spark.active = true;
+    spark.efficiency_01 = 0.8;
+    spark.flame_speed_m_s = 20.0;
+    spark.last_volume_m3 = spark_cell.volume_m3;
+    spark.global_mixture = spark_cell.mixture;
+    auto disabled_flame = spark;
+    for (int step = 0; step < 30; ++step) {
+        const auto expected = legacy_advance_gasoline_flame(
+            spark, spark_cell, 1e-4, 0.08, 0.005, gasoline_fuel());
+        const auto actual = legacy_advance_gasoline_flame(
+            disabled_flame, disabled_cell, 1e-4, 0.08, 0.005, disabled);
+        expect(actual == expected && disabled_cell == spark_cell &&
+                   disabled_flame == spark,
+               "disabled two-stage fields changed legacy spark replay");
+    }
+}
+
+void test_source_two_stage_marker_does_not_gate_scheduled_ignition() {
+    IgnitionFixture fixture;
+    IgnitionFixture lower_marker;
+    fixture.fuel.auto_ignition_temperature_k = 7000.0;
+    fixture.fuel.premixed_burn_fraction_01 = 0.25;
+    lower_marker.fuel.auto_ignition_temperature_k = 700.0;
+    lower_marker.fuel.premixed_burn_fraction_01 = 0.25;
+    const auto cell = legacy_initialize_gas_cell(
+        101325.0, 0.0005, 300.0, LegacyGasMixture{0.04, 0.46, 0.50});
+    LegacyFlameState flame;
+    LegacyFlameState lower_flame;
+    const auto result = legacy_try_ignite(
+        flame, fixture.random, cell, cell.volume_m3, fixture.speed_history,
+        fixture.pressure_history, fixture.fuel);
+    expect(result.accepted() && flame.active,
+           "source burn-law marker was incorrectly turned into thermal ignition");
+    const auto lower_result = legacy_try_ignite(
+        lower_flame, lower_marker.random, cell, cell.volume_m3,
+        lower_marker.speed_history, lower_marker.pressure_history, lower_marker.fuel);
+    expect(result == lower_result && flame == lower_flame &&
+               fixture.random.state() == lower_marker.random.state(),
+           "activation-marker magnitude changed scheduled ignition");
+    auto higher_cell = cell;
+    auto lower_cell = cell;
+    const auto higher_burn = legacy_advance_gasoline_flame(
+        flame, higher_cell, 1e-5, 0.08, 0.005, fixture.fuel);
+    const auto lower_burn = legacy_advance_gasoline_flame(
+        lower_flame, lower_cell, 1e-5, 0.08, 0.005, lower_marker.fuel);
+    expect(higher_burn == lower_burn && higher_cell == lower_cell && flame == lower_flame,
+           "activation-marker magnitude changed the selected burn law");
+}
+
 void run_tests() {
     test_exact_pcg32_vectors_and_draw_width();
     test_oversized_stream_rejection_is_transactional();
@@ -405,6 +534,9 @@ void run_tests() {
     test_species_limited_reaction_and_no_momentum_rescale();
     test_geometric_progress_and_no_progress_extinction();
     test_intake_transfer_extinction_threshold();
+    test_source_two_stage_fraction_cap_and_diffusion_handoff();
+    test_source_two_stage_disabled_preserves_spark_exactly();
+    test_source_two_stage_marker_does_not_gate_scheduled_ignition();
 }
 
 } // namespace

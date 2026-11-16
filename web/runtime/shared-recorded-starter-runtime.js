@@ -1,3 +1,10 @@
+import { isSupportedAudioDeliverySampleRate } from "./audio-delivery-profile.js";
+import {
+  decodeAudioPayload,
+  PCM16_SCALE_ENCODING,
+  validatePcm16Scale,
+} from "./pcm-payload.js";
+
 const SCHEMA = "crankwave/shared-recorded-starter";
 const KIND = "shared-recorded-starter";
 const SAMPLE_RATE = 192_000;
@@ -183,6 +190,14 @@ function hex(bytes) {
   ).join("");
 }
 
+async function sha256Hex(bytes, cryptoImplementation, label) {
+  return hex(
+    new Uint8Array(
+      await cryptoImplementation.subtle.digest("SHA-256", bytes),
+    ),
+  );
+}
+
 async function requireSha256(
   bytes,
   expected,
@@ -201,25 +216,7 @@ async function requireSha256(
   }
 }
 
-function decodeFloat32Le(bytes, frameCount) {
-  if (bytes.byteLength !== frameCount * Float32Array.BYTES_PER_ELEMENT) {
-    throw new RangeError("shared starter payload byte count is invalid");
-  }
-  const samples = new Float32Array(frameCount);
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  for (let frame = 0; frame < frameCount; ++frame) {
-    const sample = view.getFloat32(frame * Float32Array.BYTES_PER_ELEMENT, true);
-    if (!Number.isFinite(sample)) {
-      throw new RangeError(
-        `shared starter payload contains a non-finite sample at frame ${frame}`,
-      );
-    }
-    samples[frame] = sample;
-  }
-  return samples;
-}
-
-function acceptedMarkers(manifest) {
+function acceptedMarkers(manifest, sampleRate = SAMPLE_RATE) {
   const markers = object(manifest.markers, "manifest.markers");
   const result = {
     repeatInFrame: positiveInteger(
@@ -239,7 +236,16 @@ function acceptedMarkers(manifest) {
       "manifest.markers.seam_crossfade_frames",
     ),
   };
-  for (const [name, expected] of Object.entries(EXPECTED_MARKERS)) {
+  const scale = sampleRate / SAMPLE_RATE;
+  const expectedMarkers = sampleRate === SAMPLE_RATE
+    ? EXPECTED_MARKERS
+    : Object.fromEntries(
+      Object.entries(EXPECTED_MARKERS).map(([name, expected]) => [
+        name,
+        Math.round(expected * scale),
+      ]),
+    );
+  for (const [name, expected] of Object.entries(expectedMarkers)) {
     exact(result[name], expected, `manifest.markers.${name}`);
   }
   if (
@@ -321,7 +327,7 @@ function acceptedSettings(manifest) {
   return Object.freeze(result);
 }
 
-function validateCc0Provenance(manifest) {
+function validateCc0Provenance(manifest, { experimental48k = false } = {}) {
   const rights = object(manifest.rights, "manifest.rights");
   exact(rights.status, "cc0-1.0", "manifest.rights.status");
   exact(rights.basis, "public-domain-dedication", "manifest.rights.basis");
@@ -443,18 +449,22 @@ function validateCc0Provenance(manifest) {
     source_crop_begin_frame_inclusive: 0,
     source_crop_end_frame_exclusive: 367_728,
     source_crop_frames: 367_728,
-    output_sample_rate_hz: SAMPLE_RATE,
-    output_frames: EXPECTED_FRAME_COUNT,
-    marker_mapping: "relative_source_frame * 4",
+    output_sample_rate_hz: experimental48k ? 48_000 : SAMPLE_RATE,
+    output_frames: experimental48k ? Math.round(EXPECTED_FRAME_COUNT / 4) : EXPECTED_FRAME_COUNT,
+    marker_mapping: experimental48k ? "relative_source_frame" : "relative_source_frame * 4",
     ffmpeg_version: "6.1.1-3ubuntu5",
     filter_graph:
       "atrim=start_sample=0:end_sample=367728,asetpts=PTS-STARTPTS," +
       "highpass=f=35:poles=2,equalizer=f=180:t=q:w=0.7:g=3," +
       "equalizer=f=350:t=q:w=0.8:g=-3,equalizer=f=2800:t=q:w=0.8:g=-3.5," +
       "equalizer=f=7000:t=q:w=0.7:g=1,volume=-6.966715dB," +
-      "aresample=192000:resampler=soxr:precision=33:cheby=0:" +
+      `aresample=${experimental48k ? 48_000 : SAMPLE_RATE}:resampler=soxr:precision=33:cheby=0:` +
       "dither_method=none,atrim=end_sample=1470912",
   };
+  if (experimental48k) {
+    expectedCanonicalization.filter_graph = expectedCanonicalization.filter_graph
+      .replace("atrim=end_sample=1470912", "atrim=end_sample=367728");
+  }
   for (const [name, expected] of Object.entries(expectedCanonicalization)) {
     exact(
       canonicalization[name],
@@ -464,11 +474,112 @@ function validateCc0Provenance(manifest) {
   }
 }
 
+async function loadExperimental48kStarterRuntime(
+  manifestUrl,
+  manifest,
+  manifestSha256,
+  fetchImplementation,
+  cryptoImplementation,
+) {
+  exact(manifest.schema, SCHEMA, "manifest.schema");
+  exact(manifest.id, `${EXPECTED_ID}-48k`, "manifest.id");
+  exact(
+    manifest.purpose,
+    "shared-source-a-and-b-lifecycle-layer",
+    "manifest.purpose",
+  );
+  validateCc0Provenance(manifest, { experimental48k: true });
+  const markers = acceptedMarkers(manifest, 48_000);
+  const settings = acceptedSettings(manifest);
+  const audio = object(manifest.audio, "manifest.audio");
+  const expectedExperimentalEncoding = audio.encoding === PCM16_SCALE_ENCODING
+    ? "audio/recorded-starter.cropped.48000hz.mono.pcm16le"
+    : "audio/recorded-starter.cropped.48000hz.mono.f32le";
+  exact(
+    audio.relative_path,
+    expectedExperimentalEncoding,
+    "manifest.audio.relative_path",
+  );
+  exact(audio.sample_rate_hz, 48_000, "manifest.audio.sample_rate_hz");
+  if (!["float32le", PCM16_SCALE_ENCODING].includes(audio.encoding)) {
+    fail("experimental starter encoding is unsupported");
+  }
+  exact(audio.channel_layout, "mono", "manifest.audio.channel_layout");
+  const frameCount = positiveInteger(audio.frame_count, "manifest.audio.frame_count");
+  if (frameCount !== Math.round(EXPECTED_FRAME_COUNT / 4)) {
+    fail("experimental starter frame count must be the 48 kHz source length");
+  }
+  exact(
+    positiveInteger(audio.byte_count, "manifest.audio.byte_count"),
+    frameCount * (audio.encoding === PCM16_SCALE_ENCODING ? 2 : Float32Array.BYTES_PER_ELEMENT),
+    "manifest.audio.byte_count",
+  );
+  if (audio.encoding === PCM16_SCALE_ENCODING) {
+    validatePcm16Scale(audio.quantization?.scale, "manifest.audio.quantization.scale");
+  }
+  const payloadUrl = relativeUrl(
+    manifestUrl,
+    audio.relative_path,
+    "manifest.audio.relative_path",
+  );
+  const payload = await fetchBytes(
+    payloadUrl,
+    fetchImplementation,
+    "experimental shared starter payload",
+  );
+  if (payload.byteLength !== audio.byte_count) {
+    throw new RangeError("experimental shared starter payload byte count is invalid");
+  }
+  await requireSha256(
+    payload,
+    string(audio.payload_sha256, "manifest.audio.payload_sha256"),
+    cryptoImplementation,
+    "experimental shared starter payload",
+  );
+  const samples = decodeAudioPayload(
+    payload,
+    frameCount,
+    audio.encoding,
+    audio.quantization,
+    "experimental shared starter payload",
+  );
+  let peak = 0;
+  let energy = 0;
+  for (const sample of samples) {
+    peak = Math.max(peak, Math.abs(sample));
+    energy += sample * sample;
+  }
+  const rms = Math.sqrt(energy / samples.length);
+  if (!Number.isFinite(audio.duration_seconds) ||
+      Math.abs(audio.duration_seconds - frameCount / 48_000) > 1e-6 ||
+      !Number.isFinite(audio.peak) || !Number.isFinite(audio.rms) ||
+      Math.abs(audio.peak - peak) > 1e-6 || Math.abs(audio.rms - rms) > 1e-6) {
+    fail("experimental shared starter audio statistics do not match its PCM");
+  }
+  return Object.freeze({
+    kind: KIND,
+    manifestUrl: manifestUrl.href,
+    payloadUrl: payloadUrl.href,
+    manifest,
+    sampleRate: 48_000,
+    samples,
+    markers,
+    settings,
+    defaultEnabled: settings.defaultEnabled,
+    manifestSha256,
+    rightsNotice: RIGHTS_NOTICE,
+    sourceCreator: SOURCE_CREATOR,
+    sourceSha256: EXPECTED_SOURCE_SHA256,
+    payloadSha256: audio.payload_sha256,
+  });
+}
+
 export async function loadSharedRecordedStarterRuntime(
   manifestUrlValue,
   {
     fetch: fetchImplementation = globalThis.fetch,
     crypto: cryptoImplementation = globalThis.crypto,
+    allowExperimental48k = false,
   } = {},
 ) {
   if (typeof fetchImplementation !== "function") {
@@ -483,6 +594,43 @@ export async function loadSharedRecordedStarterRuntime(
     fetchImplementation,
     "shared starter manifest",
   );
+  const manifestDigest = await sha256Hex(
+    manifestBytes,
+    cryptoImplementation,
+    "shared starter manifest",
+  );
+  if (!allowExperimental48k) {
+    if (manifestBytes.byteLength !== EXPECTED_MANIFEST_BYTE_COUNT) {
+      throw new RangeError(
+        `shared starter manifest has ${manifestBytes.byteLength} bytes; ` +
+          `expected ${EXPECTED_MANIFEST_BYTE_COUNT}`,
+      );
+    }
+    if (manifestDigest !== EXPECTED_MANIFEST_SHA256) {
+      throw new Error(
+        `shared starter manifest SHA-256 mismatch: expected ${EXPECTED_MANIFEST_SHA256}, fetched ${manifestDigest}`,
+      );
+    }
+  }
+  const manifest = object(
+    JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(manifestBytes),
+    ),
+    "manifest",
+  );
+  if (
+    allowExperimental48k &&
+    manifest.id === `${EXPECTED_ID}-48k` &&
+    manifest.audio?.sample_rate_hz === 48_000
+  ) {
+    return loadExperimental48kStarterRuntime(
+      manifestUrl,
+      manifest,
+      manifestDigest,
+      fetchImplementation,
+      cryptoImplementation,
+    );
+  }
   if (manifestBytes.byteLength !== EXPECTED_MANIFEST_BYTE_COUNT) {
     throw new RangeError(
       `shared starter manifest has ${manifestBytes.byteLength} bytes; ` +
@@ -494,12 +642,6 @@ export async function loadSharedRecordedStarterRuntime(
     EXPECTED_MANIFEST_SHA256,
     cryptoImplementation,
     "shared starter manifest",
-  );
-  const manifest = object(
-    JSON.parse(
-      new TextDecoder("utf-8", { fatal: true }).decode(manifestBytes),
-    ),
-    "manifest",
   );
   exact(manifest.schema, SCHEMA, "manifest.schema");
   exact(manifest.id, EXPECTED_ID, "manifest.id");
@@ -565,7 +707,13 @@ export async function loadSharedRecordedStarterRuntime(
     cryptoImplementation,
     "shared starter payload",
   );
-  const samples = decodeFloat32Le(payload, EXPECTED_FRAME_COUNT);
+  const samples = decodeAudioPayload(
+    payload,
+    EXPECTED_FRAME_COUNT,
+    "float32le",
+    undefined,
+    "shared starter payload",
+  );
   return Object.freeze({
     kind: KIND,
     manifestUrl: manifestUrl.href,
@@ -654,7 +802,7 @@ export class SharedRecordedStarterCursor {
   #longestUnavailableEnvelopeRunFrames = 0;
 
   constructor(package_, { audioLatencyFrames = 0 } = {}) {
-    if (package_?.kind !== KIND || package_.sampleRate !== SAMPLE_RATE) {
+    if (package_?.kind !== KIND || !isSupportedAudioDeliverySampleRate(package_.sampleRate)) {
       fail("SharedRecordedStarterCursor requires a verified shared starter package");
     }
     this.#package = package_;
@@ -768,12 +916,12 @@ export class SharedRecordedStarterCursor {
     this.#audibleCatchFrame = frame + this.#audioLatencyFrames;
     this.#catchFrame = this.#audibleCatchFrame;
     const catchOffsetFrames = Math.round(
-      settings.catchOffsetMilliseconds * SAMPLE_RATE / 1_000,
+      settings.catchOffsetMilliseconds * this.#package.sampleRate / 1_000,
     );
     const duckFrames = Math.max(
       0,
       Math.round(
-        settings.ignitionDuckLeadMilliseconds * SAMPLE_RATE / 1_000,
+        settings.ignitionDuckLeadMilliseconds * this.#package.sampleRate / 1_000,
       ),
     );
     const nominalStart = Math.max(
@@ -786,7 +934,7 @@ export class SharedRecordedStarterCursor {
     );
     this.#handoffEndFrame = this.#handoffStartFrame + Math.max(
       0,
-      Math.round(settings.handoffMilliseconds * SAMPLE_RATE / 1_000),
+      Math.round(settings.handoffMilliseconds * this.#package.sampleRate / 1_000),
     );
     ++this.#catchCount;
     if (fallback) ++this.#fallbackCatchCount;
@@ -910,7 +1058,7 @@ export class SharedRecordedStarterCursor {
 
     const smoothingFrames = Math.max(
       0,
-      settings.rpmSmoothingMilliseconds * SAMPLE_RATE / 1_000,
+      settings.rpmSmoothingMilliseconds * this.#package.sampleRate / 1_000,
     );
     const smoothingAlpha = smoothingFrames > 0
       ? 1 - Math.exp(-1 / smoothingFrames)
@@ -934,7 +1082,7 @@ export class SharedRecordedStarterCursor {
     let engineGain = settings.preCatchEngineGain;
     const attackFrames = Math.max(
       0,
-      Math.round(settings.attackMilliseconds * SAMPLE_RATE / 1_000),
+      Math.round(settings.attackMilliseconds * this.#package.sampleRate / 1_000),
     );
     if (attackFrames > 0 && frame < this.#sessionStartFrame + attackFrames) {
       const progress = (frame - this.#sessionStartFrame) / attackFrames;
@@ -945,7 +1093,7 @@ export class SharedRecordedStarterCursor {
     const duckFrames = Math.max(
       0,
       Math.round(
-        settings.ignitionDuckLeadMilliseconds * SAMPLE_RATE / 1_000,
+        settings.ignitionDuckLeadMilliseconds * this.#package.sampleRate / 1_000,
       ),
     );
     const duckStart = this.#handoffStartFrame - duckFrames;
@@ -1053,7 +1201,7 @@ export class SharedRecordedStarterCursor {
   diagnostics() {
     return Object.freeze({
       schema: SCHEMA,
-      id: EXPECTED_ID,
+      id: this.#package.manifest.id,
       configured: true,
       loaded: true,
       licenseStatus: "cc0-1.0",
@@ -1066,7 +1214,7 @@ export class SharedRecordedStarterCursor {
       manifestSha256: this.#package.manifestSha256,
       sourceSha256: this.#package.sourceSha256,
       payloadSha256: this.#package.payloadSha256,
-      sampleRate: SAMPLE_RATE,
+      sampleRate: this.#package.sampleRate,
       enabled: this.#enabled,
       active: this.#audiblyActive,
       generation: this.#generation,

@@ -1,0 +1,213 @@
+{
+  "schema": "crankwave/engine",
+  "model": "mechanical-diesel-v1",
+  "engine": {
+    "id": "lister-tr1-mechanical-single",
+    "cylinder": {
+      "bore_m": 0.09842,
+      "stroke_m": 0.1016,
+      "connecting_rod_length_m": 0.2,
+      "compression_ratio": 15.5,
+      "gas_constant_j_per_kg_k": 287,
+      "specific_heat_ratio": 1.36,
+      "injected_fuel_sensible_energy_j_per_kg": 279027.7777777778,
+      "wall_temperature_k": 460,
+      "wall_conductance_w_per_k": 5.5,
+      "crankcase_pressure_pa_abs": 101325,
+      "initial_charge": {
+        "pressure_pa_abs": 101325,
+        "temperature_k": 350,
+        "oxygen_mass_fraction": 0.23
+      },
+      "intake": {
+        "pressure_pa_abs": 101325,
+        "temperature_k": 310,
+        "oxygen_mass_fraction": 0.23
+      },
+      "exhaust": {
+        "pressure_pa_abs": 103500,
+        "temperature_k": 650,
+        "oxygen_mass_fraction": 0.08
+      },
+      "intake_valve": {
+        "open_angle_atdc_rad": 5.934119456780721,
+        "close_angle_atdc_rad": 10.122909661567112,
+        "maximum_effective_area_m2": 0.0007
+      },
+      "exhaust_valve": {
+        "open_angle_atdc_rad": 2.2689280275926285,
+        "close_angle_atdc_rad": 6.5973445725385655,
+        "maximum_effective_area_m2": 0.0006
+      },
+      "combustion": {
+        "lower_heating_value_j_per_kg": 42700000,
+        "stoichiometric_oxygen_kg_per_kg_fuel": 3.4,
+        "preparation_time_s": 0.0004,
+        "premixed_burn_time_s": 8e-05,
+        "reference_ignition_delay_s": 0.001,
+        "reference_temperature_k": 800,
+        "reference_pressure_pa_abs": 4000000,
+        "reference_oxygen_mass_fraction": 0.23,
+        "activation_temperature_k": 4000,
+        "pressure_exponent": 0.5,
+        "oxygen_exponent": 0.5
+      }
+    },
+    "injection_pulses": [
+      {
+        "id": 1,
+        "start_angle_atdc_rad": -0.3839724354387525,
+        "duration_rad": 0.3141592653589793,
+        "full_fuel_mass_kg": 2.9e-05,
+        "opening_fraction_01": 0.1,
+        "closing_fraction_01": 0.2,
+        "minimum_duration_fraction_01": 0.08
+      }
+    ],
+    "cylinders": [
+      {
+        "id": "cylinder-1",
+        "firing_angle_rad": 0,
+        "fuel_trim": 1,
+        "structural_gain": 1
+      }
+    ]
+  },
+  "presentation": {
+    "block_modes": [
+      {
+        "frequency_hz": 300,
+        "q": 1.2,
+        "gain_pcm_per_n": 4e-06
+      },
+      {
+        "frequency_hz": 620,
+        "q": 1.0,
+        "gain_pcm_per_n": 2.4e-06
+      },
+      {
+        "frequency_hz": 1150,
+        "q": 1.0,
+        "gain_pcm_per_n": 2.2e-06
+      },
+      {
+        "frequency_hz": 1950,
+        "q": 0.8,
+        "gain_pcm_per_n": 1.1e-06
+      },
+      {
+        "frequency_hz": 3100,
+        "q": 0.8,
+        "gain_pcm_per_n": 1e-07
+      }
+    ],
+    "block_lowpass_hz": 2200,
+    "exhaust_gain_pcm_per_kg_s": 6,
+    "exhaust_lowpass_hz": 1500,
+    "master_gain": 0.6,
+    "articulation": {
+      "block_highpass_hz": 200,
+      "exhaust_highpass_hz": 80,
+      "cycle_fuel_spread_01": 0.1,
+      "cycle_timing_spread_deg": 1.2,
+      "variation_seed": 773850
+    },
+    "exhaust_system": {
+      "branches": [
+        {
+          "id": "single-outlet",
+          "cylinder_ids": [
+            "cylinder-1"
+          ],
+          "delay_s": 0.0026,
+          "reflection": -0.5,
+          "loss_lowpass_hz": 2000,
+          "gain": 1
+        }
+      ],
+      "radiation_gain_pcm_s2_per_kg": 0.012,
+      "flow_noise_gain_pcm_per_kg_s": 2,
+      "noise_highpass_hz": 120,
+      "noise_seed": 7731800
+    },
+    "pressure_texture": {
+      "decay_s": 0.014,
+      "coherent_gain": 0.35,
+      "compression_gain": 0.08,
+      "stochastic_gain": 11,
+      "seed": 7731500
+    },
+    "mechanical_texture": {
+      "valve_gain_pcm": 0.36,
+      "valve_frequency_hz": 1050,
+      "valve_decay_s": 0.0024,
+      "pumping_gain_pcm": 0.022,
+      "pumping_lowpass_hz": 1200,
+      "seed": 7731016,
+      "valve_attack_s": 0.0015
+    },
+    "low_fuel_exhaust": {
+      "fueling_threshold_01": 0.2,
+      "gain": 0.28,
+      "lowpass_hz": 700,
+      "transition_s": 0.04
+    },
+    "coasting_balance": {
+      "fueling_threshold_01": 0.06,
+      "bass_gain": 0.15,
+      "movement_gain": 0.45,
+      "crossover_hz": 200,
+      "mechanical_gain": 1.2,
+      "transition_s": 0.04
+    },
+    "coasting_flow_texture": {
+      "gain_pcm_per_kg_s": 0.75,
+      "highpass_hz": 250,
+      "lowpass_hz": 2000,
+      "envelope_s": 0.002,
+      "seed": 773000
+    },
+    "loaded_pressure_texture": {
+      "decay_s": 0.014,
+      "attack_s": 0.004,
+      "secondary_bank_gain": 1,
+      "fueling_start_01": 0.2,
+      "fueling_full_01": 0.5,
+      "transition_s": 0.04
+    }
+  },
+  "bake": {
+    "rpms": [
+      850,
+      1000,
+      1200,
+      1500,
+      1800,
+      2100,
+      2500
+    ],
+    "fueling": [
+      0,
+      0.06,
+      0.12,
+      0.25,
+      0.5,
+      0.75,
+      1
+    ],
+    "samples_per_cycle": 8192,
+    "minimum_settling_cycles": 10,
+    "maximum_settling_cycles": 40,
+    "settling_relative_tolerance": 0.0005
+  },
+  "provenance": {
+    "physical_parameters": {
+      "origin": "inferred",
+      "note": "Lister Petter TR1-style direct-injection, naturally aspirated single-cylinder working variant. Manufacturer TR Industrial Engines TDS (10739), pp. 4-6: bore 98.42 mm, stroke 101.6 mm, 0.773 litre, compression ratio 15.5:1, minimum idle 850 RPM, air cooling and variable speeds through 2500 RPM. https://listerpetter.com/wp-content/uploads/2025/10/10739-TR-Industrial-Engines-TDS.pdf . Full fuel 29 mg/cycle approximates 1.6-2.5 litre/hour at 1500-2500 RPM using the sheet density 0.84 kg/litre; this is an inference, not a measured injection trace. Fuel LHV 42.7 MJ/kg follows that sheet. Injection start 22 degrees BTDC is a working approximation informed by the TR1 research configuration in Fayad (2017), University of Birmingham, p. 74, https://etheses.bham.ac.uk/id/eprint/7919/1/Fayad17PhD.pdf . Pulse duration, rod length, valve effective areas/windows, reservoir and thermal state, and combustion coefficients are authored. Intake 340-580 degrees and exhaust 130-378 degrees preserve breathing around gas-exchange TDC. Not a validated TR1 pressure, torque or governor model."
+    },
+    "presentation": {
+      "origin": "artistic",
+      "note": "Separate single-cylinder acoustic variant using the shared version 11 diesel runtime. Author Benboncan describes Lister Startup And Idle.wav as a stationary Lister firing then idling as its centrifugal governor engages: https://freesound.org/people/Benboncan/sounds/89724/ . The recording does not identify a TR1, exact engine model, cylinder count or RPM; it is a character reference, not proof of this hardware or a calibrated acoustic target. The recording is CC BY 4.0 and contains no embedded material in this definition or generated carrier. Authored smaller-block modes, single short lossy exhaust branch, pressure-driven texture, smooth valve contacts and pumping breath give the single-cylinder timing its own radiation response. Loaded rounding and zero-fuel flow/mechanical layers reuse the accepted Ural mechanisms with separate parameter values. No recorded PCM, measured impulse response, physical cooling fan, within-cycle speed ripple or solved governor is embedded. Mean RPM and fueling remain externally controlled."
+    }
+  }
+}

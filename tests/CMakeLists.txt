@@ -2016,6 +2016,42 @@ add_test(
 )
 
 add_executable(
+    crankwave_diesel_combustion_v1_tests
+    diesel_combustion_v1_test.cpp
+)
+target_include_directories(
+    crankwave_diesel_combustion_v1_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+target_link_libraries(
+    crankwave_diesel_combustion_v1_tests
+    PRIVATE crankwave::simulation
+)
+crankwave_enable_renderer_numeric_policy(crankwave_diesel_combustion_v1_tests)
+add_test(
+    NAME simulation.diesel_combustion_v1
+    COMMAND crankwave_diesel_combustion_v1_tests
+)
+
+add_executable(
+    crankwave_diesel_cylinder_v1_tests
+    diesel_cylinder_v1_test.cpp
+)
+target_include_directories(
+    crankwave_diesel_cylinder_v1_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+target_link_libraries(
+    crankwave_diesel_cylinder_v1_tests
+    PRIVATE crankwave::simulation
+)
+crankwave_enable_renderer_numeric_policy(crankwave_diesel_cylinder_v1_tests)
+add_test(
+    NAME simulation.diesel_cylinder_v1
+    COMMAND crankwave_diesel_cylinder_v1_tests
+)
+
+add_executable(
     crankwave_legacy_combustion_primitives_tests
     legacy_combustion_primitives_test.cpp
 )
@@ -2496,6 +2532,15 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 if(TARGET crankwave_cli_support)
+    add_executable(crankwave_diesel_sound_tests diesel_sound_test.cpp)
+    target_include_directories(crankwave_diesel_sound_tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+    target_compile_definitions(crankwave_diesel_sound_tests PRIVATE
+        CRANKWAVE_DIESEL_EXAMPLE_PATH="${PROJECT_SOURCE_DIR}/data/engines/mechanical-diesel-i4/engine.json")
+    target_link_libraries(crankwave_diesel_sound_tests PRIVATE
+        crankwave_cli_support crankwave::authoring crankwave::artifacts)
+    crankwave_enable_renderer_numeric_policy(crankwave_diesel_sound_tests)
+    add_test(NAME diesel.sound_bake COMMAND crankwave_diesel_sound_tests)
+
     add_executable(
         crankwave_cli_support_tests
         crankwave_cli_support_test.cpp
@@ -2671,7 +2716,35 @@ if(TARGET crankwave_cli_support)
                 ${_crankwave_node_for_installed_test}
                 --test
                 ${PROJECT_SOURCE_DIR}/web/tests/runtime/crankwave-audio-engine.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/held-phase-texture-runtime.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/pcm-payload.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/mechanical-texture-runtime.test.mjs
         )
+        add_test(
+            NAME runtime.diesel_mechanical
+            COMMAND ${_crankwave_node_for_installed_test} --test
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/diesel-mechanical-runtime.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/diesel-driving-model.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/diesel-drive-runtime.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/backdrive-coast-audition.test.mjs
+        )
+        set_tests_properties(runtime.diesel_mechanical PROPERTIES LABELS "javascript;runtime" TIMEOUT 120)
+        add_test(
+            NAME diesel.native_playback
+            COMMAND ${_crankwave_node_for_installed_test}
+                ${PROJECT_SOURCE_DIR}/web/tests/integration/mechanical-diesel.integration.mjs
+                $<TARGET_FILE:crankwave_cli>
+                ${PROJECT_SOURCE_DIR}/data/engines/mechanical-diesel-i4/engine.json
+        )
+        set_tests_properties(diesel.native_playback PROPERTIES LABELS "diesel;integration" TIMEOUT 180)
+        add_test(
+            NAME diesel.ural_native_playback
+            COMMAND ${_crankwave_node_for_installed_test}
+                ${PROJECT_SOURCE_DIR}/web/tests/integration/mechanical-diesel.integration.mjs
+                $<TARGET_FILE:crankwave_cli>
+                ${PROJECT_SOURCE_DIR}/data/engines/ural4320-mechanical-v8/engine.json
+        )
+        set_tests_properties(diesel.ural_native_playback PROPERTIES LABELS "diesel;integration" TIMEOUT 180)
         set_tests_properties(
             runtime.crankwave_audio_engine
             PROPERTIES
@@ -2685,6 +2758,7 @@ if(TARGET crankwave_cli_support)
                 ${_crankwave_node_for_installed_test}
                 --test
                 ${PROJECT_SOURCE_DIR}/web/tests/runtime/partitioned-spectrum-convolver.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/dry-directional-phase-runtime.test.mjs
         )
         set_tests_properties(
             runtime.partitioned_spectrum_convolver

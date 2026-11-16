@@ -266,7 +266,12 @@ encode_cache_identity(const NativeResponsiveBakeIdentityInputV1 &input,
     append_json_string(output, input.profile_id);
     output.append(",\"sha256\":");
     append_json_string(output, digest_hex(input.profile_sha256));
-    output.append("},\"bake_recipe_sha256\":");
+    output.append("}");
+    if (input.delivery_profile_id.has_value()) {
+        output.append(",\"delivery_profile\":");
+        append_json_string(output, *input.delivery_profile_id);
+    }
+    output.append(",\"bake_recipe_sha256\":");
     append_json_string(output, digest_hex(input.bake_recipe_sha256));
     output.append(",\"builtin_asset_catalog_sha256\":");
     append_json_string(output, digest_hex(input.builtin_asset_catalog_sha256));
@@ -372,6 +377,14 @@ validate_identity(const NativeResponsiveBakeIdentityInputV1 &input,
         return error(ErrorCode::invalid_identity,
                      "native-responsive-input-digest-missing", "/",
                      "engine, profile, recipe, and catalog digests must be nonzero");
+    }
+    if (input.delivery_profile_id.has_value() &&
+        responsive_delivery_profile(*input.delivery_profile_id) == nullptr) {
+        return error(
+            ErrorCode::invalid_identity,
+            "native-responsive-delivery-profile-identity-invalid",
+            "/delivery_profile",
+            "delivery profile identity is not an installed profile");
     }
     if (input.shared_recorded_starter.has_value() &&
         (input.shared_recorded_starter->aggregate_sha256.is_zero() ||
@@ -516,6 +529,18 @@ validate_child_manifest(const PortableResponsivePackageMember &member,
                      "native-responsive-child-manifest-identity-mismatch", member.path,
                      "child manifest schema or engine identity is inconsistent");
     }
+    const auto audio = root.find("audio");
+    if (audio.kind() == authoring::JsonKind::object) {
+        const auto sample_rate = audio.find("sample_rate_hz").number();
+        if (!sample_rate.has_value() || *sample_rate != runtime.sample_rate_hz) {
+            return error(
+                ErrorCode::topology_mismatch,
+                "native-responsive-child-delivery-rate-mismatch",
+                member.path + "/audio/sample_rate_hz",
+                "child manifest delivery rate differs from the root delivery "
+                "profile");
+        }
+    }
     if (const auto failure =
             require_string_array(root.find("dry_bus_ids"), runtime.dry_bus_ids,
                                  member.path + "/dry_bus_ids")) {
@@ -562,6 +587,28 @@ validate_runtime_input(const ResponsiveRuntimeInputV1 &runtime,
         return error(ErrorCode::invalid_argument,
                      "native-responsive-runtime-engine-identity-invalid", "/runtime",
                      "runtime engine identity or compiled provenance is invalid");
+    }
+    const auto *delivery_profile =
+        responsive_delivery_profile(runtime.delivery_profile);
+    if (delivery_profile == nullptr ||
+        !responsive_delivery_profile_matches(
+            *delivery_profile, runtime.delivery_profile, runtime.sample_rate_hz,
+            runtime.block_frames, runtime.presentation_fft_size,
+            runtime.presentation_coefficient_count)) {
+        return error(
+            ErrorCode::invalid_argument,
+            "native-responsive-runtime-delivery-profile-invalid", "/runtime/audio",
+            "runtime delivery profile is unknown or its sample/block/FFT geometry "
+            "does not match the installed profile");
+    }
+    if (runtime.delivery_profile != kResponsiveCanonicalDeliveryProfile.id &&
+        (!identity.delivery_profile_id.has_value() ||
+         *identity.delivery_profile_id != runtime.delivery_profile)) {
+        return error(
+            ErrorCode::invalid_identity,
+            "native-responsive-delivery-profile-identity-mismatch",
+            "/delivery_profile",
+            "noncanonical delivery profile must be bound into the bake identity");
     }
     if (runtime.physics_rate_hz != kResponsiveRuntimePhysicsRateHzV1 ||
         !canonical_rpm(runtime.minimum_rpm) || !canonical_rpm(runtime.maximum_rpm) ||
@@ -702,8 +749,11 @@ encode_runtime(const ResponsiveRuntimeInputV1 &runtime,
     output.append("  },\n");
     append_key(output, 2U, "audio");
     output.append("{\n");
-    append_integer_field(output, 4U, "sample_rate_hz",
-                         kResponsiveRuntimeSampleRateHzV1);
+    append_integer_field(output, 4U, "sample_rate_hz", runtime.sample_rate_hz);
+    if (runtime.delivery_profile != kResponsiveCanonicalDeliveryProfile.id) {
+        append_string_field(output, 4U, "delivery_profile", runtime.delivery_profile);
+        append_integer_field(output, 4U, "block_frames", runtime.block_frames);
+    }
     append_string_field(output, 4U, "encoding", "float32le");
     append_string_field(output, 4U, "channel_layout", "mono");
     append_string_field(output, 4U, "bus_id", runtime.audition_bus_id, false);

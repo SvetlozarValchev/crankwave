@@ -1,4 +1,6 @@
 import { loadHeldTexturePresentationRuntime } from "./held-texture-presentation-runtime.js";
+import { loadDieselMechanicalRuntime } from "./diesel-mechanical-runtime.js";
+import {DIESEL_DRIVE_PATH, loadDieselDriveRuntime} from './diesel-drive-runtime.js';
 import {
   loadSharedRecordedStarterRuntime,
   resolveSharedRecordedStarterManifestUrl,
@@ -187,7 +189,7 @@ function parseDescriptor(entryBytes, entries) {
     ["kind", "manifest_path", "manifest_sha256"],
     "descriptor.runtime",
   );
-  if (runtime.kind !== "responsive-audio") {
+  if (!["responsive-audio", "diesel-mechanical-audio-v1"].includes(runtime.kind)) {
     fail("invalid-descriptor", "descriptor.runtime.kind is unsupported");
   }
   if (!isPortableCrankwavePath(runtime.manifest_path)) {
@@ -227,7 +229,10 @@ function entryPayload(container, entry) {
 // Fully verifies one complete CRANKWAVE v1 carrier before exposing any entry.
 export async function loadCrankwavePackage(
   input,
-  { crypto: cryptoImplementation = globalThis.crypto } = {},
+  {
+    crypto: cryptoImplementation = globalThis.crypto,
+    takeOwnership = false,
+  } = {},
 ) {
   const source = bytes(input);
   if (source.byteLength > MAXIMUM_CONTAINER_BYTES) {
@@ -286,9 +291,13 @@ export async function loadCrankwavePackage(
     fail("resource-limit", "CRANKWAVE index size is inconsistent with its entries");
   }
 
-  // Take ownership of immutable-by-convention bytes before any asynchronous
-  // hash. All subsequent parsing and virtual fetches use only this snapshot.
-  const container = source.slice();
+  // A transferred worker ArrayBuffer has no live caller-side alias, so the
+  // worker can use it directly and avoid a second full carrier allocation.
+  // Ordinary callers still get an immutable snapshot before asynchronous
+  // hashing; taking ownership is an explicit internal handoff.
+  const container = takeOwnership && input instanceof ArrayBuffer
+    ? source
+    : source.slice();
   const view = new DataView(
     container.buffer,
     container.byteOffset,
@@ -470,13 +479,38 @@ export function createCrankwaveFetch(package_) {
 // Loads the proven responsive runtime directly from a fully verified carrier.
 export async function loadResponsiveAudioCrankwave(
   input,
-  { crypto: cryptoImplementation = globalThis.crypto } = {},
+  {
+    crypto: cryptoImplementation = globalThis.crypto,
+    takeOwnership = false,
+  } = {},
 ) {
   const package_ = await loadCrankwavePackage(input, {
     crypto: cryptoImplementation,
+    takeOwnership,
   });
   const fetchImplementation = createCrankwaveFetch(package_);
   const manifestUrl = `${VIRTUAL_ORIGIN}/${package_.descriptor.runtime.manifestPath}`;
+  if (package_.descriptor.runtime.kind === "diesel-mechanical-audio-v1") {
+    const runtime = await loadDieselMechanicalRuntime(manifestUrl, {
+      fetch: fetchImplementation, crypto: cryptoImplementation,
+    });
+    if (runtime.manifest.engine !== package_.descriptor.engineId) {
+      fail("runtime-identity-mismatch", "diesel runtime engine does not match crankwave.json");
+    }
+    const sourcePath = new URL("engine.json", manifestUrl).pathname.slice(1);
+    const sourceEntry = package_.entries.find((entry) => entry.path === sourcePath);
+    if (sourceEntry?.sha256 !== runtime.manifest.source_sha256) {
+      fail("runtime-identity-mismatch", "diesel source identity does not bind the packaged engine definition");
+    }
+    if (package_.entries.some(entry => entry.path === DIESEL_DRIVE_PATH)) {
+      const response = await fetchImplementation(`${VIRTUAL_ORIGIN}/${sourcePath}`);
+      const definition = JSON.parse(new TextDecoder().decode(await response.arrayBuffer()));
+      const drivePackage = await loadDieselDriveRuntime(`${VIRTUAL_ORIGIN}/${DIESEL_DRIVE_PATH}`,
+        runtime, definition.engine.cylinder, {fetch: fetchImplementation, crypto: cryptoImplementation});
+      return Object.freeze({package: package_, runtime: Object.freeze({...runtime, drivePackage})});
+    }
+    return Object.freeze({ package: package_, runtime });
+  }
   const runtime = await loadHeldTexturePresentationRuntime(manifestUrl, {
     fetch: fetchImplementation,
     crypto: cryptoImplementation,
@@ -497,7 +531,11 @@ export async function loadResponsiveAudioCrankwave(
   );
   const sharedRecordedStarterPackage = await loadSharedRecordedStarterRuntime(
     sharedUrl,
-    { fetch: fetchImplementation, crypto: cryptoImplementation },
+    {
+      fetch: fetchImplementation,
+      crypto: cryptoImplementation,
+      allowExperimental48k: runtime.sampleRate === 48_000,
+    },
   );
   return Object.freeze({
     package: package_,

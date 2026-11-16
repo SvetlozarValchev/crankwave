@@ -4,6 +4,7 @@
 #include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -11,6 +12,7 @@
 #include <filesystem>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -794,6 +796,50 @@ advance_gas(CompiledSessions &sessions, const LegacyMechanismStep &mechanics,
     return require_gas_step(result, sample_index);
 }
 
+void configure_source_two_stage(AuthoredEngineFixture &request,
+                                double premixed_fraction, double diffusion_scale) {
+    auto &source = crankwave::test::low_order_core(request.engine)
+                       .fuel.source_two_stage_combustion.emplace();
+    source.auto_ignition_temperature_k = {700.0, "test.source-temperature-marker"};
+    source.premixed_burn_fraction_01 = {premixed_fraction, "test.source-premixed"};
+    source.premixed_flame_speed_multiplier = {3.5, "test.source-premixed-speed"};
+    source.diffusion_flame_speed_multiplier = {diffusion_scale, "test.source-diffusion"};
+}
+
+void test_source_two_stage_runtime_binding(const AuthoredEngineFixture &canonical) {
+    auto base_request = make_short_request(canonical);
+    auto identity_request = base_request;
+    configure_source_two_stage(identity_request, 0.0, 1.0);
+    auto changed_request = base_request;
+    configure_source_two_stage(changed_request, 0.2, 0.6);
+    auto base = compile_sessions(base_request);
+    auto identity = compile_sessions(identity_request);
+    auto changed = compile_sessions(changed_request);
+    auto repeated = compile_sessions(changed_request);
+    bool different_heat_release = false;
+    bool positive_heat_release = false;
+    for (std::uint64_t sample = 0; sample < kShortRunStepCount / 2; ++sample) {
+        const auto &motion = advance_mechanics(base, sample);
+        const auto &base_gas = advance_gas(base, motion, sample);
+        const auto &identity_gas = advance_gas(identity, motion, sample);
+        const auto &changed_gas = advance_gas(changed, motion, sample);
+        const auto &repeated_gas = advance_gas(repeated, motion, sample);
+        expect(same_gas_step(base_gas, identity_gas),
+               "zero-premixed unity-diffusion extension changed spark execution");
+        expect(same_gas_step(changed_gas, repeated_gas),
+               "source two-stage runtime is not deterministic");
+        for (std::size_t cylinder = 0; cylinder < base_gas.cylinders.size(); ++cylinder) {
+            const double heat =
+                changed_gas.cylinders[cylinder].outer_step_combustion_heat_release_j;
+            positive_heat_release = positive_heat_release || heat > 0.0;
+            different_heat_release = different_heat_release ||
+                heat != base_gas.cylinders[cylinder].outer_step_combustion_heat_release_j;
+        }
+    }
+    expect(positive_heat_release && different_heat_release,
+           "two-stage fields did not reach the executable chamber burn law");
+}
+
 void test_vtec_selects_one_coherent_immutable_cam_pair(
     const AuthoredEngineFixture &canonical) {
     auto base_request = make_short_request(canonical);
@@ -1446,6 +1492,29 @@ void expect_random_plan_rejected(const AuthoredEngineFixture &request,
 }
 
 void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical) {
+    for (int field = 0; field < 4; ++field) {
+        for (const double invalid : {-1.0, std::numeric_limits<double>::quiet_NaN()}) {
+            auto request = make_short_request(canonical);
+            configure_source_two_stage(request, 0.2, 0.6);
+            auto &source = *crankwave::test::low_order_core(request.engine)
+                                .fuel.source_two_stage_combustion;
+            std::array<double *, 4> values{
+                &source.auto_ignition_temperature_k.value,
+                &source.premixed_burn_fraction_01.value,
+                &source.premixed_flame_speed_multiplier.value,
+                &source.diffusion_flame_speed_multiplier.value,
+            };
+            *values[static_cast<std::size_t>(field)] = invalid;
+            expect_gas_compile_rejected(request, "source_two_stage_combustion",
+                                       "invalid source two-stage field");
+        }
+    }
+    {
+        auto request = make_short_request(canonical);
+        configure_source_two_stage(request, 1.01, 0.6);
+        expect_gas_compile_rejected(request, "source_two_stage_combustion",
+                                   "source premixed fraction above one");
+    }
     {
         auto request = make_short_request(canonical);
         request.engine.methods.gas_exchange.value.version += 1U;
@@ -1535,6 +1604,7 @@ void test_length_authored_collector_geometry_admission(
 }
 
 void run_tests(const AuthoredEngineFixture &canonical) {
+    test_source_two_stage_runtime_binding(canonical);
     test_vtec_selects_one_coherent_immutable_cam_pair(canonical);
     test_short_authored_fresh_state_and_deterministic_activity(canonical);
     test_two_intake_direct_runtime_retains_independent_lanes(canonical);

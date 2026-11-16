@@ -59,6 +59,7 @@ struct DirectionalSweepMotion {
     double sweep_end_seconds = 0.0;
     double total_duration_seconds = 0.0;
     std::vector<DirectionalTrajectoryPoint> points;
+    double preparation_duration_seconds = kDirectionalPreparationSeconds;
 
     friend bool operator==(const DirectionalSweepMotion &,
                            const DirectionalSweepMotion &) = default;

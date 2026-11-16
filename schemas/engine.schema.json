@@ -3,21 +3,27 @@
   "$id": "https://crankwave.dev/schemas/engine.schema.json",
   "title": "Crankwave engine package document",
   "$comment": "This is the single current authoring schema. Schema-valid capabilities may still be rejected by the compiler when their executable implementation is not available.",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["schema", "engine", "presentation"],
-  "properties": {
-    "schema": { "const": "crankwave/engine" },
-    "engine": { "$ref": "#/$defs/engine" },
-    "presentation": { "$ref": "#/$defs/presentation" },
-    "rig": {
-      "anyOf": [
-        { "$ref": "#/$defs/rig" },
-        { "type": "null" }
-      ]
-    }
-  },
+  "oneOf": [
+    { "$ref": "#/$defs/sparkEngineDocument" },
+    { "$ref": "diesel-mechanical-engine.schema.json" }
+  ],
   "$defs": {
+    "sparkEngineDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "engine", "presentation"],
+      "properties": {
+        "schema": { "const": "crankwave/engine" },
+        "engine": { "$ref": "#/$defs/engine" },
+        "presentation": { "$ref": "#/$defs/presentation" },
+        "rig": {
+          "anyOf": [
+            { "$ref": "#/$defs/rig" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
     "id": {
       "type": "string",
       "minLength": 1,
@@ -662,6 +668,23 @@
         "maximum_dilution_effect": {
           "type": "number",
           "exclusiveMinimum": 0
+        },
+        "lbv_multiplier": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Explicit source-simulator laminar burning velocity multiplier. Omission retains the legacy derived unity value."
+        },
+        "source_two_stage": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Experimental compatibility with the local source simulator's scheduled two-stage burn. The temperature is a positive activation marker, not an executed autoignition threshold; this is not direct-injection diesel physics.",
+          "required": ["auto_ignition_temperature_k", "premixed_burn_fraction_01", "premixed_flame_speed_multiplier", "diffusion_flame_speed_multiplier"],
+          "properties": {
+            "auto_ignition_temperature_k": {"type": "number", "exclusiveMinimum": 0},
+            "premixed_burn_fraction_01": {"$ref": "#/$defs/fraction"},
+            "premixed_flame_speed_multiplier": {"type": "number", "exclusiveMinimum": 0},
+            "diffusion_flame_speed_multiplier": {"type": "number", "exclusiveMinimum": 0}
+          }
         }
       }
     },

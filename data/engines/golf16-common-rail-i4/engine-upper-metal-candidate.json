@@ -1,0 +1,1467 @@
+{
+  "schema": "crankwave/engine",
+  "model": "mechanical-diesel-v1",
+  "engine": {
+    "id": "golf16-common-rail-i4",
+    "cylinder": {
+      "bore_m": 0.0795,
+      "stroke_m": 0.0805,
+      "connecting_rod_length_m": 0.137,
+      "compression_ratio": 16.2,
+      "gas_constant_j_per_kg_k": 287,
+      "specific_heat_ratio": 1.36,
+      "injected_fuel_sensible_energy_j_per_kg": 279027.7777777778,
+      "wall_temperature_k": 435,
+      "wall_conductance_w_per_k": 4,
+      "crankcase_pressure_pa_abs": 101325,
+      "initial_charge": {
+        "pressure_pa_abs": 101325,
+        "temperature_k": 330,
+        "oxygen_mass_fraction": 0.23
+      },
+      "intake": {
+        "pressure_pa_abs": 101325,
+        "temperature_k": 305,
+        "oxygen_mass_fraction": 0.23
+      },
+      "exhaust": {
+        "pressure_pa_abs": 103000,
+        "temperature_k": 600,
+        "oxygen_mass_fraction": 0.08
+      },
+      "intake_valve": {
+        "open_angle_atdc_rad": 6.021385919380437,
+        "close_angle_atdc_rad": 10.035643198967396,
+        "maximum_effective_area_m2": 0.00065
+      },
+      "exhaust_valve": {
+        "open_angle_atdc_rad": 2.2689280275926285,
+        "close_angle_atdc_rad": 6.5973445725385655,
+        "maximum_effective_area_m2": 0.00055
+      },
+      "combustion": {
+        "lower_heating_value_j_per_kg": 42700000,
+        "stoichiometric_oxygen_kg_per_kg_fuel": 3.4,
+        "preparation_time_s": 0.00023,
+        "premixed_burn_time_s": 0.00012,
+        "reference_ignition_delay_s": 0.00065,
+        "reference_temperature_k": 800,
+        "reference_pressure_pa_abs": 4000000,
+        "reference_oxygen_mass_fraction": 0.23,
+        "activation_temperature_k": 4000,
+        "pressure_exponent": 0.5,
+        "oxygen_exponent": 0.5
+      }
+    },
+    "injection_pulses": [
+      {
+        "id": 1,
+        "start_angle_atdc_rad": -0.3141592653589793,
+        "duration_rad": 0.05235987755982989,
+        "full_fuel_mass_kg": 2e-06,
+        "opening_fraction_01": 0.2,
+        "closing_fraction_01": 0.25,
+        "minimum_duration_fraction_01": 0.35
+      },
+      {
+        "id": 2,
+        "start_angle_atdc_rad": -0.15707963267948966,
+        "duration_rad": 0.05235987755982989,
+        "full_fuel_mass_kg": 2e-06,
+        "opening_fraction_01": 0.2,
+        "closing_fraction_01": 0.25,
+        "minimum_duration_fraction_01": 0.35
+      },
+      {
+        "id": 3,
+        "start_angle_atdc_rad": -0.017453292519943295,
+        "duration_rad": 0.3839724354387525,
+        "full_fuel_mass_kg": 3.7999999999999995e-05,
+        "opening_fraction_01": 0.2,
+        "closing_fraction_01": 0.25,
+        "minimum_duration_fraction_01": 0.12
+      }
+    ],
+    "cylinders": [
+      {
+        "id": "cylinder-1",
+        "firing_angle_rad": 0.0,
+        "fuel_trim": 1,
+        "structural_gain": 0.8461452410204582
+      },
+      {
+        "id": "cylinder-3",
+        "firing_angle_rad": 3.141592653589793,
+        "fuel_trim": 0.995,
+        "structural_gain": 0.6618363766397642
+      },
+      {
+        "id": "cylinder-4",
+        "firing_angle_rad": 6.283185307179586,
+        "fuel_trim": 1.005,
+        "structural_gain": 0.5864372957567532
+      },
+      {
+        "id": "cylinder-2",
+        "firing_angle_rad": 9.42477796076938,
+        "fuel_trim": 1,
+        "structural_gain": 0.7539908088301113
+      }
+    ],
+    "operating_boundaries": [
+      {
+        "rpm": 750,
+        "fueling_01": 0,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 600,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 750,
+        "fueling_01": 0.06,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 607,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 750,
+        "fueling_01": 0.12,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 614,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 750,
+        "fueling_01": 0.25,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 630,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 750,
+        "fueling_01": 0.5,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 660,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 750,
+        "fueling_01": 0.75,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 690,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 750,
+        "fueling_01": 1,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 720,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 850,
+        "fueling_01": 0,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 600,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 850,
+        "fueling_01": 0.06,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 607,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 850,
+        "fueling_01": 0.12,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 614,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 850,
+        "fueling_01": 0.25,
+        "intake": {
+          "pressure_pa_abs": 101451,
+          "temperature_k": 305.02,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103066,
+          "temperature_k": 630,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 850,
+        "fueling_01": 0.5,
+        "intake": {
+          "pressure_pa_abs": 102543,
+          "temperature_k": 305.22,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103633,
+          "temperature_k": 660,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 850,
+        "fueling_01": 0.75,
+        "intake": {
+          "pressure_pa_abs": 103937,
+          "temperature_k": 305.47,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 104358,
+          "temperature_k": 690,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 850,
+        "fueling_01": 1,
+        "intake": {
+          "pressure_pa_abs": 104625,
+          "temperature_k": 305.6,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 104716,
+          "temperature_k": 720,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1000,
+        "fueling_01": 0,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 600,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1000,
+        "fueling_01": 0.06,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 607,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1000,
+        "fueling_01": 0.12,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 614,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1000,
+        "fueling_01": 0.25,
+        "intake": {
+          "pressure_pa_abs": 101746,
+          "temperature_k": 305.08,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103219,
+          "temperature_k": 630,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1000,
+        "fueling_01": 0.5,
+        "intake": {
+          "pressure_pa_abs": 105384,
+          "temperature_k": 305.74,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 105111,
+          "temperature_k": 660,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1000,
+        "fueling_01": 0.75,
+        "intake": {
+          "pressure_pa_abs": 110030,
+          "temperature_k": 306.58,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 107527,
+          "temperature_k": 690,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1000,
+        "fueling_01": 1,
+        "intake": {
+          "pressure_pa_abs": 112325,
+          "temperature_k": 307.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 108720,
+          "temperature_k": 720,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1250,
+        "fueling_01": 0,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 600,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1250,
+        "fueling_01": 0.06,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 607,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1250,
+        "fueling_01": 0.12,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 614,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1250,
+        "fueling_01": 0.25,
+        "intake": {
+          "pressure_pa_abs": 102798,
+          "temperature_k": 305.27,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103766,
+          "temperature_k": 630,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1250,
+        "fueling_01": 0.5,
+        "intake": {
+          "pressure_pa_abs": 115532,
+          "temperature_k": 307.58,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 110388,
+          "temperature_k": 660,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1250,
+        "fueling_01": 0.75,
+        "intake": {
+          "pressure_pa_abs": 131793,
+          "temperature_k": 310.54,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 118843,
+          "temperature_k": 690,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1250,
+        "fueling_01": 1,
+        "intake": {
+          "pressure_pa_abs": 139825,
+          "temperature_k": 312.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 123020,
+          "temperature_k": 720,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1500,
+        "fueling_01": 0,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 600,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1500,
+        "fueling_01": 0.06,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 607,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1500,
+        "fueling_01": 0.12,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 614,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1500,
+        "fueling_01": 0.25,
+        "intake": {
+          "pressure_pa_abs": 104061,
+          "temperature_k": 305.5,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 104423,
+          "temperature_k": 630,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1500,
+        "fueling_01": 0.5,
+        "intake": {
+          "pressure_pa_abs": 127710,
+          "temperature_k": 309.8,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 116720,
+          "temperature_k": 660,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1500,
+        "fueling_01": 0.75,
+        "intake": {
+          "pressure_pa_abs": 157908,
+          "temperature_k": 315.29,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 132423,
+          "temperature_k": 690,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1500,
+        "fueling_01": 1,
+        "intake": {
+          "pressure_pa_abs": 172825,
+          "temperature_k": 318.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 140180,
+          "temperature_k": 720,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1800,
+        "fueling_01": 0,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 600,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1800,
+        "fueling_01": 0.06,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 607,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1800,
+        "fueling_01": 0.12,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 614,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1800,
+        "fueling_01": 0.25,
+        "intake": {
+          "pressure_pa_abs": 105113,
+          "temperature_k": 305.69,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 104970,
+          "temperature_k": 630,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1800,
+        "fueling_01": 0.5,
+        "intake": {
+          "pressure_pa_abs": 137858,
+          "temperature_k": 311.64,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 121997,
+          "temperature_k": 660,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1800,
+        "fueling_01": 0.75,
+        "intake": {
+          "pressure_pa_abs": 179671,
+          "temperature_k": 319.24,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 143740,
+          "temperature_k": 690,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 1800,
+        "fueling_01": 1,
+        "intake": {
+          "pressure_pa_abs": 200325,
+          "temperature_k": 323.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 154480,
+          "temperature_k": 720,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2200,
+        "fueling_01": 0,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 600,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2200,
+        "fueling_01": 0.06,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 607,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2200,
+        "fueling_01": 0.12,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 614,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2200,
+        "fueling_01": 0.25,
+        "intake": {
+          "pressure_pa_abs": 105534,
+          "temperature_k": 305.77,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 105189,
+          "temperature_k": 630,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2200,
+        "fueling_01": 0.5,
+        "intake": {
+          "pressure_pa_abs": 141917,
+          "temperature_k": 312.38,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 124108,
+          "temperature_k": 660,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2200,
+        "fueling_01": 0.75,
+        "intake": {
+          "pressure_pa_abs": 188376,
+          "temperature_k": 320.83,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 148266,
+          "temperature_k": 690,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2200,
+        "fueling_01": 1,
+        "intake": {
+          "pressure_pa_abs": 211325,
+          "temperature_k": 325.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 160200,
+          "temperature_k": 720,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2700,
+        "fueling_01": 0,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 600,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2700,
+        "fueling_01": 0.06,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 607,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2700,
+        "fueling_01": 0.12,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 614,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2700,
+        "fueling_01": 0.25,
+        "intake": {
+          "pressure_pa_abs": 105534,
+          "temperature_k": 305.77,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 105189,
+          "temperature_k": 630,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2700,
+        "fueling_01": 0.5,
+        "intake": {
+          "pressure_pa_abs": 141917,
+          "temperature_k": 312.38,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 124108,
+          "temperature_k": 660,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2700,
+        "fueling_01": 0.75,
+        "intake": {
+          "pressure_pa_abs": 188376,
+          "temperature_k": 320.83,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 148266,
+          "temperature_k": 690,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 2700,
+        "fueling_01": 1,
+        "intake": {
+          "pressure_pa_abs": 211325,
+          "temperature_k": 325.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 160200,
+          "temperature_k": 720,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3200,
+        "fueling_01": 0,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 600,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3200,
+        "fueling_01": 0.06,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 607,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3200,
+        "fueling_01": 0.12,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 614,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3200,
+        "fueling_01": 0.25,
+        "intake": {
+          "pressure_pa_abs": 105113,
+          "temperature_k": 305.69,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 104970,
+          "temperature_k": 630,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3200,
+        "fueling_01": 0.5,
+        "intake": {
+          "pressure_pa_abs": 137858,
+          "temperature_k": 311.64,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 121997,
+          "temperature_k": 660,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3200,
+        "fueling_01": 0.75,
+        "intake": {
+          "pressure_pa_abs": 179671,
+          "temperature_k": 319.24,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 143740,
+          "temperature_k": 690,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3200,
+        "fueling_01": 1,
+        "intake": {
+          "pressure_pa_abs": 200325,
+          "temperature_k": 323.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 154480,
+          "temperature_k": 720,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3800,
+        "fueling_01": 0,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 600,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3800,
+        "fueling_01": 0.06,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 607,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3800,
+        "fueling_01": 0.12,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 614,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3800,
+        "fueling_01": 0.25,
+        "intake": {
+          "pressure_pa_abs": 104061,
+          "temperature_k": 305.5,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 104423,
+          "temperature_k": 630,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3800,
+        "fueling_01": 0.5,
+        "intake": {
+          "pressure_pa_abs": 127710,
+          "temperature_k": 309.8,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 116720,
+          "temperature_k": 660,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3800,
+        "fueling_01": 0.75,
+        "intake": {
+          "pressure_pa_abs": 157908,
+          "temperature_k": 315.29,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 132423,
+          "temperature_k": 690,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 3800,
+        "fueling_01": 1,
+        "intake": {
+          "pressure_pa_abs": 172825,
+          "temperature_k": 318.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 140180,
+          "temperature_k": 720,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 4500,
+        "fueling_01": 0,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 600,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 4500,
+        "fueling_01": 0.06,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 607,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 4500,
+        "fueling_01": 0.12,
+        "intake": {
+          "pressure_pa_abs": 101325,
+          "temperature_k": 305.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 103000,
+          "temperature_k": 614,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 4500,
+        "fueling_01": 0.25,
+        "intake": {
+          "pressure_pa_abs": 104061,
+          "temperature_k": 305.5,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 104423,
+          "temperature_k": 630,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 4500,
+        "fueling_01": 0.5,
+        "intake": {
+          "pressure_pa_abs": 127710,
+          "temperature_k": 309.8,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 116720,
+          "temperature_k": 660,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 4500,
+        "fueling_01": 0.75,
+        "intake": {
+          "pressure_pa_abs": 157908,
+          "temperature_k": 315.29,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 132423,
+          "temperature_k": 690,
+          "oxygen_mass_fraction": 0.08
+        }
+      },
+      {
+        "rpm": 4500,
+        "fueling_01": 1,
+        "intake": {
+          "pressure_pa_abs": 172825,
+          "temperature_k": 318.0,
+          "oxygen_mass_fraction": 0.23
+        },
+        "exhaust": {
+          "pressure_pa_abs": 140180,
+          "temperature_k": 720,
+          "oxygen_mass_fraction": 0.08
+        }
+      }
+    ]
+  },
+  "presentation": {
+    "block_modes": [
+      {
+        "frequency_hz": 130,
+        "q": 4,
+        "gain_pcm_per_n": 9e-06
+      },
+      {
+        "frequency_hz": 300,
+        "q": 6,
+        "gain_pcm_per_n": 6e-06
+      },
+      {
+        "frequency_hz": 382,
+        "q": 30,
+        "gain_pcm_per_n": 2.5e-05
+      },
+      {
+        "frequency_hz": 550,
+        "q": 1.2,
+        "gain_pcm_per_n": 1.36e-06
+      },
+      {
+        "frequency_hz": 1280,
+        "q": 7,
+        "gain_pcm_per_n": 2.4e-06
+      },
+      {
+        "frequency_hz": 1700,
+        "q": 4.5,
+        "gain_pcm_per_n": 1.2e-06
+      },
+      {
+        "frequency_hz": 2550,
+        "q": 3.5,
+        "gain_pcm_per_n": 6.9e-07
+      },
+      {
+        "frequency_hz": 4600,
+        "q": 1.4,
+        "gain_pcm_per_n": 1.2155e-07
+      }
+    ],
+    "block_lowpass_hz": 6500,
+    "exhaust_gain_pcm_per_kg_s": 5,
+    "exhaust_lowpass_hz": 1400,
+    "master_gain": 0.6,
+    "articulation": {
+      "block_highpass_hz": 100,
+      "exhaust_highpass_hz": 200,
+      "cycle_fuel_spread_01": 0.025,
+      "cycle_timing_spread_deg": 0.18,
+      "variation_seed": 15982019
+    },
+    "exhaust_system": {
+      "branches": [
+        {
+          "id": "turbo-and-silenced-tailpipe",
+          "cylinder_ids": [
+            "cylinder-1",
+            "cylinder-2",
+            "cylinder-3",
+            "cylinder-4"
+          ],
+          "delay_s": 0.0058,
+          "reflection": -0.35,
+          "loss_lowpass_hz": 1400,
+          "gain": 1
+        }
+      ],
+      "radiation_gain_pcm_s2_per_kg": 0.004,
+      "flow_noise_gain_pcm_per_kg_s": 1.6,
+      "noise_highpass_hz": 160,
+      "noise_seed": 1598115
+    },
+    "pressure_texture": {
+      "decay_s": 0.009,
+      "coherent_gain": 0.75,
+      "compression_gain": 0.04,
+      "stochastic_gain": 5,
+      "seed": 15983000
+    },
+    "mechanical_texture": {
+      "valve_gain_pcm": 0.025,
+      "valve_frequency_hz": 1250,
+      "valve_decay_s": 0.004,
+      "pumping_gain_pcm": 0.012,
+      "pumping_lowpass_hz": 2000,
+      "seed": 1596800,
+      "valve_attack_s": 0.00045
+    },
+    "low_fuel_exhaust": {
+      "fueling_threshold_01": 0.3,
+      "gain": 0.9,
+      "lowpass_hz": 250,
+      "transition_s": 0.04
+    },
+    "coasting_balance": {
+      "fueling_threshold_01": 0.06,
+      "bass_gain": 0.18,
+      "movement_gain": 1,
+      "crossover_hz": 200,
+      "mechanical_gain": 2,
+      "transition_s": 0.04
+    },
+    "coasting_flow_texture": {
+      "gain_pcm_per_kg_s": 1.2,
+      "highpass_hz": 200,
+      "lowpass_hz": 1000,
+      "envelope_s": 0.002,
+      "seed": 1598000
+    },
+    "loaded_pressure_texture": {
+      "decay_s": 0.025,
+      "attack_s": 0.007,
+      "secondary_bank_gain": 1,
+      "fueling_start_01": 0,
+      "fueling_full_01": 0.12,
+      "transition_s": 0.04
+    },
+    "inline_inertia": {
+      "reciprocating_mass_kg": 0.45,
+      "frequency_hz": 110,
+      "q": 2.5,
+      "gain_pcm_per_n": 0.0004,
+      "highpass_hz": 140,
+      "lowpass_hz": 500
+    },
+    "loaded_clatter": {
+      "rpm_start": 1500,
+      "rpm_full": 3800,
+      "fueling_start_01": 0.18,
+      "fueling_full_01": 0.55,
+      "attack_s": 0.00015,
+      "decay_s": 0.0008,
+      "transition_s": 0.04,
+      "coherent_gain": 0,
+      "stochastic_gain": 2,
+      "highpass_hz": 1400,
+      "lowpass_hz": 6500,
+      "seed": 15983226,
+      "modes": [
+        {
+          "frequency_hz": 1700,
+          "q": 3,
+          "gain_pcm_per_n": 2.25e-05,
+          "cylinder_coupling": [
+            {
+              "id": "cylinder-1",
+              "gain": 1
+            },
+            {
+              "id": "cylinder-3",
+              "gain": 0.3
+            },
+            {
+              "id": "cylinder-4",
+              "gain": 0.3
+            },
+            {
+              "id": "cylinder-2",
+              "gain": 0.3
+            }
+          ]
+        },
+        {
+          "frequency_hz": 2400,
+          "q": 3,
+          "gain_pcm_per_n": 7.5e-06,
+          "cylinder_coupling": [
+            {
+              "id": "cylinder-1",
+              "gain": 1
+            },
+            {
+              "id": "cylinder-3",
+              "gain": 0.2
+            },
+            {
+              "id": "cylinder-4",
+              "gain": 0.25
+            },
+            {
+              "id": "cylinder-2",
+              "gain": 0.2
+            }
+          ]
+        },
+        {
+          "frequency_hz": 3650,
+          "q": 3,
+          "gain_pcm_per_n": 4.8e-06,
+          "cylinder_coupling": [
+            {
+              "id": "cylinder-1",
+              "gain": 1
+            },
+            {
+              "id": "cylinder-3",
+              "gain": 0.06
+            },
+            {
+              "id": "cylinder-4",
+              "gain": 0.12
+            },
+            {
+              "id": "cylinder-2",
+              "gain": 0.1
+            }
+          ]
+        },
+        {
+          "frequency_hz": 5000,
+          "q": 3,
+          "gain_pcm_per_n": 2.4e-06,
+          "cylinder_coupling": [
+            {
+              "id": "cylinder-1",
+              "gain": 1
+            },
+            {
+              "id": "cylinder-3",
+              "gain": 0.06
+            },
+            {
+              "id": "cylinder-4",
+              "gain": 0.1
+            },
+            {
+              "id": "cylinder-2",
+              "gain": 0.12
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "bake": {
+    "rpms": [
+      750,
+      850,
+      1000,
+      1250,
+      1500,
+      1800,
+      2200,
+      2700,
+      3200,
+      3800,
+      4500
+    ],
+    "fueling": [
+      0,
+      0.06,
+      0.12,
+      0.25,
+      0.5,
+      0.75,
+      1
+    ],
+    "samples_per_cycle": 8192,
+    "minimum_settling_cycles": 10,
+    "maximum_settling_cycles": 40,
+    "settling_relative_tolerance": 0.0005
+  },
+  "provenance": {
+    "physical_parameters": {
+      "origin": "inferred",
+      "note": "Golf 1.6 TDI / EA288-inspired warm common-rail I4. Pole Position Production identifies its 2019 Golf Variant recording as a 1.6 litre four-cylinder turbo diesel: https://pole.se/product/golf-variant-tdi-2019/ . VW Self-study Programme 891143C, The Golf 2014, printed p.20 supplies earlier CLHA-family bore 79.5 mm, stroke 80.5 mm, compression 16.2:1, and four valves: https://www.vaglinks.com/Docs/SSP/VWUSA.COM_SSP_891143C_2014_Golf.pdf . These family dimensions do not identify the exact recorded engine code or ECU calibration. Two 2 mg pilots at -18/-9 degrees and 38 mg main at -1 degree ATDC are authored, all scaled by fueling. Injector needle/rail pressure and ECU schedules are not solved. Rod length, cam windows/areas, gas temperatures, heat transfer, ignition coefficients and steady intake/exhaust boundary map are authored. Load-dependent boost up to 211325 Pa absolute at 2200-2700 RPM represents prescribed reservoirs, not compressor/turbine dynamics or turbo lag; oxygen fraction is fixed and EGR is not solved. No measured power/torque/emissions claim. The 4500 RPM bake row holds the authored 3800 RPM reservoir states; no additional boost or measured high-speed calibration is inferred. Inline-inertia reciprocating mass of .45 kg per cylinder is an authored effective mass, not a measured Golf piston/rod mass."
+    },
+    "presentation": {
+      "origin": "artistic",
+      "note": "Separate engine-microphone ramp candidate, based on the idle-reference candidate. Selected reference: https://soundcloud.com/polepositionproduction/vw-golf-diesel-t5-onbrd-1 , Pole Position Production T5 onboard engine mix, public WAV SHA256 04580414c33e50e724594ddad0110e584aa71b01c70677da9012043cf8110428. Harmonic ladder suggests about 1300 to 4470 RPM and back; throttle/fuel state is not logged. Exterior T7 remains the separate idle reference. No recording PCM or measured impulse response is embedded. Version 14 adds primary/secondary kinematic inertia for parallel cylinder axes from native crank radius, connecting rod length, firing phases and an authored .45 kg reciprocating mass per cylinder. Force scales with angular speed squared and continues at fuel cut. Authored 110 Hz Q2.5 radiation, 140 Hz highpass and 500 Hz lowpass, .0004 PCM/N gain. This is a physically motivated acoustic component, not a unique identification of the recorded sound, solved mounts/balance shafts or crank-speed dynamics. Preserve original gas sources in the existing 70 cells, add a 4500 RPM row using the last authored reservoirs. Increase block modes at/above 550 Hz by 1.7; coast mechanical gain 2 and movement 1, flow texture gain1.2 HP200 LP1000 to preserve mechanical/flow detail on rundown. Prior engine.json and idle-reference-candidate.json are unchanged. Listening approval pending; see RAMP_REFERENCE.md. Metallic-rattle audition: lower valve base resonance from 1650 to 1250 Hz, raise valve gain .02 to .025, reduce smooth contact duration .8 to .45 ms and increase ring decay 3.5 to 4 ms. Refocus the former 1050 Hz block mode at 1280 Hz Q7 gain2.4e-6, 1700 Hz Q4.5 gain1.2e-6, 2550 Hz Q3.5 gain6.9e-7; reduce 4600 Hz gain to 65 percent. These are authored acoustic choices following user feedback that the engine-mic ramp candidate lacked metallic rattle, not identified part resonances. Retain low block modes, inertia, pressure envelope, all exhaust/intake/coast controls, seeds and native gas sources. Prior engine-ramp-candidate.json unchanged. See RATTLE_REFERENCE.md; listening approval pending. Separate upper-metal revision after the user selected the real 1400-6500 Hz excerpt. Version 16 uses per-mode cylinder acoustic couplings, without changing fuel trims or firing. Short 0.15 ms attack and 0.8 ms decay excite seeded metallic noise from native combustion pressure rise. Four modes at 1700/2400/3650/5000 Hz, Q3, HP1400 LP6500. Restrained accents with distinct upper-mode cylinder weights address the overly uniform every-firing pulses in rejected version 15. These weights are artistic; no cylinder or physical source is uniquely identified from the recording. No recorded audio is embedded. Preserve the full preceding v14 rattle presentation, native sources, idle and settled coasting; this candidate adds only RPM/fuel-gated upper radiation. See UPPER_METAL_REFERENCE.md for measured differences and listening limits. Listening approval pending."
+    }
+  }
+}

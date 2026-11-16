@@ -1,0 +1,34 @@
+{
+  "cases": {
+    "gasoline-single": "Naturally aspirated four-stroke gasoline single, 84 mm bore, 90 mm stroke (about 0.5 L), compression 10:1. Idle near 1100 rpm and ignition limiter 6500 rpm. A mild road motorcycle single with a distinct separated pulse and crisp revs, not extreme racing cams.",
+    "gasoline-inline-four": "Naturally aspirated four-stroke gasoline inline-four, 80 mm bore and stroke (about 1.6 L), compression 9.5:1, firing order 1-3-4-2. Idle near 850 rpm, ignition limiter 6200 rpm. Restrained small sedan character with a compact single exhaust and light flywheel response.",
+    "gasoline-crossplane-v8": "Naturally aspirated 90-degree crossplane V8, 101.6 mm bore, 88.4 mm stroke (5.7 L), compression 9:1, firing order 1-8-4-3-6-5-7-2, idle near 750 rpm, ignition limiter at 5500 rpm. Audible uneven bank pulses, two separate exhausts, modest road cam rather than extreme drag-racing lope.",
+    "diesel-inline-four": "Warm diesel-style inline-four using this local engine-sim fork's scheduled two-stage combustion extension. Bore and stroke 90 mm (about 2.3 L), compression 18:1, firing order 1-3-4-2. Idle near 850 rpm, limiter 4200 rpm. Older light van character: pronounced but rounded clatter and midrange exhaust texture. Author fuel(auto_ignition_temperature: positive activation marker, premixed_burn_fraction: positive, premixed_flame_speed_multiplier: ..., diffusion_flame_speed_multiplier: ..., lbv_multiplier: ...). Read the actual API field names and use physical values, not this placeholder syntax. IMPORTANT: this fork still uses scheduled ignition and intake fuel mixture; its temperature-triggered ignition is not connected. The extension changes the burn law, not physical injection. Keep ignition_module wiring/timing and direct throttle, not governor. This is a native fork approximation, not a calibrated direct-injection diesel.",
+    "diesel-heavy-inline-six": "Warm heavy diesel-style inline-six using this local engine-sim fork's scheduled two-stage combustion extension. Bore 120 mm, stroke 130 mm (about 8.8 L), compression 17:1, firing order 1-5-3-6-2-4. Idle near 650 rpm, limiter 2600 rpm. Low heavy industrial six-cylinder growl, dense rounded pulses and mechanical combustion edge. Author positive auto_ignition_temperature and premixed_burn_fraction plus the premixed_flame_speed_multiplier, diffusion_flame_speed_multiplier and lbv_multiplier in fuel(...). IMPORTANT: this fork still uses scheduled ignition and intake fuel mixture; its temperature-triggered ignition is not connected. The extension changes the burn law, not physical injection. Keep ignition_module wiring/timing and direct throttle, not governor. This is a native fork approximation, not a calibrated direct-injection diesel."
+  },
+  "prompt": "Create a complete engine-sim engine in /workspace/main.mr from scratch.\nBrief: {brief}\n\nThis is an independent authoring experiment. No engine examples are supplied.\nThe real engine-sim standard API library is in /toolkit/es and available via\nimport \"engine_sim.mr\". Read API declarations as needed. Do not access network,\nexternal examples, any other project, or auth/config files. Do not spawn agents.\nUse one crankshaft at the origin, direct rods (no master/slave), standard fixed\ncams and direct throttle (no governor/VTEC). Use engine-sim syntax, physical\ncomponents, ignition wiring and timing, cam and\nflow curves, real engine-sim impulse responses. Do not synthesize audio yourself.\nChoose sensible acoustic settings and exhaust lengths for the requested engine.\nSet simulation_frequency: 10000. Include run(engine: ..., vehicle: ...,\ntransmission: ...) so the native simulator can create the complete session.\nThe API library includes impulse_response_library; its WAVs are already present.\nWhere present, /toolkit/native-api contains component implementations, without\nengine examples. Use these to resolve unclear API semantics. In particular,\nidle_flow_rate supplies a very rich auxiliary fuel mixture, not bypass air.\n\nSave first.mr before your first validation. Compile and validate with:\npython3 /toolkit/audition.py validate /workspace/main.mr --out /workspace/check-01\nEach --out directory must be new. To run the fixed 27-second native audio test:\npython3 /toolkit/audition.py audition /workspace/main.mr --out /workspace/audition-01\nThis physically simulates 2s cranking, 5s zero-pedal idle, 3s at 12% pedal, 4s\nrelease, 4s full pedal (limiter), 5s release, 4s ignition-off. Do not change the\ntest, wrapper or standard library. Fix your definition if it fails to compile,\nstall-free idle, freely rev and return toward idle. Observe RPM and nonzero audio.\nNative PCM clipping must be zero; reducing the listening WAV gain does not repair\nclipping already present in the native PCM. Correct the authored sound settings.\nRequire actual limiter cut and recovery events in the full audition report;\nnearly reaching the limiter RPM without a cut does not pass this requirement.\nUse at most 12 compile checks and 6 full auditions. Do not pretend to have heard\naudio if no audio listening tool exists. Save brief factual decisions and known\nlimitations in decisions.json, and identify the final audition directory in\nresult.json. End with a concise result and observed checks. No hidden reasoning\ntranscript is requested; edits, tool calls and measurements are the experiment.\n",
+  "targets": {
+    "gasoline-single": [
+      1100,
+      6500
+    ],
+    "gasoline-inline-four": [
+      850,
+      6200
+    ],
+    "gasoline-crossplane-v8": [
+      750,
+      5500
+    ],
+    "diesel-inline-four": [
+      850,
+      4200
+    ],
+    "diesel-heavy-inline-six": [
+      650,
+      2600
+    ]
+  },
+  "protocol_version": 2,
+  "protocol_note": "Updated after the initial five trials: native API semantics supplied, actual limiter events reported. Original experiment prompts/specification remain preserved in its artifacts."
+}

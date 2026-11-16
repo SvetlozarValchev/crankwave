@@ -242,6 +242,8 @@ add_library(
         src/simulation/bounded_dyno_constraint.cpp
         src/simulation/centered_slider_crank_equivalent_inertia.cpp
         src/simulation/coupled_free_vehicle_drivetrain.cpp
+        src/simulation/diesel_combustion_v1.cpp
+        src/simulation/diesel_cylinder_v1.cpp
         src/simulation/fixed_horizon_cycle_sampling.cpp
         src/simulation/free_engine_method_registry.cpp
         src/simulation/free_vehicle_method_registry.cpp
@@ -1119,6 +1121,8 @@ if(CRANKWAVE_BUILD_CLI)
         crankwave_cli_support
         STATIC
             src/cli/bake_crankwave_command.cpp
+            src/cli/bake_diesel_command.cpp
+            src/diesel/diesel_sound.cpp
             src/cli/cli_app.cpp
             src/cli/native_asset_root.cpp
             src/cli/native_builtin_asset_catalog.cpp
@@ -1247,6 +1251,7 @@ if(CRANKWAVE_BUILD_CLI)
         "${PROJECT_SOURCE_DIR}/docs/contracts/CLI_RESULT_V1.md"
         "${PROJECT_SOURCE_DIR}/docs/contracts/INSTALLED_DISTRIBUTION_V2.md"
         "${PROJECT_SOURCE_DIR}/docs/contracts/RESPONSIVE_PROFILE_SELECTION_V2.md"
+        "${PROJECT_SOURCE_DIR}/docs/contracts/RESPONSIVE_DELIVERY_PROFILES_V1.md"
         "${PROJECT_SOURCE_DIR}/docs/contracts/IR_AUTHORING_CATALOG_V1.md"
     )
     install(
@@ -1278,9 +1283,18 @@ if(CRANKWAVE_BUILD_CLI)
         "${PROJECT_SOURCE_DIR}/web/runtime/dry-directional-phase-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/held-phase-texture-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/held-texture-presentation-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/audio-delivery-profile.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/pcm-payload.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/renderer-runtime-compatibility.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/responsive-audio-lifecycle-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/responsive-drive-session.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/crankwave-audio-engine.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/diesel-mechanical-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/diesel-backdrive-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/diesel-drive-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/diesel-drive-session.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/limiter-performance-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/mechanical-texture-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/crankwave-package.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/shared-recorded-starter-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/state-phase-texture-runtime.js"

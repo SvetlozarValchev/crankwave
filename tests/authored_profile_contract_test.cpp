@@ -489,6 +489,30 @@ void run_authored_profile_contract_tests() {
                     make_provenance())
                .ok(),
            "zero burning-efficiency variation invalidated the engine profile");
+    {
+        auto profile = make_authored_profile();
+        profile.core.fuel.source_two_stage_combustion =
+            AuthoredLegacySourceTwoStageCombustion{
+                authored(700.0), authored(.25), authored(3.5), authored(.6)};
+        expect(validate(AuthoredExecutablePhysicsProfile{profile}, make_provenance()).ok(),
+               "explicit scheduled two-stage burn contract was rejected");
+        const auto accepted = profile;
+        for (int field = 0; field < 4; ++field) {
+            profile = accepted;
+            auto &value = *profile.core.fuel.source_two_stage_combustion;
+            if (field == 0) value.auto_ignition_temperature_k.value = 0;
+            if (field == 1) value.premixed_burn_fraction_01.value = 1.01;
+            if (field == 2) value.premixed_flame_speed_multiplier.value = -1;
+            if (field == 3) value.diffusion_flame_speed_multiplier.value =
+                std::numeric_limits<double>::quiet_NaN();
+            expect(!validate(AuthoredExecutablePhysicsProfile{profile}, make_provenance()).ok(),
+                   "invalid scheduled two-stage burn contract was accepted");
+        }
+        profile = accepted;
+        profile.core.fuel.source_two_stage_combustion->premixed_burn_fraction_01.claim_id.clear();
+        expect(!validate(AuthoredExecutablePhysicsProfile{profile}, make_provenance()).ok(),
+               "unclaimed source burn parameter was accepted");
+    }
 
     expect_authored_mutation_rejected(
         "negative authored piston mass was accepted",

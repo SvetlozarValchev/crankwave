@@ -177,15 +177,24 @@ assert(cliRecord, "native CLI is absent from release files");
 assert.equal(cliRecord.sha256, release.native_cli.sha256);
 
 const browserModuleNames = [
+  "audio-delivery-profile.js",
   "crankwave-audio-engine.js",
   "crankwave-package.js",
+  "diesel-backdrive-runtime.js",
+  "diesel-drive-runtime.js",
+  "diesel-drive-session.js",
+  "diesel-mechanical-runtime.js",
   "directional-phase-cell.js",
   "dry-directional-phase-runtime.js",
   "held-phase-texture-runtime.js",
   "held-texture-presentation-runtime.js",
+  "limiter-performance-runtime.js",
+  "mechanical-texture-runtime.js",
+  "pcm-payload.js",
   "release.js",
   "renderer-runtime-compatibility.js",
   "responsive-audio-lifecycle-runtime.js",
+  "responsive-drive-session.js",
   "shared-recorded-starter-runtime.js",
   "state-phase-texture-runtime.js",
   "steady-transient-envelope.js",
@@ -196,7 +205,7 @@ const actualBrowserModules = release.files
   .filter(file => file.startsWith(browserDirectory) && file.endsWith(".js"))
   .map(file => file.slice(browserDirectory.length))
   .sort();
-assert.deepEqual(actualBrowserModules, browserModuleNames);
+assert.deepEqual(actualBrowserModules, browserModuleNames.toSorted());
 
 for (const required of [
   `${resourceRelative}/licenses/CRANKWAVE.txt`,

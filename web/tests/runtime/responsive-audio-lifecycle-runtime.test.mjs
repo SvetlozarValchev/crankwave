@@ -43,7 +43,7 @@ function response(bytes) {
   });
 }
 
-function buildFixture({ elevatedShutdown = false } = {}) {
+function buildFixture({ elevatedShutdown = false, sampleRate = 192_000 } = {}) {
   const blobs = new Map();
   const put = (relativePath, bytes) => {
     const url = new URL(relativePath, MANIFEST_URL).href;
@@ -123,7 +123,7 @@ function buildFixture({ elevatedShutdown = false } = {}) {
         schema: "crankwave/lifecycle-capture-evidence",
         role,
         physics_rate_hz: 10_000,
-        delivery_rate_hz: 192_000,
+        delivery_rate_hz: sampleRate,
         scenario_id: derivedId,
         ...(role === "shutdown-elevated"
           ? {
@@ -171,7 +171,7 @@ function buildFixture({ elevatedShutdown = false } = {}) {
     id: "fixture-engine-lifecycle",
     engine: "fixture-engine",
     audio: {
-      sample_rate_hz: 192_000,
+      sample_rate_hz: sampleRate,
       encoding: "float32le",
       channel_layout: "mono",
       bus_id: "master.engine.audition",
@@ -259,7 +259,7 @@ function buildFixture({ elevatedShutdown = false } = {}) {
       engine: { id: "fixture-engine", sha256: "b".repeat(64) },
       renderer_build: { id: "fixture-renderer", sha256: "c".repeat(64) },
       physics_rate_hz: 10_000,
-      delivery_rate_hz: 192_000,
+      delivery_rate_hz: sampleRate,
       scenarios,
     },
   };
@@ -301,6 +301,28 @@ test("strict lifecycle loading accepts a complete hash-bound in-memory package",
     ].sort(),
   );
   assert.ok(fixture.calls.every(({ options }) => options.cache === "no-store"));
+});
+
+test("lifecycle loading accepts the experimental 48 kHz delivery profile", async () => {
+  const fixture = buildFixture({ sampleRate: 48_000 });
+  const package_ = await loadResponsiveAudioLifecycleRuntime(MANIFEST_URL, {
+    fetch: fixture.fetch,
+    crypto: webcrypto,
+  });
+
+  assert.equal(package_.sampleRate, 48_000);
+  const cursor = new ResponsiveAudioLifecycleCursor(package_, {
+    audioLatencyFrames: 0,
+    runningFloorRpm: 500,
+    heldAnchorFloorRpm: 600,
+    atlasLoadLanes: LANES,
+    atlasLoadCoordinate: LOAD_COORDINATE,
+  });
+  cursor.setState(state(0));
+  assert.deepEqual(cursor.mixPair(
+    new Float32Array(1),
+    new Float32Array(1),
+  ).bakedBlock, Float32Array.of(0));
 });
 
 test("lifecycle loading rejects a PCM payload that no longer matches its digest", async () => {

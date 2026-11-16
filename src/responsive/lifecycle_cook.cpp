@@ -768,6 +768,65 @@ cook_lifecycle_starter(const LifecycleCaptureEvidence &capture,
                                   std::move(cycles)};
 }
 
+std::optional<double> startup_handoff_completion_seconds(
+    const LifecycleCaptureEvidence &capture, const double running_floor_rpm) {
+    if (capture.role != LifecycleScenarioRole::startup ||
+        !std::isfinite(running_floor_rpm) || running_floor_rpm <= 0.0) {
+        return std::nullopt;
+    }
+    bool fired = false, floor_seen = false, coast_stable = false;
+    double previous_rpm = 0.0, previous_time = 0.0, crank = 0.0;
+    double peak_rpm = 0.0, peak_crank = 0.0, completion = 0.0;
+    for (const auto &point : capture.points) {
+        const double rpm = std::abs(point.rpm);
+        const double travel = (rpm + previous_rpm) * 0.5 *
+                              (point.simulation_seconds - previous_time) / 60.0;
+        crank += travel;
+        if (point.ignition_enabled && point.fuel_enabled &&
+            point.indicated_gas_availability ==
+                LifecycleCapturePoint::PublishedAvailability::available &&
+            point.indicated_gas_torque_nm > 0.0) {
+            fired = true;
+        }
+        if (fired) {
+            if (rpm >= peak_rpm) { peak_rpm = rpm; peak_crank = crank; }
+            floor_seen = floor_seen || rpm >= running_floor_rpm;
+            if (floor_seen && !point.starter_enabled && crank - peak_crank >= 4.0)
+                coast_stable = true;
+            if (floor_seen && coast_stable) completion += travel;
+            if (completion >= 2.0) return point.simulation_seconds;
+        }
+        previous_rpm = rpm;
+        previous_time = point.simulation_seconds;
+    }
+    return std::nullopt;
+}
+
+std::optional<double> observed_startup_idle_rpm(
+    const LifecycleCaptureEvidence &capture, const double running_floor_rpm) {
+    const auto completion = startup_handoff_completion_seconds(capture, running_floor_rpm);
+    if (!completion || capture.points.empty()) return std::nullopt;
+    const auto &last = capture.points.back();
+    if (!last.ignition_enabled || !last.fuel_enabled || last.starter_enabled ||
+        !finite(last.rpm) || last.rpm < running_floor_rpm) return std::nullopt;
+
+    std::vector<double> rpms;
+    for (auto cycle = capture.completed_cycles.rbegin();
+         cycle != capture.completed_cycles.rend() && rpms.size() < 5U; ++cycle) {
+        const double start_seconds =
+            static_cast<double>(capture.audible_first_delivery_frame + cycle->start_frame) /
+            static_cast<double>(kLifecycleDeliveryRateHz);
+        if (start_seconds < *completion || cycle->end_frame <= cycle->start_frame ||
+            cycle->end_frame > capture.pcm.size() ||
+            !finite(cycle->mean_rpm) || cycle->mean_rpm < running_floor_rpm) continue;
+        rpms.push_back(cycle->mean_rpm);
+    }
+    if (rpms.size() < 2U) return std::nullopt;
+    std::sort(rpms.begin(), rpms.end());
+    const auto middle = rpms.size() / 2U;
+    return rpms.size() % 2U ? rpms[middle] : (rpms[middle - 1U] + rpms[middle]) * 0.5;
+}
+
 LifecycleResult<LifecycleStartupPresentation> cook_lifecycle_startup(
     const LifecycleScenarioSpec &spec, const LifecycleCaptureEvidence &capture,
     const LifecycleCaptureEvidence &starter_capture,

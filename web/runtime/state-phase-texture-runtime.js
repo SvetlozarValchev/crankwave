@@ -7,7 +7,6 @@ import {
 const RUNTIME_SCHEMA =
   "crankwave/responsive-audio-state-phase-texture";
 const RUNTIME_KIND = "responsive-audio-state-phase-texture";
-const CANONICAL_SAMPLE_RATE = 192_000;
 const KNOWN_STATE_MASK = 0x1f;
 
 export class StatePhaseTextureRuntimeError extends Error {
@@ -150,12 +149,8 @@ export async function loadStatePhaseTextureRuntime(
 
   const audio = object(manifest.audio, "audio");
   const sampleRate = positiveInteger(audio.sample_rate_hz, "audio.sample_rate_hz");
-  if (
-    sampleRate !== CANONICAL_SAMPLE_RATE ||
-    audio.encoding !== "float32le" ||
-    audio.channel_layout !== "mono"
-  ) {
-    fail("state phase texture audio must be canonical mono float32le");
+  if (audio.encoding !== "float32le" || audio.channel_layout !== "mono") {
+    fail("state phase texture audio must be mono float32le");
   }
 
   const dryBusIds = array(manifest.dry_bus_ids, "dry_bus_ids").map(

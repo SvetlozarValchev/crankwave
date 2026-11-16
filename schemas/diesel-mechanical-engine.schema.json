@@ -1,0 +1,1291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crankwave.dev/schemas/diesel-mechanical-engine.schema.json",
+  "title": "Mechanical diesel branch of crankwave/engine",
+  "$comment": "All dimensioned fields use their named SI units. Executable admission additionally validates geometry, pulse overlap, valve windows, ordered complete axes, and numerical settling.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "model",
+    "engine",
+    "presentation",
+    "bake",
+    "provenance"
+  ],
+  "properties": {
+    "schema": {
+      "const": "crankwave/engine"
+    },
+    "model": {
+      "const": "mechanical-diesel-v1"
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "cylinder",
+        "injection_pulses",
+        "cylinders"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"
+        },
+        "cylinder": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bore_m",
+            "stroke_m",
+            "connecting_rod_length_m",
+            "compression_ratio",
+            "gas_constant_j_per_kg_k",
+            "specific_heat_ratio",
+            "injected_fuel_sensible_energy_j_per_kg",
+            "wall_temperature_k",
+            "wall_conductance_w_per_k",
+            "crankcase_pressure_pa_abs",
+            "initial_charge",
+            "intake",
+            "exhaust",
+            "intake_valve",
+            "exhaust_valve",
+            "combustion"
+          ],
+          "properties": {
+            "bore_m": {
+              "type": "number",
+              "minimum": 0.03,
+              "maximum": 0.3
+            },
+            "stroke_m": {
+              "type": "number",
+              "minimum": 0.03,
+              "maximum": 0.4
+            },
+            "connecting_rod_length_m": {
+              "type": "number",
+              "minimum": 0.03,
+              "maximum": 1
+            },
+            "compression_ratio": {
+              "type": "number",
+              "minimum": 10,
+              "maximum": 30
+            },
+            "gas_constant_j_per_kg_k": {
+              "type": "number",
+              "minimum": 200,
+              "maximum": 400
+            },
+            "specific_heat_ratio": {
+              "type": "number",
+              "minimum": 1.1,
+              "maximum": 1.67
+            },
+            "injected_fuel_sensible_energy_j_per_kg": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1000000.0
+            },
+            "wall_temperature_k": {
+              "type": "number",
+              "minimum": 250,
+              "maximum": 800
+            },
+            "wall_conductance_w_per_k": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "crankcase_pressure_pa_abs": {
+              "type": "number",
+              "minimum": 50000,
+              "maximum": 150000
+            },
+            "initial_charge": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "pressure_pa_abs",
+                "temperature_k",
+                "oxygen_mass_fraction"
+              ],
+              "properties": {
+                "pressure_pa_abs": {
+                  "type": "number",
+                  "minimum": 1000,
+                  "maximum": 300000
+                },
+                "temperature_k": {
+                  "type": "number",
+                  "minimum": 200,
+                  "maximum": 1500
+                },
+                "oxygen_mass_fraction": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 0.3
+                }
+              }
+            },
+            "intake": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "pressure_pa_abs",
+                "temperature_k",
+                "oxygen_mass_fraction"
+              ],
+              "properties": {
+                "pressure_pa_abs": {
+                  "type": "number",
+                  "minimum": 1000,
+                  "maximum": 300000
+                },
+                "temperature_k": {
+                  "type": "number",
+                  "minimum": 200,
+                  "maximum": 1500
+                },
+                "oxygen_mass_fraction": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 0.3
+                }
+              }
+            },
+            "exhaust": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "pressure_pa_abs",
+                "temperature_k",
+                "oxygen_mass_fraction"
+              ],
+              "properties": {
+                "pressure_pa_abs": {
+                  "type": "number",
+                  "minimum": 1000,
+                  "maximum": 300000
+                },
+                "temperature_k": {
+                  "type": "number",
+                  "minimum": 200,
+                  "maximum": 1500
+                },
+                "oxygen_mass_fraction": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 0.3
+                }
+              }
+            },
+            "intake_valve": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "open_angle_atdc_rad",
+                "close_angle_atdc_rad",
+                "maximum_effective_area_m2"
+              ],
+              "properties": {
+                "open_angle_atdc_rad": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 12.566370614359172
+                },
+                "close_angle_atdc_rad": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 12.566370614359172
+                },
+                "maximum_effective_area_m2": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 0.005
+                }
+              }
+            },
+            "exhaust_valve": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "open_angle_atdc_rad",
+                "close_angle_atdc_rad",
+                "maximum_effective_area_m2"
+              ],
+              "properties": {
+                "open_angle_atdc_rad": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 12.566370614359172
+                },
+                "close_angle_atdc_rad": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 12.566370614359172
+                },
+                "maximum_effective_area_m2": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 0.005
+                }
+              }
+            },
+            "combustion": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "lower_heating_value_j_per_kg",
+                "stoichiometric_oxygen_kg_per_kg_fuel",
+                "preparation_time_s",
+                "premixed_burn_time_s",
+                "reference_ignition_delay_s",
+                "reference_temperature_k",
+                "reference_pressure_pa_abs",
+                "reference_oxygen_mass_fraction",
+                "activation_temperature_k",
+                "pressure_exponent",
+                "oxygen_exponent"
+              ],
+              "properties": {
+                "lower_heating_value_j_per_kg": {
+                  "type": "number",
+                  "minimum": 10000000.0,
+                  "maximum": 60000000.0
+                },
+                "stoichiometric_oxygen_kg_per_kg_fuel": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 5
+                },
+                "preparation_time_s": {
+                  "type": "number",
+                  "minimum": 1e-05,
+                  "maximum": 0.02
+                },
+                "premixed_burn_time_s": {
+                  "type": "number",
+                  "minimum": 1e-05,
+                  "maximum": 0.02
+                },
+                "reference_ignition_delay_s": {
+                  "type": "number",
+                  "minimum": 1e-05,
+                  "maximum": 0.02
+                },
+                "reference_temperature_k": {
+                  "type": "number",
+                  "minimum": 300,
+                  "maximum": 1500
+                },
+                "reference_pressure_pa_abs": {
+                  "type": "number",
+                  "minimum": 100000.0,
+                  "maximum": 10000000.0
+                },
+                "reference_oxygen_mass_fraction": {
+                  "type": "number",
+                  "minimum": 0.01,
+                  "maximum": 0.3
+                },
+                "activation_temperature_k": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 20000
+                },
+                "pressure_exponent": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 3
+                },
+                "oxygen_exponent": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 3
+                }
+              }
+            }
+          }
+        },
+        "injection_pulses": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "start_angle_atdc_rad",
+              "duration_rad",
+              "full_fuel_mass_kg",
+              "opening_fraction_01",
+              "closing_fraction_01"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "start_angle_atdc_rad": {
+                "type": "number",
+                "minimum": -3.141592653589793,
+                "maximum": 3.141592653589793
+              },
+              "duration_rad": {
+                "type": "number",
+                "minimum": 0.001,
+                "maximum": 3.141592653589793
+              },
+              "full_fuel_mass_kg": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 0.001
+              },
+              "opening_fraction_01": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "closing_fraction_01": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "minimum_duration_fraction_01": {
+                "type": "number",
+                "minimum": 0.02,
+                "maximum": 1,
+                "default": 1,
+                "description": "Minimum delivered pulse duration relative to full duration; duration factor is minimum + (1-minimum) * fueling."
+              }
+            }
+          }
+        },
+        "cylinders": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "firing_angle_rad",
+              "fuel_trim",
+              "structural_gain"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"
+              },
+              "firing_angle_rad": {
+                "type": "number",
+                "minimum": 0,
+                "exclusiveMaximum": 12.566370614359172
+              },
+              "fuel_trim": {
+                "type": "number",
+                "minimum": 0.5,
+                "maximum": 1.5
+              },
+              "structural_gain": {
+                "type": "number",
+                "minimum": -2,
+                "maximum": 2
+              }
+            }
+          }
+        },
+        "operating_boundaries": {
+          "description": "Optional prescribed intake/exhaust states, one entry per RPM-major/fueling-minor bake cell. Requires complete version 11 presentation. No turbo dynamics are solved.",
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 512,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "rpm",
+              "fueling_01",
+              "intake",
+              "exhaust"
+            ],
+            "properties": {
+              "rpm": {
+                "type": "number",
+                "minimum": 400,
+                "maximum": 4500
+              },
+              "fueling_01": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "intake": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pressure_pa_abs",
+                  "temperature_k",
+                  "oxygen_mass_fraction"
+                ],
+                "properties": {
+                  "pressure_pa_abs": {
+                    "type": "number",
+                    "minimum": 1000,
+                    "maximum": 300000
+                  },
+                  "temperature_k": {
+                    "type": "number",
+                    "minimum": 200,
+                    "maximum": 1500
+                  },
+                  "oxygen_mass_fraction": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 0.3
+                  }
+                }
+              },
+              "exhaust": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pressure_pa_abs",
+                  "temperature_k",
+                  "oxygen_mass_fraction"
+                ],
+                "properties": {
+                  "pressure_pa_abs": {
+                    "type": "number",
+                    "minimum": 1000,
+                    "maximum": 300000
+                  },
+                  "temperature_k": {
+                    "type": "number",
+                    "minimum": 200,
+                    "maximum": 1500
+                  },
+                  "oxygen_mass_fraction": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 0.3
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "block_modes",
+        "block_lowpass_hz",
+        "exhaust_gain_pcm_per_kg_s",
+        "exhaust_lowpass_hz",
+        "master_gain"
+      ],
+      "properties": {
+        "block_modes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "frequency_hz",
+              "q",
+              "gain_pcm_per_n"
+            ],
+            "properties": {
+              "frequency_hz": {
+                "type": "number",
+                "minimum": 100,
+                "maximum": 8000
+              },
+              "q": {
+                "type": "number",
+                "minimum": 0.5,
+                "maximum": 30
+              },
+              "gain_pcm_per_n": {
+                "type": "number",
+                "minimum": -0.001,
+                "maximum": 0.001
+              }
+            }
+          }
+        },
+        "block_lowpass_hz": {
+          "type": "number",
+          "minimum": 2000,
+          "maximum": 8000
+        },
+        "exhaust_gain_pcm_per_kg_s": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "exhaust_lowpass_hz": {
+          "type": "number",
+          "minimum": 100,
+          "maximum": 3000
+        },
+        "master_gain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "articulation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "block_highpass_hz",
+            "exhaust_highpass_hz",
+            "cycle_fuel_spread_01",
+            "cycle_timing_spread_deg",
+            "variation_seed"
+          ],
+          "properties": {
+            "block_highpass_hz": {
+              "type": "number",
+              "minimum": 100,
+              "maximum": 1500
+            },
+            "exhaust_highpass_hz": {
+              "type": "number",
+              "minimum": 30,
+              "maximum": 300
+            },
+            "cycle_fuel_spread_01": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.2
+            },
+            "cycle_timing_spread_deg": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            },
+            "variation_seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        "exhaust_system": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "branches",
+            "radiation_gain_pcm_s2_per_kg",
+            "flow_noise_gain_pcm_per_kg_s",
+            "noise_highpass_hz",
+            "noise_seed"
+          ],
+          "properties": {
+            "branches": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "cylinder_ids",
+                  "delay_s",
+                  "reflection",
+                  "loss_lowpass_hz",
+                  "gain"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"
+                  },
+                  "cylinder_ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 12,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "delay_s": {
+                    "type": "number",
+                    "minimum": 0.001,
+                    "maximum": 0.04
+                  },
+                  "reflection": {
+                    "type": "number",
+                    "minimum": -0.9,
+                    "maximum": 0.9
+                  },
+                  "loss_lowpass_hz": {
+                    "type": "number",
+                    "minimum": 500,
+                    "maximum": 8000
+                  },
+                  "gain": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2
+                  }
+                }
+              }
+            },
+            "radiation_gain_pcm_s2_per_kg": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.1
+            },
+            "flow_noise_gain_pcm_per_kg_s": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 50
+            },
+            "noise_highpass_hz": {
+              "type": "number",
+              "minimum": 100,
+              "maximum": 3000
+            },
+            "noise_seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        "pressure_texture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decay_s",
+            "coherent_gain",
+            "compression_gain",
+            "stochastic_gain",
+            "seed"
+          ],
+          "properties": {
+            "decay_s": {
+              "type": "number",
+              "minimum": 0.001,
+              "maximum": 0.05
+            },
+            "coherent_gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "compression_gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "stochastic_gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 32
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        "mechanical_texture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "valve_gain_pcm",
+            "valve_frequency_hz",
+            "valve_decay_s",
+            "pumping_gain_pcm",
+            "pumping_lowpass_hz",
+            "seed"
+          ],
+          "properties": {
+            "valve_gain_pcm": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.5
+            },
+            "valve_frequency_hz": {
+              "type": "number",
+              "minimum": 400,
+              "maximum": 3000
+            },
+            "valve_decay_s": {
+              "type": "number",
+              "minimum": 0.0005,
+              "maximum": 0.008
+            },
+            "pumping_gain_pcm": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.2
+            },
+            "pumping_lowpass_hz": {
+              "type": "number",
+              "minimum": 300,
+              "maximum": 2000
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "valve_attack_s": {
+              "type": "number",
+              "minimum": 0.00025,
+              "maximum": 0.004
+            }
+          }
+        },
+        "low_fuel_exhaust": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fueling_threshold_01",
+            "gain",
+            "lowpass_hz",
+            "transition_s"
+          ],
+          "properties": {
+            "fueling_threshold_01": {
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 0.4
+            },
+            "gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "lowpass_hz": {
+              "type": "number",
+              "minimum": 250,
+              "maximum": 1500
+            },
+            "transition_s": {
+              "type": "number",
+              "minimum": 0.005,
+              "maximum": 0.2
+            }
+          }
+        },
+        "coasting_balance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fueling_threshold_01",
+            "bass_gain",
+            "movement_gain",
+            "crossover_hz",
+            "mechanical_gain",
+            "transition_s"
+          ],
+          "properties": {
+            "fueling_threshold_01": {
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 0.12
+            },
+            "bass_gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "movement_gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "crossover_hz": {
+              "type": "number",
+              "minimum": 80,
+              "maximum": 400
+            },
+            "mechanical_gain": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 2
+            },
+            "transition_s": {
+              "type": "number",
+              "minimum": 0.005,
+              "maximum": 0.2
+            }
+          }
+        },
+        "coasting_flow_texture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gain_pcm_per_kg_s",
+            "highpass_hz",
+            "lowpass_hz",
+            "envelope_s",
+            "seed"
+          ],
+          "properties": {
+            "gain_pcm_per_kg_s": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 4
+            },
+            "highpass_hz": {
+              "type": "number",
+              "minimum": 150,
+              "maximum": 800
+            },
+            "lowpass_hz": {
+              "type": "number",
+              "minimum": 800,
+              "maximum": 3000
+            },
+            "envelope_s": {
+              "type": "number",
+              "minimum": 0.0005,
+              "maximum": 0.02
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "description": "Authored bank-flow-gated coasting texture. Native and runtime admission additionally require lowpass_hz >= 2 * highpass_hz."
+        },
+        "loaded_pressure_texture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decay_s",
+            "attack_s",
+            "secondary_bank_gain",
+            "fueling_start_01",
+            "fueling_full_01",
+            "transition_s"
+          ],
+          "properties": {
+            "decay_s": {
+              "type": "number",
+              "minimum": 0.005,
+              "maximum": 0.03
+            },
+            "attack_s": {
+              "type": "number",
+              "minimum": 0.001,
+              "maximum": 0.01
+            },
+            "secondary_bank_gain": {
+              "type": "number",
+              "minimum": 0.2,
+              "maximum": 1
+            },
+            "fueling_start_01": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.4
+            },
+            "fueling_full_01": {
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 1
+            },
+            "transition_s": {
+              "type": "number",
+              "minimum": 0.005,
+              "maximum": 0.2
+            }
+          },
+          "description": "Rounded stochastic combustion radiation over an authored fuel interval. A start below 0.12 or full amount below 0.2 selects runtime version 13 for rounding at idle. Native and runtime admission additionally require fueling_full_01 > fueling_start_01."
+        },
+        "inline_inertia": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reciprocating_mass_kg",
+            "frequency_hz",
+            "q",
+            "gain_pcm_per_n",
+            "highpass_hz",
+            "lowpass_hz"
+          ],
+          "properties": {
+            "reciprocating_mass_kg": {
+              "type": "number",
+              "minimum": 0.05,
+              "maximum": 2
+            },
+            "frequency_hz": {
+              "type": "number",
+              "minimum": 50,
+              "maximum": 300
+            },
+            "q": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 10
+            },
+            "gain_pcm_per_n": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.001
+            },
+            "highpass_hz": {
+              "type": "number",
+              "minimum": 50,
+              "maximum": 300
+            },
+            "lowpass_hz": {
+              "type": "number",
+              "minimum": 300,
+              "maximum": 1000
+            }
+          },
+          "description": "Opt-in version 14: primary and secondary kinematic inertia of identical reciprocating masses on parallel cylinder axes. Geometry is derived from the native cylinder. Authored radiation does not solve mounts, balance shafts or crank dynamics. Lowpass must be at least twice highpass."
+        },
+        "loaded_clatter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rpm_start",
+            "rpm_full",
+            "fueling_start_01",
+            "fueling_full_01",
+            "attack_s",
+            "decay_s",
+            "transition_s",
+            "coherent_gain",
+            "stochastic_gain",
+            "highpass_hz",
+            "lowpass_hz",
+            "seed",
+            "modes"
+          ],
+          "properties": {
+            "rpm_start": {
+              "type": "number",
+              "minimum": 400,
+              "maximum": 3500
+            },
+            "rpm_full": {
+              "type": "number",
+              "minimum": 800,
+              "maximum": 4500
+            },
+            "fueling_start_01": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.8
+            },
+            "fueling_full_01": {
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 1
+            },
+            "attack_s": {
+              "type": "number",
+              "minimum": 0.0001,
+              "maximum": 0.002
+            },
+            "decay_s": {
+              "type": "number",
+              "minimum": 0.0005,
+              "maximum": 0.008
+            },
+            "transition_s": {
+              "type": "number",
+              "minimum": 0.005,
+              "maximum": 0.2
+            },
+            "coherent_gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            },
+            "stochastic_gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 12
+            },
+            "highpass_hz": {
+              "type": "number",
+              "minimum": 200,
+              "maximum": 1500
+            },
+            "lowpass_hz": {
+              "type": "number",
+              "minimum": 2000,
+              "maximum": 8000
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "modes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "frequency_hz",
+                  "q",
+                  "gain_pcm_per_n"
+                ],
+                "properties": {
+                  "frequency_hz": {
+                    "type": "number",
+                    "minimum": 400,
+                    "maximum": 6000
+                  },
+                  "q": {
+                    "type": "number",
+                    "minimum": 0.5,
+                    "maximum": 15
+                  },
+                  "gain_pcm_per_n": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 0.0002
+                  },
+                  "cylinder_coupling": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 12,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "gain"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]*$"
+                        },
+                        "gain": {
+                          "type": "number",
+                          "minimum": -2,
+                          "maximum": 2
+                        }
+                      }
+                    },
+                    "description": "Version 16: per-mode acoustic weight multiplied by each cylinder structural_gain. Bind each native cylinder ID exactly once; order is immaterial. This changes radiation, not fuel or firing."
+                  }
+                }
+              },
+              "oneOf": [
+                {
+                  "items": {
+                    "required": [
+                      "cylinder_coupling"
+                    ]
+                  }
+                },
+                {
+                  "items": {
+                    "not": {
+                      "required": [
+                        "cylinder_coupling"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "Opt-in version 15: fast pressure-rise-driven clatter, smoothly mixed by RPM and fuel. Additive acoustic radiation only; no extra combustion or recorded audio. Native/runtime admission also requires positive RPM/fuel intervals and lowpass at least twice highpass. Per-mode cylinder_coupling selects version 16 and must appear on every mode. Native/runtime admission validates complete, unique cylinder bindings."
+        }
+      },
+      "dependentRequired": {
+        "exhaust_system": [
+          "articulation"
+        ],
+        "pressure_texture": [
+          "articulation",
+          "exhaust_system"
+        ],
+        "mechanical_texture": [
+          "articulation",
+          "exhaust_system",
+          "pressure_texture"
+        ],
+        "low_fuel_exhaust": [
+          "articulation",
+          "exhaust_system",
+          "pressure_texture",
+          "mechanical_texture"
+        ],
+        "coasting_balance": [
+          "low_fuel_exhaust"
+        ],
+        "coasting_flow_texture": [
+          "coasting_balance"
+        ],
+        "loaded_pressure_texture": [
+          "coasting_flow_texture"
+        ],
+        "inline_inertia": [
+          "loaded_pressure_texture"
+        ],
+        "loaded_clatter": [
+          "inline_inertia"
+        ]
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "low_fuel_exhaust"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mechanical_texture": {
+                "required": [
+                  "valve_attack_s"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "bake": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rpms",
+        "fueling",
+        "samples_per_cycle",
+        "minimum_settling_cycles",
+        "maximum_settling_cycles",
+        "settling_relative_tolerance"
+      ],
+      "properties": {
+        "rpms": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 32,
+          "items": {
+            "type": "number",
+            "minimum": 400,
+            "maximum": 4500
+          }
+        },
+        "fueling": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 16,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "samples_per_cycle": {
+          "enum": [
+            2048,
+            4096,
+            8192,
+            16384
+          ]
+        },
+        "minimum_settling_cycles": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 64
+        },
+        "maximum_settling_cycles": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 64
+        },
+        "settling_relative_tolerance": {
+          "type": "number",
+          "minimum": 1e-07,
+          "maximum": 0.005
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "physical_parameters",
+        "presentation"
+      ],
+      "properties": {
+        "physical_parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "origin",
+            "note"
+          ],
+          "properties": {
+            "origin": {
+              "enum": [
+                "inferred",
+                "artistic",
+                "measurement",
+                "calibrated"
+              ]
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        },
+        "presentation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "origin",
+            "note"
+          ],
+          "properties": {
+            "origin": {
+              "enum": [
+                "inferred",
+                "artistic",
+                "measurement",
+                "calibrated"
+              ]
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        }
+      }
+    }
+  }
+}

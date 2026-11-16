@@ -247,6 +247,15 @@ the remainder as explicit capability diagnostics:
 
 ## Engine definition capability matrix
 
+The explicit `model: "mechanical-diesel-v1"` branch now has experimental native
+`bake-crankwave` admission and `.crankwave` playback. It executes direct injection,
+autoignition, repeated cylinder cycles, and combustion-driven mechanical/exhaust
+sound with normalized fueling as the load coordinate. Its schema is a branch of
+`crankwave/engine`; the general EngineSession/C API, `render` scenario route, and
+live simulator workbench still reject it. See the
+[mechanical diesel contract](../model/MECHANICAL_DIESEL_SOUND.md). The pristine
+spark-engine capability rows below do not imply diesel session admission.
+
 ### Root, controller, and engine-wide physical configuration
 
 | Pristine capability | Intended JSON ownership | Current status | Acceptance requirement |

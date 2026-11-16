@@ -1,0 +1,17 @@
+{
+  "schema": "crankwave/mechanical-texture-tuning-v1",
+  "base_carrier_sha256": "d736ea73ff706349e81ea11a1000472e40309e3a1592cf77342dc0ca617dd3b7",
+  "authoring_sha256": "762f2b06d60968533c89ce5963f2f8ff360f0e7d5afb3301fb84e2fb53eea497",
+  "parameters": {
+    "valve_gain_pcm": 0.1,
+    "valve_frequency_hz": 850,
+    "valve_decay_s": 0.0022,
+    "valve_attack_s": 0.0016,
+    "pumping_gain_pcm": 0.01,
+    "pumping_lowpass_hz": 1200,
+    "seed": 469765
+  },
+  "intake_reference_pressure_pa_abs": 101325,
+  "intake_pressure_exponent": 0.75,
+  "gain_linear": 1
+}
