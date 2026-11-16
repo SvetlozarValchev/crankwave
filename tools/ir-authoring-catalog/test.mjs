@@ -277,21 +277,17 @@ assert.equal(
   73,
 );
 
-const attributes = spawnSync(
-  "git",
-  ["check-attr", "filter", "diff", "merge", "text", "--",
-    ...catalog.entries.map((entry) => entry.payload.repository_relative_path)],
-  { cwd: REPOSITORY, encoding: "utf8" },
+const sourceAssets = JSON.parse(
+  fs.readFileSync(path.join(REPOSITORY, "source-assets.lock.json"), "utf8"),
 );
-assert.equal(attributes.status, 0, attributes.stderr);
-const attributeLines = attributes.stdout.trim().split("\n");
-assert.equal(attributeLines.length, 73 * 4);
-for (const line of attributeLines) {
-  if (line.endsWith(": filter: lfs")) continue;
-  if (line.endsWith(": diff: lfs")) continue;
-  if (line.endsWith(": merge: lfs")) continue;
-  if (line.endsWith(": text: unset")) continue;
-  assert.fail(`unexpected LFS attribute: ${line}`);
+const attachedFiles = new Map(sourceAssets.files.map((file) => [file.path, file]));
+for (const entry of catalog.entries) {
+  const relative = entry.payload.repository_relative_path;
+  const attached = attachedFiles.get(relative);
+  assert.ok(attached, `IR payload is missing from the release attachment: ${relative}`);
+  const bytes = fs.readFileSync(path.join(REPOSITORY, relative));
+  assert.equal(attached.size, bytes.length);
+  assert.equal(attached.sha256, createHash("sha256").update(bytes).digest("hex"));
 }
 
 process.stdout.write(

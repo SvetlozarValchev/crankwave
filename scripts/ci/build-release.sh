@@ -48,7 +48,7 @@ export LANG=C
 export LC_ALL=C
 export TZ=UTC
 
-git lfs fsck
+node scripts/source-assets.mjs verify
 node tools/ir-authoring-catalog/generate.mjs --check
 node tools/ir-authoring-catalog/test.mjs
 

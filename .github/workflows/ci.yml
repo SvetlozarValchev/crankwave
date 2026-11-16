@@ -24,12 +24,23 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - name: Check out exact source and LFS payloads
+      - name: Check out exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          lfs: true
+          lfs: false
           persist-credentials: false
+
+      - name: Cache source asset attachment
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .work/source-assets/*.tar.gz
+          key: source-assets-${{ hashFiles('source-assets.lock.json') }}
+
+      - name: Test and fetch verified source assets
+        run: |
+          node --test scripts/source-assets.test.mjs
+          node scripts/source-assets.mjs fetch
 
       - name: Resolve release identity
         id: release
@@ -44,7 +55,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git lfs fsck
+          node scripts/source-assets.mjs verify
           node tools/ir-authoring-catalog/generate.mjs --check
           node tools/ir-authoring-catalog/test.mjs
           node --test \

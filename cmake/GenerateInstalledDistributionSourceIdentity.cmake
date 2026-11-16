@@ -25,6 +25,38 @@ if(_input_text STREQUAL "")
         "installed distribution source input list is empty")
 endif()
 string(REPLACE "\n" ";" _input_paths "${_input_text}")
+set(_expected_tracked_paths ${_input_paths})
+set(_source_assets_valid TRUE)
+# Downloaded inputs are bound by a tracked manifest instead of Git LFS pointers.
+# Include the manifest itself in the ordinary Git cleanliness checks below.
+if("source-assets.lock.json" IN_LIST _input_paths)
+    file(READ "${_source_root}/source-assets.lock.json" _asset_manifest)
+    string(JSON _asset_version GET "${_asset_manifest}" version)
+    if(NOT _asset_version EQUAL 1)
+        message(FATAL_ERROR "unsupported source asset manifest version")
+    endif()
+    string(JSON _asset_files GET "${_asset_manifest}" files)
+    string(JSON _asset_count LENGTH "${_asset_files}")
+    # Entries are flat objects. Split once to avoid reparsing the whole large
+    # manifest for every asset; each entry is then parsed by CMake's JSON parser.
+    string(REGEX MATCHALL "\\{[^{}]*\\}" _asset_entries "${_asset_files}")
+    list(LENGTH _asset_entries _entry_count)
+    if(NOT _entry_count EQUAL _asset_count)
+        message(FATAL_ERROR "source asset manifest entries are not flat objects")
+    endif()
+    foreach(_entry IN LISTS _asset_entries)
+        string(JSON _asset_path GET "${_entry}" path)
+        string(JSON _asset_size GET "${_entry}" size)
+        string(JSON _asset_sha GET "${_entry}" sha256)
+        if(NOT _asset_path MATCHES "^(assets|reference)/[A-Za-z0-9._+/@-]+$" OR
+           _asset_path MATCHES "(^|/)\\.\\.?(/|$)" OR
+           DEFINED "_asset_sha_${_asset_path}")
+            message(FATAL_ERROR "source asset manifest path is invalid or repeated")
+        endif()
+        set("_asset_size_${_asset_path}" "${_asset_size}")
+        set("_asset_sha_${_asset_path}" "${_asset_sha}")
+    endforeach()
+endif()
 set(_prior_input "")
 set(_canonical
     "crankwave.installed-distribution-source-closure.v1\n")
@@ -45,6 +77,13 @@ foreach(_relative_path IN LISTS _input_paths)
     endif()
     file(SIZE "${_absolute_path}" _bytes)
     file(SHA256 "${_absolute_path}" _sha256)
+    if(DEFINED "_asset_sha_${_relative_path}")
+        if(NOT _sha256 STREQUAL "${_asset_sha_${_relative_path}}" OR
+           NOT _bytes STREQUAL "${_asset_size_${_relative_path}}")
+            set(_source_assets_valid FALSE)
+        endif()
+        list(REMOVE_ITEM _expected_tracked_paths "${_relative_path}")
+    endif()
     string(APPEND _canonical
         "${_relative_path}\n${_bytes}\n${_sha256}\n")
 endforeach()
@@ -124,8 +163,8 @@ if(DEFINED GIT_EXECUTABLE AND NOT "${GIT_EXECUTABLE}" STREQUAL "" AND
         endif()
         if(_status_result EQUAL 0 AND _tracked_result EQUAL 0 AND
            _index_result EQUAL 0 AND _ordinary_index AND
-           _status_output STREQUAL "" AND
-           "${_tracked_paths}" STREQUAL "${_input_paths}")
+           _status_output STREQUAL "" AND _source_assets_valid AND
+           "${_tracked_paths}" STREQUAL "${_expected_tracked_paths}")
             set(_state clean)
         elseif(_status_result EQUAL 0 AND _tracked_result EQUAL 0 AND
                _index_result EQUAL 0)

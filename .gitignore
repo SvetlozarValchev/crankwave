@@ -5,3 +5,11 @@ __pycache__/
 /build-*/
 /artifacts/
 CMakeUserPresets.json
+
+# Downloaded source assets; hashes are tracked in source-assets.lock.json.
+/reference/oracles/**/*.wav
+/reference/fixtures/**/*.bin
+/reference/fixtures/audio-atlases/**/*.f32le
+/reference/fixtures/responsive-audio/**/*.f32le
+/reference/fixtures/**/*.wav
+/assets/builtin/ir-library/payloads/*.wav

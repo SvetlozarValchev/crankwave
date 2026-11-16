@@ -15,7 +15,9 @@ their containers. Each working-tree payload lives at:
 assets/builtin/ir-library/payloads/<source-sha256>.wav
 ```
 
-Git LFS owns that narrow path. The installed distribution copies the same bytes to
+The source asset release attachment owns that path, pinned by
+`source-assets.lock.json`. Run `node scripts/source-assets.mjs fetch` to restore
+the payloads. The installed distribution copies the same bytes to
 `assets/payloads/<source-sha256>`, which is the existing content-addressed runtime
 layout. Regenerate and verify with:
 

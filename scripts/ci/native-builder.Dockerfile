@@ -7,7 +7,6 @@ FROM ${BUILDER_BASE_IMAGE}
 ARG CMAKE_DEBIAN_VERSION=3.25.1-1
 ARG BINUTILS_DEBIAN_VERSION=2.40-2
 ARG CLANG_19_DEBIAN_VERSION=1:19.1.7-3~deb12u1
-ARG GIT_LFS_DEBIAN_VERSION=3.3.0-1+deb12u1
 ARG NINJA_DEBIAN_VERSION=1.11.1-2~deb12u1
 
 RUN set -eu; \
@@ -16,7 +15,7 @@ RUN set -eu; \
         "binutils=${BINUTILS_DEBIAN_VERSION}" \
         "clang-19=${CLANG_19_DEBIAN_VERSION}" \
         "cmake=${CMAKE_DEBIAN_VERSION}" \
-        "git-lfs=${GIT_LFS_DEBIAN_VERSION}" \
+        git \
         "ninja-build=${NINJA_DEBIAN_VERSION}"; \
     rm -rf /var/lib/apt/lists/*
 
