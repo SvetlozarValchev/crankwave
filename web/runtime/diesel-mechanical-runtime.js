@@ -91,11 +91,12 @@ export async function loadDieselMechanicalRuntime(
         "schema", "version", "engine", "model", "sample_rate_hz", "physics_rate_hz",
         "gas_substeps", "load_coordinate", "source_sha256", "backend", "methods",
         "samples_per_cycle", "cells", "cylinders", "presentation", "provenance",
-        "sources", ...(m.version >= 6 ? ["mechanical_timing"] : [])
+        "sources", ...(m.version >= 6 ? ["mechanical_timing"] : []),
+        ...(m.version >= 14 ? ["inertial_geometry"] : [])
       ],
       "manifest");
   requireValue(
-      m.schema === SCHEMA && [1, 2, 3, 5, 6, 7, 8, 9, 10, 11].includes(m.version) &&
+      m.schema === SCHEMA && [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].includes(m.version) &&
           m.model === "mechanical-diesel-v1",
       "Unsupported diesel model");
   requireValue(
@@ -191,7 +192,9 @@ export async function loadDieselMechanicalRuntime(
         ...(m.version >= 8 ? ["low_fuel_exhaust"] : []),
         ...(m.version >= 9 ? ["coasting_balance"] : []),
         ...(m.version >= 10 ? ["coasting_flow_texture"] : []),
-        ...(m.version >= 11 ? ["loaded_pressure_texture"] : [])
+        ...(m.version >= 11 ? ["loaded_pressure_texture"] : []),
+        ...(m.version >= 14 ? ["inline_inertia"] : []),
+        ...(m.version >= 15 ? ["loaded_clatter"] : [])
       ],
       "presentation");
   if (m.version >= 2) {
@@ -323,10 +326,69 @@ export async function loadDieselMechanicalRuntime(
     number(c.decay_s, 0.005, 0.03, "loaded decay");
     number(c.attack_s, 0.001, 0.01, "loaded attack");
     number(c.secondary_bank_gain, 0.2, 1, "secondary bank gain");
-    number(c.fueling_start_01, 0.12, 0.4, "loaded starting fuel");
-    number(c.fueling_full_01, 0.2, 1, "loaded full fuel");
+    number(c.fueling_start_01, m.version >= 13 ? 0 : 0.12, 0.4, "loaded starting fuel");
+    number(c.fueling_full_01, m.version >= 13 ? 0.01 : 0.2, 1, "loaded full fuel");
     requireValue(c.fueling_full_01 > c.fueling_start_01, "Loaded fuel interval must be positive");
     number(c.transition_s, 0.005, 0.2, "loaded transition");
+  }
+  if (m.version >= 14) {
+    const t = p.inline_inertia;
+    object(t, ["reciprocating_mass_kg", "frequency_hz", "q", "gain_pcm_per_n",
+      "highpass_hz", "lowpass_hz"], "inline inertia");
+    number(t.reciprocating_mass_kg, .05, 2, "reciprocating mass");
+    number(t.frequency_hz, 50, 300, "inertia resonance");
+    number(t.q, .5, 10, "inertia resonance Q");
+    number(t.gain_pcm_per_n, 0, .001, "inertia gain");
+    number(t.highpass_hz, 50, 300, "inertia highpass");
+    number(t.lowpass_hz, 300, 1000, "inertia lowpass");
+    requireValue(t.lowpass_hz >= 2 * t.highpass_hz, "Inertia radiation band too narrow");
+    const g = m.inertial_geometry;
+    object(g, ["crank_radius_m", "connecting_rod_length_m"], "inertia geometry");
+    number(g.crank_radius_m, .005, .25, "crank radius");
+    number(g.connecting_rod_length_m, .01, 1, "connecting rod length");
+    requireValue(g.connecting_rod_length_m > g.crank_radius_m, "Invalid slider-crank geometry");
+  }
+  if (m.version >= 15) {
+    const c = p.loaded_clatter;
+    object(c, ["rpm_start", "rpm_full", "fueling_start_01", "fueling_full_01",
+      "attack_s", "decay_s", "transition_s", "coherent_gain", "stochastic_gain",
+      "highpass_hz", "lowpass_hz", "seed", "modes"], "loaded clatter");
+    number(c.rpm_start, 400, 3500, "clatter starting RPM");
+    number(c.rpm_full, 800, 4500, "clatter full RPM");
+    requireValue(c.rpm_full > c.rpm_start, "Clatter RPM interval must be positive");
+    number(c.fueling_start_01, 0, .8, "clatter starting fuel");
+    number(c.fueling_full_01, .01, 1, "clatter full fuel");
+    requireValue(c.fueling_full_01 > c.fueling_start_01, "Clatter fuel interval must be positive");
+    number(c.attack_s, .0001, .002, "clatter attack");
+    number(c.decay_s, .0005, .008, "clatter decay");
+    number(c.transition_s, .005, .2, "clatter transition");
+    number(c.coherent_gain, 0, 2, "clatter coherent gain");
+    number(c.stochastic_gain, 0, 12, "clatter stochastic gain");
+    number(c.highpass_hz, 200, 1500, "clatter highpass");
+    number(c.lowpass_hz, 2000, 8000, "clatter lowpass");
+    requireValue(c.lowpass_hz >= 2 * c.highpass_hz, "Clatter radiation band too narrow");
+    number(c.seed, 0, 0xffffffff, "clatter seed");
+    requireValue(Number.isInteger(c.seed), "Clatter seed must be integral");
+    requireValue(Array.isArray(c.modes) && c.modes.length >= 1 && c.modes.length <= 8,
+      "Clatter requires one to eight modes");
+    for (const mode of c.modes) {
+      object(mode, ["frequency_hz", "q", "gain_pcm_per_n",
+        ...(m.version >= 16 ? ["cylinder_coupling"] : [])], "clatter mode");
+      number(mode.frequency_hz, 400, 6000, "clatter mode frequency");
+      number(mode.q, .5, 15, "clatter mode Q");
+      number(mode.gain_pcm_per_n, 0, .0002, "clatter mode gain");
+      if (m.version >= 16) {
+        requireValue(Array.isArray(mode.cylinder_coupling) && mode.cylinder_coupling.length === ids.size,
+          "Each clatter mode must bind every cylinder");
+        const bound = new Set();
+        for (const binding of mode.cylinder_coupling) {
+          object(binding, ["id", "gain"], "clatter cylinder coupling");
+          requireValue(ids.has(binding.id) && !bound.has(binding.id), "Unknown or duplicate clatter cylinder");
+          bound.add(binding.id);
+          number(binding.gain, -2, 2, "clatter cylinder coupling gain");
+        }
+      }
+    }
   }
   number(p.block_lowpass_hz, 2000, 8000, "block lowpass");
   number(p.exhaust_lowpass_hz, 100, 3000, "exhaust lowpass");
@@ -352,12 +414,15 @@ export async function loadDieselMechanicalRuntime(
         "Invalid provenance record");
   }
   object(m.sources, ["path", "sha256", "layout", "byte_count"], "sources");
+  const sourceChannels = m.version >= 12 ? 3 : 2;
   requireValue(
       m.sources.path === "sources.f32le" &&
-          m.sources.layout === "cell-phase-force-n-exhaust-kg-s",
+          m.sources.layout === (sourceChannels === 3 ?
+            "cell-phase-force-n-exhaust-kg-s-motored-force-n" :
+            "cell-phase-force-n-exhaust-kg-s"),
       "Unsupported source layout");
   digest(m.sources.sha256, "sources.sha256");
-  const expected = m.cells.length * n * 8;
+  const expected = m.cells.length * n * sourceChannels * 4;
   requireValue(
       m.sources.byte_count === expected, "Source byte count does not match grid");
   const sourceResponse =
@@ -377,13 +442,15 @@ export async function loadDieselMechanicalRuntime(
   const samples = new Float32Array(expected / 4);
   for (let i = 0; i < samples.length; ++i) {
     const value = view.getFloat32(i * 4, true);
-    number(value, i % 2 === 0 ? -1e7 : -10, i % 2 === 0 ? 1e7 : 10, "source sample");
+    const flow = i % sourceChannels === 1;
+    number(value, flow ? -10 : -1e7, flow ? 10 : 1e7, "source sample");
     samples[i] = value;
   }
   return Object.freeze({
     kind: "diesel-mechanical-audio",
     manifest: m,
     samples,
+    sourceChannels,
     rows,
     fuelAxis,
     sampleRate: SAMPLE_RATE,
@@ -705,6 +772,76 @@ export class DieselLoadedPressureTexture {
   }
 }
 
+// A separate fast combustion-radiation path for loaded revs. Positive increments
+// of fueled-minus-motored force excite short, smooth envelopes and fixed structural
+// modes. No new gas force, free-running impacts or recording samples are introduced.
+export class DieselLoadedClatter {
+  constructor(parameters, cylinders, sampleRate = SAMPLE_RATE) {
+    this.parameters = parameters;
+    this.release = Math.exp(-1 / (sampleRate * parameters.decay_s));
+    this.attackStep = -Math.expm1(-1 / (sampleRate * parameters.attack_s));
+    this.mixStep = -Math.expm1(-1 / (sampleRate * parameters.transition_s));
+    this.noiseScale = Math.sqrt(3 * sampleRate / SAMPLE_RATE);
+    this.cylinders = cylinders.map(c => ({gain: c.structural_gain,
+      seed: cylinderSeed(c.id, parameters.seed) || 1}));
+    this.highpass = new DieselBiquad("highpass", parameters.highpass_hz, Math.SQRT1_2, sampleRate);
+    this.lowpass = new DieselBiquad("lowpass", parameters.lowpass_hz, Math.SQRT1_2, sampleRate);
+    this.modes = parameters.modes.map(m => ({gain: m.gain_pcm_per_n,
+      filter: new DieselBiquad("bandpass", m.frequency_hz, m.q, sampleRate)}));
+    // Version 16 supplies acoustic coupling by cylinder ID for each mode. Keep
+    // the version 15 shared-sum path intact for exact replay of existing assets.
+    this.coupled = parameters.modes[0].cylinder_coupling !== undefined;
+    if (this.coupled) this.modes.forEach((m, i) => {
+      const coupling = new Map(parameters.modes[i].cylinder_coupling.map(c => [c.id, c.gain]));
+      m.weights = cylinders.map(c => coupling.get(c.id));
+      m.highpass = new DieselBiquad("highpass", parameters.highpass_hz, Math.SQRT1_2, sampleRate);
+    });
+    this.reset();
+  }
+  reset() {
+    this.amount = null;
+    this.input = 0;
+    this.highpass.reset();this.lowpass.reset();
+    for (const m of this.modes) {m.filter.reset();m.highpass?.reset();m.input = 0;}
+    for (const c of this.cylinders) {c.previous = 0;c.decay = 0;c.rounded = 0;c.rng = c.seed;}
+  }
+  beginFrame(rpm, fueling) {
+    const p = this.parameters;
+    const r = Math.min(1, Math.max(0, (rpm - p.rpm_start) / (p.rpm_full - p.rpm_start)));
+    const f = Math.min(1, Math.max(0,
+        (fueling - p.fueling_start_01) / (p.fueling_full_01 - p.fueling_start_01)));
+    const target = (r * r * (3 - 2 * r)) * (f * f * (3 - 2 * f));
+    if (this.amount === null) this.amount = target;
+    this.amount += (target - this.amount) * this.mixStep;
+    if (Math.abs(target - this.amount) < 1e-9) this.amount = target;
+    this.input = 0;
+    if (this.coupled) for (const m of this.modes) m.input = 0;
+  }
+  excite(index, fired, motored) {
+    const c = this.cylinders[index], p = this.parameters;
+    const residual = fired - motored;
+    c.decay = c.decay * this.release + Math.max(0, residual - c.previous);
+    c.previous = residual;
+    c.rounded += (c.decay - c.rounded) * this.attackStep;
+    let x = c.rng;
+    x ^= x << 13;x ^= x >>> 17;x ^= x << 5;c.rng = x >>> 0;
+    const noise = (c.rng / 0x80000000 - 1) * this.noiseScale;
+    const excitation = c.gain * c.rounded * (p.coherent_gain + p.stochastic_gain * noise);
+    if (this.coupled) {
+      for (const m of this.modes) m.input += excitation * m.weights[index];
+    } else this.input += excitation;
+  }
+  finishFrame() {
+    const input = this.highpass.process(this.input);
+    let sum = 0;
+    for (const m of this.modes)
+      sum += m.filter.process(this.coupled ? m.highpass.process(m.input) : input) * m.gain;
+    const filtered = this.lowpass.process(sum);
+    // Warm all histories during bypass; exact zero keeps old idle/coast PCM.
+    return this.amount === 0 ? 0 : filtered * this.amount;
+  }
+}
+
 // Authored valvetrain impacts and intake breath, independent of injected fuel.
 // Closure phases come from the native valve windows; resonances decay in seconds.
 // This does not solve contact forces or intake gas flow. No recorded audio is used.
@@ -824,6 +961,36 @@ export class DieselMechanicalTexture {
   }
 }
 
+// Primary/secondary slider-crank inertia for parallel, inline cylinders.
+// This is a kinematic excitation and authored radiation transfer, not solved
+// mounts, balance shafts, crank dynamics or an identified recording component.
+export class DieselInlineInertia {
+  constructor(parameters, geometry, cylinders, sampleRate = SAMPLE_RATE) {
+    this.parameters = parameters;
+    this.radius = geometry.crank_radius_m;
+    this.ratio = this.radius / geometry.connecting_rod_length_m;
+    this.orders = [1, 2].map(order => {
+      const real = cylinders.reduce((s, c) => s + Math.cos(order * c.firing_angle_rad), 0);
+      const imaginary = cylinders.reduce((s, c) => s + Math.sin(order * c.firing_angle_rad), 0);
+      return [Math.abs(real) < 1e-12 ? 0 : real, Math.abs(imaginary) < 1e-12 ? 0 : imaginary];
+    });
+    this.highpass = new DieselBiquad('highpass', parameters.highpass_hz, Math.SQRT1_2, sampleRate);
+    this.mode = new DieselBiquad('bandpass', parameters.frequency_hz, parameters.q, sampleRate);
+    this.lowpass = new DieselBiquad('lowpass', parameters.lowpass_hz, Math.SQRT1_2, sampleRate);
+    this.reset();
+  }
+  reset() { this.highpass.reset(); this.mode.reset(); this.lowpass.reset(); this.force = 0; }
+  process(revolutions, rpm) {
+    const angle = TAU * (revolutions % 1), omega = TAU * rpm / 60;
+    const primary = this.orders[0][0] * Math.cos(angle) + this.orders[0][1] * Math.sin(angle);
+    const secondary = this.orders[1][0] * Math.cos(2 * angle) + this.orders[1][1] * Math.sin(2 * angle);
+    this.force = this.parameters.reciprocating_mass_kg * this.radius * omega ** 2 *
+        (primary + this.ratio * secondary);
+    return this.lowpass.process(this.mode.process(this.highpass.process(this.force))) *
+        this.parameters.gain_pcm_per_n;
+  }
+}
+
 export class DieselMechanicalRuntimeCursor {
   constructor(runtime) {
     this.runtime = runtime;
@@ -863,6 +1030,9 @@ export class DieselMechanicalRuntimeCursor {
         new DieselMechanicalTexture(p.mechanical_texture, runtime.manifest.mechanical_timing,
             this.cylinders) : null;
     this.cylinderFlows = new Float64Array(this.cylinders.length);
+    this.inlineInertia = p.inline_inertia ? new DieselInlineInertia(p.inline_inertia,
+        runtime.manifest.inertial_geometry, this.cylinders) : null;
+    this.loadedClatter = p.loaded_clatter ? new DieselLoadedClatter(p.loaded_clatter, this.cylinders) : null;
     this.pending = new Float32Array(runtime.batchFrames);
     this.reset();
   }
@@ -878,6 +1048,8 @@ export class DieselMechanicalRuntimeCursor {
     this.coastingFlowTexture?.reset();
     this.pressureTexture?.reset();
     this.mechanicalTexture?.reset();
+    this.inlineInertia?.reset();
+    this.loadedClatter?.reset();
     this.radiationPrevious = 0;
     this.exhaustPrevious = 0;
     this.exhaustHighpass = 0;
@@ -891,6 +1063,8 @@ export class DieselMechanicalRuntimeCursor {
     this.valveEnergy = 0;
     this.pumpingEnergy = 0;
     this.coastingFlowEnergy = 0;
+    this.inertiaEnergy = 0;
+    this.loadedClatterEnergy = 0;
   }
   initialize(endpoint) {
     number(endpoint.rpm, this.runtime.minimumRpm, this.runtime.maximumRpm, "RPM");
@@ -924,10 +1098,11 @@ export class DieselMechanicalRuntimeCursor {
     const x = (phase - Math.floor(phase)) * n;
     const i = Math.floor(x);
     const f = x - i;
-    const base = cell * n * 2;
+    const channels = this.runtime.sourceChannels;
+    const base = cell * n * channels;
     const samples = this.runtime.samples;
-    return samples[base + i * 2 + channel] * (1 - f) +
-        samples[base + ((i + 1) % n) * 2 + channel] * f;
+    return samples[base + i * channels + channel] * (1 - f) +
+        samples[base + ((i + 1) % n) * channels + channel] * f;
   }
   generate(count, start, end, keep) {
     const r = this.runtime;
@@ -947,6 +1122,7 @@ export class DieselMechanicalRuntimeCursor {
       const rpm = start.rpm + (end.rpm - start.rpm) * amount;
       const fueling = start.fueling01 + (end.fueling01 - start.fueling01) * amount;
       this.pressureTexture?.setFueling?.(fueling);
+      this.loadedClatter?.beginFrame(rpm, fueling);
       const revolutions =
           start.unwrappedCrankRevolutions + (start.rpm * t + 0.5 * slope * t * t) / 60;
       const ri = lowerIndex(r.rows, rpm, (row) => row.rpm);
@@ -985,8 +1161,12 @@ export class DieselMechanicalRuntimeCursor {
             this.sample(c0, phase, 0) * w00 + this.sample(c0 + 1, phase, 0) * w01 +
             this.sample(c1, phase, 0) * w10 + this.sample(c1 + 1, phase, 0) * w11;
         if (this.pressureTexture) {
-          const motored = this.sample(r.rows[ri].cells[0].index, phase, 0) * (1 - rw) +
+          const motored = r.sourceChannels === 3 ?
+              this.sample(c0, phase, 2) * w00 + this.sample(c0 + 1, phase, 2) * w01 +
+              this.sample(c1, phase, 2) * w10 + this.sample(c1 + 1, phase, 2) * w11 :
+              this.sample(r.rows[ri].cells[0].index, phase, 0) * (1 - rw) +
               this.sample(r.rows[ri + 1].cells[0].index, phase, 0) * rw;
+          this.loadedClatter?.excite(cylinderIndex, cylinderForce, motored);
           cylinderForce = this.pressureTexture.process(cylinderIndex, cylinderForce, motored);
         }
         force += cylinder.structural_gain * cylinderForce;
@@ -1031,7 +1211,12 @@ export class DieselMechanicalRuntimeCursor {
       const mechanicalGain = this.coastingBalance?.mechanicalGain ?? 1;
       // Explicit artistic saturating output stage; physics captures remain SI.
       const mechanical = (this.mechanicalTexture?.process(revolutions, rpm) ?? 0) * mechanicalGain;
-      let sample = Math.tanh((block + tailpipe + mechanical) * p.master_gain);
+      const inertia = this.inlineInertia?.process(revolutions, rpm) ?? 0;
+      const clatter = this.loadedClatter?.finishFrame() ?? 0;
+      let mixed = block + tailpipe + mechanical;
+      if (this.inlineInertia) mixed += inertia;
+      if (clatter !== 0) mixed += clatter;
+      let sample = Math.tanh(mixed * p.master_gain);
       requireValue(Number.isFinite(sample), "Diesel DSP produced nonfinite audio");
       if (keep) sample *= Math.min(1, ++this.audibleFrames / 3840);
       // Warmup may contain a large filter-initialization impulse that is never
@@ -1043,6 +1228,8 @@ export class DieselMechanicalRuntimeCursor {
         this.valveEnergy += ((this.mechanicalTexture?.valves ?? 0) * mechanicalGain) ** 2;
         this.pumpingEnergy += ((this.mechanicalTexture?.pumping ?? 0) * mechanicalGain) ** 2;
         this.coastingFlowEnergy += coastingFlow * coastingFlow;
+        this.inertiaEnergy += inertia * inertia;
+        this.loadedClatterEnergy += clatter * clatter;
       }
       this.pending[this.pendingCount++] = sample;
       ++this.frames;
@@ -1067,6 +1254,8 @@ export class DieselMechanicalRuntimeCursor {
       valveRms: Math.sqrt(this.valveEnergy / Math.max(1, this.audibleFrames)),
       pumpingRms: Math.sqrt(this.pumpingEnergy / Math.max(1, this.audibleFrames)),
       coastingFlowRms: Math.sqrt(this.coastingFlowEnergy / Math.max(1, this.audibleFrames)),
+      ...(this.inlineInertia ? {inertiaRms: Math.sqrt(this.inertiaEnergy / Math.max(1, this.audibleFrames))} : {}),
+      ...(this.loadedClatter ? {loadedClatterRms: Math.sqrt(this.loadedClatterEnergy / Math.max(1, this.audibleFrames))} : {}),
       cylinderIds: this.runtime.manifest.cylinders.map((c) => c.id),
       structuralFrequenciesHz:
           this.runtime.manifest.presentation.block_modes.map((m) => m.frequency_hz)

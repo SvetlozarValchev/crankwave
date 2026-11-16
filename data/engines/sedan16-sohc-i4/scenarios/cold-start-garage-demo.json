@@ -1,0 +1,1563 @@
+{
+  "schema": "crankwave/scenario",
+  "id": "sedan16-enginesim-demo",
+  "engine": "sedan16-sohc-i4",
+  "fuel": "gasoline",
+  "ambient": {
+    "pressure": {
+      "value": 101325,
+      "unit": "Pa"
+    },
+    "temperature": {
+      "value": 293.15,
+      "unit": "K"
+    },
+    "relative_humidity_01": 0
+  },
+  "initial_thermal_state": {
+    "gas_temperature": {
+      "value": 293.15,
+      "unit": "K"
+    },
+    "wall_temperature": {
+      "value": 363.15,
+      "unit": "K"
+    },
+    "coolant_temperature": {
+      "value": 363.15,
+      "unit": "K"
+    },
+    "oil_temperature": {
+      "value": 363.15,
+      "unit": "K"
+    }
+  },
+  "crankcase": {
+    "pressure": {
+      "value": 101325,
+      "unit": "Pa"
+    },
+    "temperature": {
+      "value": 293.15,
+      "unit": "K"
+    }
+  },
+  "initial_state": {
+    "engine_speed": {
+      "value": 0.0,
+      "unit": "rpm"
+    },
+    "crank_angle": {
+      "value": 1.570796326795,
+      "unit": "rad"
+    },
+    "ignition_enabled": true,
+    "fuel_enabled": true,
+    "starter_enabled": false,
+    "dyno_enabled": false,
+    "limiter_enabled": true
+  },
+  "preparation": {
+    "type": "fixed_settling",
+    "warm_up_duration": {
+      "value": 0,
+      "unit": "s"
+    },
+    "settling_duration": {
+      "value": 0,
+      "unit": "s"
+    }
+  },
+  "mode": {
+    "type": "free_engine",
+    "throttle_01": {
+      "interpolation": "right_continuous_hold",
+      "points": [
+        {
+          "time": {
+            "value": 0,
+            "unit": "s"
+          },
+          "value": 0.0
+        },
+        {
+          "time": {
+            "value": 5.51,
+            "unit": "s"
+          },
+          "value": 0.029167
+        },
+        {
+          "time": {
+            "value": 5.52,
+            "unit": "s"
+          },
+          "value": 0.058333
+        },
+        {
+          "time": {
+            "value": 5.53,
+            "unit": "s"
+          },
+          "value": 0.0875
+        },
+        {
+          "time": {
+            "value": 5.54,
+            "unit": "s"
+          },
+          "value": 0.116667
+        },
+        {
+          "time": {
+            "value": 5.55,
+            "unit": "s"
+          },
+          "value": 0.145833
+        },
+        {
+          "time": {
+            "value": 5.56,
+            "unit": "s"
+          },
+          "value": 0.175
+        },
+        {
+          "time": {
+            "value": 5.57,
+            "unit": "s"
+          },
+          "value": 0.204167
+        },
+        {
+          "time": {
+            "value": 5.58,
+            "unit": "s"
+          },
+          "value": 0.233333
+        },
+        {
+          "time": {
+            "value": 5.59,
+            "unit": "s"
+          },
+          "value": 0.2625
+        },
+        {
+          "time": {
+            "value": 5.6,
+            "unit": "s"
+          },
+          "value": 0.291667
+        },
+        {
+          "time": {
+            "value": 5.61,
+            "unit": "s"
+          },
+          "value": 0.320833
+        },
+        {
+          "time": {
+            "value": 5.62,
+            "unit": "s"
+          },
+          "value": 0.35
+        },
+        {
+          "time": {
+            "value": 5.91,
+            "unit": "s"
+          },
+          "value": 0.28
+        },
+        {
+          "time": {
+            "value": 5.92,
+            "unit": "s"
+          },
+          "value": 0.21
+        },
+        {
+          "time": {
+            "value": 5.93,
+            "unit": "s"
+          },
+          "value": 0.14
+        },
+        {
+          "time": {
+            "value": 5.94,
+            "unit": "s"
+          },
+          "value": 0.07
+        },
+        {
+          "time": {
+            "value": 5.95,
+            "unit": "s"
+          },
+          "value": 0.0
+        },
+        {
+          "time": {
+            "value": 8.51,
+            "unit": "s"
+          },
+          "value": 0.06875
+        },
+        {
+          "time": {
+            "value": 8.52,
+            "unit": "s"
+          },
+          "value": 0.1375
+        },
+        {
+          "time": {
+            "value": 8.53,
+            "unit": "s"
+          },
+          "value": 0.20625
+        },
+        {
+          "time": {
+            "value": 8.54,
+            "unit": "s"
+          },
+          "value": 0.275
+        },
+        {
+          "time": {
+            "value": 8.55,
+            "unit": "s"
+          },
+          "value": 0.34375
+        },
+        {
+          "time": {
+            "value": 8.56,
+            "unit": "s"
+          },
+          "value": 0.4125
+        },
+        {
+          "time": {
+            "value": 8.57,
+            "unit": "s"
+          },
+          "value": 0.48125
+        },
+        {
+          "time": {
+            "value": 8.58,
+            "unit": "s"
+          },
+          "value": 0.55
+        },
+        {
+          "time": {
+            "value": 8.81,
+            "unit": "s"
+          },
+          "value": 0.44
+        },
+        {
+          "time": {
+            "value": 8.82,
+            "unit": "s"
+          },
+          "value": 0.33
+        },
+        {
+          "time": {
+            "value": 8.83,
+            "unit": "s"
+          },
+          "value": 0.22
+        },
+        {
+          "time": {
+            "value": 8.84,
+            "unit": "s"
+          },
+          "value": 0.11
+        },
+        {
+          "time": {
+            "value": 8.85,
+            "unit": "s"
+          },
+          "value": 0.0
+        },
+        {
+          "time": {
+            "value": 11.51,
+            "unit": "s"
+          },
+          "value": 0.001467
+        },
+        {
+          "time": {
+            "value": 11.52,
+            "unit": "s"
+          },
+          "value": 0.002933
+        },
+        {
+          "time": {
+            "value": 11.53,
+            "unit": "s"
+          },
+          "value": 0.0044
+        },
+        {
+          "time": {
+            "value": 11.54,
+            "unit": "s"
+          },
+          "value": 0.005867
+        },
+        {
+          "time": {
+            "value": 11.55,
+            "unit": "s"
+          },
+          "value": 0.007333
+        },
+        {
+          "time": {
+            "value": 11.56,
+            "unit": "s"
+          },
+          "value": 0.0088
+        },
+        {
+          "time": {
+            "value": 11.57,
+            "unit": "s"
+          },
+          "value": 0.010267
+        },
+        {
+          "time": {
+            "value": 11.58,
+            "unit": "s"
+          },
+          "value": 0.011733
+        },
+        {
+          "time": {
+            "value": 11.59,
+            "unit": "s"
+          },
+          "value": 0.0132
+        },
+        {
+          "time": {
+            "value": 11.6,
+            "unit": "s"
+          },
+          "value": 0.014667
+        },
+        {
+          "time": {
+            "value": 11.61,
+            "unit": "s"
+          },
+          "value": 0.016133
+        },
+        {
+          "time": {
+            "value": 11.62,
+            "unit": "s"
+          },
+          "value": 0.0176
+        },
+        {
+          "time": {
+            "value": 11.63,
+            "unit": "s"
+          },
+          "value": 0.019067
+        },
+        {
+          "time": {
+            "value": 11.64,
+            "unit": "s"
+          },
+          "value": 0.020533
+        },
+        {
+          "time": {
+            "value": 11.65,
+            "unit": "s"
+          },
+          "value": 0.022
+        },
+        {
+          "time": {
+            "value": 11.66,
+            "unit": "s"
+          },
+          "value": 0.023467
+        },
+        {
+          "time": {
+            "value": 11.67,
+            "unit": "s"
+          },
+          "value": 0.024933
+        },
+        {
+          "time": {
+            "value": 11.68,
+            "unit": "s"
+          },
+          "value": 0.0264
+        },
+        {
+          "time": {
+            "value": 11.69,
+            "unit": "s"
+          },
+          "value": 0.027867
+        },
+        {
+          "time": {
+            "value": 11.7,
+            "unit": "s"
+          },
+          "value": 0.029333
+        },
+        {
+          "time": {
+            "value": 11.71,
+            "unit": "s"
+          },
+          "value": 0.0308
+        },
+        {
+          "time": {
+            "value": 11.72,
+            "unit": "s"
+          },
+          "value": 0.032267
+        },
+        {
+          "time": {
+            "value": 11.73,
+            "unit": "s"
+          },
+          "value": 0.033733
+        },
+        {
+          "time": {
+            "value": 11.74,
+            "unit": "s"
+          },
+          "value": 0.0352
+        },
+        {
+          "time": {
+            "value": 11.75,
+            "unit": "s"
+          },
+          "value": 0.036667
+        },
+        {
+          "time": {
+            "value": 11.76,
+            "unit": "s"
+          },
+          "value": 0.038133
+        },
+        {
+          "time": {
+            "value": 11.77,
+            "unit": "s"
+          },
+          "value": 0.0396
+        },
+        {
+          "time": {
+            "value": 11.78,
+            "unit": "s"
+          },
+          "value": 0.041067
+        },
+        {
+          "time": {
+            "value": 11.79,
+            "unit": "s"
+          },
+          "value": 0.042533
+        },
+        {
+          "time": {
+            "value": 11.8,
+            "unit": "s"
+          },
+          "value": 0.044
+        },
+        {
+          "time": {
+            "value": 11.81,
+            "unit": "s"
+          },
+          "value": 0.045467
+        },
+        {
+          "time": {
+            "value": 11.82,
+            "unit": "s"
+          },
+          "value": 0.046933
+        },
+        {
+          "time": {
+            "value": 11.83,
+            "unit": "s"
+          },
+          "value": 0.0484
+        },
+        {
+          "time": {
+            "value": 11.84,
+            "unit": "s"
+          },
+          "value": 0.049867
+        },
+        {
+          "time": {
+            "value": 11.85,
+            "unit": "s"
+          },
+          "value": 0.051333
+        },
+        {
+          "time": {
+            "value": 11.86,
+            "unit": "s"
+          },
+          "value": 0.0528
+        },
+        {
+          "time": {
+            "value": 11.87,
+            "unit": "s"
+          },
+          "value": 0.054267
+        },
+        {
+          "time": {
+            "value": 11.88,
+            "unit": "s"
+          },
+          "value": 0.055733
+        },
+        {
+          "time": {
+            "value": 11.89,
+            "unit": "s"
+          },
+          "value": 0.0572
+        },
+        {
+          "time": {
+            "value": 11.9,
+            "unit": "s"
+          },
+          "value": 0.058667
+        },
+        {
+          "time": {
+            "value": 11.91,
+            "unit": "s"
+          },
+          "value": 0.060133
+        },
+        {
+          "time": {
+            "value": 11.92,
+            "unit": "s"
+          },
+          "value": 0.0616
+        },
+        {
+          "time": {
+            "value": 11.93,
+            "unit": "s"
+          },
+          "value": 0.063067
+        },
+        {
+          "time": {
+            "value": 11.94,
+            "unit": "s"
+          },
+          "value": 0.064533
+        },
+        {
+          "time": {
+            "value": 11.95,
+            "unit": "s"
+          },
+          "value": 0.066
+        },
+        {
+          "time": {
+            "value": 11.96,
+            "unit": "s"
+          },
+          "value": 0.067467
+        },
+        {
+          "time": {
+            "value": 11.97,
+            "unit": "s"
+          },
+          "value": 0.068933
+        },
+        {
+          "time": {
+            "value": 11.98,
+            "unit": "s"
+          },
+          "value": 0.0704
+        },
+        {
+          "time": {
+            "value": 11.99,
+            "unit": "s"
+          },
+          "value": 0.071867
+        },
+        {
+          "time": {
+            "value": 12.0,
+            "unit": "s"
+          },
+          "value": 0.073333
+        },
+        {
+          "time": {
+            "value": 12.01,
+            "unit": "s"
+          },
+          "value": 0.0748
+        },
+        {
+          "time": {
+            "value": 12.02,
+            "unit": "s"
+          },
+          "value": 0.076267
+        },
+        {
+          "time": {
+            "value": 12.03,
+            "unit": "s"
+          },
+          "value": 0.077733
+        },
+        {
+          "time": {
+            "value": 12.04,
+            "unit": "s"
+          },
+          "value": 0.0792
+        },
+        {
+          "time": {
+            "value": 12.05,
+            "unit": "s"
+          },
+          "value": 0.080667
+        },
+        {
+          "time": {
+            "value": 12.06,
+            "unit": "s"
+          },
+          "value": 0.082133
+        },
+        {
+          "time": {
+            "value": 12.07,
+            "unit": "s"
+          },
+          "value": 0.0836
+        },
+        {
+          "time": {
+            "value": 12.08,
+            "unit": "s"
+          },
+          "value": 0.085067
+        },
+        {
+          "time": {
+            "value": 12.09,
+            "unit": "s"
+          },
+          "value": 0.086533
+        },
+        {
+          "time": {
+            "value": 12.1,
+            "unit": "s"
+          },
+          "value": 0.088
+        },
+        {
+          "time": {
+            "value": 12.11,
+            "unit": "s"
+          },
+          "value": 0.089467
+        },
+        {
+          "time": {
+            "value": 12.12,
+            "unit": "s"
+          },
+          "value": 0.090933
+        },
+        {
+          "time": {
+            "value": 12.13,
+            "unit": "s"
+          },
+          "value": 0.0924
+        },
+        {
+          "time": {
+            "value": 12.14,
+            "unit": "s"
+          },
+          "value": 0.093867
+        },
+        {
+          "time": {
+            "value": 12.15,
+            "unit": "s"
+          },
+          "value": 0.095333
+        },
+        {
+          "time": {
+            "value": 12.16,
+            "unit": "s"
+          },
+          "value": 0.0968
+        },
+        {
+          "time": {
+            "value": 12.17,
+            "unit": "s"
+          },
+          "value": 0.098267
+        },
+        {
+          "time": {
+            "value": 12.18,
+            "unit": "s"
+          },
+          "value": 0.099733
+        },
+        {
+          "time": {
+            "value": 12.19,
+            "unit": "s"
+          },
+          "value": 0.1012
+        },
+        {
+          "time": {
+            "value": 12.2,
+            "unit": "s"
+          },
+          "value": 0.102667
+        },
+        {
+          "time": {
+            "value": 12.21,
+            "unit": "s"
+          },
+          "value": 0.104133
+        },
+        {
+          "time": {
+            "value": 12.22,
+            "unit": "s"
+          },
+          "value": 0.1056
+        },
+        {
+          "time": {
+            "value": 12.23,
+            "unit": "s"
+          },
+          "value": 0.107067
+        },
+        {
+          "time": {
+            "value": 12.24,
+            "unit": "s"
+          },
+          "value": 0.108533
+        },
+        {
+          "time": {
+            "value": 12.25,
+            "unit": "s"
+          },
+          "value": 0.11
+        },
+        {
+          "time": {
+            "value": 12.26,
+            "unit": "s"
+          },
+          "value": 0.111467
+        },
+        {
+          "time": {
+            "value": 12.27,
+            "unit": "s"
+          },
+          "value": 0.112933
+        },
+        {
+          "time": {
+            "value": 12.28,
+            "unit": "s"
+          },
+          "value": 0.1144
+        },
+        {
+          "time": {
+            "value": 12.29,
+            "unit": "s"
+          },
+          "value": 0.115867
+        },
+        {
+          "time": {
+            "value": 12.3,
+            "unit": "s"
+          },
+          "value": 0.117333
+        },
+        {
+          "time": {
+            "value": 12.31,
+            "unit": "s"
+          },
+          "value": 0.1188
+        },
+        {
+          "time": {
+            "value": 12.32,
+            "unit": "s"
+          },
+          "value": 0.120267
+        },
+        {
+          "time": {
+            "value": 12.33,
+            "unit": "s"
+          },
+          "value": 0.121733
+        },
+        {
+          "time": {
+            "value": 12.34,
+            "unit": "s"
+          },
+          "value": 0.1232
+        },
+        {
+          "time": {
+            "value": 12.35,
+            "unit": "s"
+          },
+          "value": 0.124667
+        },
+        {
+          "time": {
+            "value": 12.36,
+            "unit": "s"
+          },
+          "value": 0.126133
+        },
+        {
+          "time": {
+            "value": 12.37,
+            "unit": "s"
+          },
+          "value": 0.1276
+        },
+        {
+          "time": {
+            "value": 12.38,
+            "unit": "s"
+          },
+          "value": 0.129067
+        },
+        {
+          "time": {
+            "value": 12.39,
+            "unit": "s"
+          },
+          "value": 0.130533
+        },
+        {
+          "time": {
+            "value": 12.4,
+            "unit": "s"
+          },
+          "value": 0.132
+        },
+        {
+          "time": {
+            "value": 12.41,
+            "unit": "s"
+          },
+          "value": 0.133467
+        },
+        {
+          "time": {
+            "value": 12.42,
+            "unit": "s"
+          },
+          "value": 0.134933
+        },
+        {
+          "time": {
+            "value": 12.43,
+            "unit": "s"
+          },
+          "value": 0.1364
+        },
+        {
+          "time": {
+            "value": 12.44,
+            "unit": "s"
+          },
+          "value": 0.137867
+        },
+        {
+          "time": {
+            "value": 12.45,
+            "unit": "s"
+          },
+          "value": 0.139333
+        },
+        {
+          "time": {
+            "value": 12.46,
+            "unit": "s"
+          },
+          "value": 0.1408
+        },
+        {
+          "time": {
+            "value": 12.47,
+            "unit": "s"
+          },
+          "value": 0.142267
+        },
+        {
+          "time": {
+            "value": 12.48,
+            "unit": "s"
+          },
+          "value": 0.143733
+        },
+        {
+          "time": {
+            "value": 12.49,
+            "unit": "s"
+          },
+          "value": 0.1452
+        },
+        {
+          "time": {
+            "value": 12.5,
+            "unit": "s"
+          },
+          "value": 0.146667
+        },
+        {
+          "time": {
+            "value": 12.51,
+            "unit": "s"
+          },
+          "value": 0.148133
+        },
+        {
+          "time": {
+            "value": 12.52,
+            "unit": "s"
+          },
+          "value": 0.1496
+        },
+        {
+          "time": {
+            "value": 12.53,
+            "unit": "s"
+          },
+          "value": 0.151067
+        },
+        {
+          "time": {
+            "value": 12.54,
+            "unit": "s"
+          },
+          "value": 0.152533
+        },
+        {
+          "time": {
+            "value": 12.55,
+            "unit": "s"
+          },
+          "value": 0.154
+        },
+        {
+          "time": {
+            "value": 12.56,
+            "unit": "s"
+          },
+          "value": 0.155467
+        },
+        {
+          "time": {
+            "value": 12.57,
+            "unit": "s"
+          },
+          "value": 0.156933
+        },
+        {
+          "time": {
+            "value": 12.58,
+            "unit": "s"
+          },
+          "value": 0.1584
+        },
+        {
+          "time": {
+            "value": 12.59,
+            "unit": "s"
+          },
+          "value": 0.159867
+        },
+        {
+          "time": {
+            "value": 12.6,
+            "unit": "s"
+          },
+          "value": 0.161333
+        },
+        {
+          "time": {
+            "value": 12.61,
+            "unit": "s"
+          },
+          "value": 0.1628
+        },
+        {
+          "time": {
+            "value": 12.62,
+            "unit": "s"
+          },
+          "value": 0.164267
+        },
+        {
+          "time": {
+            "value": 12.63,
+            "unit": "s"
+          },
+          "value": 0.165733
+        },
+        {
+          "time": {
+            "value": 12.64,
+            "unit": "s"
+          },
+          "value": 0.1672
+        },
+        {
+          "time": {
+            "value": 12.65,
+            "unit": "s"
+          },
+          "value": 0.168667
+        },
+        {
+          "time": {
+            "value": 12.66,
+            "unit": "s"
+          },
+          "value": 0.170133
+        },
+        {
+          "time": {
+            "value": 12.67,
+            "unit": "s"
+          },
+          "value": 0.1716
+        },
+        {
+          "time": {
+            "value": 12.68,
+            "unit": "s"
+          },
+          "value": 0.173067
+        },
+        {
+          "time": {
+            "value": 12.69,
+            "unit": "s"
+          },
+          "value": 0.174533
+        },
+        {
+          "time": {
+            "value": 12.7,
+            "unit": "s"
+          },
+          "value": 0.176
+        },
+        {
+          "time": {
+            "value": 12.71,
+            "unit": "s"
+          },
+          "value": 0.177467
+        },
+        {
+          "time": {
+            "value": 12.72,
+            "unit": "s"
+          },
+          "value": 0.178933
+        },
+        {
+          "time": {
+            "value": 12.73,
+            "unit": "s"
+          },
+          "value": 0.1804
+        },
+        {
+          "time": {
+            "value": 12.74,
+            "unit": "s"
+          },
+          "value": 0.181867
+        },
+        {
+          "time": {
+            "value": 12.75,
+            "unit": "s"
+          },
+          "value": 0.183333
+        },
+        {
+          "time": {
+            "value": 12.76,
+            "unit": "s"
+          },
+          "value": 0.1848
+        },
+        {
+          "time": {
+            "value": 12.77,
+            "unit": "s"
+          },
+          "value": 0.186267
+        },
+        {
+          "time": {
+            "value": 12.78,
+            "unit": "s"
+          },
+          "value": 0.187733
+        },
+        {
+          "time": {
+            "value": 12.79,
+            "unit": "s"
+          },
+          "value": 0.1892
+        },
+        {
+          "time": {
+            "value": 12.8,
+            "unit": "s"
+          },
+          "value": 0.190667
+        },
+        {
+          "time": {
+            "value": 12.81,
+            "unit": "s"
+          },
+          "value": 0.192133
+        },
+        {
+          "time": {
+            "value": 12.82,
+            "unit": "s"
+          },
+          "value": 0.1936
+        },
+        {
+          "time": {
+            "value": 12.83,
+            "unit": "s"
+          },
+          "value": 0.195067
+        },
+        {
+          "time": {
+            "value": 12.84,
+            "unit": "s"
+          },
+          "value": 0.196533
+        },
+        {
+          "time": {
+            "value": 12.85,
+            "unit": "s"
+          },
+          "value": 0.198
+        },
+        {
+          "time": {
+            "value": 12.86,
+            "unit": "s"
+          },
+          "value": 0.199467
+        },
+        {
+          "time": {
+            "value": 12.87,
+            "unit": "s"
+          },
+          "value": 0.200933
+        },
+        {
+          "time": {
+            "value": 12.88,
+            "unit": "s"
+          },
+          "value": 0.2024
+        },
+        {
+          "time": {
+            "value": 12.89,
+            "unit": "s"
+          },
+          "value": 0.203867
+        },
+        {
+          "time": {
+            "value": 12.9,
+            "unit": "s"
+          },
+          "value": 0.205333
+        },
+        {
+          "time": {
+            "value": 12.91,
+            "unit": "s"
+          },
+          "value": 0.2068
+        },
+        {
+          "time": {
+            "value": 12.92,
+            "unit": "s"
+          },
+          "value": 0.208267
+        },
+        {
+          "time": {
+            "value": 12.93,
+            "unit": "s"
+          },
+          "value": 0.209733
+        },
+        {
+          "time": {
+            "value": 12.94,
+            "unit": "s"
+          },
+          "value": 0.2112
+        },
+        {
+          "time": {
+            "value": 12.95,
+            "unit": "s"
+          },
+          "value": 0.212667
+        },
+        {
+          "time": {
+            "value": 12.96,
+            "unit": "s"
+          },
+          "value": 0.214133
+        },
+        {
+          "time": {
+            "value": 12.97,
+            "unit": "s"
+          },
+          "value": 0.2156
+        },
+        {
+          "time": {
+            "value": 12.98,
+            "unit": "s"
+          },
+          "value": 0.217067
+        },
+        {
+          "time": {
+            "value": 12.99,
+            "unit": "s"
+          },
+          "value": 0.218533
+        },
+        {
+          "time": {
+            "value": 13.0,
+            "unit": "s"
+          },
+          "value": 0.22
+        },
+        {
+          "time": {
+            "value": 14.51,
+            "unit": "s"
+          },
+          "value": 0.198
+        },
+        {
+          "time": {
+            "value": 14.52,
+            "unit": "s"
+          },
+          "value": 0.176
+        },
+        {
+          "time": {
+            "value": 14.53,
+            "unit": "s"
+          },
+          "value": 0.154
+        },
+        {
+          "time": {
+            "value": 14.54,
+            "unit": "s"
+          },
+          "value": 0.132
+        },
+        {
+          "time": {
+            "value": 14.55,
+            "unit": "s"
+          },
+          "value": 0.11
+        },
+        {
+          "time": {
+            "value": 14.56,
+            "unit": "s"
+          },
+          "value": 0.088
+        },
+        {
+          "time": {
+            "value": 14.57,
+            "unit": "s"
+          },
+          "value": 0.066
+        },
+        {
+          "time": {
+            "value": 14.58,
+            "unit": "s"
+          },
+          "value": 0.044
+        },
+        {
+          "time": {
+            "value": 14.59,
+            "unit": "s"
+          },
+          "value": 0.022
+        },
+        {
+          "time": {
+            "value": 14.6,
+            "unit": "s"
+          },
+          "value": 0.0
+        },
+        {
+          "time": {
+            "value": 17.01,
+            "unit": "s"
+          },
+          "value": 0.2
+        },
+        {
+          "time": {
+            "value": 17.02,
+            "unit": "s"
+          },
+          "value": 0.4
+        },
+        {
+          "time": {
+            "value": 17.03,
+            "unit": "s"
+          },
+          "value": 0.6
+        },
+        {
+          "time": {
+            "value": 17.04,
+            "unit": "s"
+          },
+          "value": 0.8
+        },
+        {
+          "time": {
+            "value": 17.05,
+            "unit": "s"
+          },
+          "value": 1.0
+        },
+        {
+          "time": {
+            "value": 18.21,
+            "unit": "s"
+          },
+          "value": 0.8
+        },
+        {
+          "time": {
+            "value": 18.22,
+            "unit": "s"
+          },
+          "value": 0.6
+        },
+        {
+          "time": {
+            "value": 18.23,
+            "unit": "s"
+          },
+          "value": 0.4
+        },
+        {
+          "time": {
+            "value": 18.24,
+            "unit": "s"
+          },
+          "value": 0.2
+        },
+        {
+          "time": {
+            "value": 18.25,
+            "unit": "s"
+          },
+          "value": 0.0
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "id": "starter-on",
+      "time": {
+        "value": 0,
+        "unit": "s"
+      },
+      "payload": {
+        "type": "operating_state_patch",
+        "starter_enabled": true
+      }
+    },
+    {
+      "id": "starter-off",
+      "time": {
+        "value": 1.5,
+        "unit": "s"
+      },
+      "payload": {
+        "type": "operating_state_patch",
+        "starter_enabled": false
+      }
+    }
+  ],
+  "rates": {
+    "physics": {
+      "numerator": "20000",
+      "denominator": "1",
+      "unit": "Hz"
+    },
+    "capture": {
+      "numerator": "20000",
+      "denominator": "1",
+      "unit": "Hz"
+    },
+    "source_processing": {
+      "numerator": "192000",
+      "denominator": "1",
+      "unit": "Hz"
+    },
+    "acoustics": {
+      "numerator": "192000",
+      "denominator": "1",
+      "unit": "Hz"
+    },
+    "delivery": {
+      "numerator": "192000",
+      "denominator": "1",
+      "unit": "Hz"
+    }
+  },
+  "quality": {
+    "id": "listening",
+    "process_block_capacity_frames": 3840,
+    "event_queue_capacity": 3800,
+    "telemetry_capacity_frames": 1
+  },
+  "total_duration": {
+    "value": 24,
+    "unit": "s"
+  },
+  "audible_start": {
+    "value": 0,
+    "unit": "s"
+  },
+  "audible_duration": {
+    "value": 24,
+    "unit": "s"
+  },
+  "public_seed": "4242",
+  "output": {
+    "buses": [
+      "master-engine-raw",
+      "master-engine-audition"
+    ],
+    "telemetry_channels": []
+  }
+}

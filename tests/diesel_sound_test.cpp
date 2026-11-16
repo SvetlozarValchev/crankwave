@@ -3,6 +3,8 @@
 #include "diesel/diesel_sound.hpp"
 
 #include <filesystem>
+#include <bit>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -147,7 +149,7 @@ int main() {
               std::pair{"\"decay_s\": 0.012", "\"decay_s\": 0"},
               std::pair{"\"attack_s\": 0.004", "\"attack_s\": 0"},
               std::pair{"\"secondary_bank_gain\": 0.55", "\"secondary_bank_gain\": 2"},
-              std::pair{"\"fueling_start_01\": 0.2", "\"fueling_start_01\": 0"},
+              std::pair{"\"fueling_start_01\": 0.2", "\"fueling_start_01\": -0.01"},
               std::pair{"\"fueling_full_01\": 0.5", "\"fueling_full_01\": 0.2"}}) {
             auto invalid = ural_source;
             replace(invalid, from, to);
@@ -155,6 +157,219 @@ int main() {
                        crankwave::diesel::parse_sound_definition(invalid)),
                    "malformed acoustic parameters rejected natively");
         }
+        // An opt-in boundary grid must affect native charge capture, while
+        // preserving the legacy two-channel sources where boundaries agree.
+        auto compact_ural = ural_source;
+        for (const auto &[key, value] :
+             {std::pair{"rpms", "[800, 1600]"},
+              std::pair{"fueling", "[0, 1]"}}) {
+            const auto begin = compact_ural.find(std::string{"\""} + key + "\": [");
+            const auto end = compact_ural.find(']', begin);
+            compact_ural.replace(begin, end - begin + 1,
+                                 std::string{"\""} + key + "\": " + value);
+        }
+        replace(compact_ural, "\"samples_per_cycle\": 8192", "\"samples_per_cycle\": 2048");
+        std::string boundary_map = "\"operating_boundaries\":[";
+        for (int i = 0; i < 4; ++i) {
+            if (i) boundary_map += ',';
+            boundary_map += "{\"rpm\":" + std::to_string(i < 2 ? 800 : 1600) +
+                ",\"fueling_01\":" + std::to_string(i % 2) +
+                ",\"intake\":{\"pressure_pa_abs\":" +
+                std::to_string(i == 3 ? 210000 : 101325) +
+                ",\"temperature_k\":320,\"oxygen_mass_fraction\":0.23},"
+                "\"exhaust\":{\"pressure_pa_abs\":105000,\"temperature_k\":700,"
+                "\"oxygen_mass_fraction\":0.08}}";
+        }
+        boundary_map += "],";
+        auto mapped_source = compact_ural;
+        replace(mapped_source, "\"cylinders\": [", boundary_map + "\"cylinders\": [");
+        const auto mapped_definition = crankwave::diesel::parse_sound_definition(mapped_source);
+        expect(std::holds_alternative<crankwave::diesel::SoundDefinition>(mapped_definition) &&
+                   std::get<crankwave::diesel::SoundDefinition>(mapped_definition).runtime_version == 12,
+               "mapped boundaries explicitly select version 12");
+        for (const auto &[from, to] :
+             {std::pair{"\"rpm\":1600", "\"rpm\":800"},
+              std::pair{"\"pressure_pa_abs\":210000", "\"pressure_pa_abs\":400000"},
+              std::pair{"\"fueling_01\":1", "\"fueling_01\":0"},
+              std::pair{"\"rpms\": [800, 1600]", "\"rpms\": [800, 1600, 2000]"}}) {
+            auto invalid = mapped_source;
+            replace(invalid, from, to);
+            expect(std::holds_alternative<crankwave::diesel::SoundError>(
+                       crankwave::diesel::parse_sound_definition(invalid)),
+                   "incomplete, reordered or out-of-range boundary maps rejected");
+        }
+        const auto plain_result = crankwave::diesel::bake_sound(compact_ural, "{}");
+        const auto mapped_result = crankwave::diesel::bake_sound(mapped_source, "{}");
+        expect(std::holds_alternative<crankwave::diesel::BakedSound>(plain_result) &&
+                   std::holds_alternative<crankwave::diesel::BakedSound>(mapped_result),
+               "mapped and legacy native captures settle");
+        const auto &plain_bytes = std::get<crankwave::diesel::BakedSound>(plain_result).members[3].bytes;
+        const auto &mapped_bytes = std::get<crankwave::diesel::BakedSound>(mapped_result).members[3].bytes;
+        auto inertial_source = mapped_source;
+        replace(inertial_source, "\"loaded_pressure_texture\":",
+                "\"inline_inertia\":{\"reciprocating_mass_kg\":0.45,\"frequency_hz\":110,"
+                "\"q\":2.5,\"gain_pcm_per_n\":0.0004,\"highpass_hz\":140,\"lowpass_hz\":500},"
+                "\"loaded_pressure_texture\":");
+        const auto inertial_definition = crankwave::diesel::parse_sound_definition(inertial_source);
+        expect(std::holds_alternative<crankwave::diesel::SoundDefinition>(inertial_definition) &&
+                   std::get<crankwave::diesel::SoundDefinition>(inertial_definition).runtime_version == 14,
+               "inline inertial radiation explicitly selects version 14");
+        for (const auto &[from, to] :
+             {std::pair{"\"reciprocating_mass_kg\":0.45", "\"reciprocating_mass_kg\":0"},
+              std::pair{"\"frequency_hz\":110", "\"frequency_hz\":0"},
+              std::pair{"\"lowpass_hz\":500", "\"lowpass_hz\":200"}}) {
+            auto invalid = inertial_source;
+            replace(invalid, from, to);
+            expect(std::holds_alternative<crankwave::diesel::SoundError>(
+                       crankwave::diesel::parse_sound_definition(invalid)),
+                   "invalid inertia authoring is rejected before baking");
+        }
+        const auto inertial_result = crankwave::diesel::bake_sound(inertial_source, "{}");
+        expect(std::holds_alternative<crankwave::diesel::BakedSound>(inertial_result),
+               "inertial radiation carrier bakes");
+        const auto &inertial_members = std::get<crankwave::diesel::BakedSound>(inertial_result).members;
+        expect(inertial_members[3].bytes == mapped_bytes,
+               "kinematic inertia leaves all captured gas forces and flows byte-exact");
+        const std::string inertial_manifest(reinterpret_cast<const char *>(inertial_members[2].bytes.data()),
+                                            inertial_members[2].bytes.size());
+        auto inertial_document = crankwave::authoring::parse_json(inertial_manifest);
+        expect(std::holds_alternative<crankwave::authoring::JsonDocument>(inertial_document),
+               "inertia manifest is valid JSON");
+        const auto geometry = std::get<crankwave::authoring::JsonDocument>(inertial_document)
+                                  .root().find("inertial_geometry");
+        const auto &inertial_cylinder =
+            std::get<crankwave::diesel::SoundDefinition>(inertial_definition).cylinder;
+        expect(geometry.find("crank_radius_m").number() == inertial_cylinder.stroke_m / 2 &&
+                   geometry.find("connecting_rod_length_m").number() == inertial_cylinder.connecting_rod_length_m,
+               "native inertia geometry is derived from the cylinder, not independently authored");
+        const std::string clatter_json = R"({"rpm_start":800,"rpm_full":1400,"fueling_start_01":0.18,"fueling_full_01":0.55,"attack_s":0.0003,"decay_s":0.0025,"transition_s":0.04,"coherent_gain":1,"stochastic_gain":2,"highpass_hz":450,"lowpass_hz":5500,"seed":15983226,"modes":[{"frequency_hz":650,"q":3,"gain_pcm_per_n":0.00007}]})";
+        auto clatter_source = inertial_source;
+        replace(clatter_source, "\"inline_inertia\":",
+                "\"loaded_clatter\":" + clatter_json + ",\"inline_inertia\":");
+        const auto clatter_definition = crankwave::diesel::parse_sound_definition(clatter_source);
+        expect(std::holds_alternative<crankwave::diesel::SoundDefinition>(clatter_definition) &&
+                   std::get<crankwave::diesel::SoundDefinition>(clatter_definition).runtime_version == 15,
+               "fast loaded combustion radiation explicitly selects version 15");
+        for (const auto &[from, to] :
+             {std::pair{"\"rpm_full\":1400", "\"rpm_full\":800"},
+              std::pair{"\"fueling_full_01\":0.55", "\"fueling_full_01\":0.18"},
+              std::pair{"\"attack_s\":0.0003", "\"attack_s\":0"},
+              std::pair{"\"seed\":15983226", "\"seed\":0.5"},
+              std::pair{"\"gain_pcm_per_n\":0.00007", "\"gain_pcm_per_n\":0.1"},
+              std::pair{"\"frequency_hz\":650", "\"frequency_hz\":0"}}) {
+            auto invalid = clatter_source;
+            replace(invalid, from, to);
+            expect(std::holds_alternative<crankwave::diesel::SoundError>(
+                       crankwave::diesel::parse_sound_definition(invalid)),
+                   "malformed loaded-clatter parameters rejected before capture");
+        }
+        auto incomplete_clatter = mapped_source;
+        replace(incomplete_clatter, "\"loaded_pressure_texture\":",
+                "\"loaded_clatter\":" + clatter_json + ",\"loaded_pressure_texture\":");
+        expect(std::holds_alternative<crankwave::diesel::SoundError>(
+                   crankwave::diesel::parse_sound_definition(incomplete_clatter)),
+               "loaded clatter requires the complete version 14 presentation");
+        const auto clatter_result = crankwave::diesel::bake_sound(clatter_source, "{}");
+        expect(std::holds_alternative<crankwave::diesel::BakedSound>(clatter_result),
+               "loaded clatter carrier bakes");
+        const auto &clatter_members = std::get<crankwave::diesel::BakedSound>(clatter_result).members;
+        expect(clatter_members[3].bytes == mapped_bytes,
+               "fast clatter leaves captured force, flow and motored sources byte-exact");
+        const std::string clatter_manifest(reinterpret_cast<const char *>(clatter_members[2].bytes.data()),
+                                           clatter_members[2].bytes.size());
+        expect(clatter_manifest.find("pressure-force-modal-radiation-v15") != std::string::npos,
+               "native clatter manifest binds the new runtime method");
+        const auto binding_document = crankwave::authoring::parse_json(clatter_source);
+        const auto native_bindings = std::get<crankwave::authoring::JsonDocument>(binding_document)
+                                         .root().find("engine").find("cylinders");
+        std::string coupling = "[";
+        for (std::size_t i = 0; i < native_bindings.size(); ++i) {
+            if (i) coupling += ",";
+            coupling += "{\"id\":\"" + std::string{*native_bindings.at(i).find("id").string()} +
+                        "\",\"gain\":0.75}";
+        }
+        coupling += "]";
+        auto coupled_source = clatter_source;
+        replace(coupled_source, "\"gain_pcm_per_n\":0.00007}",
+                "\"gain_pcm_per_n\":0.00007,\"cylinder_coupling\":" + coupling + "}");
+        const auto coupled_definition = crankwave::diesel::parse_sound_definition(coupled_source);
+        expect(std::holds_alternative<crankwave::diesel::SoundDefinition>(coupled_definition) &&
+                   std::get<crankwave::diesel::SoundDefinition>(coupled_definition).runtime_version == 16,
+               "per-mode cylinder coupling explicitly selects version 16");
+        auto unknown_coupling = coupling;
+        const auto first_id = std::string{*native_bindings.at(0).find("id").string()};
+        replace(unknown_coupling, first_id, "unknown-cylinder");
+        auto duplicate_coupling = coupling;
+        replace(duplicate_coupling, std::string{*native_bindings.at(1).find("id").string()}, first_id);
+        for (const auto &bad : {std::string{"[]"}, unknown_coupling, duplicate_coupling}) {
+            auto invalid = coupled_source;replace(invalid, coupling, bad);
+            expect(std::holds_alternative<crankwave::diesel::SoundError>(
+                       crankwave::diesel::parse_sound_definition(invalid)),
+                   "missing, unknown or duplicate mode cylinder bindings are rejected");
+        }
+        for (const auto bad_gain : {"2.01", "-2.01"}) {
+            auto invalid = coupled_source;replace(invalid, "\"gain\":0.75", "\"gain\":" + std::string{bad_gain});
+            expect(std::holds_alternative<crankwave::diesel::SoundError>(
+                       crankwave::diesel::parse_sound_definition(invalid)), "coupling gains are bounded");
+        }
+        auto mixed_source = coupled_source;
+        replace(mixed_source, "\"cylinder_coupling\":" + coupling + "}",
+                "\"cylinder_coupling\":" + coupling +
+                "},{\"frequency_hz\":2000,\"q\":2,\"gain_pcm_per_n\":0.00001}");
+        expect(std::holds_alternative<crankwave::diesel::SoundError>(
+                   crankwave::diesel::parse_sound_definition(mixed_source)), "mixed mode formats are rejected");
+        const auto coupled_result = crankwave::diesel::bake_sound(coupled_source, "{}");
+        expect(std::holds_alternative<crankwave::diesel::BakedSound>(coupled_result), "coupled carrier bakes");
+        const auto &coupled_members = std::get<crankwave::diesel::BakedSound>(coupled_result).members;
+        expect(coupled_members[3].bytes == mapped_bytes, "mode coupling preserves all native sources exactly");
+        const std::string coupled_manifest(reinterpret_cast<const char *>(coupled_members[2].bytes.data()),
+                                           coupled_members[2].bytes.size());
+        expect(coupled_manifest.find("pressure-force-modal-radiation-v16") != std::string::npos,
+               "coupled carrier binds version 16");
+        for (const auto &source : {compact_ural, mapped_source}) {
+            auto idle_source = source;
+            replace(idle_source, "\"fueling_start_01\": 0.2", "\"fueling_start_01\": 0");
+            replace(idle_source, "\"fueling_full_01\": 0.5", "\"fueling_full_01\": 0.12");
+            const auto parsed_idle = crankwave::diesel::parse_sound_definition(idle_source);
+            expect(std::holds_alternative<crankwave::diesel::SoundDefinition>(parsed_idle) &&
+                       std::get<crankwave::diesel::SoundDefinition>(parsed_idle).runtime_version == 13,
+                   "idle rounding selects version 13 with or without a boundary map");
+            const auto idle_result = crankwave::diesel::bake_sound(idle_source, "{}");
+            expect(std::holds_alternative<crankwave::diesel::BakedSound>(idle_result),
+                   "idle rounding native sources settle");
+            const auto &idle_bytes = std::get<crankwave::diesel::BakedSound>(idle_result).members[3].bytes;
+            expect(idle_bytes.size() == mapped_bytes.size(), "version 13 always carries motored force");
+            if (source == mapped_source)
+                expect(idle_bytes == mapped_bytes, "idle radiation leaves all mapped native samples exact");
+            else
+                for (std::size_t i = 0; i < 4 * 2048; ++i)
+                    for (std::size_t b = 0; b < 8; ++b)
+                        expect(idle_bytes[i * 12 + b] == plain_bytes[i * 8 + b],
+                               "idle radiation leaves legacy force and flow samples exact");
+        }
+        expect(mapped_bytes.size() == plain_bytes.size() / 2 * 3,
+               "mapped payload carries a third force channel");
+        const auto sample = [](const auto &payload, std::size_t i) {
+            std::uint32_t bits = 0;
+            for (unsigned b = 0; b < 4; ++b)
+                bits |= static_cast<std::uint32_t>(payload[i * 4 + b]) << (8 * b);
+            return std::bit_cast<float>(bits);
+        };
+        for (std::size_t cell = 0; cell < 4; ++cell)
+            for (std::size_t phase = 0; phase < 2048; ++phase) {
+                const auto at = cell * 2048 + phase;
+                if (cell < 3)
+                    for (std::size_t channel = 0; channel < 2; ++channel)
+                        expect(sample(plain_bytes, at * 2 + channel) ==
+                                   sample(mapped_bytes, at * 3 + channel),
+                               "unchanged charge states preserve exact native source bytes");
+                if (cell % 2 == 0)
+                    expect(sample(mapped_bytes, at * 3) == sample(mapped_bytes, at * 3 + 2),
+                           "fuel-cut force and matching motored force are identical");
+            }
+        expect(sample(mapped_bytes, 3 * 2048 * 3 + 2) >
+                   1.5 * sample(mapped_bytes, 2 * 2048 * 3 + 2),
+               "boosted motored baseline follows charge pressure, not ambient fuel-cut cell");
         std::cout << "diesel definition, deterministic settled capture, cancellation "
                      "and carrier binding passed\n";
         return 0;

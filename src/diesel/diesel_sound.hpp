@@ -21,6 +21,13 @@ struct SoundError {
     bool cancelled = false;
 };
 
+// Optional steady boundary map, in RPM-major / fueling-minor bake order.
+// These are prescribed reservoirs, not a solved turbocharger or ECU.
+struct SoundBoundaryCell {
+    simulation::DieselGasBoundary intake;
+    simulation::DieselGasBoundary exhaust;
+};
+
 // The initial family has identical cylinder hardware. Each binding retains its
 // stable ID, firing phase, fuel trim, and structural coupling during playback.
 struct SoundDefinition {
@@ -30,6 +37,7 @@ struct SoundDefinition {
     std::vector<simulation::DieselCrankInjectionPulse> pulses;
     std::vector<double> rpms;
     std::vector<double> fueling;
+    std::vector<SoundBoundaryCell> operating_boundaries;
     std::uint32_t samples_per_cycle = 0;
     std::uint32_t minimum_settling_cycles = 0;
     std::uint32_t maximum_settling_cycles = 0;

@@ -5,8 +5,8 @@ The supplied I4 and Ural V8 are listening candidates, not calibrated real engine
 The first audition was rejected as a low-frequency buzz; the revised example uses
 metered injection and an explicitly versioned articulation transfer.
 
-The `mechanical-diesel-v1` branch of `crankwave/engine` generates mechanically
-injected, warm four-stroke direct-injection diesel sound. It uses the
+The `mechanical-diesel-v1` branch of `crankwave/engine` generates warm four-stroke
+direct-injection diesel sound, including authored pilot/main injection trains. It uses the
 [diesel cylinder model](DIESEL_CYLINDER_V1.md) to bake pressure-force and exhaust-flow
 sources, and a separate acoustic approximation to turn those sources into audio.
 It requires no recorded engine samples or downloaded impulse responses.
@@ -82,6 +82,8 @@ The example's longer authored ignition delay allows a distinct premixed pressure
 rise at light load. These remain tuning choices requiring reference calibration.
 Pilot/main can be authored through the same
 model, but no common-rail controller or calibration is claimed.
+The [Golf-style common-rail preset](../../data/engines/golf16-common-rail-i4/README.md)
+uses two pilots and a main pulse, with prescribed load-dependent boost boundaries.
 
 The bake uses 20 kHz physics/capture and 32 gas substeps per frame. The finer gas
 grid resolves heat-release feedback before sampling the physical source. At each
@@ -102,6 +104,8 @@ These cross the one-way physics-to-presentation boundary. Pressure force is a
 scalar piston-crown load, not net engine-body force, piston side force, or acoustic
 pressure. Exhaust flow comes from the cylinder's executed valve exchange. The
 first version has fixed boundary reservoirs and no pipe-wave feedback.
+Version 12 also stores motored pressure force in N at each cell's own prescribed
+intake/exhaust states. No version solves pipe-wave feedback.
 
 Settled sources are aligned to firing TDC and linearly sampled onto an authored
 power-of-two 720-degree grid, with pressure interpolated between physical frames
@@ -354,8 +358,11 @@ Version 9 additionally requires `coasting_balance` and selects
 `pressure-force-modal-radiation-v9`. Version 10 additionally requires
 `coasting_flow_texture` and selects `pressure-force-modal-radiation-v10`.
 Version 11 additionally requires `loaded_pressure_texture` and selects
-`pressure-force-modal-radiation-v11`. Versions 1–3 and 5–10 retain their existing
-playback paths.
+`pressure-force-modal-radiation-v11`. Version 12 adds a matching motored-force
+source per operating cell and selects `pressure-force-modal-radiation-v12`.
+Version 13 permits rounded pressure radiation at idle and selects
+`pressure-force-modal-radiation-v13`, retaining version 12's three-channel layout.
+Versions 1–3 and 5–11 retain their existing playback paths and two-channel layout.
 All versions bind:
 
 - engine ID, method IDs, clocks, and the normalized-fueling coordinate;
@@ -365,7 +372,138 @@ All versions bind:
 - cylinder bindings, acoustic parameters, and the complete ordered rectangular grid;
 - the source binary's byte count, layout, and SHA-256.
 
-`sources.f32le` stores cell-major, phase-major pairs of force and outward flow as
+### Prescribed boost boundaries (version 12)
+
+`engine.operating_boundaries` is optional. When present it contains exactly one
+`{rpm, fueling_01, intake, exhaust}` record per bake cell, in RPM-major and
+fueling-minor order. Each reservoir has the same pressure, temperature and oxygen
+fields and bounds as the cylinder's defaults. Missing, duplicate, reordered and
+out-of-range cells are rejected. The complete version 11 presentation is required.
+
+The baker executes each fueled cylinder at its authored reservoirs, then executes
+a zero-fuel cylinder at those **same** reservoirs. The source layout becomes
+`cell-phase-force-n-exhaust-kg-s-motored-force-n`: three interleaved float32 values
+per phase, 12 bytes instead of 8. Fuel-cut cells reuse their fired force exactly.
+Playback interpolates all three channels with the same RPM, fuel and phase weights.
+The pressure texture subtracts that matching motored force. Subtracting the ambient
+fuel-cut row instead would mistake extra compression from boost for combustion.
+Displayed MAP comes from the same authored pressure grid.
+
+This represents steady boosted operating points. It does not solve a compressor,
+turbine, turbo lag, ECU injection schedule, rail pressure, EGR or aftertreatment.
+The acoustic exhaust transfer remains authored. Without the map, presets that do
+not opt into idle rounding preserve the legacy source layout and processing.
+Tests compare the unchanged boundary cells
+byte for byte and ensure boosted compression alone cannot excite combustion noise.
+
+### Pressure rounding at idle (version 13)
+
+The same pressure-driven envelope can be useful at common-rail idle. A
+`loaded_pressure_texture.fueling_start_01` below 0.12 or `fueling_full_01` below 0.2
+now explicitly selects version 13. Its admitted start range is 0–0.4 and full range
+is 0.01–1, with full strictly greater than start. Older runtime versions retain
+their original bounds. The historical field name remains; the DSP, seeded noise,
+energy correction and fuel interpolation are unchanged.
+
+Version 13 always captures a matching motored-force channel, including when the
+boundary map is absent. Fuel cut still produces no combustion excitation. With
+unchanged parameters, version 13 replays version 12 PCM exactly. Native tests check
+version selection, mapped source identity and unchanged legacy force/flow; runtime
+tests cover idle activation, fuel cut, layer isolation and partitioned replay.
+
+The separate Golf idle-reference candidate uses 7 ms attack, 25 ms decay and a
+0–0.12 fuel interval. Rounding is therefore also active above idle; matching its
+loaded sound remains a listening task. This is an acoustic adjustment, not an ECU
+injection or pressure-rise calibration. The previous Golf and Ural definitions
+retain their existing versions and sound.
+
+Version 14 optionally adds `presentation.inline_inertia`, a primary/secondary
+slider-crank inertia approximation for equal reciprocating masses and parallel
+inline cylinders. It requires the complete rounded-pressure presentation chain.
+The baker derives `inertial_geometry.crank_radius_m` from half the cylinder stroke
+and copies `connecting_rod_length_m` from the native cylinder definition.
+Version 14 requires both fields; earlier manifests retain their admission contracts.
+
+The force is `m r omega² sum(cos(theta - phase) + r / rod * cos(2(theta - phase)))`.
+The sum uses physical firing phases without artistic cylinder radiation gains.
+For an ideal I4 the primary terms cancel; the secondary terms reinforce at twice
+crankshaft frequency. The force follows runtime crank angle, scales with squared
+speed and continues during fuel cut. An authored high-pass, bandpass resonance,
+low-pass and PCM/N gain radiate this force into the mix. It is not tied to a
+combustion noise envelope and contains no reference audio.
+
+Parameters and admitted ranges are: `reciprocating_mass_kg` 0.05–2 per cylinder,
+`frequency_hz` 50–300, `q` 0.5–10, `gain_pcm_per_n` 0–0.001,
+`highpass_hz` 50–300, and `lowpass_hz` 300–1,000 with low-pass at least twice
+high-pass. This is a kinematic/acoustic approximation, not solved mount motion,
+balance-shaft cancellation, angular-acceleration forcing, higher kinematic orders,
+rocking moments or within-cycle crank-speed dynamics. Parallel cylinder axes are
+an authoring assumption; it is not a V-engine inertia model. The effective mass
+and acoustic transfer must not be interpreted as an identified vehicle measurement.
+
+The [Golf ramp candidate](../../data/engines/golf16-common-rail-i4/RAMP_REFERENCE.md)
+uses this layer to retain a low engine-order tone during rundown. Its existing
+native source cells remain unchanged. Runtime tests cover force cancellation,
+phase, squared-speed scaling, fuel independence, zero-gain legacy PCM equality and
+deterministic partitioning. `inertiaRms` is exposed only for presets using the layer.
+
+Version 15 adds optional `presentation.loaded_clatter` on the complete version 14
+presentation chain. It is a separate fast combustion-radiation path, allowing the
+existing idle/body texture to retain its softer envelope. Each cylinder's positive
+increments of fueled-minus-motored native force excite an exponential decay followed
+by a smooth attack filter. That envelope supplies a coherent pulse and independent
+seeded noise to an authored structural modal bank. The input is taken before the
+existing pressure texture; injection and all native source samples are unchanged.
+This is an acoustic pressure-rise proxy, not solved injector, piston or bearing
+contact forces. It contains no reference recording or measured impulse response.
+
+The mix is the product of smoothstep RPM and fuel intervals, followed by an
+exponential transition. Per-cylinder envelopes, PRNGs and radiation filters remain
+warm while bypassed. Zero mix bypasses addition exactly; fresh idle/fuel-cut renders
+therefore preserve the preceding PCM when those controls are below the thresholds.
+After fuel release the previous excitation and mix decay. Identical fueled/motored
+forces cannot generate this clatter even when the mix controls request it.
+
+The required parameters and ranges are `rpm_start` 400–3,500, `rpm_full` 800–4,500,
+`fueling_start_01` 0–0.8, `fueling_full_01` 0.01–1 (both intervals strictly positive),
+`attack_s` 0.0001–0.002, `decay_s` 0.0005–0.008, `transition_s` 0.005–0.2,
+`coherent_gain` 0–2, `stochastic_gain` 0–12, `highpass_hz` 200–1,500,
+`lowpass_hz` 2,000–8,000 (at least twice high-pass), and unsigned 32-bit integer
+`seed`. `modes` contains one to eight objects with `frequency_hz` 400–6,000,
+`q` 0.5–15 and `gain_pcm_per_n` 0–0.0002. `loadedClatterRms` appears only when this
+layer is present. The separately versioned admission rejects this field in older
+packages. Native tests verify version selection and exact source preservation;
+runtime tests check source dependence, decay, idle/coast bypass, other-layer
+isolation, seeded replay, read partitioning and malformed controls.
+
+The [Golf loaded-clatter candidate](../../data/engines/golf16-common-rail-i4/LOADED_CLATTER_REFERENCE.md)
+tested this path for missing diesel character during rev-up, but was rejected in
+listening for the wrong character. RPM and fuel
+thresholds and radiation settings are authored controls, not measured ECU behavior.
+
+Version 16 adds `cylinder_coupling` to every `loaded_clatter.modes` entry. Each
+array must bind every engine cylinder exactly once with `{id, gain}`, where gain
+is between −2 and 2. Coupling order does not matter; unknown IDs, duplicates,
+missing cylinders and mixed coupled/uncoupled modes are rejected before playback.
+The native baker selects version 16 when these bindings are present. Version 15
+and earlier retain their existing admission and rendering paths.
+
+Each cylinder's pressure-rise excitation is multiplied by its existing structural
+gain and its mode-specific acoustic weight before summing into that mode's filters.
+Thus upper resonances can have different cylinder contributions without changing
+fuel balance, firing phases, the existing low body or other mechanical layers.
+Signed weights describe acoustic polarity. They are authored radiation couplings,
+not measured cylinder forces or an identification of the recorded microphone path.
+The RPM/fuel fade and exact bypass behavior are inherited from version 15.
+
+The [Golf upper-metal candidate](../../data/engines/golf16-common-rail-i4/UPPER_METAL_REFERENCE.md)
+tests this after the user identified the real recording's 1,400–6,500 Hz texture
+as the missing character. Tests cover mode-selective excitation, ID ordering,
+signed and zero weights, unchanged native sources, legacy replay, bypass and
+partitioned rendering. Listening remains the acceptance test for character.
+
+`sources.f32le` stores cell-major, phase-major pairs of force and outward flow
+(triples including motored force for versions 12–16) as
 little-endian float32. `engine.json` retains the exact authored source. The package
 loader verifies its authenticated entry digest against the runtime's source digest
 without parsing engine physics during playback. Native publication verifies the

@@ -403,6 +403,86 @@
               }
             }
           }
+        },
+        "operating_boundaries": {
+          "description": "Optional prescribed intake/exhaust states, one entry per RPM-major/fueling-minor bake cell. Requires complete version 11 presentation. No turbo dynamics are solved.",
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 512,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "rpm",
+              "fueling_01",
+              "intake",
+              "exhaust"
+            ],
+            "properties": {
+              "rpm": {
+                "type": "number",
+                "minimum": 400,
+                "maximum": 4500
+              },
+              "fueling_01": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "intake": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pressure_pa_abs",
+                  "temperature_k",
+                  "oxygen_mass_fraction"
+                ],
+                "properties": {
+                  "pressure_pa_abs": {
+                    "type": "number",
+                    "minimum": 1000,
+                    "maximum": 300000
+                  },
+                  "temperature_k": {
+                    "type": "number",
+                    "minimum": 200,
+                    "maximum": 1500
+                  },
+                  "oxygen_mass_fraction": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 0.3
+                  }
+                }
+              },
+              "exhaust": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pressure_pa_abs",
+                  "temperature_k",
+                  "oxygen_mass_fraction"
+                ],
+                "properties": {
+                  "pressure_pa_abs": {
+                    "type": "number",
+                    "minimum": 1000,
+                    "maximum": 300000
+                  },
+                  "temperature_k": {
+                    "type": "number",
+                    "minimum": 200,
+                    "maximum": 1500
+                  },
+                  "oxygen_mass_fraction": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 0.3
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -822,12 +902,12 @@
             },
             "fueling_start_01": {
               "type": "number",
-              "minimum": 0.12,
+              "minimum": 0,
               "maximum": 0.4
             },
             "fueling_full_01": {
               "type": "number",
-              "minimum": 0.2,
+              "minimum": 0.01,
               "maximum": 1
             },
             "transition_s": {
@@ -836,7 +916,208 @@
               "maximum": 0.2
             }
           },
-          "description": "Rounded stochastic combustion radiation under load. Native and runtime admission additionally require fueling_full_01 > fueling_start_01."
+          "description": "Rounded stochastic combustion radiation over an authored fuel interval. A start below 0.12 or full amount below 0.2 selects runtime version 13 for rounding at idle. Native and runtime admission additionally require fueling_full_01 > fueling_start_01."
+        },
+        "inline_inertia": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reciprocating_mass_kg",
+            "frequency_hz",
+            "q",
+            "gain_pcm_per_n",
+            "highpass_hz",
+            "lowpass_hz"
+          ],
+          "properties": {
+            "reciprocating_mass_kg": {
+              "type": "number",
+              "minimum": 0.05,
+              "maximum": 2
+            },
+            "frequency_hz": {
+              "type": "number",
+              "minimum": 50,
+              "maximum": 300
+            },
+            "q": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 10
+            },
+            "gain_pcm_per_n": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.001
+            },
+            "highpass_hz": {
+              "type": "number",
+              "minimum": 50,
+              "maximum": 300
+            },
+            "lowpass_hz": {
+              "type": "number",
+              "minimum": 300,
+              "maximum": 1000
+            }
+          },
+          "description": "Opt-in version 14: primary and secondary kinematic inertia of identical reciprocating masses on parallel cylinder axes. Geometry is derived from the native cylinder. Authored radiation does not solve mounts, balance shafts or crank dynamics. Lowpass must be at least twice highpass."
+        },
+        "loaded_clatter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rpm_start",
+            "rpm_full",
+            "fueling_start_01",
+            "fueling_full_01",
+            "attack_s",
+            "decay_s",
+            "transition_s",
+            "coherent_gain",
+            "stochastic_gain",
+            "highpass_hz",
+            "lowpass_hz",
+            "seed",
+            "modes"
+          ],
+          "properties": {
+            "rpm_start": {
+              "type": "number",
+              "minimum": 400,
+              "maximum": 3500
+            },
+            "rpm_full": {
+              "type": "number",
+              "minimum": 800,
+              "maximum": 4500
+            },
+            "fueling_start_01": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.8
+            },
+            "fueling_full_01": {
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 1
+            },
+            "attack_s": {
+              "type": "number",
+              "minimum": 0.0001,
+              "maximum": 0.002
+            },
+            "decay_s": {
+              "type": "number",
+              "minimum": 0.0005,
+              "maximum": 0.008
+            },
+            "transition_s": {
+              "type": "number",
+              "minimum": 0.005,
+              "maximum": 0.2
+            },
+            "coherent_gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            },
+            "stochastic_gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 12
+            },
+            "highpass_hz": {
+              "type": "number",
+              "minimum": 200,
+              "maximum": 1500
+            },
+            "lowpass_hz": {
+              "type": "number",
+              "minimum": 2000,
+              "maximum": 8000
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "modes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "frequency_hz",
+                  "q",
+                  "gain_pcm_per_n"
+                ],
+                "properties": {
+                  "frequency_hz": {
+                    "type": "number",
+                    "minimum": 400,
+                    "maximum": 6000
+                  },
+                  "q": {
+                    "type": "number",
+                    "minimum": 0.5,
+                    "maximum": 15
+                  },
+                  "gain_pcm_per_n": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 0.0002
+                  },
+                  "cylinder_coupling": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 12,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "gain"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]*$"
+                        },
+                        "gain": {
+                          "type": "number",
+                          "minimum": -2,
+                          "maximum": 2
+                        }
+                      }
+                    },
+                    "description": "Version 16: per-mode acoustic weight multiplied by each cylinder structural_gain. Bind each native cylinder ID exactly once; order is immaterial. This changes radiation, not fuel or firing."
+                  }
+                }
+              },
+              "oneOf": [
+                {
+                  "items": {
+                    "required": [
+                      "cylinder_coupling"
+                    ]
+                  }
+                },
+                {
+                  "items": {
+                    "not": {
+                      "required": [
+                        "cylinder_coupling"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "Opt-in version 15: fast pressure-rise-driven clatter, smoothly mixed by RPM and fuel. Additive acoustic radiation only; no extra combustion or recorded audio. Native/runtime admission also requires positive RPM/fuel intervals and lowpass at least twice highpass. Per-mode cylinder_coupling selects version 16 and must appear on every mode. Native/runtime admission validates complete, unique cylinder bindings."
         }
       },
       "dependentRequired": {
@@ -866,6 +1147,12 @@
         ],
         "loaded_pressure_texture": [
           "coasting_flow_texture"
+        ],
+        "inline_inertia": [
+          "loaded_pressure_texture"
+        ],
+        "loaded_clatter": [
+          "inline_inertia"
         ]
       },
       "allOf": [

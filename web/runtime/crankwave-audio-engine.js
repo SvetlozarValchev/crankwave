@@ -4,6 +4,7 @@ import {
 } from "./held-texture-presentation-runtime.js";
 import { loadResponsiveAudioCrankwave } from "./crankwave-package.js";
 import { DieselMechanicalRuntimeCursor } from "./diesel-mechanical-runtime.js";
+import { MechanicalTextureCursor } from "./mechanical-texture-runtime.js";
 
 const RUNNING_STATE_MASK = 0x03;
 const DEFAULT_RENDER_FRAMES = 8_192;
@@ -230,6 +231,7 @@ export class CrankwaveAudioEngine {
   #renderedFrames = 0;
   #renderMode = null;
   #streamingInputFrames = 0;
+  #mechanicalTexture = null;
 
   static async load(
     input,
@@ -258,6 +260,8 @@ export class CrankwaveAudioEngine {
     this.#loaded = loaded;
     this.#runtime = playbackBlockFrames === undefined ? loaded.runtime :
       prepareHeldPlaybackRuntime(loaded.runtime, playbackBlockFrames);
+    this.#mechanicalTexture = this.#runtime.mechanicalTexture == null ? null :
+      new MechanicalTextureCursor(this.#runtime.mechanicalTexture, this.#runtime.batchFrames, this.sampleRate);
     this.#cursor = this.#runtime.kind === "diesel-mechanical-audio"
       ? new DieselMechanicalRuntimeCursor(this.#runtime)
       : new HeldTexturePresentationRuntimeCursor(this.#runtime, { sessionSeed });
@@ -365,6 +369,7 @@ export class CrankwaveAudioEngine {
 
   reset() {
     this.#cursor.reset();
+    this.#mechanicalTexture?.reset();
     this.#queue.length = 0;
     this.#queuedFrames = 0;
     this.#renderedFrames = 0;
@@ -398,6 +403,7 @@ export class CrankwaveAudioEngine {
       start,
       end,
     });
+    this.#mechanicalTexture?.renderBlock({frameCount: warmupFrames, start, end, warm: true});
     this.#cursor.beginAudible();
     return this.#operatingPoint;
   }
@@ -506,6 +512,7 @@ export class CrankwaveAudioEngine {
         this.#operatingPoint.load01,
       ),
       runtime: this.#cursor.diagnostics(),
+      ...(this.#mechanicalTexture === null ? {} : {mechanicalTexture: this.#mechanicalTexture.diagnostics()}),
     });
   }
 
@@ -556,6 +563,11 @@ export class CrankwaveAudioEngine {
         "runtime-output-shape",
         "CRANKWAVE runtime did not return mono Float32 PCM",
       );
+    }
+    if (this.#mechanicalTexture !== null) {
+      const mechanical = this.#mechanicalTexture.renderBlock({frameCount, start, end});
+      if (mechanical.length !== rendered.length) fail("runtime-output-shape", "Mechanical texture batch mismatch");
+      for (let i = 0; i < rendered.length; ++i) rendered[i] += mechanical[i];
     }
     this.#committedPoint = endPoint;
     this.#lastRpmSlope = rpmSlope;

@@ -3,7 +3,7 @@ import {webcrypto} from "node:crypto";
 import test from "node:test";
 
 import {CrankwaveAudioEngine} from "../../runtime/crankwave-audio-engine.js";
-import {DieselBiquad, DieselExhaustSystem, DieselPressureTexture, DieselMechanicalTexture, DieselLowFuelExhaust, DieselCoastingBalance, DieselCoastingFlowTexture, DieselLoadedPressureTexture} from "../../runtime/diesel-mechanical-runtime.js";
+import {DieselBiquad, DieselExhaustSystem, DieselPressureTexture, DieselMechanicalTexture, DieselLowFuelExhaust, DieselCoastingBalance, DieselCoastingFlowTexture, DieselLoadedPressureTexture, DieselInlineInertia, DieselLoadedClatter} from "../../runtime/diesel-mechanical-runtime.js";
 
 import {digest, jsonBytes, packTestCarrier} from "./crankwave-test-carrier.mjs";
 
@@ -1038,4 +1038,310 @@ test('rounded loaded texture requires version 11 and a valid fade interval', asy
     m => {m.presentation.loaded_pressure_texture.transition_s = 0;},
     m => {m.presentation.loaded_pressure_texture.extra = 1;}
   ]) await assert.rejects(load(roundedLoadedFixture(mutate)));
+});
+
+// Version 12 carries a motored force for the SAME charge boundary as each
+// fueled cell. This fixture deliberately makes compression depend on load.
+function mappedBoundaryFixture(mutate = () => {}, compressionOnly = false) {
+  let manifest, legacy;
+  roundedLoadedFixture((m, bytes) => {manifest = structuredClone(m);legacy = bytes;});
+  const n = manifest.samples_per_cycle;
+  const sources = Buffer.alloc(n * 4 * 12);
+  manifest.version = 12;
+  manifest.methods[2] = 'pressure-force-modal-radiation-v12';
+  manifest.sources.layout = 'cell-phase-force-n-exhaust-kg-s-motored-force-n';
+  manifest.sources.byte_count = sources.length;
+  for (let cell = 0; cell < 4; cell++) {
+    manifest.cells[cell].manifold_pressure_pa_abs = 101325 * (1 + cell % 2);
+    for (let i = 0; i < n; i++) {
+      const at = (cell * n + i) * 12;
+      const motored = legacy.readFloatLE((Math.floor(cell / 2) * 2 * n + i) * 8) *
+          (compressionOnly ? 1 + cell % 2 : 1);
+      sources.writeFloatLE(compressionOnly ? motored : legacy.readFloatLE((cell * n + i) * 8), at);
+      sources.writeFloatLE(legacy.readFloatLE((cell * n + i) * 8 + 4), at + 4);
+      sources.writeFloatLE(motored, at + 8);
+    }
+  }
+  mutate(manifest, sources);
+  manifest.sources.sha256 = digest(sources);
+  const runtime = jsonBytes(manifest);
+  return packTestCarrier([
+    ['crankwave.json', jsonBytes({schema: 'crankwave/crankwave-package', version: 1,
+      engine_id: 'test-diesel', runtime: {kind: 'diesel-mechanical-audio-v1',
+        manifest_path: 'runtime.json', manifest_sha256: digest(runtime)}})],
+    ['engine.json', jsonBytes({fixture: 'synthetic diesel DSP input'})],
+    ['runtime.json', runtime], ['sources.f32le', sources]
+  ]);
+}
+
+test('mapped motored channel preserves old PCM when charge boundaries agree', async () => {
+  const old = await load(roundedLoadedFixture());
+  const mapped = await load(mappedBoundaryFixture());
+  for (const load01 of [0, 0.12, 0.65, 1]) {
+    for (const e of [old, mapped]) {e.setOperatingPoint({rpm: 1200, load01, throttle01: load01});e.reset();}
+    assert.deepEqual(mapped.render(45000), old.render(45000));
+  }
+  assert.equal(mapped.loadManifoldPressurePa(1200, 0.5), 151987.5);
+});
+
+test('boosted compression cannot excite combustion noise at intermediate RPM and fuel', async () => {
+  const engine = await load(mappedBoundaryFixture(m => {
+    m.presentation.pressure_texture.compression_gain = 0;
+    m.presentation.exhaust_gain_pcm_per_kg_s = 0;
+    m.presentation.exhaust_system.radiation_gain_pcm_s2_per_kg = 0;
+    m.presentation.exhaust_system.flow_noise_gain_pcm_per_kg_s = 0;
+    m.presentation.mechanical_texture.valve_gain_pcm = 0;
+    m.presentation.mechanical_texture.pumping_gain_pcm = 0;
+    m.presentation.coasting_flow_texture.gain_pcm_per_kg_s = 0;
+  }, true));
+  engine.setOperatingPoint({rpm: 1200, load01: 0.65, throttle01: 0.65});engine.reset();
+  const output = engine.render(45000);
+  assert.equal(rms(output), 0);
+});
+
+test('mapped source layout validates version, stride and motored-force bounds', async () => {
+  for (const mutate of [
+    m => {m.sources.layout = 'cell-phase-force-n-exhaust-kg-s';},
+    m => {m.sources.byte_count -= 4;},
+    m => {m.version = 11;m.methods[2] = 'pressure-force-modal-radiation-v11';},
+    (m, s) => {s.writeFloatLE(NaN, 8);},
+    (m, s) => {s.writeFloatLE(2e7, 8);},
+    (m, s) => {s.writeFloatLE(11, 4);}
+  ]) await assert.rejects(load(mappedBoundaryFixture(mutate)));
+});
+
+test('version 13 admits pressure rounding at idle and preserves existing parameter behavior', async () => {
+  const old = await load(mappedBoundaryFixture());
+  const unchanged = await load(mappedBoundaryFixture(m => {
+    m.version = 13; m.methods[2] = 'pressure-force-modal-radiation-v13';
+  }));
+  const idle = await load(mappedBoundaryFixture(m => {
+    m.version = 13; m.methods[2] = 'pressure-force-modal-radiation-v13';
+    Object.assign(m.presentation.loaded_pressure_texture,
+      {fueling_start_01: 0, fueling_full_01: .12, attack_s: .007, decay_s: .025});
+  }));
+  for (const fuel of [0, .12, .65]) {
+    for (const e of [old, unchanged, idle]) {
+      e.setOperatingPoint({rpm: 1200, load01: fuel, throttle01: fuel}); e.reset();
+    }
+    const before = old.render(45000), same = unchanged.render(45000), rounded = idle.render(45000);
+    assert.deepEqual(before, same);
+    if (fuel === 0) assert.deepEqual(before, rounded, 'no combustion texture from motoring');
+    else assert.notDeepEqual(before, rounded);
+    assert.ok(rounded.every(Number.isFinite));
+    idle.reset();
+    const partitioned = new Float32Array(45000);
+    partitioned.set(idle.render(15000)); partitioned.set(idle.render(30000), 15000);
+    assert.deepEqual(rounded, partitioned);
+    const a = old.diagnostics().runtime, b = idle.diagnostics().runtime;
+    for (const key of ['exhaustRms', 'valveRms', 'pumpingRms', 'coastingFlowRms'])
+      assert.equal(a[key], b[key], `${key} is independent of pressure rounding`);
+  }
+  for (const mutate of [
+    m => {m.presentation.loaded_pressure_texture.fueling_start_01 = -.01;},
+    m => {m.presentation.loaded_pressure_texture.fueling_full_01 = 0;},
+    m => {Object.assign(m.presentation.loaded_pressure_texture, {fueling_start_01: .1, fueling_full_01: .1});},
+  ]) await assert.rejects(load(mappedBoundaryFixture(m => {
+    m.version = 13; m.methods[2] = 'pressure-force-modal-radiation-v13'; mutate(m);
+  })));
+});
+
+const inertiaParameters = {reciprocating_mass_kg: .45, frequency_hz: 110, q: 2.5,
+  gain_pcm_per_n: .0004, highpass_hz: 140, lowpass_hz: 500};
+const inertiaGeometry = {crank_radius_m: .04025, connecting_rod_length_m: .137};
+function inertiaFixture(mutate = () => {}) {
+  return mappedBoundaryFixture(m => {
+    m.version = 14; m.methods[2] = 'pressure-force-modal-radiation-v14';
+    m.inertial_geometry = {...inertiaGeometry};
+    m.presentation.inline_inertia = {...inertiaParameters};
+    mutate(m);
+  });
+}
+
+test('inline inertia cancels I4 primary forces, retains secondary force and scales with speed squared', () => {
+  const c = [0, Math.PI, 2 * Math.PI, 3 * Math.PI].map(firing_angle_rad => ({firing_angle_rad}));
+  const body = new DieselInlineInertia(inertiaParameters, inertiaGeometry, c);
+  const expected = 4 * .45 * .04025 ** 2 / .137 * (2 * Math.PI * 3000 / 60) ** 2;
+  body.process(0, 3000); assert.ok(Math.abs(body.force / expected - 1) < 1e-12);
+  body.process(.25, 3000); assert.ok(Math.abs(body.force / expected + 1) < 1e-12);
+  body.process(.125, 3000); assert.ok(Math.abs(body.force) < 1e-9);
+  body.process(0, 1500); assert.ok(Math.abs(body.force / expected - .25) < 1e-12);
+  body.process(0, 0); assert.equal(body.force, 0);
+});
+
+test('inline inertia survives fuel cut, replays exactly and leaves the other layers unchanged', async () => {
+  const old = await load(mappedBoundaryFixture());
+  const muted = await load(inertiaFixture(m => {m.presentation.inline_inertia.gain_pcm_per_n = 0;}));
+  const active = await load(inertiaFixture());
+  for (const load01 of [0, .12, .65]) {
+    for (const e of [old, muted, active]) {e.setOperatingPoint({rpm: 1200, load01, throttle01: load01});e.reset();}
+    const before = old.render(45000), zero = muted.render(45000), pcm = active.render(45000);
+    assert.deepEqual(before, zero);
+    assert.notDeepEqual(before, pcm);
+    assert.ok(pcm.every(x => Number.isFinite(x) && Math.abs(x) < 1));
+    assert.ok(active.diagnostics().runtime.inertiaRms > 0);
+    for (const key of ['blockRms', 'exhaustRms', 'valveRms', 'pumpingRms', 'coastingFlowRms'])
+      assert.equal(old.diagnostics().runtime[key], active.diagnostics().runtime[key]);
+    active.reset();const split = new Float32Array(45000);
+    split.set(active.render(15000));split.set(active.render(30000),15000);
+    assert.deepEqual(pcm, split);
+  }
+});
+
+test('inline inertia requires explicit version 14, geometry and bounded physical and radiation parameters', async () => {
+  for (const mutate of [
+    m => {m.version = 13;m.methods[2] = 'pressure-force-modal-radiation-v13';},
+    m => {delete m.inertial_geometry;},
+    m => {m.inertial_geometry.connecting_rod_length_m = .02;},
+    m => {delete m.presentation.inline_inertia;},
+    m => {m.presentation.inline_inertia.reciprocating_mass_kg = 0;},
+    m => {m.presentation.inline_inertia.gain_pcm_per_n = .1;},
+    m => {m.presentation.inline_inertia.frequency_hz = 0;},
+    m => {m.presentation.inline_inertia.q = 0;},
+    m => {m.presentation.inline_inertia.highpass_hz = 300;m.presentation.inline_inertia.lowpass_hz = 300;},
+    m => {m.presentation.inline_inertia.extra = 1;}
+  ]) await assert.rejects(load(inertiaFixture(mutate)));
+});
+
+const clatterParameters = {rpm_start: 800, rpm_full: 1400, fueling_start_01: .18,
+  fueling_full_01: .55, attack_s: .0003, decay_s: .0025, transition_s: .04,
+  coherent_gain: 1, stochastic_gain: 2, highpass_hz: 450, lowpass_hz: 5500, seed: 15983226,
+  modes: [{frequency_hz: 650, q: 3, gain_pcm_per_n: .00007},
+    {frequency_hz: 1280, q: 5, gain_pcm_per_n: .00006}]};
+function clatterFixture(mutate = () => {}) {
+  return inertiaFixture(m => {
+    m.version = 15;m.methods[2] = 'pressure-force-modal-radiation-v15';
+    m.presentation.loaded_clatter = structuredClone(clatterParameters);mutate(m);
+  });
+}
+
+test('loaded clatter needs combustion pressure rise, decays after it and replays its seeded texture', () => {
+  const c = new DieselLoadedClatter(clatterParameters, [{id:'test-cylinder',structural_gain:1}]);
+  function run(fired, motored, count) {
+    const out = new Float64Array(count);
+    for(let i=0;i<count;i++) {
+      c.beginFrame(1600,.65);c.excite(0,fired(i),motored(i));out[i]=c.finishFrame();
+    }
+    return out;
+  }
+  // Identical motored/fired variation must never be classified as combustion.
+  const motored = i => 30000*Math.cos(i*.01);
+  assert.ok(run(motored,motored,10000).every(x=>x===0));
+  c.reset();
+  const fired = i => i<800 ? 40000*Math.sin(Math.PI*i/800)**2 : 0;
+  const first = run(fired,()=>0,30000);
+  assert.ok(first.some(x=>Math.abs(x)>1e-4));
+  assert.ok(first.slice(-1000).every(x=>Math.abs(x)<1e-12));
+  c.reset();assert.deepEqual(run(fired,()=>0,30000),first);
+});
+
+test('loaded clatter preserves idle/coast PCM, adds fueled high-RPM detail, and leaves existing layers exact', async () => {
+  const previous=await load(inertiaFixture());
+  const next=await load(clatterFixture());
+  const muted=await load(clatterFixture(m=>m.presentation.loaded_clatter.modes.forEach(x=>x.gain_pcm_per_n=0)));
+  for(const [rpm,fuel,active] of [[800,.65,false],[1600,.12,false],[1600,0,false],[1600,.65,true]]) {
+    for(const e of [previous,next,muted]){e.setOperatingPoint({rpm,load01:fuel,throttle01:fuel});e.reset();}
+    const before=previous.render(45000),after=next.render(45000);
+    assert.deepEqual(muted.render(45000),before);
+    if(active)assert.notDeepEqual(after,before);else assert.deepEqual(after,before);
+    assert.ok(after.every(x=>Number.isFinite(x)&&Math.abs(x)<1));
+    assert.equal(next.diagnostics().runtime.loadedClatterRms>0,active);
+    for(const key of ['blockRms','exhaustRms','valveRms','pumpingRms','coastingFlowRms','inertiaRms'])
+      assert.equal(previous.diagnostics().runtime[key],next.diagnostics().runtime[key]);
+    next.reset();const split=new Float32Array(45000);
+    split.set(next.render(12000));split.set(next.render(33000),12000);assert.deepEqual(split,after);
+  }
+});
+
+test('loaded clatter requires version 15 and rejects malformed envelopes, intervals, modes and seeds', async () => {
+  for(const mutate of [
+    m=>{m.version=14;m.methods[2]='pressure-force-modal-radiation-v14';},
+    m=>{delete m.presentation.loaded_clatter;},
+    m=>{m.presentation.loaded_clatter.rpm_full=800;},
+    m=>{m.presentation.loaded_clatter.fueling_full_01=.18;},
+    m=>{m.presentation.loaded_clatter.attack_s=0;},
+    m=>{m.presentation.loaded_clatter.decay_s=.1;},
+    m=>{m.presentation.loaded_clatter.transition_s=0;},
+    m=>{m.presentation.loaded_clatter.stochastic_gain=13;},
+    m=>{m.presentation.loaded_clatter.coherent_gain=-1;},
+    m=>{m.presentation.loaded_clatter.seed=.5;},
+    m=>{m.presentation.loaded_clatter.highpass_hz=1500;m.presentation.loaded_clatter.lowpass_hz=2000;},
+    m=>{m.presentation.loaded_clatter.modes=[];},
+    m=>{m.presentation.loaded_clatter.modes[0].gain_pcm_per_n=.1;},
+    m=>{m.presentation.loaded_clatter.modes[0].q=0;},
+    m=>{m.presentation.loaded_clatter.modes[0].frequency_hz=0;},
+    m=>{m.presentation.loaded_clatter.extra=1;}
+  ])await assert.rejects(load(clatterFixture(mutate)));
+});
+
+function coupledClatterFixture(mutate = () => {}) {
+  return clatterFixture(m => {
+    m.version = 16;m.methods[2] = 'pressure-force-modal-radiation-v16';
+    m.presentation.loaded_clatter.modes.forEach((mode, i) => {
+      mode.cylinder_coupling = m.cylinders.map((c, j) => ({id:c.id, gain:j===i ? 1 : .3}));
+    });
+    mutate(m);
+  });
+}
+
+test('mode coupling selects cylinder excitation independently and binds by ID, including signed weights', () => {
+  const cylinders = [{id:'left',structural_gain:1},{id:'right',structural_gain:1}];
+  const parameters = structuredClone(clatterParameters);
+  parameters.stochastic_gain = 0;
+  parameters.modes[0].cylinder_coupling = [{id:'right',gain:0},{id:'left',gain:1}];
+  parameters.modes[1].cylinder_coupling = [{id:'left',gain:0},{id:'right',gain:-1}];
+  function render(p, cs, active) {
+    const layer = new DieselLoadedClatter(p, cs), out = new Float64Array(16000);
+    for(let i=0;i<out.length;i++) {
+      layer.beginFrame(1600,.65);
+      cs.forEach((c,j)=>layer.excite(j,c.id===active && i<800 ? 40000*Math.sin(Math.PI*i/800)**2 : 0,0));
+      out[i] = layer.finishFrame();
+    }
+    return out;
+  }
+  for(const [index,id,sign] of [[0,'left',1],[1,'right',-1]]) {
+    const solo = structuredClone(parameters);solo.modes = [solo.modes[index]];
+    delete solo.modes[0].cylinder_coupling;
+    const expected = render(solo,[{id,structural_gain:sign}],id);
+    const actual = render(parameters,cylinders,id);
+    assert.ok(actual.some(x=>Math.abs(x)>1e-5));
+    assert.deepEqual(actual,expected);
+    assert.deepEqual(render(parameters,[...cylinders].reverse(),id),actual);
+  }
+});
+
+test('coupled clatter preserves bypass and existing layers and replays across read partitions', async () => {
+  const previous=await load(inertiaFixture()),next=await load(coupledClatterFixture());
+  const muted=await load(coupledClatterFixture(m=>m.presentation.loaded_clatter.modes.forEach(mode=>
+    mode.cylinder_coupling.forEach(c=>c.gain=0))));
+  for(const [rpm,fuel,active] of [[800,.65,false],[1600,.12,false],[1600,0,false],[1600,.65,true]]) {
+    for(const e of [previous,next,muted]) {e.setOperatingPoint({rpm,load01:fuel,throttle01:fuel});e.reset();}
+    const before=previous.render(45000),after=next.render(45000);
+    assert.deepEqual(muted.render(45000),before);
+    if(active)assert.notDeepEqual(after,before);else assert.deepEqual(after,before);
+    assert.ok(after.every(x=>Number.isFinite(x)&&Math.abs(x)<1));
+    for(const key of ['blockRms','exhaustRms','valveRms','pumpingRms','coastingFlowRms','inertiaRms'])
+      assert.equal(next.diagnostics().runtime[key],previous.diagnostics().runtime[key]);
+    next.reset();const split=new Float32Array(45000);
+    split.set(next.render(17003));split.set(next.render(27997),17003);assert.deepEqual(split,after);
+  }
+});
+
+test('version 16 requires complete, unique, bounded per-mode cylinder bindings', async () => {
+  for(const mutate of [
+    m=>{m.version=15;m.methods[2]='pressure-force-modal-radiation-v15';},
+    m=>{delete m.presentation.loaded_clatter.modes[0].cylinder_coupling;},
+    m=>{m.presentation.loaded_clatter.modes.forEach(mode=>delete mode.cylinder_coupling);},
+    m=>{m.presentation.loaded_clatter.modes[0].cylinder_coupling.pop();},
+    m=>{m.presentation.loaded_clatter.modes[0].cylinder_coupling[0].id='unknown';},
+    m=>{
+      m.cylinders.push({...m.cylinders[0],id:'coupled-second',firing_angle_rad:2*Math.PI});
+      m.presentation.exhaust_system.branches[0].cylinder_ids.push('coupled-second');
+      m.presentation.loaded_clatter.modes.forEach(mode=>mode.cylinder_coupling.push({id:'coupled-second',gain:1}));
+      const c=m.presentation.loaded_clatter.modes[0].cylinder_coupling;c[1].id=c[0].id;
+    },
+    m=>{m.presentation.loaded_clatter.modes[0].cylinder_coupling[0].gain=2.01;},
+    m=>{m.presentation.loaded_clatter.modes[0].cylinder_coupling[0].gain=-2.01;},
+    m=>{m.presentation.loaded_clatter.modes[0].cylinder_coupling[0].extra=1;}
+  ])await assert.rejects(load(coupledClatterFixture(mutate)));
 });

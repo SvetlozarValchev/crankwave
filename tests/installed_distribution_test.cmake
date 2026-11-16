@@ -119,6 +119,7 @@ set(expected_runtime_entries
     held-phase-texture-runtime.js
     held-texture-presentation-runtime.js
     limiter-performance-runtime.js
+    mechanical-texture-runtime.js
     pcm-payload.js
     release.js
     renderer-runtime-compatibility.js

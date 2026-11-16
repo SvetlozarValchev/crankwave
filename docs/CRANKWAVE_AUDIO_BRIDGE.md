@@ -186,7 +186,9 @@ the supplied RPM. This does not create new held anchors above 4,200 RPM.
 `diagnostics().runtime.limiter` reports availability and trigger count.
 
 The harness's **N + full accelerator** mode now crosses the threshold and
-repeatedly cuts/recovers when this capability is available.
+repeatedly cuts/recovers when this capability is available. See
+[the UAZ port](../data/engines/uaz469-reference-3m/PORT.md) for reproducible capture
+commands, source identities, and the 20 ms marker resolution limitation.
 
 ```sh
 node --test web/tests/runtime/limiter-performance-runtime.test.mjs

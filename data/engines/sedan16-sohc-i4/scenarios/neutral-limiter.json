@@ -1,0 +1,207 @@
+{
+  "schema": "crankwave/scenario",
+  "id": "sedan16-sohc-i4-neutral-limiter",
+  "engine": "sedan16-sohc-i4",
+  "fuel": "gasoline",
+  "ambient": {
+    "pressure": {
+      "value": 101325,
+      "unit": "Pa"
+    },
+    "temperature": {
+      "value": 293.15,
+      "unit": "K"
+    },
+    "relative_humidity_01": 0
+  },
+  "initial_thermal_state": {
+    "gas_temperature": {
+      "value": 293.15,
+      "unit": "K"
+    },
+    "wall_temperature": {
+      "value": 363.15,
+      "unit": "K"
+    },
+    "coolant_temperature": {
+      "value": 363.15,
+      "unit": "K"
+    },
+    "oil_temperature": {
+      "value": 363.15,
+      "unit": "K"
+    }
+  },
+  "crankcase": {
+    "pressure": {
+      "value": 101325,
+      "unit": "Pa"
+    },
+    "temperature": {
+      "value": 293.15,
+      "unit": "K"
+    }
+  },
+  "initial_state": {
+    "engine_speed": {
+      "value": 900.0,
+      "unit": "rpm"
+    },
+    "crank_angle": {
+      "value": 1.570796326795,
+      "unit": "rad"
+    },
+    "ignition_enabled": true,
+    "fuel_enabled": true,
+    "starter_enabled": false,
+    "dyno_enabled": false,
+    "limiter_enabled": true
+  },
+  "preparation": {
+    "type": "fixed_horizon",
+    "preparation_duration": {
+      "value": 1.0,
+      "unit": "s"
+    },
+    "trailing_complete_cycle_count": 4
+  },
+  "mode": {
+    "type": "free_engine",
+    "throttle_01": {
+      "interpolation": "right_continuous_hold",
+      "points": [
+        {
+          "time": {
+            "value": 0.0,
+            "unit": "s"
+          },
+          "value": 0.0
+        },
+        {
+          "time": {
+            "value": 1.31,
+            "unit": "s"
+          },
+          "value": 0.1
+        },
+        {
+          "time": {
+            "value": 1.32,
+            "unit": "s"
+          },
+          "value": 0.2
+        },
+        {
+          "time": {
+            "value": 1.33,
+            "unit": "s"
+          },
+          "value": 0.3
+        },
+        {
+          "time": {
+            "value": 1.34,
+            "unit": "s"
+          },
+          "value": 0.4
+        },
+        {
+          "time": {
+            "value": 1.35,
+            "unit": "s"
+          },
+          "value": 0.5
+        },
+        {
+          "time": {
+            "value": 1.36,
+            "unit": "s"
+          },
+          "value": 0.6
+        },
+        {
+          "time": {
+            "value": 1.37,
+            "unit": "s"
+          },
+          "value": 0.7
+        },
+        {
+          "time": {
+            "value": 1.38,
+            "unit": "s"
+          },
+          "value": 0.8
+        },
+        {
+          "time": {
+            "value": 1.39,
+            "unit": "s"
+          },
+          "value": 0.9
+        },
+        {
+          "time": {
+            "value": 1.4,
+            "unit": "s"
+          },
+          "value": 1.0
+        }
+      ]
+    }
+  },
+  "events": [],
+  "rates": {
+    "physics": {
+      "numerator": "20000",
+      "denominator": "1",
+      "unit": "Hz"
+    },
+    "capture": {
+      "numerator": "20000",
+      "denominator": "1",
+      "unit": "Hz"
+    },
+    "source_processing": {
+      "numerator": "192000",
+      "denominator": "1",
+      "unit": "Hz"
+    },
+    "acoustics": {
+      "numerator": "192000",
+      "denominator": "1",
+      "unit": "Hz"
+    },
+    "delivery": {
+      "numerator": "192000",
+      "denominator": "1",
+      "unit": "Hz"
+    }
+  },
+  "quality": {
+    "id": "listening",
+    "process_block_capacity_frames": 3840,
+    "event_queue_capacity": 3800,
+    "telemetry_capacity_frames": 1
+  },
+  "total_duration": {
+    "value": 15.0,
+    "unit": "s"
+  },
+  "audible_start": {
+    "value": 1.0,
+    "unit": "s"
+  },
+  "audible_duration": {
+    "value": 14.0,
+    "unit": "s"
+  },
+  "public_seed": "4242",
+  "output": {
+    "buses": [
+      "master-engine-raw",
+      "master-engine-audition"
+    ],
+    "telemetry_channels": []
+  }
+}

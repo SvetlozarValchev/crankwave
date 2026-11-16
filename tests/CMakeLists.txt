@@ -2718,6 +2718,7 @@ if(TARGET crankwave_cli_support)
                 ${PROJECT_SOURCE_DIR}/web/tests/runtime/crankwave-audio-engine.test.mjs
                 ${PROJECT_SOURCE_DIR}/web/tests/runtime/held-phase-texture-runtime.test.mjs
                 ${PROJECT_SOURCE_DIR}/web/tests/runtime/pcm-payload.test.mjs
+                ${PROJECT_SOURCE_DIR}/web/tests/runtime/mechanical-texture-runtime.test.mjs
         )
         add_test(
             NAME runtime.diesel_mechanical

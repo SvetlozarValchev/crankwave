@@ -1,0 +1,20 @@
+{
+  "source_mr_sha256": "1022ef727755337c2714f5b26290b86917c2d8edf2e8456aeb5d8ab9417b4447",
+  "source_path": "engine-sim/assets/engines/uaz469_reference_3m.mr",
+  "synthetic_ir_sha256": "f547b216ea1f11c6bc90ad60440c27cf67affd94955468455978b91554cb1494",
+  "engine_json_sha256": "762f2b06d60968533c89ce5963f2f8ff360f0e7d5afb3301fb84e2fb53eea497",
+  "port_kind": "explicit-authored-parameter-mapping",
+  "source_recordings_used": false,
+  "source_revision": "2026-09-08-reference-3m",
+  "authored_idle_target_rpm": 765,
+  "reference_magnitude_eq_used": true,
+  "reference_eq_sha256": "2bbd0a7202bcfd04bce3fb7d0abffaa1406d023b13150faf18387deaf165bada",
+  "ir_generator_sha256": "6efad296073784f5a0c3689cfb36aa17a9f0b246cea7b5585d2a9e291a91893e",
+  "differences": [
+    "Crankwave mandatory Chen-Flynn aggregate loss prior is not the original simulator loss model.",
+    "Fuel density is GUI telemetry only in engine-sim and is omitted.",
+    "Rod center_of_mass=0 is a midpoint offset in MR: 87.5 mm measured from crank pin in JSON.",
+    "Crankwave publication gain and conditioning-cutoff defaults use its canonical presentation contract.",
+    "The held-idle validation scenario specifies 20 kHz physics; the native carrier baker uses its 10 kHz interactive preview profile with 192 kHz presentation. Godot playback uses a derived bank."
+  ]
+}

@@ -193,6 +193,7 @@ const browserModuleNames = [
   "diesel-drive-runtime.js",
   "diesel-drive-session.js",
   "limiter-performance-runtime.js",
+  "mechanical-texture-runtime.js",
   "crankwave-package.js",
   "shared-recorded-starter-runtime.js",
   "state-phase-texture-runtime.js",

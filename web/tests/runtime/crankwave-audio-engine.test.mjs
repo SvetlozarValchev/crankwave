@@ -13,6 +13,7 @@ import {
   HeldPhaseTextureCursor,
   loadHeldPhaseTexturePackage,
 } from "../../runtime/held-phase-texture-runtime.js";
+import {mechanicalFixture} from "./mechanical-texture-fixture.mjs";
 
 const ENTRY_MODULE = fileURLToPath(
   new URL("../../runtime/crankwave-audio-engine.js", import.meta.url),
@@ -629,4 +630,30 @@ test("limiter controls require captured material instead of silently gating runn
   assert.equal(engine.limiter, null);
   assert.throws(() => engine.setOperatingPoint(point), assertFacadeError("limiter-unavailable"));
   assert.throws(() => engine.process(point, 8), assertFacadeError("limiter-unavailable"));
+});
+
+test('optional mechanical audio follows the same streaming latency and offline crank clock', () => {
+  const base = loadedRuntimeFixture({batchFrames: 1024});
+  const loaded = {...base, runtime: {...base.runtime, mechanicalTexture: mechanicalFixture()}};
+  const offline = new CrankwaveAudioEngine(loaded);
+  const streamed = new CrankwaveAudioEngine(loaded);
+  const point = {rpm: 1000, load01: .2, throttle01: .2};
+  for (const e of [offline, streamed]) { e.setOperatingPoint(point); e.reset(); }
+  const expected = offline.render(32768);
+  const chunks = [1, 1023, 67, 4000, 12000, 15677, 1024].map(n => streamed.process(point, n));
+  const actual = new Float32Array(chunks.reduce((s, x) => s + x.length, 0));
+  let offset = 0; for (const x of chunks) { actual.set(x, offset); offset += x.length; }
+  assert.ok(actual.subarray(0, 1024).every(x => x === 0));
+  assert.ok(expected.some(x => x !== 0));
+  for (let i = 0; i < expected.length; ++i) assert.ok(Math.abs(actual[i + 1024] - expected[i]) < 1e-7);
+  streamed.reset();
+  assert.deepEqual(streamed.render(32768), expected);
+});
+
+test('optional mechanical audio with zero gain preserves original facade PCM', () => {
+  const base = loadedRuntimeFixture({batchFrames: 1024});
+  const m = mechanicalFixture(); m.gain_linear = 0;
+  const original = new CrankwaveAudioEngine(base);
+  const adapted = new CrankwaveAudioEngine({...base, runtime: {...base.runtime, mechanicalTexture: m}});
+  assert.deepEqual(adapted.render(32768), original.render(32768));
 });

@@ -164,7 +164,8 @@ parse_sound_definition(std::string_view source) {
                 "/model", "unsupported engine model");
         SoundDefinition d;
         auto engine = root.find("engine");
-        keys(engine, "/engine", {"id", "cylinder", "injection_pulses", "cylinders"});
+        keys(engine, "/engine", {"id", "cylinder", "injection_pulses", "cylinders"},
+             {"operating_boundaries"});
         d.engine_id = string(engine, "id", "/engine");
         require(artifacts::is_crankwave_engine_id(d.engine_id), "/engine/id",
                 "expected portable engine ID");
@@ -286,7 +287,7 @@ parse_sound_definition(std::string_view source) {
               "exhaust_lowpass_hz", "master_gain"},
              {"articulation", "exhaust_system", "pressure_texture", "mechanical_texture",
               "low_fuel_exhaust", "coasting_balance", "coasting_flow_texture",
-              "loaded_pressure_texture"});
+              "loaded_pressure_texture", "inline_inertia", "loaded_clatter"});
         number(presentation, "block_lowpass_hz", "/presentation", 2000, 8000);
         number(presentation, "exhaust_lowpass_hz", "/presentation", 100, 3000);
         number(presentation, "exhaust_gain_pcm_per_kg_s", "/presentation", 0, 100);
@@ -454,11 +455,82 @@ parse_sound_definition(std::string_view source) {
             number(loaded, "decay_s", path, 0.005, 0.03);
             number(loaded, "attack_s", path, 0.001, 0.01);
             number(loaded, "secondary_bank_gain", path, 0.2, 1);
-            const auto start = number(loaded, "fueling_start_01", path, 0.12, 0.4);
-            const auto full = number(loaded, "fueling_full_01", path, 0.2, 1);
+            const auto start = number(loaded, "fueling_start_01", path, 0, 0.4);
+            const auto full = number(loaded, "fueling_full_01", path, 0.01, 1);
             require(full > start, path, "loaded fuel interval must be positive");
             number(loaded, "transition_s", path, 0.005, 0.2);
-            d.runtime_version = 11;
+            // Common-rail combustion can need rounded radiation at idle too.
+            // Preserve the old admission contract and payload for older presets.
+            d.runtime_version = start < 0.12 || full < 0.2 ? 13 : 11;
+        }
+        if (const auto inertia = presentation.find("inline_inertia"); inertia.valid()) {
+            const std::string path = "/presentation/inline_inertia";
+            require(d.runtime_version == 11 || d.runtime_version == 13, path,
+                    "inline inertia requires complete rounded-pressure presentation");
+            keys(inertia, path, {"reciprocating_mass_kg", "frequency_hz", "q",
+                                 "gain_pcm_per_n", "highpass_hz", "lowpass_hz"});
+            number(inertia, "reciprocating_mass_kg", path, 0.05, 2);
+            number(inertia, "frequency_hz", path, 50, 300);
+            number(inertia, "q", path, 0.5, 10);
+            number(inertia, "gain_pcm_per_n", path, 0, 0.001);
+            const auto high = number(inertia, "highpass_hz", path, 50, 300);
+            require(number(inertia, "lowpass_hz", path, 300, 1000) >= 2 * high,
+                    path, "inline inertia radiation band is too narrow");
+            d.runtime_version = 14;
+        }
+        if (const auto clatter = presentation.find("loaded_clatter"); clatter.valid()) {
+            const std::string path = "/presentation/loaded_clatter";
+            require(d.runtime_version == 14, path, "loaded clatter requires inline-inertia presentation");
+            keys(clatter, path, {"rpm_start", "rpm_full", "fueling_start_01", "fueling_full_01",
+                                "attack_s", "decay_s", "transition_s", "coherent_gain", "stochastic_gain",
+                                "highpass_hz", "lowpass_hz", "seed", "modes"});
+            const auto start_rpm = number(clatter, "rpm_start", path, 400, 3500);
+            require(number(clatter, "rpm_full", path, 800, 4500) > start_rpm,
+                    path, "clatter RPM interval must be positive");
+            const auto start_fuel = number(clatter, "fueling_start_01", path, 0, 0.8);
+            require(number(clatter, "fueling_full_01", path, 0.01, 1) > start_fuel,
+                    path, "clatter fuel interval must be positive");
+            number(clatter, "attack_s", path, 0.0001, 0.002);
+            number(clatter, "decay_s", path, 0.0005, 0.008);
+            number(clatter, "transition_s", path, 0.005, 0.2);
+            number(clatter, "coherent_gain", path, 0, 2);
+            number(clatter, "stochastic_gain", path, 0, 12);
+            const auto high = number(clatter, "highpass_hz", path, 200, 1500);
+            require(number(clatter, "lowpass_hz", path, 2000, 8000) >= 2 * high,
+                    path, "clatter radiation band too narrow");
+            const auto seed = number(clatter, "seed", path, 0, 4294967295.0);
+            require(std::floor(seed) == seed, path + "/seed", "expected integer");
+            const auto clatter_modes = clatter.find("modes");
+            require(clatter_modes.kind() == JsonKind::array && clatter_modes.size() >= 1 &&
+                        clatter_modes.size() <= 8, path, "expected one to eight clatter modes");
+            const bool coupled = clatter_modes.at(0).find("cylinder_coupling").valid();
+            for (std::size_t i = 0; i < clatter_modes.size(); ++i) {
+                const auto mode = clatter_modes.at(i);
+                const auto at = path + "/modes/" + std::to_string(i);
+                keys(mode, at, {"frequency_hz", "q", "gain_pcm_per_n"}, {"cylinder_coupling"});
+                number(mode, "frequency_hz", at, 400, 6000);
+                number(mode, "q", at, 0.5, 15);
+                number(mode, "gain_pcm_per_n", at, 0, 0.0002);
+                const auto coupling = mode.find("cylinder_coupling");
+                require(coupling.valid() == coupled, at, "all clatter modes must use the same coupling format");
+                if (coupled) {
+                    require(coupling.kind() == JsonKind::array && coupling.size() == ids.size(),
+                            at, "each clatter mode must bind every cylinder");
+                    std::vector<std::string> bound;
+                    for (std::size_t j = 0; j < coupling.size(); ++j) {
+                        const auto binding = coupling.at(j);
+                        const auto where = at + "/cylinder_coupling/" + std::to_string(j);
+                        keys(binding, where, {"id", "gain"});
+                        const auto id = string(binding, "id", where);
+                        require(std::find(ids.begin(), ids.end(), id) != ids.end() &&
+                                    std::find(bound.begin(), bound.end(), id) == bound.end(),
+                                where, "unknown or duplicate clatter cylinder");
+                        bound.push_back(id);
+                        number(binding, "gain", where, -2, 2);
+                    }
+                }
+            }
+            d.runtime_version = coupled ? 16 : 15;
         }
         d.presentation_json = json(presentation);
         const auto provenance = root.find("provenance");
@@ -499,6 +571,28 @@ parse_sound_definition(std::string_view source) {
                 "invalid settling interval");
         d.settling_relative_tolerance =
             number(bake, "settling_relative_tolerance", "/bake", 1e-7, 0.005);
+        if (const auto map = engine.find("operating_boundaries"); map.valid()) {
+            const std::string path = "/engine/operating_boundaries";
+            require(d.runtime_version == 11 || d.runtime_version >= 13, path,
+                    "boundary map requires the complete version 11 presentation");
+            require(map.kind() == JsonKind::array &&
+                        map.size() == d.rpms.size() * d.fueling.size(),
+                    path, "expected one boundary cell for every RPM/fueling pair");
+            for (std::size_t i = 0; i < map.size(); ++i) {
+                const auto cell = map.at(i);
+                const auto at = path + "/" + std::to_string(i);
+                keys(cell, at, {"rpm", "fueling_01", "intake", "exhaust"});
+                require(number(cell, "rpm", at, 400, 4500) ==
+                            d.rpms[i / d.fueling.size()] &&
+                            number(cell, "fueling_01", at, 0, 1) ==
+                            d.fueling[i % d.fueling.size()],
+                        at, "boundary cells must match RPM-major bake order");
+                d.operating_boundaries.push_back({
+                    boundary(cell.find("intake"), at + "/intake"),
+                    boundary(cell.find("exhaust"), at + "/exhaust")});
+            }
+            d.runtime_version = std::max(d.runtime_version, 12u);
+        }
         p.held_speed_rpm = d.rpms.front();
         if (const auto compiled =
                 simulation::DieselCylinderSession::compile(p, d.pulses);
@@ -520,7 +614,10 @@ std::variant<BakedSound, SoundError> bake_sound(std::string_view source_json,
             return *error;
         const auto &d = std::get<SoundDefinition>(parsed);
         std::vector<std::byte> payload;
-        payload.reserve(d.rpms.size() * d.fueling.size() * d.samples_per_cycle * 8U);
+        const bool mapped = !d.operating_boundaries.empty();
+        const bool motored_source = d.runtime_version >= 12;
+        payload.reserve(d.rpms.size() * d.fueling.size() * d.samples_per_cycle *
+                        (motored_source ? 12U : 8U));
         std::ostringstream cells;
         cells.imbue(std::locale::classic());
         cells << std::setprecision(17) << '[';
@@ -531,108 +628,129 @@ std::variant<BakedSound, SoundError> bake_sound(std::string_view source_json,
                     return SoundError{"/bake", "diesel bake cancelled", true};
                 auto p = d.cylinder;
                 p.held_speed_rpm = rpm;
-                auto compiled =
-                    simulation::DieselCylinderSession::compile(p, d.pulses, fueling);
-                require(
-                    std::holds_alternative<simulation::DieselCylinderSession>(compiled),
-                    "/bake", "operating point cannot be compiled");
-                auto s = std::get<simulation::DieselCylinderSession>(compiled);
-                std::optional<simulation::DieselCylinderCycle> previous;
-                simulation::DieselCylinderCycle settled;
-                double settling_error = 0;
-                std::size_t consecutive = 0;
-                bool ready = false;
-                const auto advance = [&]() {
-                    if (stop.stop_requested())
-                        throw SoundError{"/bake", "diesel bake cancelled", true};
-                    auto result = s.advance({fueling, true});
-                    if (const auto *error =
-                            std::get_if<simulation::DieselCylinderError>(&result))
-                        throw SoundError{
-                            "/bake",
-                            "cylinder integration failed at " + std::to_string(rpm) +
-                                " RPM, fuel " + std::to_string(fueling) + ", frame " +
-                                std::to_string(s.state().frame_index) + ", error " +
-                                std::to_string(static_cast<int>(error->code))};
-                    return std::get<simulation::DieselCylinderStep>(result);
-                };
-                while (s.state().cycle_index < d.maximum_settling_cycles) {
-                    const auto step = advance();
-                    if (!step.completed_cycle)
-                        continue;
-                    const auto &cycle = *step.completed_cycle;
-                    if (previous &&
-                        s.state().cycle_index >= d.minimum_settling_cycles) {
-                        const double work = cycle.accounting.volume_work_out_j;
-                        const double scale = std::max(
-                            {1.0, std::abs(work),
-                             std::abs(previous->accounting.volume_work_out_j)});
-                        settling_error = std::max(
-                            {std::abs(work - previous->accounting.volume_work_out_j) /
-                                 scale,
-                             std::abs(cycle.end_temperature_k -
-                                      previous->end_temperature_k) /
-                                 cycle.end_temperature_k,
-                             std::abs(cycle.end_charge_mass_kg -
-                                      previous->end_charge_mass_kg) /
-                                 cycle.end_charge_mass_kg,
-                             std::abs(cycle.end_oxygen_mass_kg -
-                                      previous->end_oxygen_mass_kg) /
-                                 cycle.end_charge_mass_kg,
-                             std::abs(cycle.end_unburned_tracer_mass_kg -
-                                      previous->end_unburned_tracer_mass_kg) /
-                                 cycle.end_charge_mass_kg,
-                             std::abs(cycle.peak_pressure_pa_abs -
-                                      previous->peak_pressure_pa_abs) /
-                                 cycle.peak_pressure_pa_abs});
-                        const bool stable =
-                            settling_error <= d.settling_relative_tolerance;
-                        consecutive = stable ? consecutive + 1 : 0;
-                        if (consecutive >= 3) {
-                            settled = cycle;
-                            ready = true;
-                            break;
-                        }
-                    }
-                    previous = cycle;
+                if (mapped) {
+                    p.intake = d.operating_boundaries[cell_index].intake;
+                    p.exhaust = d.operating_boundaries[cell_index].exhaust;
                 }
-                require(ready, "/bake",
-                        "operating point did not settle at " + std::to_string(rpm) +
-                            " RPM, fuel " + std::to_string(fueling) +
-                            ", relative change " + std::to_string(settling_error));
-                require(settled.peak_pressure_pa_abs <= 1e9 &&
-                            std::abs(settled.accounting.volume_work_out_j) <= 1e7,
-                        "/bake", "settled state exceeds diesel runtime bounds");
-                // Capture at firing TDC, independently of IVC initialization phase.
-                const double start =
-                    std::ceil(s.state().unwrapped_angle_rad / (4 * pi)) * (4 * pi);
-                auto before = s.state();
-                auto step = advance();
-                for (std::uint32_t i = 0; i < d.samples_per_cycle; ++i) {
-                    const double angle =
-                        start + static_cast<double>(i) * (4 * pi) / d.samples_per_cycle;
-                    while (s.state().unwrapped_angle_rad < angle) {
-                        before = s.state();
-                        step = advance();
+                // Capture a matching motored baseline at each mapped charge state.
+                // Using the ambient fuel-cut cell would turn boost compression into
+                // spurious combustion texture.
+                const auto capture = [&](double capture_fueling) {
+                    std::vector<std::array<double, 2>> samples;
+                    samples.reserve(d.samples_per_cycle);
+                    auto compiled =
+                        simulation::DieselCylinderSession::compile(p, d.pulses, capture_fueling);
+                    require(
+                        std::holds_alternative<simulation::DieselCylinderSession>(compiled),
+                        "/bake", "operating point cannot be compiled");
+                    auto s = std::get<simulation::DieselCylinderSession>(compiled);
+                    std::optional<simulation::DieselCylinderCycle> previous;
+                    simulation::DieselCylinderCycle settled;
+                    double settling_error = 0;
+                    std::size_t consecutive = 0;
+                    bool ready = false;
+                    const auto advance = [&]() {
+                        if (stop.stop_requested())
+                            throw SoundError{"/bake", "diesel bake cancelled", true};
+                        auto result = s.advance({capture_fueling, true});
+                        if (const auto *error =
+                                std::get_if<simulation::DieselCylinderError>(&result))
+                            throw SoundError{
+                                "/bake",
+                                "cylinder integration failed at " + std::to_string(rpm) +
+                                    " RPM, fuel " + std::to_string(capture_fueling) + ", frame " +
+                                    std::to_string(s.state().frame_index) + ", error " +
+                                    std::to_string(static_cast<int>(error->code))};
+                        return std::get<simulation::DieselCylinderStep>(result);
+                    };
+                    while (s.state().cycle_index < d.maximum_settling_cycles) {
+                        const auto step = advance();
+                        if (!step.completed_cycle)
+                            continue;
+                        const auto &cycle = *step.completed_cycle;
+                        if (previous &&
+                            s.state().cycle_index >= d.minimum_settling_cycles) {
+                            const double work = cycle.accounting.volume_work_out_j;
+                            const double scale = std::max(
+                                {1.0, std::abs(work),
+                                 std::abs(previous->accounting.volume_work_out_j)});
+                            settling_error = std::max(
+                                {std::abs(work - previous->accounting.volume_work_out_j) /
+                                     scale,
+                                 std::abs(cycle.end_temperature_k -
+                                          previous->end_temperature_k) /
+                                     cycle.end_temperature_k,
+                                 std::abs(cycle.end_charge_mass_kg -
+                                          previous->end_charge_mass_kg) /
+                                     cycle.end_charge_mass_kg,
+                                 std::abs(cycle.end_oxygen_mass_kg -
+                                          previous->end_oxygen_mass_kg) /
+                                     cycle.end_charge_mass_kg,
+                                 std::abs(cycle.end_unburned_tracer_mass_kg -
+                                          previous->end_unburned_tracer_mass_kg) /
+                                     cycle.end_charge_mass_kg,
+                                 std::abs(cycle.peak_pressure_pa_abs -
+                                          previous->peak_pressure_pa_abs) /
+                                     cycle.peak_pressure_pa_abs});
+                            const bool stable =
+                                settling_error <= d.settling_relative_tolerance;
+                            consecutive = stable ? consecutive + 1 : 0;
+                            if (consecutive >= 3) {
+                                settled = cycle;
+                                ready = true;
+                                break;
+                            }
+                        }
+                        previous = cycle;
                     }
-                    const double a =
-                        (angle - before.unwrapped_angle_rad) /
-                        (s.state().unwrapped_angle_rad - before.unwrapped_angle_rad);
-                    require(a >= -1e-9 && a <= 1 + 1e-9, "/capture",
-                            "phase interpolation escaped capture bounds");
-                    const double pressure =
-                        before.pressure_pa_abs +
-                        (s.state().pressure_pa_abs - before.pressure_pa_abs) * a;
-                    const double force = (pressure - p.crankcase_pressure_pa_abs) *
-                                         (pi * p.bore_m * p.bore_m / 4.0);
-                    const double exhaust =
-                        -step.accounting.exhaust.mass_into_cylinder_kg *
-                        p.physics_rate_hz;
-                    require(std::abs(force) <= 1e7 && std::abs(exhaust) <= 10,
-                            "/capture",
-                            "physical source exceeds diesel runtime bounds");
-                    append_float(payload, force);
-                    append_float(payload, exhaust);
+                    require(ready, "/bake",
+                            "operating point did not settle at " + std::to_string(rpm) +
+                                " RPM, fuel " + std::to_string(capture_fueling) +
+                                ", relative change " + std::to_string(settling_error));
+                    require(settled.peak_pressure_pa_abs <= 1e9 &&
+                                std::abs(settled.accounting.volume_work_out_j) <= 1e7,
+                            "/bake", "settled state exceeds diesel runtime bounds");
+                    // Capture at firing TDC, independently of IVC initialization phase.
+                    const double start =
+                        std::ceil(s.state().unwrapped_angle_rad / (4 * pi)) * (4 * pi);
+                    auto before = s.state();
+                    auto step = advance();
+                    for (std::uint32_t i = 0; i < d.samples_per_cycle; ++i) {
+                        const double angle =
+                            start + static_cast<double>(i) * (4 * pi) / d.samples_per_cycle;
+                        while (s.state().unwrapped_angle_rad < angle) {
+                            before = s.state();
+                            step = advance();
+                        }
+                        const double a =
+                            (angle - before.unwrapped_angle_rad) /
+                            (s.state().unwrapped_angle_rad - before.unwrapped_angle_rad);
+                        require(a >= -1e-9 && a <= 1 + 1e-9, "/capture",
+                                "phase interpolation escaped capture bounds");
+                        const double pressure =
+                            before.pressure_pa_abs +
+                            (s.state().pressure_pa_abs - before.pressure_pa_abs) * a;
+                        const double force = (pressure - p.crankcase_pressure_pa_abs) *
+                                             (pi * p.bore_m * p.bore_m / 4.0);
+                        const double exhaust =
+                            -step.accounting.exhaust.mass_into_cylinder_kg *
+                            p.physics_rate_hz;
+                        require(std::abs(force) <= 1e7 && std::abs(exhaust) <= 10,
+                                "/capture",
+                                "physical source exceeds diesel runtime bounds");
+                        samples.push_back({force, exhaust});
+                    }
+                    return std::pair{settled, std::move(samples)};
+                };
+                auto [settled, samples] = capture(fueling);
+                std::vector<std::array<double, 2>> motored;
+                if (motored_source)
+                    motored = fueling == 0 ? samples : capture(0).second;
+                for (std::size_t i = 0; i < samples.size(); ++i) {
+                    append_float(payload, samples[i][0]);
+                    append_float(payload, samples[i][1]);
+                    if (motored_source)
+                        append_float(payload, motored[i][0]);
                 }
                 if (cell_index++)
                     cells << ',';
@@ -673,10 +791,15 @@ std::variant<BakedSound, SoundError> bake_sound(std::string_view source_json,
                      << ",\"exhaust_close_angle_rad\":"
                      << d.cylinder.exhaust_valve.close_angle_atdc_rad << '}';
         }
+        if (d.runtime_version >= 14)
+            manifest << ",\"inertial_geometry\":{\"crank_radius_m\":" << d.cylinder.stroke_m / 2
+                     << ",\"connecting_rod_length_m\":" << d.cylinder.connecting_rod_length_m << '}';
         manifest << ",\"provenance\":" << d.provenance_json
             << ",\"sources\":{\"path\":\"sources.f32le\",\"sha256\":"
             << quote(hex(contract::sha256(payload)))
-            << ",\"layout\":\"cell-phase-force-n-exhaust-kg-s\",\"byte_count\":"
+            << ",\"layout\":" << quote(motored_source ?
+                "cell-phase-force-n-exhaust-kg-s-motored-force-n" :
+                "cell-phase-force-n-exhaust-kg-s") << ",\"byte_count\":"
             << payload.size() << "}}\n";
         auto runtime = bytes(manifest.str());
         std::string descriptor =

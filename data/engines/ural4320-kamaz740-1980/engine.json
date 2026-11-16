@@ -1,0 +1,280 @@
+{
+  "schema": "crankwave/engine",
+  "model": "mechanical-diesel-v1",
+  "engine": {
+    "id": "ural4320-kamaz740-1980",
+    "cylinder": {
+      "bore_m": 0.12,
+      "stroke_m": 0.12,
+      "connecting_rod_length_m": 0.225,
+      "compression_ratio": 17,
+      "gas_constant_j_per_kg_k": 287,
+      "specific_heat_ratio": 1.36,
+      "injected_fuel_sensible_energy_j_per_kg": 279027.7777777778,
+      "wall_temperature_k": 450,
+      "wall_conductance_w_per_k": 8,
+      "crankcase_pressure_pa_abs": 101325,
+      "initial_charge": {
+        "pressure_pa_abs": 101325,
+        "temperature_k": 350,
+        "oxygen_mass_fraction": 0.23
+      },
+      "intake": {
+        "pressure_pa_abs": 101325,
+        "temperature_k": 320,
+        "oxygen_mass_fraction": 0.23
+      },
+      "exhaust": {
+        "pressure_pa_abs": 105000,
+        "temperature_k": 700,
+        "oxygen_mass_fraction": 0.08
+      },
+      "intake_valve": {
+        "open_angle_atdc_rad": 6.056292504420323,
+        "close_angle_atdc_rad": 10.279989294246601,
+        "maximum_effective_area_m2": 0.0012
+      },
+      "exhaust_valve": {
+        "open_angle_atdc_rad": 1.9896753472735358,
+        "close_angle_atdc_rad": 6.457718232379019,
+        "maximum_effective_area_m2": 0.00105
+      },
+      "combustion": {
+        "lower_heating_value_j_per_kg": 42500000,
+        "stoichiometric_oxygen_kg_per_kg_fuel": 3.4,
+        "preparation_time_s": 0.0004,
+        "premixed_burn_time_s": 8e-05,
+        "reference_ignition_delay_s": 0.001,
+        "reference_temperature_k": 800,
+        "reference_pressure_pa_abs": 4000000,
+        "reference_oxygen_mass_fraction": 0.23,
+        "activation_temperature_k": 4000,
+        "pressure_exponent": 0.5,
+        "oxygen_exponent": 0.5
+      }
+    },
+    "injection_pulses": [
+      {
+        "id": 1,
+        "start_angle_atdc_rad": -0.2617993877991494,
+        "duration_rad": 0.3141592653589793,
+        "full_fuel_mass_kg": 6e-05,
+        "opening_fraction_01": 0.1,
+        "closing_fraction_01": 0.2,
+        "minimum_duration_fraction_01": 0.08
+      }
+    ],
+    "cylinders": [
+      {
+        "id": "cylinder-1",
+        "firing_angle_rad": 0,
+        "fuel_trim": 0.98,
+        "structural_gain": 1
+      },
+      {
+        "id": "cylinder-5",
+        "firing_angle_rad": 1.5707963267948966,
+        "fuel_trim": 1.01,
+        "structural_gain": 0.82
+      },
+      {
+        "id": "cylinder-4",
+        "firing_angle_rad": 3.141592653589793,
+        "fuel_trim": 0.97,
+        "structural_gain": 0.94
+      },
+      {
+        "id": "cylinder-2",
+        "firing_angle_rad": 4.71238898038469,
+        "fuel_trim": 1.02,
+        "structural_gain": 0.98
+      },
+      {
+        "id": "cylinder-6",
+        "firing_angle_rad": 6.283185307179586,
+        "fuel_trim": 1,
+        "structural_gain": 0.79
+      },
+      {
+        "id": "cylinder-3",
+        "firing_angle_rad": 7.853981633974483,
+        "fuel_trim": 0.99,
+        "structural_gain": 0.91
+      },
+      {
+        "id": "cylinder-7",
+        "firing_angle_rad": 9.42477796076938,
+        "fuel_trim": 1.015,
+        "structural_gain": 0.8
+      },
+      {
+        "id": "cylinder-8",
+        "firing_angle_rad": 10.995574287564276,
+        "fuel_trim": 0.985,
+        "structural_gain": 0.76
+      }
+    ]
+  },
+  "presentation": {
+    "block_modes": [
+      {
+        "frequency_hz": 500,
+        "q": 1.1,
+        "gain_pcm_per_n": 2.6e-07
+      },
+      {
+        "frequency_hz": 860,
+        "q": 1.1,
+        "gain_pcm_per_n": 3.8e-07
+      },
+      {
+        "frequency_hz": 1320,
+        "q": 1.1,
+        "gain_pcm_per_n": 3.1e-07
+      },
+      {
+        "frequency_hz": 2080,
+        "q": 1.1,
+        "gain_pcm_per_n": 1.15e-07
+      },
+      {
+        "frequency_hz": 2950,
+        "q": 1.1,
+        "gain_pcm_per_n": 1.6e-08
+      },
+      {
+        "frequency_hz": 4100,
+        "q": 1.1,
+        "gain_pcm_per_n": 0
+      }
+    ],
+    "block_lowpass_hz": 2300,
+    "exhaust_gain_pcm_per_kg_s": 6,
+    "exhaust_lowpass_hz": 1450,
+    "master_gain": 0.5,
+    "articulation": {
+      "block_highpass_hz": 420,
+      "exhaust_highpass_hz": 30,
+      "cycle_fuel_spread_01": 0.12,
+      "cycle_timing_spread_deg": 1.6,
+      "variation_seed": 7401980
+    },
+    "exhaust_system": {
+      "branches": [
+        {
+          "id": "right-bank",
+          "cylinder_ids": [
+            "cylinder-1",
+            "cylinder-2",
+            "cylinder-3",
+            "cylinder-4"
+          ],
+          "delay_s": 0.00355,
+          "reflection": -0.6,
+          "loss_lowpass_hz": 2000,
+          "gain": 1
+        },
+        {
+          "id": "left-bank",
+          "cylinder_ids": [
+            "cylinder-5",
+            "cylinder-6",
+            "cylinder-7",
+            "cylinder-8"
+          ],
+          "delay_s": 0.0034,
+          "reflection": -0.6,
+          "loss_lowpass_hz": 2000,
+          "gain": 0.38
+        }
+      ],
+      "radiation_gain_pcm_s2_per_kg": 0.014,
+      "flow_noise_gain_pcm_per_kg_s": 3,
+      "noise_highpass_hz": 100,
+      "noise_seed": 7404320
+    },
+    "pressure_texture": {
+      "decay_s": 0.018,
+      "coherent_gain": 0.25,
+      "compression_gain": 0.12,
+      "stochastic_gain": 16.970562748477143,
+      "seed": 740650
+    },
+    "mechanical_texture": {
+      "valve_gain_pcm": 0.14,
+      "valve_frequency_hz": 780,
+      "valve_decay_s": 0.0017,
+      "pumping_gain_pcm": 0.012,
+      "pumping_lowpass_hz": 950,
+      "seed": 7400650,
+      "valve_attack_s": 0.0012
+    },
+    "low_fuel_exhaust": {
+      "fueling_threshold_01": 0.2,
+      "gain": 0.16,
+      "lowpass_hz": 550,
+      "transition_s": 0.04
+    },
+    "coasting_balance": {
+      "fueling_threshold_01": 0.06,
+      "bass_gain": 0.18,
+      "movement_gain": 0.48,
+      "crossover_hz": 180,
+      "mechanical_gain": 1.6,
+      "transition_s": 0.04
+    },
+    "coasting_flow_texture": {
+      "gain_pcm_per_kg_s": 0.4,
+      "highpass_hz": 250,
+      "lowpass_hz": 1800,
+      "envelope_s": 0.002,
+      "seed": 740008
+    },
+    "loaded_pressure_texture": {
+      "decay_s": 0.012,
+      "attack_s": 0.004,
+      "secondary_bank_gain": 0.55,
+      "fueling_start_01": 0.2,
+      "fueling_full_01": 0.5,
+      "transition_s": 0.04
+    }
+  },
+  "bake": {
+    "rpms": [
+      550,
+      650,
+      800,
+      1000,
+      1250,
+      1500,
+      1800,
+      2100,
+      2400,
+      2600,
+      2800
+    ],
+    "fueling": [
+      0,
+      0.06,
+      0.12,
+      0.25,
+      0.5,
+      0.75,
+      1
+    ],
+    "samples_per_cycle": 8192,
+    "minimum_settling_cycles": 10,
+    "maximum_settling_cycles": 40,
+    "settling_relative_tolerance": 0.0005
+  },
+  "provenance": {
+    "physical_parameters": {
+      "origin": "inferred",
+      "note": "Separate 1980-era Ural-4320 candidate based on the naturally aspirated KamAZ-740/740.10 family. KamAZ repair/maintenance manual hosted at https://dvigatelkama.ru/wp-content/uploads/2016/09/Instruction_KAMAZ.pdf, printed p.21: V8 90 degrees, firing order 1-5-4-2-6-3-7-8, bore/stroke 120x120 mm, 10.85 litres, compression 17:1, 154 kW/210 PS at 2600 RPM, minimum idle 600 RPM, no boost. Fig.21 valve timing gives intake 13 BTDC/49 ABDC and exhaust 66 BBDC/10 ATDC; encoded relative to firing TDC as 347-589 and 114-370 degrees. Full fuel 60 mg/event is inferred from rated power and approx 242 g/kWh, not measured pump delivery. 225 mm rod length, effective valve areas, thermal coefficients, fixed 15-degree BTDC injection start and 18-degree duration are authored assumptions inherited/adapted from the accepted YaMZ model; dynamic pump advance is not modeled. 650 RPM is an authored warm-idle target; 2800 RPM is audition coverage, not the rated speed. This is not a validated pressure, torque or exact 1980 production specification model."
+    },
+    "presentation": {
+      "origin": "artistic",
+      "note": "Independent candidate derived from the accepted rounded YaMZ presentation. Changed block resonances, shorter authored bank delays, more balanced bank radiation, valve resonance and reduced cycle variation to explore a smaller higher-speed mechanical V8. Transfer values are artistic and not measured KamAZ exhaust geometry. Retains 4 ms loaded pulse attack, 1.2 ms valve contact smoothing, low-fuel exhaust balance, motored flow and fuel-independent mechanical activity. Comparison recordings: https://www.youtube.com/watch?v=epQ6fEGWxsQ by KAMAZ TRANS 30 (owner walk-around, variant unconfirmed); https://www.youtube.com/watch?v=WnC1l6o3EYM by Oleksandr Koliada (uploader-labelled 740, recording origin and variant unconfirmed). No reference recording, reference waveform or sampled engine layer is embedded. Crankwave gas-cycle captures and procedural pressure/flow/mechanical radiation generate all running engine audio. The optional driving package separately reuses the canonical recorded starter with the accepted heavy treatment."
+    }
+  }
+}

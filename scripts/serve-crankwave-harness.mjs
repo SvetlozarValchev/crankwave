@@ -68,6 +68,7 @@ const runtimeFiles = new Set([
   "held-phase-texture-runtime.js",
   "held-texture-presentation-runtime.js",
   "limiter-performance-runtime.js",
+  "mechanical-texture-runtime.js",
   "pcm-ring-buffer.js",
   "renderer-runtime-compatibility.js",
   "responsive-audio-lifecycle-runtime.js",

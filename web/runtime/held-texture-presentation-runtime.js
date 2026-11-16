@@ -1,3 +1,4 @@
+import {validateMechanicalTexture} from "./mechanical-texture-runtime.js";
 import {
   isSupportedAudioDeliverySampleRate,
   validateDeliveryProfileMetadata,
@@ -673,6 +674,8 @@ export async function loadHeldTexturePresentationRuntime(
     heldPackage,
     requestedBatchFrames,
   );
+  const mechanicalTexture = validateMechanicalTexture(manifest.mechanical_texture,
+    manifest.engine, manifest.provenance?.engine?.sha256);
   if (busId !== presentation.auditionBusId) {
     fail("presentation output bus must equal the authored audition bus");
   }
@@ -833,6 +836,7 @@ export async function loadHeldTexturePresentationRuntime(
     minimumRpm,
     maximumRpm: Math.max(maximumRpm, limiterPackage?.manifest.maximum_rpm ?? maximumRpm),
     limiterPackage,
+    mechanicalTexture,
     heldMinimumRpm: heldPackage.minimumRpm,
     heldMaximumRpm: heldPackage.maximumRpm,
     batchFrames: hasPartitionedTransfer

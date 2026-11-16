@@ -26,6 +26,18 @@ const fixtures = {
     rpms: [650, 1500, 2100],
     frequencies: [410, 760, 1210, 1870, 2760, 3950],
     cylinderOrder: [1, 5, 4, 2, 6, 3, 7, 8]
+  },
+  "golf16-common-rail-i4": {
+    cells: authored.bake.rpms.length * authored.bake.fueling.length,
+    rpms: [850, 1800, 3200],
+    frequencies: authored.presentation.block_modes.map(mode => mode.frequency_hz),
+    cylinderOrder: [1, 3, 4, 2]
+  },
+  "lister-tr1-mechanical-single": {
+    cells: 49,
+    rpms: [850, 1500, 2500],
+    frequencies: [300, 620, 1150, 1950, 3100],
+    cylinderOrder: [1]
   }
 };
 const fixture = fixtures[authored.engine.id];
@@ -70,7 +82,13 @@ try {
   {
     const {manifest, samples} = loaded.runtime;
     if (authored.presentation.mechanical_texture) {
-      assert.equal(manifest.version, authored.presentation.loaded_pressure_texture ? 11 :
+      const rounding = authored.presentation.loaded_pressure_texture;
+      const idleRounding = rounding &&
+          (rounding.fueling_start_01 < .12 || rounding.fueling_full_01 < .2);
+      assert.equal(manifest.version, authored.presentation.loaded_clatter ?
+        (authored.presentation.loaded_clatter.modes[0].cylinder_coupling ? 16 : 15) : authored.presentation.inline_inertia ? 14 :
+          idleRounding ? 13 : authored.engine.operating_boundaries ? 12 :
+          authored.presentation.loaded_pressure_texture ? 11 :
           authored.presentation.coasting_flow_texture ? 10 :
           authored.presentation.coasting_balance ? 9 :
           authored.presentation.low_fuel_exhaust ? 8 :
@@ -84,7 +102,7 @@ try {
     const n = manifest.samples_per_cycle;
     const area = Math.PI * authored.engine.cylinder.bore_m ** 2 / 4;
     for (let cell = 0; cell < manifest.cells.length; ++cell) {
-      const force = samples[(cell * n + n / 2) * 2];
+      const force = samples[(cell * n + n / 2) * loaded.runtime.sourceChannels];
       const pressure = force / area + authored.engine.cylinder.crankcase_pressure_pa_abs;
       // The original fixtures recompressed exhaust to 11 bar or more at the
       // gas-exchange TDC. These warm open-exhaust fixtures must breathe.
@@ -171,11 +189,20 @@ try {
     engine.reset();
     engine.render(384000);
     fuelRms.push(engine.diagnostics().runtime.blockRms);
-    assert.equal(engine.loadManifoldPressurePa(loadedRpm, load01), 101325);
+    if (!authored.engine.operating_boundaries)
+      assert.equal(engine.loadManifoldPressurePa(loadedRpm, load01), 101325);
+    else {
+      const row = authored.engine.operating_boundaries.filter(c => c.rpm === loadedRpm);
+      const hi = row.findIndex(c => c.fueling_01 > load01);
+      const a = row[hi - 1], b = row[hi];
+      const weight = (load01 - a.fueling_01) / (b.fueling_01 - a.fueling_01);
+      assert.equal(engine.loadManifoldPressurePa(loadedRpm, load01),
+          a.intake.pressure_pa_abs * (1 - weight) + b.intake.pressure_pa_abs * weight);
+    }
   }
   assert.ok(
       fuelRms[1] > fuelRms[0] * 2,
-      "diesel clatter must respond to fueling at the same RPM and air pressure");
+      "diesel combustion radiation must respond to fueling at the same RPM");
   const streamed = [];
   engine.setOperatingPoint({rpm: idleRpm, throttle01: 0.1, load01: 0.1});
   engine.reset();

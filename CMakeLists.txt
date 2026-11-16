@@ -1286,6 +1286,7 @@ if(CRANKWAVE_BUILD_CLI)
         "${PROJECT_SOURCE_DIR}/web/runtime/diesel-drive-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/diesel-drive-session.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/limiter-performance-runtime.js"
+        "${PROJECT_SOURCE_DIR}/web/runtime/mechanical-texture-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/crankwave-package.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/shared-recorded-starter-runtime.js"
         "${PROJECT_SOURCE_DIR}/web/runtime/state-phase-texture-runtime.js"
