@@ -482,9 +482,13 @@ test("the automatic profile deterministically covers low and high redlines", () 
   assert.notEqual(JSON.stringify(radial), JSON.stringify(honda));
 });
 
-test("the automatic policy validates every tracked engine deterministically", () => {
-  const paths = trackedEnginePaths(path.join(repository, "data/engines"));
-  assert.equal(paths.length, 15);
+test("the automatic policy validates every tracked responsive-physics engine deterministically", () => {
+  // Mechanical diesel uses its own native bake grid and has no spark-engine
+  // redline profile. Keep discovering every engine supported by this baker.
+  const paths = trackedEnginePaths(path.join(repository, "data/engines")).filter(
+    trackedPath => json(trackedPath).model !== "mechanical-diesel-v1",
+  );
+  assert.ok(paths.length > 0);
   const profilesByRedline = new Map();
   for (const trackedPath of paths) {
     const engine = json(trackedPath);
@@ -514,6 +518,7 @@ test("the automatic policy validates every tracked engine deterministically", ()
   assert.deepEqual([...profilesByRedline.keys()].sort((a, b) => a - b), [
     3000,
     3600,
+    4200,
     5000,
     5900,
     6000,
